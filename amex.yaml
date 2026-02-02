@@ -1,0 +1,239 @@
+start_with:
+  AMAZON:
+    payee: Amazon
+    narration: ""
+  AMAZON WEB SERVICES:
+    account: Expenses:Subscriptions
+    narration: AWS
+  ANTHROPIC:
+    payee: Anthropic
+    account: Expenses:Subscriptions
+  ATP.FM:
+    payee: ATP
+    account: Expenses:Subscriptions
+  BACKBLAZE INC:
+    payee: Backblaze
+    account: Expenses:Subscriptions
+  BASECAMPCOM:
+    payee: 37Signals
+    account: Expenses:Subscriptions
+  BOOKAPY/SOL:
+    payee: StoriesOnline
+    account: Expenses:Subscriptions
+  CAFE SIRENA:
+    payee: Starbucks
+    account: Expenses:Food:Coffee
+  CAFE TIERRA GARAT:
+    payee: Tierra Garat
+    account: Expenses:Food:Coffee
+  CGO AUT TELCEL:
+    payee: Telcel
+    account: Expenses:Utilities:Phone
+  CHEDRAUI:
+    payee: Chedraui
+    account: Expenses:Food:Groceries
+  CHUBB SEGUROS:
+    account: Expenses:Insurance
+  CITY MARKET:
+    payee: City Market
+    account: Expenses:Food:Groceries
+  CKO*PATREON:
+    payee: Patreon
+    account: Expenses:Subscriptions
+  CLAUDE.AI:
+    payee: Anthropic
+    account: Expenses:Subscriptions
+  COMISION FEDERAL DE ELE:
+    payee: CFE
+    account: Expenses:Utilities:Electricity
+  COM RAP TIER GARA:
+    payee: Tierra Garat
+    account: Expenses:Food:Coffee
+  COSTCO:
+    payee: Costco
+    account: Expenses:Food:Groceries
+  DERMATOLOGIA ESPECIALIZ:
+    payee: Centro Veterinario México
+    account: Expenses:Galleta:Vet
+  DIGITALOCEAN.COM:
+    payee: Digital Ocean
+    account: Expenses:Subscriptions
+  DISNEY PLUS:
+    payee: Disney
+    account: Expenses:Subscriptions
+  FARMACIA SAN PABLO:
+    payee: Farmacia San Pablo
+    account: Expenses:Pharmacy
+  FARMACIAS GDL:
+    payee: Farmacias Guadalajara
+    account: Expenses:Pharmacy
+  F AHORRO:
+    payee: Farmacias del Ahorro
+    account: Expenses:Pharmacy
+  FEEDBIN, INC.:
+    payee: Feedbin
+    account: Expenses:Subscriptions
+  FOUNDERSCARD:
+    payee: Founderscard
+    account: Expenses:Subscriptions
+  GITHUB:
+    payee: Microsoft
+    narration: "GitHub"
+    account: Expenses:Subscriptions
+  GOOGLE *YOUTUBE:
+    payee: Google
+    account: Expenses:Subscriptions
+  HEROKU:
+    payee: Heroku
+    account: Expenses:Subscriptions
+  HOEFLER & CO:
+    payee: Hoefler & Co.
+    account: Expenses:Subscriptions
+  HYATT HOUSE:
+    account: Expenses:Travel:Lodging
+  IKANO:
+    payee: IKEA
+  INFANT CASAPEK:
+    payee: Pek Gym
+    account: Expenses:Galleta:Hotel
+  INFANT PEKGYM:
+    payee: Pek Gym
+    account: Expenses:Galleta:Hotel
+  INGREDIENTA.COM:
+    payee: Ingredienta
+    account: Expenses:Food:Groceries
+  IWANTMYNAME:
+    payee: I want my name
+    account: Expenses:Subscriptions
+  KINDLE SVCS*:
+    payee: Amazon
+    account: Expenses:Books
+  LA COMER:
+    payee: City Market
+    account: Expenses:Food:Groceries
+  LA NAVAL:
+    payee: La Naval
+    account: Expenses:Food:Groceries
+  MERCADOPAGO*BLACKDOG:
+    payee: Blackdog
+    account: Expenses:Galleta:Food
+  METROBUS:
+    account: Expenses:Transportation:Public
+  MIDJOURNEY INC:
+    payee: Midjourney
+    account: Expenses:Subscriptions
+  NETPAY*MICROSOFT:
+    payee: Microsoft
+    account: Expenses:Subscriptions
+  NJT RAIL:
+    payee: NJ Transit
+    account: Expenses:Transportation:Public
+  NYCT:
+    payee: NYC Transit
+    account: Expenses:Transportation:Public
+  NYTIMES*:
+    payee: NYT
+    account: Expenses:Subscriptions
+  OLAB DEL VALLE:
+    payee: Laboratorio Olab
+    account: Expenses:Pharmacy
+  OLD NAVY:
+    account: Expenses:Clothes
+  OPENAI:
+    payee: OpenAI
+    account: Expenses:Subscriptions
+  OXXO:
+    payee: Oxxo
+    account: Expenses:Food:Groceries
+  PADDLE.NET* FASTMAIL:
+    payee: Fastmail
+    account: Expenses:Subscriptions
+  PADDLE.NET* PUT.IO:
+    payee: Put.io
+    account: Expenses:Subscriptions
+  PARAMOUNT+:
+    payee: Paramount
+    account: Expenses:Subscriptions
+  PARCO APP ZAPOPAN:
+    payee: Parco
+    account: Expenses:Transportation:Parking
+  PASE:
+    payee: PASE
+    account: Expenses:Transportation:Tolls
+  PAYPAL *BLACK DOG:
+    payee: Blackdog
+    account: Expenses:Galleta:Food
+  PAYPAL *GETJUSTOMEX:
+    payee: Justo
+    account: Expenses:Food:Groceries
+  PAYPAL *NVIDIA CORP:
+    payee: NVIDIA GFN
+    account: Expenses:Subscriptions
+  PEET'S:
+    payee: Peet's Coffee
+    account: Expenses:Food:Coffee
+  PEK GYM:
+    payee: Pek Gym
+    account: Expenses:Galleta:Hotel
+  PETCO:
+    payee: Petco
+    account: Expenses:Galleta:Toys
+  PORKBUN.COM:
+    payee: Porkbun
+    account: Expenses:Subscriptions
+  PRUSA:
+    payee: Prusa
+    account: Expenses:3D-Printing
+  SAFEWAY:
+    payee: Safeway
+    account: Expenses:Food:Groceries
+  SEGUROS MONTERREY:
+    account: Expenses:Insurance
+  SERVICIOS INTEGRALES PA:
+    payee: Centro Veterinario México
+    account: Expenses:Galleta:Vet
+  SERV INT PARA MASCOTAS:
+    payee: Centro Veterinario México
+    account: Expenses:Galleta:Vet
+  SORIANA:
+    payee: Soriana
+    account: Expenses:Food:Groceries
+  STARBUCKS:
+    payee: Starbucks
+    account: Expenses:Food:Coffee
+  STRATECHERY:
+    payee: Dithering
+    account: Expenses:Subscriptions
+  TELEFONOS DE MEXICO SAB:
+    payee: Telmex
+    account: Expenses:Utilities:Internet
+  TIENDA COM MEX E:
+    payee: City Market
+    account: Expenses:Food:Groceries
+  UBER EATS:
+    payee: Uber
+    account: Expenses:Food:Delivery
+  UBER ONE:
+    payee: Uber
+    account: Expenses:Subscriptions
+  UBER TRIP:
+    payee: Uber
+  UNIVERSIDAD IBERO:
+    payee: Ibero
+    account: Expenses:Sobrina:Tuition
+  VINOS LA NAVAL:
+    payee: La Naval
+    account: Expenses:Food:Groceries
+  WEWORK MEXICO:
+    payee: WeWork
+    account: Assets:Accounts-Receivable:ChangeOrg
+  WHOLEFDS:
+    payee: Whole Foods
+    account: Expenses:Food:Groceries
+  WORLD LITERATURE/SOL:
+    payee: StoriesOnline
+    account: Expenses:Subscriptions
+include:
+  MSBILL.INFO:
+    payee: Microsoft
+    account: Expenses:Subscriptions
