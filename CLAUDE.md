@@ -6,24 +6,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Ruby scripts for processing bank/credit card transaction data and converting to Beancount accounting format.
 
+## Commits
+
+- Escribe los mensajes de commit en español
+- Mantenlos simples y concisos
+
 ## Commands
 
 ```bash
-# Enrich AMEX transactions with payee/category info from amex.yaml
-ruby amex_detailer.rb transactions.json
+# Process all PDF statements in input directory
+ruby process_statements.rb
+ruby process_statements.rb --dry-run
 
-# Enrich BBVA transactions (rules hardcoded in class)
-ruby bbva_detailer.rb transactions.json
+# Enrich transactions with a specific config
+ruby generic_detailer.rb transactions.json config/account.yaml
 
 # Convert JSON transactions to Beancount format
 ruby json_to_beancount.rb -i input.json -a "Liabilities:Amex"
-ruby json_to_beancount.rb -i input.json -a "Assets:BBVA" -e "Expenses:Other"
 
 # Convert JSON transactions to CSV
 ruby json_to_csv.rb -i input.json -o output.csv
 ```
 
 ## Architecture
+
+**Processing pipeline:**
+1. `process_statements.rb` orchestrates the full workflow: PDF → OpenAI extraction → detailer enrichment → beancount
+2. `generic_detailer.rb` enriches transactions using YAML config files in `config/`
+3. `json_to_beancount.rb` converts enriched JSON to Beancount format
+
+**Configuration files (in `config/`):**
+- `accounts.yaml` - maps filename prefixes to beancount accounts
+- `{account}.yaml` - detailer rules for each account (e.g., `amex.yaml`, `bbva.yaml`)
 
 **Transaction JSON format:**
 ```json
@@ -42,17 +56,7 @@ ruby json_to_csv.rb -i input.json -o output.csv
 }
 ```
 
-**Processing pipeline:**
-1. Detailers (`*_detailer.rb`) read JSON, enrich transactions with payee/narration/expense_account based on description matching, write back to same file
-2. `json_to_beancount.rb` converts enriched JSON to Beancount format (outputs to `../beancount/` by default)
-3. `json_to_csv.rb` converts JSON to simple CSV (date, description, amount)
-
-**Class hierarchy:**
-- `BaseDetailer` - abstract base with load/process/write workflow
-- `AmexDetailer` - uses `amex.yaml` for matching rules (start_with/include patterns)
-- `BbvaDetailer` - hardcoded matching rules for BBVA transactions
-
-**amex.yaml structure:**
+**Detailer YAML structure:**
 ```yaml
 start_with:
   PATTERN:

@@ -1,3 +1,5 @@
 .nova
 .DS_Store
 data
+.env
+config/*.yaml
