@@ -26,6 +26,10 @@ ruby json_to_beancount.rb -i input.json -a "Liabilities:Amex"
 
 # Convert JSON transactions to CSV
 ruby json_to_csv.rb -i input.json -o output.csv
+
+# Merge beancount files into main ledger
+ruby merge_beancount.rb file.beancount -o main.beancount
+ruby merge_beancount.rb file1.beancount file2.beancount --dry-run
 ```
 
 ## Architecture
@@ -34,6 +38,7 @@ ruby json_to_csv.rb -i input.json -o output.csv
 1. `process_statements.rb` orchestrates the full workflow: PDF → OpenAI extraction → detailer enrichment → beancount
 2. `generic_detailer.rb` enriches transactions using YAML config files in `config/`
 3. `json_to_beancount.rb` converts enriched JSON to Beancount format
+4. `merge_beancount.rb` appends processed beancount files to the main ledger
 
 **Configuration files (in `config/`):**
 - `accounts.yaml` - maps filename prefixes to beancount accounts
