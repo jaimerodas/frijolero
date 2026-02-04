@@ -19,7 +19,7 @@ ruby process_statements.rb
 ruby process_statements.rb --dry-run
 
 # Enrich transactions with a specific config
-ruby generic_detailer.rb transactions.json config/account.yaml
+ruby detailer.rb transactions.json config/account.yaml
 
 # Convert JSON transactions to Beancount format
 ruby json_to_beancount.rb -i input.json -a "Liabilities:Amex"
@@ -36,7 +36,7 @@ ruby merge_beancount.rb file1.beancount file2.beancount --dry-run
 
 **Processing pipeline:**
 1. `process_statements.rb` orchestrates the full workflow: PDF → OpenAI extraction → detailer enrichment → beancount
-2. `generic_detailer.rb` enriches transactions using YAML config files in `config/`
+2. `detailer.rb` enriches transactions using YAML config files in `config/`
 3. `json_to_beancount.rb` converts enriched JSON to Beancount format
 4. `merge_beancount.rb` appends processed beancount files to the main ledger
 

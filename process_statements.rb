@@ -6,7 +6,7 @@ require 'yaml'
 require 'json'
 require 'fileutils'
 require_relative 'openai_client'
-require_relative 'generic_detailer'
+require_relative 'detailer'
 require_relative 'json_to_beancount'
 
 class StatementProcessor
@@ -164,7 +164,7 @@ class StatementProcessor
 
     if File.exist?(yaml_path)
       puts "  Running detailer with #{yaml_path}..."
-      GenericDetailer.new(json_path, yaml_path).run
+      Detailer.new(json_path, yaml_path).run
     else
       puts "  No detailer config found, skipping enrichment"
     end

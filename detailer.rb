@@ -1,15 +1,29 @@
 # frozen_string_literal: true
 
-require_relative "base_detailer"
+require "json"
 require "yaml"
 
-class GenericDetailer < BaseDetailer
+class Detailer
   def initialize(file, config_path)
-    super(file)
+    @file = file
     @config_path = config_path
+    @transactions = []
+  end
+
+  attr_reader :file
+  attr_accessor :transactions
+
+  def run
+    load_json
+    process_transactions
+    write_file
   end
 
   private
+
+  def load_json
+    @transactions = JSON.load_file(file).dig("transactions")
+  end
 
   def process_transactions
     config = YAML.load_file(@config_path)
@@ -36,11 +50,15 @@ class GenericDetailer < BaseDetailer
         end
     end
   end
+
+  def write_file
+    File.write(file, JSON.pretty_generate({"transactions" => @transactions}))
+  end
 end
 
 if $PROGRAM_NAME == __FILE__
   file = ARGV[0]
   config = ARGV[1]
-  abort("Usage: ruby generic_detailer.rb FILE.json CONFIG.yaml") unless file && config
-  GenericDetailer.new(file, config).run
+  abort("Usage: ruby detailer.rb FILE.json CONFIG.yaml") unless file && config
+  Detailer.new(file, config).run
 end
