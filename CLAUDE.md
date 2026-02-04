@@ -18,11 +18,13 @@ Ruby scripts for processing bank/credit card transaction data and converting to 
 ruby process_statements.rb
 ruby process_statements.rb --dry-run
 
-# Enrich transactions with a specific config
-ruby detailer.rb transactions.json config/account.yaml
+# Enrich transactions (auto-detects config from filename)
+ruby detailer.rb Amex_2501.json
+ruby detailer.rb transactions.json -c config/account.yaml
 
-# Convert JSON transactions to Beancount format
-ruby json_to_beancount.rb -i input.json -a "Liabilities:Amex"
+# Convert JSON to Beancount (auto-detects account from filename)
+ruby json_to_beancount.rb Amex_2501.json
+ruby json_to_beancount.rb input.json -a "Liabilities:Amex" -o output.beancount
 
 # Convert JSON transactions to CSV
 ruby json_to_csv.rb -i input.json -o output.csv

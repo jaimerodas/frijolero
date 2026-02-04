@@ -3,6 +3,7 @@
 require 'json'
 require 'date'
 require 'optparse'
+require_relative 'lib/account_config'
 
 module JsonToBeancount
   DEFAULT_EXPENSE_ACCOUNT = "Expenses:FIXME"
@@ -62,45 +63,48 @@ if $PROGRAM_NAME == __FILE__
   options = {}
 
   parser = OptionParser.new do |opts|
-    opts.banner = <<~BANNER
-      Usage: json_to_beancount.rb \
-        -i input.json \
-        -o output.beancount \
-        -a "Liabilities:Amex"
-    BANNER
+    opts.banner = "Usage: json_to_beancount.rb FILE.json [-a ACCOUNT] [-o OUTPUT.beancount]"
 
-    opts.on("-i", "--input FILE", "Input JSON file") do |v|
-      options[:input] = v
-    end
-
-    opts.on("-o", "--output FILE", "Output Beancount file (default is the input filename but use beancount extension)") do |v|
-      options[:output] = v
-    end
-
-    opts.on(
-      "-a",
-      "--account ACCOUNT",
-      "Primary account (e.g. Assets:Cash or Liabilities:Amex)"
-    ) do |v|
+    opts.on("-a", "--account ACCOUNT", "Primary account (auto-detected from filename if omitted)") do |v|
       options[:account] = v
     end
 
-    opts.on(
-      "-e",
-      "--expense ACCOUNT",
-      "Expense account (default: Expenses:FIXME)"
-    ) do |v|
+    opts.on("-o", "--output FILE", "Output Beancount file (default: data/output/beancount/<basename>.beancount)") do |v|
+      options[:output] = v
+    end
+
+    opts.on("-e", "--expense ACCOUNT", "Expense account (default: Expenses:FIXME)") do |v|
       options[:expense_account] = v
+    end
+
+    opts.on("-h", "--help", "Show this help") do
+      puts opts
+      exit
     end
   end
 
   parser.parse!
+  input = ARGV[0]
 
-  missing = [:input, :account].select { |k| options[k].nil? }
-  unless missing.empty?
-    warn "Missing required options: #{missing.join(', ')}"
+  unless input
+    warn "Error: Input file required"
     warn parser
     exit 1
+  end
+
+  options[:input] = input
+
+  unless options[:account]
+    account = AccountConfig.beancount_account_for_file(input)
+    if account
+      puts "Auto-detected account: #{account}"
+      options[:account] = account
+    else
+      warn "Error: Could not auto-detect account for '#{File.basename(input)}'"
+      warn "Available accounts: #{AccountConfig.available_accounts.join(', ')}"
+      warn "Use -a to specify an account explicitly"
+      exit 1
+    end
   end
 
   JsonToBeancount.convert(**options)

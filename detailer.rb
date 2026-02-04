@@ -2,6 +2,8 @@
 
 require "json"
 require "yaml"
+require "optparse"
+require_relative "lib/account_config"
 
 class Detailer
   def initialize(file, config_path)
@@ -57,8 +59,43 @@ class Detailer
 end
 
 if $PROGRAM_NAME == __FILE__
+  options = {}
+
+  parser = OptionParser.new do |opts|
+    opts.banner = "Usage: ruby detailer.rb FILE.json [-c CONFIG.yaml]"
+
+    opts.on("-c", "--config CONFIG", "Config YAML file (auto-detected from filename if omitted)") do |v|
+      options[:config] = v
+    end
+
+    opts.on("-h", "--help", "Show this help") do
+      puts opts
+      exit
+    end
+  end
+
+  parser.parse!
   file = ARGV[0]
-  config = ARGV[1]
-  abort("Usage: ruby detailer.rb FILE.json CONFIG.yaml") unless file && config
+
+  unless file
+    warn "Error: Input file required"
+    warn parser
+    exit 1
+  end
+
+  config = options[:config]
+
+  unless config
+    config = AccountConfig.detailer_config_for_file(file)
+    if config
+      puts "Auto-detected config: #{config}"
+    else
+      warn "Error: Could not auto-detect config for '#{File.basename(file)}'"
+      warn "Available accounts: #{AccountConfig.available_accounts.join(', ')}"
+      warn "Use -c to specify a config file explicitly"
+      exit 1
+    end
+  end
+
   Detailer.new(file, config).run
 end

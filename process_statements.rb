@@ -8,13 +8,13 @@ require 'fileutils'
 require_relative 'openai_client'
 require_relative 'detailer'
 require_relative 'json_to_beancount'
+require_relative 'lib/account_config'
 
 class StatementProcessor
   def initialize(dry_run: false)
     @dry_run = dry_run
     @input_dir = ENV.fetch("STATEMENTS_INPUT_DIR", "./data/statements")
     @output_dir = ENV.fetch("STATEMENTS_OUTPUT_DIR", "./data/output")
-    @accounts = YAML.load_file("config/accounts.yaml")
     @client = OpenAIClient.new unless @dry_run
   end
 
@@ -49,15 +49,16 @@ class StatementProcessor
     puts "Processing: #{filename}"
 
     # Parse filename to extract account and date
-    account_name, date_str = parse_filename(filename)
+    parsed = AccountConfig.parse_filename(pdf_path)
 
-    unless account_name
+    unless parsed
       puts "  SKIP: Could not parse filename format"
       puts
       return
     end
 
-    account_config = find_account_config(account_name)
+    account_name, date_str = parsed
+    account_config = AccountConfig.find_config(account_name)
 
     unless account_config
       puts "  SKIP: No account configuration found for '#{account_name}'"
@@ -133,22 +134,6 @@ class StatementProcessor
     puts
   end
 
-  def parse_filename(filename)
-    # Expected format: "Account Name YYMM" (e.g., "Amex 2501" or "BBVA TDC 2501")
-    match = filename.match(/^(.+?)\s+(\d{4})$/)
-    return nil unless match
-
-    [match[1], match[2]]
-  end
-
-  def find_account_config(account_name)
-    # Try exact match first
-    return @accounts[account_name] if @accounts[account_name]
-
-    # Try case-insensitive match
-    @accounts.find { |k, _| k.downcase == account_name.downcase }&.last
-  end
-
   def get_prompt_id(prompt_type)
     case prompt_type
     when "bbva"
@@ -159,10 +144,9 @@ class StatementProcessor
   end
 
   def run_detailer(json_path, account_name)
-    config_name = account_name.downcase.gsub(" ", "_")
-    yaml_path = "config/#{config_name}.yaml"
+    yaml_path = AccountConfig.detailer_config_path(account_name)
 
-    if File.exist?(yaml_path)
+    if yaml_path && File.exist?(yaml_path)
       puts "  Running detailer with #{yaml_path}..."
       Detailer.new(json_path, yaml_path).run
     else
