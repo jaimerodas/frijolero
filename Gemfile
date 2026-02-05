@@ -2,4 +2,9 @@
 
 source "https://rubygems.org"
 
-gem "dotenv", "~> 3.0"
+gemspec
+
+group :development, :test do
+  gem "minitest", "~> 5.0"
+  gem "rake", "~> 13.0"
+end

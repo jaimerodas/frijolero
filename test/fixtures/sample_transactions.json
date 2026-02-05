@@ -1,0 +1,22 @@
+{
+  "transactions": [
+    {
+      "date": "2025-01-15",
+      "description": "AMAZON WEB SERVICES",
+      "amount": -50.00,
+      "currency": "MXN"
+    },
+    {
+      "date": "2025-01-16",
+      "description": "STARBUCKS REFORMA",
+      "amount": -85.00,
+      "currency": "MXN"
+    },
+    {
+      "date": "2025-01-17",
+      "description": "UBER TRIP",
+      "amount": -120.50,
+      "currency": "MXN"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+# Frijolero Configuration
+# Copy this file to ~/.frijolero/config.yaml and edit as needed
+
+# OpenAI API key for PDF extraction
+openai_api_key: your_key_here
+
+# OpenAI stored prompts for different account types
+openai_prompts:
+  default: pmpt_xxx
+  bbva: pmpt_yyy
+
+# File paths (use ~ for home directory)
+paths:
+  # Main beancount ledger file to merge transactions into
+  beancount_main: ~/finances/main.beancount
+
+  # Directory where PDF statements are placed for processing
+  statements_input: ~/Downloads/statements
+
+  # Directory where processed files are saved
+  statements_output: ~/finances/processed

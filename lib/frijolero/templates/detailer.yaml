@@ -1,0 +1,30 @@
+# Transaction Matching Rules
+# Copy this file to ~/.frijolero/detailers/{account}.yaml
+# For example: ~/.frijolero/detailers/amex.yaml
+
+# Rules are applied in order:
+# 1. start_with rules match transaction descriptions that START with the pattern
+# 2. include rules match transaction descriptions that CONTAIN the pattern
+
+# Available fields to set:
+#   payee: The merchant/payee name
+#   narration: Description/memo for the transaction
+#   account: The expense account to use
+
+start_with:
+  AMAZON WEB SERVICES:
+    payee: Amazon
+    narration: AWS
+    account: Expenses:Subscriptions
+
+  STARBUCKS:
+    payee: Starbucks
+    account: Expenses:Food:Coffee
+
+  UBER TRIP:
+    payee: Uber
+    account: Expenses:Transportation:Rideshare
+
+include:
+  GROCERY:
+    account: Expenses:Food:Groceries

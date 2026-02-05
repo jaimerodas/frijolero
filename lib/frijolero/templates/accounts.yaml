@@ -1,0 +1,17 @@
+# Account Configuration
+# Maps account names (from filenames) to beancount accounts
+
+# Example: A file named "Amex 2501.pdf" will use this config
+Amex:
+  beancount_account: "Liabilities:Amex"
+  openai_prompt_type: default
+
+# Example: A file named "BBVA 2501.pdf" will use this config
+BBVA:
+  beancount_account: "Assets:BBVA"
+  openai_prompt_type: bbva
+
+# Example: A file named "BBVA TDC 2501.pdf" will use this config
+BBVA TDC:
+  beancount_account: "Liabilities:BBVA"
+  openai_prompt_type: default

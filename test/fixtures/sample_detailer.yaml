@@ -1,0 +1,12 @@
+start_with:
+  AMAZON WEB SERVICES:
+    payee: Amazon
+    narration: AWS
+    account: Expenses:Subscriptions
+  STARBUCKS:
+    payee: Starbucks
+    account: Expenses:Food:Coffee
+include:
+  UBER:
+    payee: Uber
+    account: Expenses:Transportation

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Ruby scripts for processing bank/credit card transaction data and converting to Beancount accounting format.
+Ruby gem (`frijolero`) for processing bank/credit card transaction data and converting to Beancount accounting format. Single CLI binary with subcommands.
 
 ## Commits
 
@@ -14,37 +14,49 @@ Ruby scripts for processing bank/credit card transaction data and converting to 
 ## Commands
 
 ```bash
-# Process all PDF statements in input directory
-ruby process_statements.rb
-ruby process_statements.rb --dry-run
+# Run tests
+bundle exec rake test
 
-# Enrich transactions (auto-detects config from filename)
-ruby detailer.rb Amex_2501.json
-ruby detailer.rb transactions.json -c config/account.yaml
+# CLI usage
+bundle exec frijolero --help
+bundle exec frijolero process [--dry-run]
+bundle exec frijolero detail Amex_2501.json
+bundle exec frijolero detail transactions.json -c config.yaml
+bundle exec frijolero convert Amex_2501.json
+bundle exec frijolero convert input.json -a "Liabilities:Amex" -o output.beancount
+bundle exec frijolero csv input.json -o output.csv
+bundle exec frijolero merge file.beancount -o main.beancount
+bundle exec frijolero init
 
-# Convert JSON to Beancount (auto-detects account from filename)
-ruby json_to_beancount.rb Amex_2501.json
-ruby json_to_beancount.rb input.json -a "Liabilities:Amex" -o output.beancount
-
-# Convert JSON transactions to CSV
-ruby json_to_csv.rb -i input.json -o output.csv
-
-# Merge beancount files into main ledger
-ruby merge_beancount.rb file.beancount -o main.beancount
-ruby merge_beancount.rb file1.beancount file2.beancount --dry-run
+# Build gem
+gem build frijolero.gemspec
 ```
 
 ## Architecture
 
-**Processing pipeline:**
-1. `process_statements.rb` orchestrates the full workflow: PDF → OpenAI extraction → detailer enrichment → beancount
-2. `detailer.rb` enriches transactions using YAML config files in `config/`
-3. `json_to_beancount.rb` converts enriched JSON to Beancount format
-4. `merge_beancount.rb` appends processed beancount files to the main ledger
+**Gem structure:** All code lives under `lib/frijolero/` within the `Frijolero` module.
 
-**Configuration files (in `config/`):**
+**Processing pipeline:**
+1. `StatementProcessor` orchestrates the full workflow: PDF → OpenAI extraction → detailer enrichment → beancount
+2. `Detailer` enriches transactions using YAML rules
+3. `BeancountConverter` converts enriched JSON to Beancount format
+4. `BeancountMerger` appends processed beancount files to the main ledger
+5. `CsvConverter` exports transactions to CSV
+6. `OpenAIClient` handles PDF upload/extraction via OpenAI API
+
+**Key files:**
+- `lib/frijolero.rb` - main require file
+- `lib/frijolero/cli.rb` - subcommand routing
+- `lib/frijolero/config.rb` - loads config from `~/.frijolero/`
+- `lib/frijolero/account_config.rb` - filename parsing and account lookup
+- `bin/frijolero` - CLI entry point
+
+**Configuration (in `~/.frijolero/`):**
+- `config.yaml` - API keys, paths, OpenAI prompts
 - `accounts.yaml` - maps filename prefixes to beancount accounts
-- `{account}.yaml` - detailer rules for each account (e.g., `amex.yaml`, `bbva.yaml`)
+- `detailers/{account}.yaml` - transaction matching rules per account
+
+**Tests:** Minitest, run with `bundle exec rake test`. Fixtures in `test/fixtures/`.
 
 **Transaction JSON format:**
 ```json
