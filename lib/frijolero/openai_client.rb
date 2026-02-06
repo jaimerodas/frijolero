@@ -56,7 +56,8 @@ module Frijolero
               }
             ]
           }
-        ]
+        ],
+        background: true
       }
 
       request = Net::HTTP::Post.new(uri)
@@ -66,6 +67,9 @@ module Frijolero
 
       response = make_request(uri, request)
       data = JSON.parse(response.body)
+
+      # Poll until the background response completes
+      data = poll_response(data["id"])
 
       # Extract the text content from the response
       text_output = data.dig("output")&.find { |o| o["type"] == "message" }
@@ -91,6 +95,30 @@ module Frijolero
     end
 
     private
+
+    def poll_response(response_id)
+      uri = URI("#{BASE_URL}/responses/#{response_id}")
+
+      loop do
+        sleep 2
+        print "."
+        request = Net::HTTP::Get.new(uri)
+        request["Authorization"] = "Bearer #{@api_key}"
+        response = make_request(uri, request)
+        data = JSON.parse(response.body)
+
+        case data["status"]
+        when "completed"
+          puts
+          return data
+        when "queued", "in_progress"
+          next
+        else
+          puts
+          raise "Response failed with status: #{data["status"]}"
+        end
+      end
+    end
 
     def make_request(uri, request)
       http = Net::HTTP.new(uri.host, uri.port)

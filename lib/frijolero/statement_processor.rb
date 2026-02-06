@@ -84,7 +84,7 @@ module Frijolero
         puts "  File ID: #{file_id}"
 
         # Step 2: Extract transactions
-        puts "  Extracting transactions..."
+        print "  Extracting transactions"
         prompt_id = get_prompt_id(account_config["openai_prompt_type"])
         transactions = @client.extract_transactions(file_id, prompt_id)
         puts "  Found #{transactions["transactions"]&.size || 0} transactions"
