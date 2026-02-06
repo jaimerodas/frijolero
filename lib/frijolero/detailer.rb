@@ -5,6 +5,8 @@ require "yaml"
 
 module Frijolero
   class Detailer
+    METADATA_FIELDS = %w[payee narration expense_account].freeze
+
     def initialize(file, config_path)
       @file = file
       @config_path = config_path
@@ -16,8 +18,17 @@ module Frijolero
 
     def run
       load_json
+      metadata_presence_before = @transactions.map { |transaction| metadata_present?(transaction) }
       process_transactions
+      metadata_presence_after = @transactions.map { |transaction| metadata_present?(transaction) }
       write_file
+
+      {
+        metadata_enriched: metadata_presence_after.each_with_index.count do |has_metadata, index|
+          has_metadata && !metadata_presence_before[index]
+        end,
+        metadata_remaining: metadata_presence_after.count(false)
+      }
     end
 
     private
@@ -54,6 +65,13 @@ module Frijolero
 
     def write_file
       File.write(file, JSON.pretty_generate({"transactions" => @transactions}))
+    end
+
+    def metadata_present?(transaction)
+      METADATA_FIELDS.any? do |field|
+        value = transaction[field]
+        !value.nil? && value != ""
+      end
     end
   end
 end

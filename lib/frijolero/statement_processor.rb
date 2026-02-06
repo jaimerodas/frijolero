@@ -87,7 +87,9 @@ module Frijolero
         print "  Extracting transactions"
         prompt_id = get_prompt_id(account_config["openai_prompt_type"])
         transactions = @client.extract_transactions(file_id, prompt_id)
-        puts "  Found #{transactions["transactions"]&.size || 0} transactions"
+        transaction_list = transactions["transactions"] || []
+        puts "  Found #{transaction_list.size} transactions"
+        report_transaction_totals(transaction_list)
 
         # Step 3: Save JSON
         File.write(json_path, JSON.pretty_generate(transactions))
@@ -138,10 +140,36 @@ module Frijolero
 
       if yaml_path && File.exist?(yaml_path)
         puts "  Running detailer with #{yaml_path}..."
-        Detailer.new(json_path, yaml_path).run
+        result = Detailer.new(json_path, yaml_path).run
+        puts "  Metadata enriched on #{result[:metadata_enriched]} transaction(s)"
+        puts "  Transactions still missing metadata: #{result[:metadata_remaining]}"
       else
         puts "  No detailer config found, skipping enrichment"
       end
+    end
+
+    def report_transaction_totals(transactions)
+      positive_total = transactions.sum do |transaction|
+        amount = transaction.fetch("amount", 0).to_f
+        amount.positive? ? amount : 0
+      end
+
+      negative_total = transactions.sum do |transaction|
+        amount = transaction.fetch("amount", 0).to_f
+        amount.negative? ? amount : 0
+      end
+
+      puts "  Credits total: #{format_amount(positive_total)}"
+      puts "  Debits total: #{format_amount(negative_total)}"
+    end
+
+    def format_amount(amount)
+      formatted = format("%.2f", amount)
+      integer_part, decimal_part = formatted.split(".", 2)
+      sign = integer_part.start_with?("-") ? "-" : ""
+      digits = sign.empty? ? integer_part : integer_part[1..]
+      with_separators = digits.reverse.scan(/\d{1,3}/).join(",").reverse
+      "#{sign}#{with_separators}.#{decimal_part}"
     end
   end
 end

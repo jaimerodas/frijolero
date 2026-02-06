@@ -99,4 +99,41 @@ class DetailerTest < Minitest::Test
       assert_equal "Expenses:Food:Coffee", tx["expense_account"]
     end
   end
+
+  def test_reports_metadata_enrichment_counts
+    with_temp_dir do |dir|
+      json_path = File.join(dir, "test.json")
+      FileUtils.cp(fixture_path("sample_transactions.json"), json_path)
+
+      detailer = Frijolero::Detailer.new(json_path, fixture_path("sample_detailer.yaml"))
+      result = detailer.run
+
+      assert_equal 3, result[:metadata_enriched]
+      assert_equal 1, result[:metadata_remaining]
+    end
+  end
+
+  def test_does_not_count_transactions_with_existing_metadata_as_newly_enriched
+    with_temp_dir do |dir|
+      json_content = {
+        "transactions" => [
+          {
+            "date" => "2025-01-15",
+            "description" => "AMAZON WEB SERVICES",
+            "amount" => -200.0,
+            "payee" => "Existing Payee"
+          }
+        ]
+      }
+
+      json_path = File.join(dir, "test.json")
+      File.write(json_path, JSON.generate(json_content))
+
+      detailer = Frijolero::Detailer.new(json_path, fixture_path("sample_detailer.yaml"))
+      result = detailer.run
+
+      assert_equal 0, result[:metadata_enriched]
+      assert_equal 0, result[:metadata_remaining]
+    end
+  end
 end
