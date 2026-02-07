@@ -16,7 +16,7 @@ module Frijolero
       raise ArgumentError, "input file required" unless input
       raise ArgumentError, "account required" unless account
 
-      output ||= File.join(File.dirname(input), "..", "beancount", File.basename(input, ".json") + ".beancount")
+      output ||= File.expand_path(File.join(File.dirname(input), "..", "beancount", File.basename(input, ".json") + ".beancount"))
 
       json = JSON.parse(File.read(input))
 

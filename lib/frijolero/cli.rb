@@ -219,21 +219,29 @@ module Frijolero
       end
 
       options[:input] = input
+      filename = File.basename(input)
 
       unless options[:account]
         account = AccountConfig.beancount_account_for_file(input)
         if account
-          puts "Auto-detected account: #{account}"
           options[:account] = account
         else
-          warn "Error: Could not auto-detect account for '#{File.basename(input)}'"
-          warn "Available accounts: #{AccountConfig.available_accounts.join(", ")}"
-          warn "Use -a to specify an account explicitly"
+          UI.puts "{{x}} Could not auto-detect account for '#{filename}'"
+          UI.puts "Available accounts: #{AccountConfig.available_accounts.join(", ")}"
+          UI.puts "Use -a to specify an account explicitly"
           exit 1
         end
       end
 
-      BeancountConverter.convert(**options)
+      UI.frame("Converting: #{filename}") do
+        UI.puts "Account: #{options[:account]}"
+
+        transactions = JSON.load_file(input).dig("transactions") || []
+        UI.puts "Found #{transactions.size} transactions#{UI.transaction_summary(transactions)}"
+
+        output_path = BeancountConverter.convert(**options)
+        UI.puts "Saved: #{UI.short_path(output_path)}"
+      end
     end
 
     def run_merge(args)
