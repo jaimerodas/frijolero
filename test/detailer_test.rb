@@ -79,8 +79,8 @@ class DetailerTest < Minitest::Test
       stats = detailer.run
 
       assert_equal 3, stats[:total]
-      assert_equal 3, stats[:detailed]
-      assert_equal 0, stats[:remaining]
+      assert_equal 3, stats[:detailed].size
+      assert_equal 0, stats[:remaining].size
     end
   end
 
@@ -100,8 +100,8 @@ class DetailerTest < Minitest::Test
       stats = detailer.run
 
       assert_equal 2, stats[:total]
-      assert_equal 1, stats[:detailed]
-      assert_equal 1, stats[:remaining]
+      assert_equal 1, stats[:detailed].size
+      assert_equal 1, stats[:remaining].size
     end
   end
 

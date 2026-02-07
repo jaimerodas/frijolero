@@ -13,7 +13,7 @@ class StatementProcessorTest < Minitest::Test
       {"amount" => -50.0},
       {"amount" => 25.0}
     ]
-    result = @processor.send(:transaction_summary, transactions)
+    result = Frijolero::UI.transaction_summary(transactions)
     assert_includes result, "2 debits (150.00)"
     assert_includes result, "1 credits (25.00)"
     assert result.start_with?(": ")
@@ -24,7 +24,7 @@ class StatementProcessorTest < Minitest::Test
       {"amount" => -100.0},
       {"amount" => -200.0}
     ]
-    result = @processor.send(:transaction_summary, transactions)
+    result = Frijolero::UI.transaction_summary(transactions)
     assert_includes result, "2 debits (300.00)"
     refute_includes result, "credits"
   end
@@ -34,13 +34,13 @@ class StatementProcessorTest < Minitest::Test
       {"amount" => 50.0},
       {"amount" => 75.0}
     ]
-    result = @processor.send(:transaction_summary, transactions)
+    result = Frijolero::UI.transaction_summary(transactions)
     assert_includes result, "2 credits (125.00)"
     refute_includes result, "debits"
   end
 
   def test_transaction_summary_empty
-    result = @processor.send(:transaction_summary, [])
+    result = Frijolero::UI.transaction_summary([])
     assert_equal "", result
   end
 
@@ -49,7 +49,7 @@ class StatementProcessorTest < Minitest::Test
       {"amount" => -12345.67},
       {"amount" => -890.12}
     ]
-    result = @processor.send(:transaction_summary, transactions)
+    result = Frijolero::UI.transaction_summary(transactions)
     # Sum of debits: 12345.67 + 890.12 = 13235.79
     assert_includes result, "2 debits (13,235.79)"
   end

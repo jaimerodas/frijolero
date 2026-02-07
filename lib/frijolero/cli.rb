@@ -158,20 +158,31 @@ module Frijolero
       end
 
       config = options[:config]
+      auto_detected = false
 
       unless config
         config = AccountConfig.detailer_config_for_file(file)
         if config
-          puts "Auto-detected config: #{config}"
+          auto_detected = true
         else
-          warn "Error: Could not auto-detect config for '#{File.basename(file)}'"
-          warn "Available accounts: #{AccountConfig.available_accounts.join(", ")}"
-          warn "Use -c to specify a config file explicitly"
+          UI.puts "{{x}} Could not auto-detect config for '#{File.basename(file)}'"
+          UI.puts "Available accounts: #{AccountConfig.available_accounts.join(", ")}"
+          UI.puts "Use -c to specify a config file explicitly"
           exit 1
         end
       end
 
-      Detailer.new(file, config).run
+      filename = File.basename(file)
+
+      UI.frame("Detailing: #{filename}") do
+        UI.puts "Config: #{UI.short_path(config)}" if auto_detected
+
+        transactions = JSON.load_file(file).dig("transactions") || []
+        UI.puts "Found #{transactions.size} transactions#{UI.transaction_summary(transactions)}"
+
+        stats = Detailer.new(file, config).run
+        UI.detailer_stats(stats)
+      end
     end
 
     def run_convert(args)

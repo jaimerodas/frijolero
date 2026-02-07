@@ -48,6 +48,30 @@ module Frijolero
         int_with_commas = int_part.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse
         "#{int_with_commas}.#{dec_part}"
       end
+
+      def detailer_stats(stats)
+        puts "#{stats[:detailed].size} detailed#{transaction_summary(stats[:detailed])}"
+        puts "#{stats[:remaining].size} remaining#{transaction_summary(stats[:remaining])}"
+      end
+
+      def transaction_summary(transactions)
+        return "" if transactions.empty?
+
+        debits = transactions.select { |t| t["amount"].to_f < 0 }
+        credits = transactions.select { |t| t["amount"].to_f >= 0 }
+
+        parts = []
+        if debits.any?
+          total = debits.sum { |t| t["amount"].to_f.abs }
+          parts << "#{debits.size} debits (#{format_number(total)})"
+        end
+        if credits.any?
+          total = credits.sum { |t| t["amount"].to_f }
+          parts << "#{credits.size} credits (#{format_number(total)})"
+        end
+
+        ": #{parts.join(", ")}"
+      end
     end
   end
 end

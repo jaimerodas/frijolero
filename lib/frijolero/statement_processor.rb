@@ -94,7 +94,7 @@ module Frijolero
           end
 
           tx_list = transactions["transactions"] || []
-          UI.puts "Found #{tx_list.size} transactions#{transaction_summary(tx_list)}"
+          UI.puts "Found #{tx_list.size} transactions#{UI.transaction_summary(tx_list)}"
 
           # Step 3: Save JSON
           File.write(json_path, JSON.pretty_generate(transactions))
@@ -155,7 +155,7 @@ module Frijolero
 
       if yaml_path && File.exist?(yaml_path)
         stats = Detailer.new(json_path, yaml_path).run
-        UI.puts "#{stats[:detailed]} transactions detailed, #{stats[:remaining]} remaining"
+        UI.detailer_stats(stats)
       else
         UI.puts "{{i}} No detailer config found, skipping enrichment"
       end
@@ -171,23 +171,5 @@ module Frijolero
       end
     end
 
-    def transaction_summary(transactions)
-      return "" if transactions.empty?
-
-      debits = transactions.select { |t| t["amount"].to_f < 0 }
-      credits = transactions.select { |t| t["amount"].to_f >= 0 }
-
-      parts = []
-      if debits.any?
-        total = debits.sum { |t| t["amount"].to_f.abs }
-        parts << "#{debits.size} debits (#{UI.format_number(total)})"
-      end
-      if credits.any?
-        total = credits.sum { |t| t["amount"].to_f }
-        parts << "#{credits.size} credits (#{UI.format_number(total)})"
-      end
-
-      ": #{parts.join(", ")}"
-    end
   end
 end
