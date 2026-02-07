@@ -14,6 +14,9 @@ paths:
   # Main beancount ledger file to merge transactions into
   beancount_main: ~/finances/main.beancount
 
+  # Beancount file with account declarations (open directives) for autocomplete
+  beancount_accounts: ~/finances/main.beancount
+
   # Directory where PDF statements are placed for processing
   statements_input: ~/Downloads/statements
 

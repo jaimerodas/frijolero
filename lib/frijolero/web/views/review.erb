@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Review: <%= filename %></title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1><%= filename %></h1>
+    <div class="meta">
+      <span class="account-badge"><%= beancount_account %></span>
+      <span class="progress" id="progress"></span>
+    </div>
+  </header>
+
+  <div id="status-bar" class="status-bar hidden"></div>
+
+  <% remaining = transactions.reject { |t| t["expense_account"] && !t["expense_account"].to_s.strip.empty? } %>
+  <% detailed = transactions.select { |t| t["expense_account"] && !t["expense_account"].to_s.strip.empty? } %>
+
+  <% unless remaining.empty? %>
+  <section>
+    <h2>Remaining <span class="count">(<%= remaining.size %>)</span></h2>
+    <table>
+      <thead>
+        <tr>
+          <th class="col-date">Date</th>
+          <th class="col-desc">Description</th>
+          <th class="col-amount">Amount</th>
+          <th class="col-payee">Payee</th>
+          <th class="col-narration">Narration</th>
+          <th class="col-account">Expense Account</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% remaining.each_with_index do |tx, i| %>
+        <tr class="tx-row" data-index="<%= transactions.index(tx) %>">
+          <td class="col-date"><%= tx["date"] %></td>
+          <td class="col-desc" title="<%= tx["description"] %>"><%= tx["description"] %></td>
+          <td class="col-amount <%= tx["amount"].to_f < 0 ? "negative" : "positive" %>">
+            <%= format("%.2f", tx["amount"].to_f) %> <%= tx["currency"] || "MXN" %>
+          </td>
+          <td class="col-payee">
+            <input type="text" name="payee" value="<%= tx["payee"] %>" placeholder="Payee" data-field="payee">
+          </td>
+          <td class="col-narration">
+            <input type="text" name="narration" value="<%= tx["narration"] %>" placeholder="Narration" data-field="narration">
+          </td>
+          <td class="col-account">
+            <input type="text" name="expense_account" value="<%= tx["expense_account"] %>" placeholder="Expense account" data-field="expense_account" autocomplete="off">
+          </td>
+        </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </section>
+  <% end %>
+
+  <% unless detailed.empty? %>
+  <section>
+    <h2>Detailed <span class="count">(<%= detailed.size %>)</span></h2>
+    <table>
+      <thead>
+        <tr>
+          <th class="col-date">Date</th>
+          <th class="col-desc">Description</th>
+          <th class="col-amount">Amount</th>
+          <th class="col-payee">Payee</th>
+          <th class="col-narration">Narration</th>
+          <th class="col-account">Expense Account</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% detailed.each do |tx| %>
+        <tr class="tx-row complete" data-index="<%= transactions.index(tx) %>">
+          <td class="col-date"><%= tx["date"] %></td>
+          <td class="col-desc" title="<%= tx["description"] %>"><%= tx["description"] %></td>
+          <td class="col-amount <%= tx["amount"].to_f < 0 ? "negative" : "positive" %>">
+            <%= format("%.2f", tx["amount"].to_f) %> <%= tx["currency"] || "MXN" %>
+          </td>
+          <td class="col-payee">
+            <input type="text" name="payee" value="<%= tx["payee"] %>" placeholder="Payee" data-field="payee">
+          </td>
+          <td class="col-narration">
+            <input type="text" name="narration" value="<%= tx["narration"] %>" placeholder="Narration" data-field="narration">
+          </td>
+          <td class="col-account">
+            <input type="text" name="expense_account" value="<%= tx["expense_account"] %>" placeholder="Expense account" data-field="expense_account" autocomplete="off">
+          </td>
+        </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </section>
+  <% end %>
+
+  <footer>
+    <div class="actions">
+      <button id="btn-save" class="btn" title="⌘S">Save JSON</button>
+      <button id="btn-convert" class="btn btn-secondary" title="⌘⇧C">Save &amp; Convert</button>
+      <button id="btn-merge" class="btn btn-primary" title="⌘⇧S">Save, Convert &amp; Merge</button>
+    </div>
+    <div class="shortcuts-hint">
+      <kbd>Tab</kbd> next field &middot;
+      <kbd>⌘S</kbd> save &middot;
+      <kbd>⌘⇧S</kbd> save + convert + merge
+    </div>
+  </footer>
+
+  <script id="tx-data" type="application/json"><%= transactions.to_json %></script>
+  <script id="accounts-data" type="application/json"><%= accounts.to_json %></script>
+  <script src="/app.js"></script>
+</body>
+</html>

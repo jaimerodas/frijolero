@@ -65,6 +65,11 @@ module Frijolero
           ENV["BEANCOUNT_MAIN_FILE"]
       end
 
+      def beancount_accounts_file
+        expand_path(load.dig("paths", "beancount_accounts")) ||
+          ENV["BEANCOUNT_ACCOUNTS_FILE"]
+      end
+
       def detailer_config_path(account_name)
         return nil unless account_name
 

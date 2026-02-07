@@ -23,5 +23,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "csv", "~> 3.0"
   spec.add_dependency "cli-ui"
+  spec.add_dependency "rackup"
   spec.add_dependency "reline"
+  spec.add_dependency "sinatra", "~> 4.0"
 end

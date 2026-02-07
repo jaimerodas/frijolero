@@ -1,0 +1,19 @@
+; Chart of accounts
+
+2020-01-01 open Assets:Bank:BBVA MXN
+2020-01-01 open Assets:Bank:Banamex MXN,USD
+2020-01-01 open Liabilities:Amex MXN
+2020-01-01 open Liabilities:BBVA:TDC MXN
+2020-01-01 open Expenses:Food MXN
+2020-01-01 open Expenses:Food:Coffee MXN
+2020-01-01 open Expenses:Transportation MXN
+2020-01-01 open Income:Salary MXN
+2020-01-01 open Equity:OpeningBalances MXN
+
+; Some regular transactions mixed in
+2025-01-15 * "Test Transaction"
+  Liabilities:Amex  -50.00 MXN
+  Expenses:Food
+
+; A duplicate open directive (should be deduplicated)
+2021-06-01 open Expenses:Food MXN

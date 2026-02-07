@@ -26,6 +26,8 @@ bundle exec frijolero convert Amex_2501.json
 bundle exec frijolero convert input.json -a "Liabilities:Amex" -o output.beancount
 bundle exec frijolero csv input.json -o output.csv
 bundle exec frijolero merge file.beancount -o main.beancount
+bundle exec frijolero review Amex_2501.json
+bundle exec frijolero review input.json -a "Liabilities:Amex" -p 3000
 bundle exec frijolero init
 
 # Build gem
@@ -44,6 +46,8 @@ gem build frijolero.gemspec
 5. `CsvConverter` exports transactions to CSV
 6. `OpenAIClient` handles PDF upload/extraction via OpenAI API
 7. `UI` wraps `cli-ui` gem for terminal output (frames, spinners, prompts)
+8. `Accounts` parses beancount file for account names (autocomplete support)
+9. `Web::App` Sinatra app for reviewing/editing transactions in browser
 
 **Key files:**
 - `lib/frijolero.rb` - main require file
@@ -51,10 +55,12 @@ gem build frijolero.gemspec
 - `lib/frijolero/ui.rb` - reusable terminal UI wrapper (CLI::UI)
 - `lib/frijolero/config.rb` - loads config from `~/.frijolero/`
 - `lib/frijolero/account_config.rb` - filename parsing and account lookup
+- `lib/frijolero/accounts.rb` - beancount account extraction and search
+- `lib/frijolero/web/app.rb` - Sinatra web UI (lazy-loaded by `review` command)
 - `bin/frijolero` - CLI entry point
 
 **Configuration (in `~/.frijolero/`):**
-- `config.yaml` - API keys, paths, OpenAI prompts
+- `config.yaml` - API keys, paths (incl. `beancount_accounts`), OpenAI prompts
 - `accounts.yaml` - maps filename prefixes to beancount accounts
 - `detailers/{account}.yaml` - transaction matching rules per account
 

@@ -69,6 +69,7 @@ class ConfigTest < Minitest::Test
     assert_equal "/tmp/statements", Frijolero::Config.statements_input_dir
     assert_equal "/tmp/output", Frijolero::Config.statements_output_dir
     assert_equal "/tmp/main.beancount", Frijolero::Config.beancount_main_file
+    assert_equal "/tmp/accounts.beancount", Frijolero::Config.beancount_accounts_file
   end
 
   private

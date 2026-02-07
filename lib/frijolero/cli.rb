@@ -38,6 +38,8 @@ module Frijolero
         run_merge(args)
       when "csv"
         run_csv(args)
+      when "review"
+        run_review(args)
       else
         warn "Unknown command: #{command}"
         warn "Run 'frijolero --help' for usage information"
@@ -58,6 +60,7 @@ module Frijolero
           convert FILE.json  Convert JSON to Beancount format
           merge FILE.bc      Merge beancount into main ledger
           csv FILE.json      Convert JSON to CSV
+          review FILE.json   Review and edit transactions in web UI
 
         Options:
           --help, -h         Show this help message
@@ -310,6 +313,79 @@ module Frijolero
       end
 
       CsvConverter.convert(input: input, output: options[:output])
+    end
+
+    def run_review(args)
+      options = {port: 4567}
+
+      parser = OptionParser.new do |opts|
+        opts.banner = "Usage: frijolero review FILE.json [-p PORT]"
+
+        opts.on("-p", "--port PORT", Integer, "Server port (default: 4567)") do |v|
+          options[:port] = v
+        end
+
+        opts.on("-a", "--account ACCOUNT", "Primary account (auto-detected from filename if omitted)") do |v|
+          options[:account] = v
+        end
+
+        opts.on("-h", "--help", "Show this help") do
+          puts opts
+          exit
+        end
+      end
+
+      parser.parse!(args)
+      input = args.first
+
+      unless input
+        warn "Error: Input file required"
+        warn parser
+        exit 1
+      end
+
+      unless File.exist?(input)
+        warn "Error: File not found: #{input}"
+        exit 1
+      end
+
+      check_config!
+
+      account = options[:account]
+      unless account
+        account = AccountConfig.beancount_account_for_file(input)
+        unless account
+          UI.puts "{{x}} Could not auto-detect account for '#{File.basename(input)}'"
+          UI.puts "Available accounts: #{AccountConfig.available_accounts.join(", ")}"
+          UI.puts "Use -a to specify an account explicitly"
+          exit 1
+        end
+      end
+
+      accounts_list = begin
+        Accounts.new.all
+      rescue ArgumentError
+        []
+      end
+
+      require_relative "web/app"
+
+      Web::App.set :json_file, File.expand_path(input)
+      Web::App.set :beancount_account, account
+      Web::App.set :accounts_list, accounts_list
+
+      url = "http://localhost:#{options[:port]}"
+      UI.puts "{{*}} Starting review server at {{bold:#{url}}}"
+      UI.puts "{{i}} Reviewing: #{File.basename(input)} (#{account})"
+      UI.puts "Press Ctrl+C to stop"
+
+      # Open browser after a short delay
+      Thread.new do
+        sleep 0.5
+        system("open", url)
+      end
+
+      Web::App.run!(port: options[:port], bind: "localhost")
     end
 
     def check_config!
