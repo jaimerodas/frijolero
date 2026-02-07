@@ -2,10 +2,11 @@
 
 module Frijolero
   class BeancountMerger
-    def initialize(files:, output: nil, dry_run: false)
+    def initialize(files:, output: nil, dry_run: false, quiet: false)
       @files = files
       @output = output || Config.beancount_main_file
       @dry_run = dry_run
+      @quiet = quiet
     end
 
     def run
@@ -18,18 +19,20 @@ module Frijolero
         total_entries += entries
 
         if @dry_run
-          puts "Would merge: #{File.basename(file)} (#{entries} entries)"
+          puts "Would merge: #{File.basename(file)} (#{entries} entries)" unless @quiet
         else
           append_file(file)
-          puts "Merged: #{File.basename(file)} (#{entries} entries)"
+          puts "Merged: #{File.basename(file)} (#{entries} entries)" unless @quiet
         end
       end
 
-      puts
-      if @dry_run
-        puts "Dry run complete. Would merge #{total_entries} entries from #{@files.size} file(s)."
-      else
-        puts "Done. Merged #{total_entries} entries from #{@files.size} file(s) into #{@output}"
+      unless @quiet
+        puts
+        if @dry_run
+          puts "Dry run complete. Would merge #{total_entries} entries from #{@files.size} file(s)."
+        else
+          puts "Done. Merged #{total_entries} entries from #{@files.size} file(s) into #{@output}"
+        end
       end
     end
 

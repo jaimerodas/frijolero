@@ -6,11 +6,12 @@ require "fileutils"
 
 module Frijolero
   class StatementProcessor
-    def initialize(dry_run: false)
+    def initialize(dry_run: false, interactive: true)
       @dry_run = dry_run
       @input_dir = Config.statements_input_dir
       @output_dir = Config.statements_output_dir
       @client = OpenAIClient.new unless @dry_run
+      UI.auto_accept = !interactive
     end
 
     def run
@@ -18,12 +19,12 @@ module Frijolero
       pdf_files = Dir.glob(File.join(@input_dir, "*.pdf"))
 
       if pdf_files.empty?
-        puts "No PDF files found in #{@input_dir}"
+        UI.puts "No PDF files found in #{@input_dir}"
         return
       end
 
-      puts "Found #{pdf_files.size} PDF(s) to process"
-      puts
+      UI.puts "Found #{pdf_files.size} PDF(s) to process"
+      UI.puts
 
       pdf_files.each do |pdf_path|
         process_pdf(pdf_path)
@@ -40,15 +41,13 @@ module Frijolero
     end
 
     def process_pdf(pdf_path)
-      filename = File.basename(pdf_path, ".pdf")
-      puts "Processing: #{filename}"
+      filename = File.basename(pdf_path)
 
       # Parse filename to extract account and date
       parsed = AccountConfig.parse_filename(pdf_path)
 
       unless parsed
-        puts "  SKIP: Could not parse filename format"
-        puts
+        UI.puts "{{x}} #{filename}: Could not parse filename format"
         return
       end
 
@@ -56,77 +55,95 @@ module Frijolero
       account_config = AccountConfig.find_config(account_name)
 
       unless account_config
-        puts "  SKIP: No account configuration found for '#{account_name}'"
-        puts
+        UI.puts "{{x}} #{filename}: No account configuration found for '#{account_name}'"
         return
       end
 
-      puts "  Account: #{account_name}"
-      puts "  Beancount: #{account_config["beancount_account"]}"
-      puts "  Date: #{date_str}"
+      UI.frame("Processing: #{filename}") do
+        UI.puts "Account: #{account_name}"
 
-      if @dry_run
-        puts "  [DRY RUN] Would process this file"
-        puts
-        return
-      end
+        if @dry_run
+          UI.puts "{{i}} [DRY RUN] Would process this file"
+          return
+        end
 
-      # Define output paths
-      base_name = "#{account_name.gsub(" ", "_")}_#{date_str}"
-      json_path = File.join(@output_dir, "json", "#{base_name}.json")
-      beancount_path = File.join(@output_dir, "beancount", "#{base_name}.beancount")
-      processed_path = File.join(@output_dir, "processed", File.basename(pdf_path))
+        # Define output paths
+        base_name = "#{account_name.gsub(" ", "_")}_#{date_str}"
+        json_path = File.join(@output_dir, "json", "#{base_name}.json")
+        beancount_path = File.join(@output_dir, "beancount", "#{base_name}.beancount")
+        processed_path = File.join(@output_dir, "processed", File.basename(pdf_path))
 
-      begin
-        # Step 1: Upload PDF to OpenAI
-        puts "  Uploading to OpenAI..."
-        file_id = @client.upload_file(pdf_path)
-        puts "  File ID: #{file_id}"
+        begin
+          # Step 1: Upload PDF to OpenAI
+          file_id = nil
+          UI.spinner("Uploading to OpenAI...") do |spinner|
+            start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+            file_id = @client.upload_file(pdf_path)
+            elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
+            spinner.update_title("Uploaded to OpenAI (#{format_elapsed(elapsed)})")
+          end
 
-        # Step 2: Extract transactions
-        print "  Extracting transactions"
-        prompt_id = get_prompt_id(account_config["openai_prompt_type"])
-        transactions = @client.extract_transactions(file_id, prompt_id)
-        puts "  Found #{transactions["transactions"]&.size || 0} transactions"
+          # Step 2: Extract transactions
+          transactions = nil
+          prompt_id = get_prompt_id(account_config["openai_prompt_type"])
+          UI.spinner("Extracting transactions...") do |spinner|
+            start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+            transactions = @client.extract_transactions(file_id, prompt_id)
+            elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
+            spinner.update_title("Extracted transactions (#{format_elapsed(elapsed)})")
+          end
 
-        # Step 3: Save JSON
-        File.write(json_path, JSON.pretty_generate(transactions))
-        puts "  Saved JSON: #{json_path}"
+          tx_list = transactions["transactions"] || []
+          UI.puts "Found #{tx_list.size} transactions#{transaction_summary(tx_list)}"
 
-        # Step 4: Run detailer if config exists
-        run_detailer(json_path, account_name)
+          # Step 3: Save JSON
+          File.write(json_path, JSON.pretty_generate(transactions))
+          UI.puts "Saved JSON: #{UI.short_path(json_path)}"
 
-        # Step 5: Convert to beancount
-        puts "  Converting to Beancount..."
-        BeancountConverter.convert(
-          input: json_path,
-          account: account_config["beancount_account"],
-          output: beancount_path
-        )
-        puts "  Saved Beancount: #{beancount_path}"
+          # Step 4: Run detailer if config exists
+          run_detailer(json_path, account_name)
 
-        # Step 6: Delete file from OpenAI
-        puts "  Cleaning up OpenAI file..."
-        @client.delete_file(file_id)
+          # Step 5: Convert to beancount (interactive)
+          beancount_account = account_config["beancount_account"]
+          if UI.confirm("Convert to Beancount (#{beancount_account})?")
+            BeancountConverter.convert(
+              input: json_path,
+              account: beancount_account,
+              output: beancount_path
+            )
+            UI.puts "Saved Beancount: #{UI.short_path(beancount_path)}"
 
-        # Step 7: Move processed PDF
-        FileUtils.mv(pdf_path, processed_path)
-        puts "  Moved PDF to: #{processed_path}"
+            # Step 6: Merge into ledger (interactive)
+            if UI.confirm("Merge into ledger?")
+              main_file = Config.beancount_main_file
+              if main_file
+                BeancountMerger.new(files: [beancount_path], quiet: true).run
+                UI.puts "Merged into: #{UI.short_path(main_file)}"
+              else
+                UI.puts "{{i}} No main ledger configured (set paths.beancount_main in config)"
+              end
+            end
+          else
+            UI.puts "{{i}} Skipped Beancount conversion"
+          end
 
-        puts "  Done!"
-      rescue => e
-        puts "  ERROR: #{e.message}"
-        # Try to clean up the uploaded file if we have a file_id
-        if defined?(file_id) && file_id
-          begin
-            @client.delete_file(file_id)
-          rescue
-            # Ignore cleanup errors
+          # Step 7: Delete file from OpenAI (silent)
+          @client.delete_file(file_id)
+
+          # Step 8: Move processed PDF
+          FileUtils.mv(pdf_path, processed_path)
+          UI.puts "Moved PDF to: #{UI.short_path(processed_path)}"
+        rescue => e
+          UI.puts "{{x}} ERROR: #{e.message}"
+          if defined?(file_id) && file_id
+            begin
+              @client.delete_file(file_id)
+            rescue
+              # Ignore cleanup errors
+            end
           end
         end
       end
-
-      puts
     end
 
     def get_prompt_id(prompt_type)
@@ -137,11 +154,40 @@ module Frijolero
       yaml_path = Config.detailer_config_path(account_name)
 
       if yaml_path && File.exist?(yaml_path)
-        puts "  Running detailer with #{yaml_path}..."
-        Detailer.new(json_path, yaml_path).run
+        stats = Detailer.new(json_path, yaml_path).run
+        UI.puts "#{stats[:detailed]} transactions detailed, #{stats[:remaining]} remaining"
       else
-        puts "  No detailer config found, skipping enrichment"
+        UI.puts "{{i}} No detailer config found, skipping enrichment"
       end
+    end
+
+    def format_elapsed(seconds)
+      if seconds < 60
+        "#{seconds.round(1)}s"
+      else
+        mins = (seconds / 60).floor
+        secs = (seconds % 60).round(1)
+        "#{mins}m #{secs}s"
+      end
+    end
+
+    def transaction_summary(transactions)
+      return "" if transactions.empty?
+
+      debits = transactions.select { |t| t["amount"].to_f < 0 }
+      credits = transactions.select { |t| t["amount"].to_f >= 0 }
+
+      parts = []
+      if debits.any?
+        total = debits.sum { |t| t["amount"].to_f.abs }
+        parts << "#{debits.size} debits (#{UI.format_number(total)})"
+      end
+      if credits.any?
+        total = credits.sum { |t| t["amount"].to_f }
+        parts << "#{credits.size} credits (#{UI.format_number(total)})"
+      end
+
+      ": #{parts.join(", ")}"
     end
   end
 end

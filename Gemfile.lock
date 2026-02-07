@@ -2,14 +2,20 @@ PATH
   remote: .
   specs:
     frijolero (0.1.0)
+      cli-ui
       csv (~> 3.0)
+      reline
 
 GEM
   remote: https://rubygems.org/
   specs:
+    cli-ui (2.7.0)
     csv (3.3.5)
+    io-console (0.8.2)
     minitest (5.27.0)
     rake (13.3.1)
+    reline (0.6.3)
+      io-console (~> 0.5)
 
 PLATFORMS
   arm64-darwin-24

@@ -19,7 +19,7 @@ bundle exec rake test
 
 # CLI usage
 bundle exec frijolero --help
-bundle exec frijolero process [--dry-run]
+bundle exec frijolero process [--dry-run] [--auto-accept-prompts]
 bundle exec frijolero detail Amex_2501.json
 bundle exec frijolero detail transactions.json -c config.yaml
 bundle exec frijolero convert Amex_2501.json
@@ -43,10 +43,12 @@ gem build frijolero.gemspec
 4. `BeancountMerger` appends processed beancount files to the main ledger
 5. `CsvConverter` exports transactions to CSV
 6. `OpenAIClient` handles PDF upload/extraction via OpenAI API
+7. `UI` wraps `cli-ui` gem for terminal output (frames, spinners, prompts)
 
 **Key files:**
 - `lib/frijolero.rb` - main require file
 - `lib/frijolero/cli.rb` - subcommand routing
+- `lib/frijolero/ui.rb` - reusable terminal UI wrapper (CLI::UI)
 - `lib/frijolero/config.rb` - loads config from `~/.frijolero/`
 - `lib/frijolero/account_config.rb` - filename parsing and account lookup
 - `bin/frijolero` - CLI entry point
