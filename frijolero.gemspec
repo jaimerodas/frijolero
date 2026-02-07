@@ -22,4 +22,6 @@ Gem::Specification.new do |spec|
   spec.metadata["source_code_uri"] = spec.homepage
 
   spec.add_dependency "csv", "~> 3.0"
+  spec.add_dependency "cli-ui"
+  spec.add_dependency "reline"
 end

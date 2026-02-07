@@ -2,6 +2,7 @@
 
 require "json"
 require "yaml"
+require "set"
 
 module Frijolero
   class Detailer
@@ -9,6 +10,7 @@ module Frijolero
       @file = file
       @config_path = config_path
       @transactions = []
+      @matched_ids = Set.new
     end
 
     attr_reader :file
@@ -18,6 +20,11 @@ module Frijolero
       load_json
       process_transactions
       write_file
+      {
+        total: @transactions.size,
+        detailed: @matched_ids.size,
+        remaining: @transactions.size - @matched_ids.size
+      }
     end
 
     private
@@ -48,6 +55,7 @@ module Frijolero
             t["payee"] = rules["payee"] if rules["payee"]
             t["narration"] = rules["narration"] if rules["narration"]
             t["expense_account"] = rules["account"] if rules["account"]
+            @matched_ids << t.object_id
           end
       end
     end

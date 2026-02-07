@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "frijolero/version"
+require_relative "frijolero/ui"
 require_relative "frijolero/config"
 require_relative "frijolero/account_config"
 require_relative "frijolero/detailer"

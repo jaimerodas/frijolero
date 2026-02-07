@@ -12,6 +12,8 @@ module Frijolero
     end
 
     def run(args)
+      Frijolero::UI.setup
+
       if args.empty? || args.first == "--help" || args.first == "-h"
         show_help
         return
@@ -102,13 +104,17 @@ module Frijolero
     end
 
     def run_process(args)
-      options = {dry_run: false}
+      options = {dry_run: false, interactive: true}
 
       parser = OptionParser.new do |opts|
         opts.banner = "Usage: frijolero process [OPTIONS]"
 
         opts.on("--dry-run", "Show what would be processed without making changes") do
           options[:dry_run] = true
+        end
+
+        opts.on("--auto-accept-prompts", "Skip interactive prompts (auto-yes)") do
+          options[:interactive] = false
         end
 
         opts.on("-h", "--help", "Show this help") do
@@ -120,7 +126,10 @@ module Frijolero
       parser.parse!(args)
 
       check_config!
-      StatementProcessor.new(dry_run: options[:dry_run]).run
+      StatementProcessor.new(
+        dry_run: options[:dry_run],
+        interactive: options[:interactive]
+      ).run
     end
 
     def run_detail(args)

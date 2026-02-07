@@ -101,7 +101,6 @@ module Frijolero
 
       loop do
         sleep 2
-        print "."
         request = Net::HTTP::Get.new(uri)
         request["Authorization"] = "Bearer #{@api_key}"
         response = make_request(uri, request)
@@ -109,12 +108,10 @@ module Frijolero
 
         case data["status"]
         when "completed"
-          puts
           return data
         when "queued", "in_progress"
           next
         else
-          puts
           raise "Response failed with status: #{data["status"]}"
         end
       end

@@ -70,6 +70,41 @@ class DetailerTest < Minitest::Test
     end
   end
 
+  def test_run_returns_match_statistics
+    with_temp_dir do |dir|
+      json_path = File.join(dir, "test.json")
+      FileUtils.cp(fixture_path("sample_transactions.json"), json_path)
+
+      detailer = Frijolero::Detailer.new(json_path, fixture_path("sample_detailer.yaml"))
+      stats = detailer.run
+
+      assert_equal 3, stats[:total]
+      assert_equal 3, stats[:detailed]
+      assert_equal 0, stats[:remaining]
+    end
+  end
+
+  def test_run_returns_correct_stats_with_unmatched
+    with_temp_dir do |dir|
+      json_content = {
+        "transactions" => [
+          {"date" => "2025-01-15", "description" => "AMAZON WEB SERVICES", "amount" => -50.0},
+          {"date" => "2025-01-16", "description" => "UNMATCHED VENDOR", "amount" => -100.0}
+        ]
+      }
+
+      json_path = File.join(dir, "test.json")
+      File.write(json_path, JSON.generate(json_content))
+
+      detailer = Frijolero::Detailer.new(json_path, fixture_path("sample_detailer.yaml"))
+      stats = detailer.run
+
+      assert_equal 2, stats[:total]
+      assert_equal 1, stats[:detailed]
+      assert_equal 1, stats[:remaining]
+    end
+  end
+
   def test_does_not_overwrite_existing_fields_when_rule_field_is_nil
     with_temp_dir do |dir|
       json_content = {
