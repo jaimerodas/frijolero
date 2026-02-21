@@ -53,15 +53,47 @@ module Frijolero
       return unless patterns
 
       patterns.each do |pattern, rules|
+        candidates = normalize_rules(rules)
+
         @transactions
           .select { |t| matcher.call(pattern, t) }
           .each do |t|
-            t["payee"] = rules["payee"] if rules["payee"]
-            t["narration"] = rules["narration"] if rules["narration"]
-            t["expense_account"] = rules["account"] if rules["account"]
+            matching = find_matching_rules(candidates, t)
+            next unless matching
+
+            apply_rules(matching, t)
             @matched_ids << t.object_id
           end
       end
+    end
+
+    def normalize_rules(rules)
+      case rules
+      when Array then rules
+      when Hash then [rules]
+      else []
+      end
+    end
+
+    def find_matching_rules(candidates, transaction)
+      candidates.find { |entry| conditions_met?(entry["when"], transaction) }
+    end
+
+    def conditions_met?(conditions, transaction)
+      return true unless conditions
+
+      conditions.all? do |field, expected|
+        case field
+        when "amount" then transaction["amount"] == expected
+        else false
+        end
+      end
+    end
+
+    def apply_rules(rules, transaction)
+      transaction["payee"] = rules["payee"] if rules["payee"]
+      transaction["narration"] = rules["narration"] if rules["narration"]
+      transaction["expense_account"] = rules["account"] if rules["account"]
     end
 
     def write_file
