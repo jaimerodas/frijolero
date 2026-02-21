@@ -1,0 +1,32 @@
+start_with:
+  AMAZON WEB SERVICES:
+    payee: Amazon
+    narration: AWS
+    account: Expenses:Subscriptions
+
+  NETFLIX:
+    when:
+      amount: -149
+    payee: Netflix
+    narration: Subscription
+    account: Expenses:Subscriptions
+
+  TRANSFERENCIA:
+    - when:
+        amount: -15000
+      payee: Landlord
+      narration: Rent
+      account: Expenses:Rent
+    - when:
+        amount: -500
+      payee: Gym
+      narration: Membership
+      account: Expenses:Health
+    - payee: Transfer
+      narration: Bank transfer
+      account: Expenses:Misc
+
+include:
+  UBER:
+    payee: Uber
+    account: Expenses:Transportation

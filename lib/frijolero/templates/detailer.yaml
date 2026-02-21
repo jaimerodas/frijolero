@@ -25,6 +25,24 @@ start_with:
     payee: Uber
     account: Expenses:Transportation:Rideshare
 
+  # Use `when` to add conditions beyond description matching.
+  # Match only when the amount is exactly -149:
+  # NETFLIX:
+  #   when:
+  #     amount: -149
+  #   payee: Netflix
+  #   account: Expenses:Subscriptions
+
+  # Use a list to classify the same prefix differently by amount:
+  # TRANSFERENCIA:
+  #   - when:
+  #       amount: -15000
+  #     payee: Landlord
+  #     narration: Rent
+  #     account: Expenses:Housing:Rent
+  #   - payee: Transfer
+  #     account: Expenses:Misc
+
 include:
   GROCERY:
     account: Expenses:Food:Groceries

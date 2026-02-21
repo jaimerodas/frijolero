@@ -88,6 +88,33 @@ include:
     account: Expenses:Food:Groceries
 ```
 
+Rules support an optional `when` clause for additional conditions (currently exact `amount` match):
+
+```yaml
+start_with:
+  # Only match when amount is exactly -149
+  NETFLIX:
+    when:
+      amount: -149
+    payee: Netflix
+    account: Expenses:Subscriptions
+
+  # Use an array to classify the same prefix by amount.
+  # First matching entry wins; entry without `when` is a fallback.
+  TRANSFERENCIA:
+    - when:
+        amount: -15000
+      payee: Landlord
+      narration: Rent
+      account: Expenses:Housing:Rent
+    - when:
+        amount: -500
+      payee: Gym
+      account: Expenses:Health
+    - payee: Transfer
+      account: Expenses:Misc
+```
+
 ## Usage
 
 ### Process PDF statements

@@ -86,11 +86,29 @@ gem build frijolero.gemspec
 **Detailer YAML structure:**
 ```yaml
 start_with:
+  # Simple rule — matches description prefix
   PATTERN:
     payee: "Name"
     narration: "Description"
     account: "Expenses:Category"
+
+  # Conditional rule — also requires exact amount match
+  PATTERN:
+    when:
+      amount: -149
+    payee: "Name"
+    account: "Expenses:Category"
+
+  # Array of rules — first matching `when` wins, entry without `when` is fallback
+  PATTERN:
+    - when:
+        amount: -15000
+      payee: "Landlord"
+      account: "Expenses:Rent"
+    - payee: "Transfer"
+      account: "Expenses:Misc"
+
 include:
   PATTERN:
-    # same fields
+    # same fields and formats as start_with
 ```
