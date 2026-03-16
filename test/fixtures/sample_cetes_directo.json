@@ -1,0 +1,123 @@
+{
+  "statement_metadata": {
+    "institution": "CETES Directo",
+    "account_holder": "TEST USER",
+    "period_start": "2026-02-01",
+    "period_end": "2026-02-28",
+    "currency": "MXN"
+  },
+  "opening_state": {
+    "portfolio_total": 100000.00,
+    "cash": 0.50,
+    "total": 100000.50
+  },
+  "closing_state": {
+    "portfolio_total": 91200.00,
+    "cash": 0.10,
+    "total": 91200.10
+  },
+  "movements": [
+    {
+      "trade_date": "2026-02-05",
+      "settlement_date": "2026-02-05",
+      "folio": "SVD100000001",
+      "description_code": "PAGINTCU",
+      "movement_type": "interest_payment",
+      "raw_description": "PAGINTCU",
+      "issuer": "PESOS",
+      "series": "PESOS",
+      "titles": 0,
+      "price": 0,
+      "term": 0,
+      "rate": 0,
+      "cash_outflow": 0,
+      "cash_inflow": 500.00,
+      "cash_balance_after": 500.50
+    },
+    {
+      "trade_date": "2026-02-05",
+      "settlement_date": "2026-02-05",
+      "folio": "SVD100000001",
+      "description_code": "ISR",
+      "movement_type": "tax_withholding",
+      "raw_description": "ISR",
+      "issuer": "BPAG28",
+      "series": "280504",
+      "titles": 0,
+      "price": null,
+      "term": null,
+      "rate": null,
+      "cash_outflow": 75.00,
+      "cash_inflow": 0,
+      "cash_balance_after": 425.50
+    },
+    {
+      "trade_date": "2026-02-05",
+      "settlement_date": "2026-02-05",
+      "folio": "SVD100000002",
+      "description_code": "COMPSI",
+      "movement_type": "fund_buy",
+      "raw_description": "COMPSI",
+      "issuer": "BONDDIA",
+      "series": "PF2",
+      "titles": 185,
+      "price": 2.290089,
+      "term": 0,
+      "rate": 0,
+      "cash_outflow": 425.00,
+      "cash_inflow": 0,
+      "cash_balance_after": 0.50
+    },
+    {
+      "trade_date": "2026-02-10",
+      "settlement_date": "2026-02-10",
+      "folio": "SVD100000003",
+      "description_code": "VTASI",
+      "movement_type": "fund_sell",
+      "raw_description": "VTASI",
+      "issuer": "BONDDIA",
+      "series": "PF2",
+      "titles": 4370,
+      "price": 2.292429,
+      "term": 0,
+      "rate": 0,
+      "cash_outflow": 0,
+      "cash_inflow": 10018.02,
+      "cash_balance_after": 10018.52
+    },
+    {
+      "trade_date": "2026-02-10",
+      "settlement_date": "2026-02-10",
+      "folio": "SVD100000004",
+      "description_code": "EGREFVO",
+      "movement_type": "cash_out",
+      "raw_description": "EGREFVO",
+      "issuer": "PESOS",
+      "series": "PESOS",
+      "titles": 0,
+      "price": 0,
+      "term": 0,
+      "rate": 0,
+      "cash_outflow": 10000.00,
+      "cash_inflow": 0,
+      "cash_balance_after": 18.52
+    },
+    {
+      "trade_date": "2026-02-15",
+      "settlement_date": "2026-02-15",
+      "folio": "SVD100000005",
+      "description_code": "INGEFVO",
+      "movement_type": "cash_in",
+      "raw_description": "INGEFVO",
+      "issuer": "PESOS",
+      "series": "PESOS",
+      "titles": 0,
+      "price": 0,
+      "term": 0,
+      "rate": 0,
+      "cash_outflow": 0,
+      "cash_inflow": 5000.00,
+      "cash_balance_after": 5018.52
+    }
+  ]
+}

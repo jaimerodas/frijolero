@@ -93,24 +93,43 @@ module Frijolero
             spinner.update_title("Extracted transactions (#{format_elapsed(elapsed)})")
           end
 
-          tx_list = transactions["transactions"] || []
-          UI.puts "Found #{tx_list.size} transactions#{UI.transaction_summary(tx_list)}"
+          converter_type = account_config["converter_type"]
+
+          if converter_type == "cetes_directo"
+            mov_list = transactions["movements"] || []
+            UI.puts "Found #{mov_list.size} movements"
+          else
+            tx_list = transactions["transactions"] || []
+            UI.puts "Found #{tx_list.size} transactions#{UI.transaction_summary(tx_list)}"
+          end
 
           # Step 3: Save JSON
           File.write(json_path, JSON.pretty_generate(transactions))
           UI.puts "Saved JSON: #{UI.short_path(json_path)}"
 
-          # Step 4: Run detailer if config exists
-          run_detailer(json_path, account_name)
+          # Step 4: Run detailer if config exists (skip for cetes_directo)
+          run_detailer(json_path, account_name) unless converter_type == "cetes_directo"
 
           # Step 5: Convert to beancount (interactive)
           beancount_account = account_config["beancount_account"]
           if UI.confirm("Convert to Beancount (#{beancount_account})?")
-            BeancountConverter.convert(
-              input: json_path,
-              account: beancount_account,
-              output: beancount_path
-            )
+            if converter_type == "cetes_directo"
+              CetesDirectoConverter.convert(
+                input: json_path,
+                account: beancount_account,
+                output: beancount_path,
+                counterpart_account: account_config["counterpart_account"],
+                interest_account: account_config["interest_account"],
+                tax_account: account_config["tax_account"],
+                gains_account: account_config["gains_account"] || CetesDirectoConverter::DEFAULT_GAINS_ACCOUNT
+              )
+            else
+              BeancountConverter.convert(
+                input: json_path,
+                account: beancount_account,
+                output: beancount_path
+              )
+            end
             UI.puts "Saved Beancount: #{UI.short_path(beancount_path)}"
 
             # Step 6: Merge into ledger (interactive)

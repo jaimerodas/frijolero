@@ -236,13 +236,33 @@ module Frijolero
         end
       end
 
+      parsed = AccountConfig.parse_filename(input)
+      account_config = parsed ? AccountConfig.find_config(parsed.first) : nil
+      converter_type = account_config&.dig("converter_type")
+
       UI.frame("Converting: #{filename}") do
         UI.puts "Account: #{options[:account]}"
 
-        transactions = JSON.load_file(input).dig("transactions") || []
-        UI.puts "Found #{transactions.size} transactions#{UI.transaction_summary(transactions)}"
+        if converter_type == "cetes_directo"
+          movements = JSON.load_file(input).dig("movements") || []
+          UI.puts "Found #{movements.size} movements"
 
-        output_path = BeancountConverter.convert(**options)
+          output_path = CetesDirectoConverter.convert(
+            input: input,
+            account: options[:account],
+            output: options[:output],
+            counterpart_account: account_config["counterpart_account"],
+            interest_account: account_config["interest_account"],
+            tax_account: account_config["tax_account"],
+            gains_account: account_config["gains_account"] || CetesDirectoConverter::DEFAULT_GAINS_ACCOUNT
+          )
+        else
+          transactions = JSON.load_file(input).dig("transactions") || []
+          UI.puts "Found #{transactions.size} transactions#{UI.transaction_summary(transactions)}"
+
+          output_path = BeancountConverter.convert(**options)
+        end
+
         UI.puts "Saved: #{UI.short_path(output_path)}"
       end
     end
