@@ -74,7 +74,7 @@ module Frijolero
       amount = mov["cash_inflow"].to_f
       target = counterpart_account || "Expenses:FIXME"
 
-      out.puts %(#{date} * "CETESDirecto" "Deposito")
+      out.puts %(#{date} * "CETESDirecto" "Depósito")
       out.puts "  #{account}  #{format("%.2f", amount)} MXN"
       out.puts "  #{target}"
       out.puts
@@ -114,7 +114,7 @@ module Frijolero
       series = mov["series"]
       target = tax_account || "Expenses:FIXME"
 
-      narration = "Retencion ISR"
+      narration = "Retención ISR"
       narration += " #{issuer} #{series}" if issuer && issuer != "PESOS"
 
       out.puts %(#{date} * "CETESDirecto" "#{narration}")
@@ -134,7 +134,7 @@ module Frijolero
 
       return if unrealized.abs < 0.005
 
-      out.puts %(#{period_end} * "CETESDirecto" "Plusvalia del periodo")
+      out.puts %(#{period_end} * "CETESDirecto" "Plusvalía del periodo")
       out.puts "  #{account}  #{format("%.2f", unrealized)} MXN"
       out.puts "  #{gains_account}"
       out.puts
