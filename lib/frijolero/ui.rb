@@ -38,6 +38,24 @@ module Frijolero
         ::CLI::UI.fmt(msg)
       end
 
+      def ask_with_autocomplete(prompt, completions)
+        require "reline"
+
+        old_proc = Reline.completion_proc
+        old_append = Reline.completion_append_character
+
+        Reline.completion_append_character = ""
+        Reline.completion_proc = proc do |input|
+          pattern = input.downcase
+          completions.select { |c| c.downcase.include?(pattern) }
+        end
+
+        Reline.readline(fmt(prompt) + " ", false)&.strip
+      ensure
+        Reline.completion_proc = old_proc
+        Reline.completion_append_character = old_append
+      end
+
       def short_path(path)
         home = Dir.home
         path.start_with?(home) ? path.sub(home, "~") : path

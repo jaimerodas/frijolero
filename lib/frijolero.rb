@@ -12,6 +12,7 @@ require_relative "frijolero/beancount_converter"
 require_relative "frijolero/cetes_directo_converter"
 require_relative "frijolero/beancount_merger"
 require_relative "frijolero/csv_converter"
+require_relative "frijolero/account_renamer"
 require_relative "frijolero/cli"
 
 module Frijolero

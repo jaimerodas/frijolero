@@ -40,6 +40,8 @@ module Frijolero
         run_csv(args)
       when "review"
         run_review(args)
+      when "rename"
+        run_rename(args)
       else
         warn "Unknown command: #{command}"
         warn "Run 'frijolero --help' for usage information"
@@ -61,6 +63,7 @@ module Frijolero
           merge FILE.bc      Merge beancount into main ledger
           csv FILE.json      Convert JSON to CSV
           review FILE.json   Review and edit transactions in web UI
+          rename             Rename an account across all files
 
         Options:
           --help, -h         Show this help message
@@ -406,6 +409,75 @@ module Frijolero
       end
 
       Web::App.run!(port: options[:port], bind: "localhost")
+    end
+
+    def run_rename(args)
+      if args.include?("--help") || args.include?("-h")
+        puts "Usage: frijolero rename"
+        puts
+        puts "Interactively rename an account across beancount files,"
+        puts "detailer configs, and accounts.yaml."
+        return
+      end
+
+      check_config!
+
+      accounts = begin
+        Accounts.new.all
+      rescue ArgumentError
+        []
+      end
+
+      UI.frame("Rename account") do
+        old_name = UI.ask_with_autocomplete("Current account:", accounts)
+        return UI.puts("{{x}} No account specified") if old_name.nil? || old_name.empty?
+
+        new_name = UI.ask_with_autocomplete("New name:", accounts)
+        return UI.puts("{{x}} No new name specified") if new_name.nil? || new_name.empty?
+
+        if old_name == new_name
+          UI.puts "{{x}} Names are the same, nothing to do"
+          return
+        end
+
+        renamer = AccountRenamer.new(old_name: old_name, new_name: new_name)
+        result = renamer.preview
+
+        total_beancount = result[:beancount].sum { |c| c[:count] }
+        total_detailers = result[:detailers].sum { |c| c[:count] }
+        total_accounts = result[:accounts_yaml].size
+
+        if total_beancount == 0 && total_detailers == 0 && total_accounts == 0
+          UI.puts "{{x}} No occurrences found for {{bold:#{old_name}}}"
+          return
+        end
+
+        if result[:beancount].any?
+          UI.puts "{{bold:Beancount files}}: #{result[:beancount].size} files, #{total_beancount} occurrences"
+          result[:beancount].each do |change|
+            UI.puts "  #{UI.short_path(change[:path])} (#{change[:count]})"
+          end
+        end
+
+        if result[:detailers].any?
+          UI.puts "{{bold:Detailers}}: #{result[:detailers].size} files, #{total_detailers} rules"
+          result[:detailers].each do |change|
+            UI.puts "  #{UI.short_path(change[:path])} (#{change[:count]})"
+          end
+        end
+
+        if result[:accounts_yaml].any?
+          UI.puts "{{bold:accounts.yaml}}: #{total_accounts} fields"
+          result[:accounts_yaml].each do |change|
+            UI.puts "  #{change[:account_key]}.#{change[:field]}"
+          end
+        end
+
+        if UI.confirm("Apply changes?")
+          renamer.apply!
+          UI.puts "{{v}} Changes applied"
+        end
+      end
     end
 
     def check_config!
