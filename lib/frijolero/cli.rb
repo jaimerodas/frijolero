@@ -42,6 +42,8 @@ module Frijolero
         run_review(args)
       when "rename"
         run_rename(args)
+      when "split"
+        run_split(args)
       else
         warn "Unknown command: #{command}"
         warn "Run 'frijolero --help' for usage information"
@@ -64,6 +66,7 @@ module Frijolero
           csv FILE.json      Convert JSON to CSV
           review FILE.json   Review and edit transactions in web UI
           rename             Rename an account across all files
+          split [ACCOUNT]    Split inline transactions into monthly files
 
         Options:
           --help, -h         Show this help message
@@ -476,6 +479,82 @@ module Frijolero
         if UI.confirm("Apply changes?")
           renamer.apply!
           UI.puts "{{v}} Changes applied"
+        end
+      end
+    end
+
+    def run_split(args)
+      options = {dry_run: false}
+
+      parser = OptionParser.new do |opts|
+        opts.banner = "Usage: frijolero split [ACCOUNT] [--dry-run]"
+
+        opts.on("--dry-run", "Show what would be done without modifying files") do
+          options[:dry_run] = true
+        end
+
+        opts.on("-h", "--help", "Show this help") do
+          puts opts
+          exit
+        end
+      end
+
+      parser.parse!(args)
+      check_config!
+
+      beancount_file = Config.beancount_main_file
+      unless beancount_file && File.exist?(beancount_file)
+        warn "Beancount file not found. Set paths.beancount_main in ~/.frijolero/config.yaml"
+        exit 1
+      end
+
+      splitter = TransactionSplitter.new(beancount_file: beancount_file)
+      summary = splitter.summary
+
+      if summary.empty?
+        UI.puts "No inline transactions found."
+        return
+      end
+
+      # Show summary
+      total = summary.values.sum
+      UI.frame("Summary: #{total} inline transactions") do
+        summary.each do |account, count|
+          UI.puts "  #{account}: #{count}"
+        end
+      end
+
+      # Determine account key
+      account_key = args.first
+      unless account_key
+        choosable = summary.keys.reject { |k| k == "Other" }
+        if choosable.empty?
+          UI.puts "No configured accounts to split."
+          return
+        end
+        account_key = UI.ask_select("Which account do you want to split?", choosable)
+      end
+
+      # Run split
+      UI.frame("Splitting: #{account_key}") do
+        result = splitter.split(account_key: account_key, dry_run: options[:dry_run])
+
+        if result[:matched] == 0
+          UI.puts "No transactions found for #{account_key}"
+          return
+        end
+
+        result[:groups].sort.each do |yymm, count|
+          skip = result[:existing]&.include?(yymm) ? " {{x}} already exists" : ""
+          UI.puts "  #{result[:prefix]}_#{yymm}.beancount: #{count} transactions#{skip}"
+        end
+
+        if options[:dry_run]
+          UI.puts ""
+          UI.puts "(dry run — no files modified)"
+        else
+          UI.puts ""
+          UI.puts "{{v}} #{result[:extracted]} transactions extracted into #{result[:files]} files"
         end
       end
     end

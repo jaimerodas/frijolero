@@ -56,6 +56,10 @@ module Frijolero
         Reline.completion_append_character = old_append
       end
 
+      def ask_select(prompt, options)
+        ::CLI::UI::Prompt.ask(prompt, options: options)
+      end
+
       def short_path(path)
         home = Dir.home
         path.start_with?(home) ? path.sub(home, "~") : path
