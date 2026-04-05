@@ -73,6 +73,12 @@ module Frijolero
         beancount_path = File.join(@output_dir, "beancount", "#{base_name}.beancount")
         processed_path = File.join(@output_dir, "processed", File.basename(pdf_path))
 
+        # Check for existing output files before doing any work
+        unless check_overwrite(json_path, beancount_path)
+          UI.puts "{{i}} Skipping #{filename}"
+          return
+        end
+
         begin
           # Step 1: Upload PDF to OpenAI
           file_id = nil
@@ -178,6 +184,45 @@ module Frijolero
       else
         UI.puts "{{i}} No detailer config found, skipping enrichment"
       end
+    end
+
+    def check_overwrite(json_path, beancount_path)
+      existing = [json_path, beancount_path].select { |p| File.exist?(p) }
+      return true if existing.empty?
+
+      UI.puts "{{⚠}} Existing files will be overwritten:"
+
+      if File.exist?(json_path)
+        show_existing_json_info(json_path)
+      end
+
+      if File.exist?(beancount_path)
+        mtime = File.mtime(beancount_path).strftime("%Y-%m-%d %H:%M")
+        UI.puts "  Beancount: #{UI.short_path(beancount_path)} (modified #{mtime})"
+      end
+
+      UI.confirm("Overwrite existing files?", default: false)
+    end
+
+    def show_existing_json_info(json_path)
+      mtime = File.mtime(json_path).strftime("%Y-%m-%d %H:%M")
+      data = JSON.parse(File.read(json_path))
+      tx_list = data["transactions"] || data["movements"] || []
+
+      summary = if data.key?("transactions") && tx_list.any?
+        dates = tx_list.map { |t| t["date"] }.compact.sort
+        date_range = dates.any? ? " (#{dates.first} to #{dates.last})" : ""
+        "#{tx_list.size} transactions#{UI.transaction_summary(tx_list)}#{date_range}"
+      elsif data.key?("movements") && tx_list.any?
+        "#{tx_list.size} movements"
+      else
+        "empty"
+      end
+
+      UI.puts "  JSON: #{UI.short_path(json_path)} (modified #{mtime})"
+      UI.puts "  Contains: #{summary}"
+    rescue JSON::ParserError
+      UI.puts "  JSON: #{UI.short_path(json_path)} (modified #{File.mtime(json_path).strftime("%Y-%m-%d %H:%M")}, could not parse)"
     end
 
     def format_elapsed(seconds)

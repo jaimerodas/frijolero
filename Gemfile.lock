@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    frijolero (0.2.0)
+    frijolero (0.3.0)
       cli-ui
       csv (~> 3.0)
       rackup
