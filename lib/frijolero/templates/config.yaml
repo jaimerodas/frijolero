@@ -8,6 +8,7 @@ openai_api_key: your_key_here
 openai_prompts:
   default: pmpt_xxx
   bbva: pmpt_yyy
+  fintual: pmpt_zzz
 
 # File paths (use ~ for home directory)
 paths:

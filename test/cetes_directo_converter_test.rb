@@ -71,7 +71,7 @@ class CetesDirectoConverterTest < Minitest::Test
       # unrealized = 91200.10 - 95425.50 = -4225.40
       assert_includes content, '2026-02-28 * "CETESDirecto" "Plusvalía del periodo"'
       assert_includes content, "Assets:Investments:CETESDirecto  -4225.40 MXN"
-      assert_includes content, "Income:Gains"
+      assert_includes content, "Income:Gains:CetesDirecto"
     end
   end
 
@@ -108,7 +108,7 @@ class CetesDirectoConverterTest < Minitest::Test
       counterpart_account: "Assets:BBVA",
       interest_account: "Income:Interest",
       tax_account: "Expenses:Taxes:ISR",
-      gains_account: "Income:Gains"
+      gains_account: "Income:Gains:CetesDirecto"
     )
 
     output_path
