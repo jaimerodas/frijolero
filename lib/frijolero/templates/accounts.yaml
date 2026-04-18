@@ -15,3 +15,13 @@ BBVA:
 BBVA TDC:
   beancount_account: "Liabilities:BBVA"
   openai_prompt_type: default
+
+# Example: Fintual investment statement (per-commodity cost basis)
+Fintual:
+  beancount_account: "Assets:Fintual"
+  openai_prompt_type: fintual
+  converter_type: fintual
+  counterpart_account: "Assets:BBVA"
+  dividend_account: "Income:Fintual:Dividends"
+  interest_account: "Income:Fintual:Interest"
+  gains_account: "Income:Gains:Fintual"

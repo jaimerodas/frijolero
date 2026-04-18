@@ -101,9 +101,13 @@ module Frijolero
 
           converter_type = account_config["converter_type"]
 
-          if converter_type == "cetes_directo"
+          case converter_type
+          when "cetes_directo"
             mov_list = transactions["movements"] || []
             UI.puts "Found #{mov_list.size} movements"
+          when "fintual"
+            tx_list = transactions["transactions"] || []
+            UI.puts "Found #{tx_list.size} transactions"
           else
             tx_list = transactions["transactions"] || []
             UI.puts "Found #{tx_list.size} transactions#{UI.transaction_summary(tx_list)}"
@@ -113,13 +117,14 @@ module Frijolero
           File.write(json_path, JSON.pretty_generate(transactions))
           UI.puts "Saved JSON: #{UI.short_path(json_path)}"
 
-          # Step 4: Run detailer if config exists (skip for cetes_directo)
-          run_detailer(json_path, account_name) unless converter_type == "cetes_directo"
+          # Step 4: Run detailer if config exists (skip for investment converters)
+          run_detailer(json_path, account_name) unless %w[cetes_directo fintual].include?(converter_type)
 
           # Step 5: Convert to beancount (interactive)
           beancount_account = account_config["beancount_account"]
           if UI.confirm("Convert to Beancount (#{beancount_account})?")
-            if converter_type == "cetes_directo"
+            case converter_type
+            when "cetes_directo"
               CetesDirectoConverter.convert(
                 input: json_path,
                 account: beancount_account,
@@ -128,6 +133,16 @@ module Frijolero
                 interest_account: account_config["interest_account"],
                 tax_account: account_config["tax_account"],
                 gains_account: account_config["gains_account"] || CetesDirectoConverter::DEFAULT_GAINS_ACCOUNT
+              )
+            when "fintual"
+              FintualConverter.convert(
+                input: json_path,
+                account: beancount_account,
+                output: beancount_path,
+                counterpart_account: account_config["counterpart_account"],
+                dividend_account: account_config["dividend_account"],
+                interest_account: account_config["interest_account"],
+                gains_account: account_config["gains_account"] || FintualConverter::DEFAULT_GAINS_ACCOUNT
               )
             else
               BeancountConverter.convert(
@@ -190,7 +205,7 @@ module Frijolero
       existing = [json_path, beancount_path].select { |p| File.exist?(p) }
       return true if existing.empty?
 
-      UI.puts "{{⚠}} Existing files will be overwritten:"
+      UI.puts "{{!}} Existing files will be overwritten:"
 
       if File.exist?(json_path)
         show_existing_json_info(json_path)

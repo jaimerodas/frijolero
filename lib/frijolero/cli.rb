@@ -249,7 +249,8 @@ module Frijolero
       UI.frame("Converting: #{filename}") do
         UI.puts "Account: #{options[:account]}"
 
-        if converter_type == "cetes_directo"
+        case converter_type
+        when "cetes_directo"
           movements = JSON.load_file(input).dig("movements") || []
           UI.puts "Found #{movements.size} movements"
 
@@ -261,6 +262,19 @@ module Frijolero
             interest_account: account_config["interest_account"],
             tax_account: account_config["tax_account"],
             gains_account: account_config["gains_account"] || CetesDirectoConverter::DEFAULT_GAINS_ACCOUNT
+          )
+        when "fintual"
+          transactions = JSON.load_file(input).dig("transactions") || []
+          UI.puts "Found #{transactions.size} transactions"
+
+          output_path = FintualConverter.convert(
+            input: input,
+            account: options[:account],
+            output: options[:output],
+            counterpart_account: account_config["counterpart_account"],
+            dividend_account: account_config["dividend_account"],
+            interest_account: account_config["interest_account"],
+            gains_account: account_config["gains_account"] || FintualConverter::DEFAULT_GAINS_ACCOUNT
           )
         else
           transactions = JSON.load_file(input).dig("transactions") || []
