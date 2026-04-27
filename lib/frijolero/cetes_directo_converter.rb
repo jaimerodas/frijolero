@@ -4,7 +4,7 @@ require "json"
 require "date"
 
 module Frijolero
-  module CetesDirectoConverter
+  class CetesDirectoConverter
     MOVEMENT_HANDLERS = {
       "cash_in" => :handle_cash_in,
       "cash_out" => :handle_cash_out,
@@ -14,137 +14,149 @@ module Frijolero
 
     DEFAULT_GAINS_ACCOUNT = "Income:FIXME"
 
-    def self.convert(
+    def self.convert(**kwargs)
+      new(**kwargs).convert
+    end
+
+    def initialize(
       input:,
       account:,
       output: nil,
       counterpart_account: nil,
       interest_account: nil,
       tax_account: nil,
-      gains_account: DEFAULT_GAINS_ACCOUNT,
-      **_
+      gains_account: DEFAULT_GAINS_ACCOUNT
     )
       raise ArgumentError, "input file required" unless input
       raise ArgumentError, "account required" unless account
 
-      output ||= File.expand_path(
-        File.join(File.dirname(input), "..", "beancount",
-          File.basename(input, ".json") + ".beancount")
+      @input = input
+      @account = account
+      @output = output
+      @counterpart_account = counterpart_account
+      @interest_account = interest_account
+      @tax_account = tax_account
+      @gains_account = gains_account
+    end
+
+    def convert
+      output = @output || File.expand_path(
+        File.join(File.dirname(@input), "..", "beancount",
+          File.basename(@input, ".json") + ".beancount")
       )
 
-      json = JSON.parse(File.read(input))
+      File.open(output, "w") { |file| run_to(file) }
+
+      output
+    end
+
+    def run_to(io)
+      json = JSON.parse(File.read(@input))
       movements = json.fetch("movements", [])
       metadata = json.fetch("statement_metadata", {})
       opening = json.fetch("opening_state", {})
       closing = json.fetch("closing_state", {})
 
-      total_inflows = 0.0
-      total_outflows = 0.0
+      @inflows = 0.0
+      @outflows = 0.0
+      @opening_total = opening["total"].to_f
+      @closing_total = closing["total"].to_f
+      @period_end = metadata["period_end"]
+      @out = io
 
-      File.open(output, "w") do |out|
+      begin
         movements.each do |mov|
           handler = MOVEMENT_HANDLERS[mov["movement_type"]]
           next unless handler
 
-          inflow = mov["cash_inflow"].to_f
-          outflow = mov["cash_outflow"].to_f
-          total_inflows += inflow
-          total_outflows += outflow
+          @inflows += mov["cash_inflow"].to_f
+          @outflows += mov["cash_outflow"].to_f
 
-          send(handler, out, mov, account,
-            counterpart_account: counterpart_account,
-            interest_account: interest_account,
-            tax_account: tax_account)
+          send(handler, mov)
         end
 
-        write_mark_to_market(out, account, gains_account,
-          opening["total"].to_f, closing["total"].to_f,
-          total_inflows, total_outflows,
-          metadata["period_end"])
-
-        write_balance_assertion(out, account,
-          closing["total"].to_f, metadata["period_end"])
+        write_mark_to_market
+        write_balance_assertion
+      ensure
+        @out = nil
       end
-
-      output
     end
 
-    private_class_method def self.handle_cash_in(out, mov, account, counterpart_account:, **)
+    private
+
+    def handle_cash_in(mov)
       date = mov["settlement_date"] || mov["trade_date"]
       amount = mov["cash_inflow"].to_f
-      target = counterpart_account || "Expenses:FIXME"
+      target = @counterpart_account || "Expenses:FIXME"
 
-      out.puts %(#{date} * "CETESDirecto" "Depósito")
-      out.puts "  #{account}  #{format("%.2f", amount)} MXN"
-      out.puts "  #{target}"
-      out.puts
+      @out.puts %(#{date} * "CETESDirecto" "Depósito")
+      @out.puts "  #{@account}  #{format("%.2f", amount)} MXN"
+      @out.puts "  #{target}"
+      @out.puts
     end
 
-    private_class_method def self.handle_cash_out(out, mov, account, counterpart_account:, **)
+    def handle_cash_out(mov)
       date = mov["settlement_date"] || mov["trade_date"]
       amount = mov["cash_outflow"].to_f
-      target = counterpart_account || "Expenses:FIXME"
+      target = @counterpart_account || "Expenses:FIXME"
 
-      out.puts %(#{date} * "CETESDirecto" "Retiro")
-      out.puts "  #{account}  #{format("%.2f", -amount)} MXN"
-      out.puts "  #{target}"
-      out.puts
+      @out.puts %(#{date} * "CETESDirecto" "Retiro")
+      @out.puts "  #{@account}  #{format("%.2f", -amount)} MXN"
+      @out.puts "  #{target}"
+      @out.puts
     end
 
-    private_class_method def self.handle_interest(out, mov, account, interest_account:, **)
+    def handle_interest(mov)
       date = mov["settlement_date"] || mov["trade_date"]
       amount = mov["cash_inflow"].to_f
       issuer = mov["issuer"]
       series = mov["series"]
-      target = interest_account || "Income:FIXME"
+      target = @interest_account || "Income:FIXME"
 
       narration = "Pago de intereses"
       narration += " #{issuer} #{series}" if issuer && issuer != "PESOS"
 
-      out.puts %(#{date} * "CETESDirecto" "#{narration}")
-      out.puts "  #{account}  #{format("%.2f", amount)} MXN"
-      out.puts "  #{target}"
-      out.puts
+      @out.puts %(#{date} * "CETESDirecto" "#{narration}")
+      @out.puts "  #{@account}  #{format("%.2f", amount)} MXN"
+      @out.puts "  #{target}"
+      @out.puts
     end
 
-    private_class_method def self.handle_tax(out, mov, account, tax_account:, **)
+    def handle_tax(mov)
       date = mov["settlement_date"] || mov["trade_date"]
       amount = mov["cash_outflow"].to_f
       issuer = mov["issuer"]
       series = mov["series"]
-      target = tax_account || "Expenses:FIXME"
+      target = @tax_account || "Expenses:FIXME"
 
       narration = "Retención ISR"
       narration += " #{issuer} #{series}" if issuer && issuer != "PESOS"
 
-      out.puts %(#{date} * "CETESDirecto" "#{narration}")
-      out.puts "  #{account}  #{format("%.2f", -amount)} MXN"
-      out.puts "  #{target}"
-      out.puts
+      @out.puts %(#{date} * "CETESDirecto" "#{narration}")
+      @out.puts "  #{@account}  #{format("%.2f", -amount)} MXN"
+      @out.puts "  #{target}"
+      @out.puts
     end
 
-    private_class_method def self.write_mark_to_market(out, account, gains_account,
-      opening_total, closing_total,
-      total_inflows, total_outflows,
-      period_end)
-      return unless period_end
+    def write_mark_to_market
+      return unless @period_end
 
-      expected = opening_total + total_inflows - total_outflows
-      unrealized = closing_total - expected
+      expected = @opening_total + @inflows - @outflows
+      unrealized = @closing_total - expected
 
       return if unrealized.abs < 0.005
 
-      out.puts %(#{period_end} * "CETESDirecto" "Plusvalía del periodo")
-      out.puts "  #{account}  #{format("%.2f", unrealized)} MXN"
-      out.puts "  #{gains_account}"
-      out.puts
+      @out.puts %(#{@period_end} * "CETESDirecto" "Plusvalía del periodo")
+      @out.puts "  #{@account}  #{format("%.2f", unrealized)} MXN"
+      @out.puts "  #{@gains_account}"
+      @out.puts
     end
 
-    private_class_method def self.write_balance_assertion(out, account, closing_total, period_end)
-      return unless period_end
+    def write_balance_assertion
+      return unless @period_end
 
-      assertion_date = (Date.parse(period_end) + 1).strftime("%Y-%m-%d")
-      out.puts "#{assertion_date} balance #{account}  #{format("%.2f", closing_total)} MXN"
+      assertion_date = (Date.parse(@period_end) + 1).strftime("%Y-%m-%d")
+      @out.puts "#{assertion_date} balance #{@account}  #{format("%.2f", @closing_total)} MXN"
     end
   end
 end
