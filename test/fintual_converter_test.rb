@@ -93,6 +93,22 @@ class FintualConverterTest < Minitest::Test
     end
   end
 
+  def test_run_to_writes_to_io
+    io = StringIO.new
+
+    Frijolero::FintualConverter.new(
+      input: fixture_path("sample_fintual.json"),
+      account: "Assets:Fintual",
+      counterpart_account: "Assets:BBVA",
+      dividend_account: "Income:Fintual:Dividends",
+      interest_account: "Income:Fintual:Interest",
+      gains_account: "Income:Gains:Fintual"
+    ).run_to(io)
+
+    assert_includes io.string, '2026-03-17 * "Fintual" "Nos depositaste"'
+    assert_includes io.string, "2026-03-31 price PORTMAN_E10F  1.334367 MXN"
+  end
+
   def test_raises_without_input
     assert_raises ArgumentError do
       Frijolero::FintualConverter.convert(input: nil, account: "Test")
@@ -102,6 +118,18 @@ class FintualConverterTest < Minitest::Test
   def test_raises_without_account
     assert_raises ArgumentError do
       Frijolero::FintualConverter.convert(input: "test.json", account: nil)
+    end
+  end
+
+  def test_initializer_raises_without_input
+    assert_raises ArgumentError do
+      Frijolero::FintualConverter.new(input: nil, account: "Test")
+    end
+  end
+
+  def test_initializer_raises_without_account
+    assert_raises ArgumentError do
+      Frijolero::FintualConverter.new(input: "test.json", account: nil)
     end
   end
 

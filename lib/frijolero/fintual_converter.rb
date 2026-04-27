@@ -3,7 +3,7 @@
 require "json"
 
 module Frijolero
-  module FintualConverter
+  class FintualConverter
     TRANSACTION_HANDLERS = {
       "deposit" => :handle_deposit,
       "withdrawal" => :handle_withdrawal,
@@ -15,138 +15,156 @@ module Frijolero
 
     DEFAULT_GAINS_ACCOUNT = "Income:FIXME"
 
-    def self.convert(
+    def self.convert(**kwargs)
+      new(**kwargs).convert
+    end
+
+    def initialize(
       input:,
       account:,
       output: nil,
       counterpart_account: nil,
       dividend_account: nil,
       interest_account: nil,
-      gains_account: DEFAULT_GAINS_ACCOUNT,
-      **_
+      gains_account: DEFAULT_GAINS_ACCOUNT
     )
       raise ArgumentError, "input file required" unless input
       raise ArgumentError, "account required" unless account
 
-      output ||= File.expand_path(
-        File.join(File.dirname(input), "..", "beancount",
-          File.basename(input, ".json") + ".beancount")
+      @input = input
+      @account = account
+      @output = output
+      @counterpart_account = counterpart_account
+      @dividend_account = dividend_account
+      @interest_account = interest_account
+      @gains_account = gains_account
+    end
+
+    def convert
+      output = @output || File.expand_path(
+        File.join(File.dirname(@input), "..", "beancount",
+          File.basename(@input, ".json") + ".beancount")
       )
 
-      json = JSON.parse(File.read(input, encoding: "UTF-8"))
-      txs = json.fetch("transactions", [])
-      holdings = json.fetch("holdings_current", [])
-      currency = json["currency"] || "MXN"
-      payee = json["provider"] || "Fintual"
-
-      File.open(output, "w") do |out|
-        txs.each do |tx|
-          handler = TRANSACTION_HANDLERS[tx["transaction_type"]]
-          next unless handler
-
-          send(handler, out, tx, account, currency, payee,
-            counterpart_account: counterpart_account,
-            dividend_account: dividend_account,
-            interest_account: interest_account,
-            gains_account: gains_account)
-        end
-
-        write_price_declarations(out, holdings, currency)
-      end
+      File.open(output, "w") { |file| run_to(file) }
 
       output
     end
 
-    private_class_method def self.write_price_declarations(out, holdings, currency)
-      holdings.each do |h|
+    def run_to(io)
+      json = JSON.parse(File.read(@input, encoding: "UTF-8"))
+      txs = json.fetch("transactions", [])
+      @holdings = json.fetch("holdings_current", [])
+      @currency = json["currency"] || "MXN"
+      @payee = json["provider"] || "Fintual"
+      @out = io
+
+      begin
+        txs.each do |tx|
+          handler = TRANSACTION_HANDLERS[tx["transaction_type"]]
+          next unless handler
+
+          send(handler, tx)
+        end
+
+        write_price_declarations
+      ensure
+        @out = nil
+      end
+    end
+
+    def write_price_declarations
+      @holdings.each do |h|
         commodity = h["commodity"]
         price = h["price_per_unit"]
         date = h["price_date"]
         next if commodity.nil? || price.nil? || date.nil?
 
-        out.puts "#{date} price #{commodity}  #{price} #{currency}"
+        @out.puts "#{date} price #{commodity}  #{price} #{@currency}"
       end
     end
 
-    private_class_method def self.handle_deposit(out, tx, account, currency, payee, counterpart_account:, **)
+    private
+
+    def handle_deposit(tx)
       amount = tx["reported_amount"].to_f
-      target = counterpart_account || "Assets:FIXME"
+      target = @counterpart_account || "Assets:FIXME"
       narration = tx["description"] || "Depósito"
 
-      out.puts %(#{tx["trade_date"]} * "#{payee}" "#{narration}")
-      out.puts "  #{account}:Cash  #{format("%.2f", amount)} #{currency}"
-      out.puts "  #{target}"
-      out.puts
+      @out.puts %(#{tx["trade_date"]} * "#{@payee}" "#{narration}")
+      @out.puts "  #{@account}:Cash  #{format("%.2f", amount)} #{@currency}"
+      @out.puts "  #{target}"
+      @out.puts
     end
 
-    private_class_method def self.handle_withdrawal(out, tx, account, currency, payee, counterpart_account:, **)
+    def handle_withdrawal(tx)
       amount = tx["reported_amount"].to_f
-      target = counterpart_account || "Assets:FIXME"
+      target = @counterpart_account || "Assets:FIXME"
       narration = tx["description"] || "Retiro"
 
-      out.puts %(#{tx["trade_date"]} * "#{payee}" "#{narration}")
-      out.puts "  #{account}:Cash  #{format("%.2f", -amount)} #{currency}"
-      out.puts "  #{target}"
-      out.puts
+      @out.puts %(#{tx["trade_date"]} * "#{@payee}" "#{narration}")
+      @out.puts "  #{@account}:Cash  #{format("%.2f", -amount)} #{@currency}"
+      @out.puts "  #{target}"
+      @out.puts
     end
 
-    private_class_method def self.handle_buy(out, tx, account, currency, payee, **)
+    def handle_buy(tx)
       commodity = tx["commodity"]
       units = format_units(tx["units"])
       price = tx["price_per_unit"]
       cash_amount = tx["reported_amount"].to_f
       narration = build_fund_narration(tx["description"] || "Compra", tx["fund_code_raw"])
 
-      out.puts %(#{tx["trade_date"]} * "#{payee}" "#{narration}")
-      out.puts "  #{account}:#{commodity}  #{units} #{commodity} {#{price} #{currency}}"
-      out.puts "  #{account}:Cash  #{format("%.2f", -cash_amount)} #{currency}"
-      out.puts
+      @out.puts %(#{tx["trade_date"]} * "#{@payee}" "#{narration}")
+      @out.puts "  #{@account}:#{commodity}  #{units} #{commodity} {#{price} #{@currency}}"
+      @out.puts "  #{@account}:Cash  #{format("%.2f", -cash_amount)} #{@currency}"
+      @out.puts
     end
 
-    private_class_method def self.handle_sell(out, tx, account, currency, payee, gains_account:, **)
+    def handle_sell(tx)
       commodity = tx["commodity"]
       units = format_units(tx["units"])
       price = tx["price_per_unit"]
       cash_amount = tx["reported_amount"].to_f
       narration = build_fund_narration(tx["description"] || "Venta", tx["fund_code_raw"])
 
-      out.puts %(#{tx["trade_date"]} * "#{payee}" "#{narration}")
-      out.puts "  #{account}:#{commodity}  -#{units} #{commodity} {} @ #{price} #{currency}"
-      out.puts "  #{account}:Cash  #{format("%.2f", cash_amount)} #{currency}"
-      out.puts "  #{gains_account}"
-      out.puts
+      @out.puts %(#{tx["trade_date"]} * "#{@payee}" "#{narration}")
+      @out.puts "  #{@account}:#{commodity}  -#{units} #{commodity} {} @ #{price} #{@currency}"
+      @out.puts "  #{@account}:Cash  #{format("%.2f", cash_amount)} #{@currency}"
+      @out.puts "  #{@gains_account}"
+      @out.puts
     end
 
-    private_class_method def self.handle_dividend(out, tx, account, currency, payee, dividend_account:, **)
+    def handle_dividend(tx)
       amount = tx["reported_amount"].to_f
-      target = dividend_account || "Income:FIXME"
+      target = @dividend_account || "Income:FIXME"
       narration = tx["description"] || "Dividendo"
 
-      out.puts %(#{tx["trade_date"]} * "#{payee}" "#{narration}")
-      out.puts "  #{account}:Cash  #{format("%.2f", amount)} #{currency}"
-      out.puts "  #{target}"
-      out.puts
+      @out.puts %(#{tx["trade_date"]} * "#{@payee}" "#{narration}")
+      @out.puts "  #{@account}:Cash  #{format("%.2f", amount)} #{@currency}"
+      @out.puts "  #{target}"
+      @out.puts
     end
 
-    private_class_method def self.handle_interest(out, tx, account, currency, payee, interest_account:, **)
+    def handle_interest(tx)
       amount = tx["reported_amount"].to_f
-      target = interest_account || "Income:FIXME"
+      target = @interest_account || "Income:FIXME"
       narration = tx["description"] || "Intereses"
 
-      out.puts %(#{tx["trade_date"]} * "#{payee}" "#{narration}")
-      out.puts "  #{account}:Cash  #{format("%.2f", amount)} #{currency}"
-      out.puts "  #{target}"
-      out.puts
+      @out.puts %(#{tx["trade_date"]} * "#{@payee}" "#{narration}")
+      @out.puts "  #{@account}:Cash  #{format("%.2f", amount)} #{@currency}"
+      @out.puts "  #{target}"
+      @out.puts
     end
 
-    private_class_method def self.format_units(units_str)
+    def format_units(units_str)
       return units_str if units_str.nil?
       cleaned = units_str.to_s.delete(",")
       value = cleaned.to_f
       (value == value.to_i) ? value.to_i.to_s : cleaned
     end
 
-    private_class_method def self.build_fund_narration(description, fund_code)
+    def build_fund_narration(description, fund_code)
       return description if fund_code.nil? || fund_code.empty?
       "#{description} #{fund_code}"
     end
