@@ -92,7 +92,7 @@ module Frijolero
         response = begin
           http.request(request)
         rescue *NETWORK_EXCEPTIONS => e
-          raise NetworkError.new("#{e.class}: #{e.message}")
+          raise NetworkError, "#{e.class}: #{e.message}"
         end
 
         return JSON.parse(response.body) if response.is_a?(Net::HTTPSuccess)
@@ -156,32 +156,35 @@ module Frijolero
                                   ])
       end
 
-      raise APIError.new("File upload failed: #{data}") unless data['id']
+      raise APIError, "File upload failed: #{data}" unless data['id']
 
       data['id']
     end
 
     def extract_transactions(file_id, prompt_id)
-      data = @transport.post_json('/responses', {
-                                    prompt: { id: prompt_id },
-                                    input: [
-                                      {
-                                        role: 'user',
-                                        content: [{ type: 'input_file', file_id: file_id }]
-                                      }
-                                    ],
-                                    background: true
-                                  })
+      data = poll_response(start_extraction(file_id, prompt_id)['id'])
+      json_text = parse_response_text(data)
 
-      data = poll_response(data['id'])
-
-      text_output = data.dig('output')&.find { |o| o['type'] == 'message' }
-      content = text_output&.dig('content')&.find { |c| c['type'] == 'output_text' }
-      json_text = content&.dig('text')
-
-      raise APIError.new("Failed to extract transactions: #{data}") unless json_text
+      raise APIError, "Failed to extract transactions: #{data}" unless json_text
 
       JSON.parse(json_text)
+    end
+
+    def start_extraction(file_id, prompt_id)
+      @transport.post_json('/responses', {
+                             prompt: { id: prompt_id },
+                             input: [{
+                               role: 'user',
+                               content: [{ type: 'input_file', file_id: file_id }]
+                             }],
+                             background: true
+                           })
+    end
+
+    def parse_response_text(data)
+      text_output = data['output']&.find { |o| o['type'] == 'message' }
+      content = text_output&.fetch('content', nil)&.find { |c| c['type'] == 'output_text' }
+      content && content['text']
     end
 
     def delete_file(file_id)
@@ -203,12 +206,12 @@ module Frijolero
           return data
         when 'queued', 'in_progress'
           if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
-            raise APIError.new("Response polling timed out after #{@poll_timeout}s (still #{data['status']})")
+            raise APIError, "Response polling timed out after #{@poll_timeout}s (still #{data['status']})"
           end
 
           next
         else
-          raise APIError.new("Response failed with status: #{data['status']}")
+          raise APIError, "Response failed with status: #{data['status']}"
         end
       end
     end

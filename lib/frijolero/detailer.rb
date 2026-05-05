@@ -21,8 +21,7 @@ module Frijolero
       process_transactions
       write_file
 
-      detailed = @transactions.select { |t| @matched_ids.include?(t.object_id) }
-      remaining = @transactions.reject { |t| @matched_ids.include?(t.object_id) }
+      detailed, remaining = @transactions.partition { |t| @matched_ids.include?(t.object_id) }
 
       {
         total: @transactions.size,
@@ -34,7 +33,7 @@ module Frijolero
     private
 
     def load_json
-      @transactions = JSON.load_file(file).dig('transactions')
+      @transactions = JSON.load_file(file)['transactions']
     end
 
     def process_transactions

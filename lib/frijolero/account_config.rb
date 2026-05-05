@@ -54,7 +54,7 @@ module Frijolero
 
         account_name, = parsed
         config = find_config(account_name)
-        config&.dig('beancount_account')
+        config && config['beancount_account']
       end
 
       # Returns the detailer config path for a given filepath
@@ -64,22 +64,16 @@ module Frijolero
         return nil unless parsed
 
         account_name, = parsed
-
-        # Try to find the account in accounts.yaml to get the canonical name
-        config = find_config(account_name)
-        if config
-          # Find the canonical key name from accounts.yaml
-          canonical_name = accounts.find do |key, _|
-            normalized = account_name.gsub('_', ' ')
-            key.downcase == normalized.downcase ||
-              key.downcase == account_name.downcase
-          end&.first
-
-          account_name = canonical_name if canonical_name
-        end
-
-        path = detailer_config_path(account_name)
+        canonical = canonical_account_name(account_name) || account_name
+        path = detailer_config_path(canonical)
         path && File.exist?(path) ? path : nil
+      end
+
+      def canonical_account_name(account_name)
+        return nil unless find_config(account_name)
+
+        normalized = account_name.gsub('_', ' ').downcase
+        accounts.find { |key, _| key.downcase == normalized || key.downcase == account_name.downcase }&.first
       end
 
       # Returns a list of available account names for error messages

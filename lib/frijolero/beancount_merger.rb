@@ -16,30 +16,38 @@ module Frijolero
       validate!
 
       existing_includes = read_existing_includes
-      total_entries = 0
+      total_entries = @files.sum { |file| process_one(file, existing_includes) }
+      report_totals(total_entries)
+    end
 
-      @files.each do |file|
-        entries = count_entries(file)
-        total_entries += entries
-        basename = File.basename(file)
+    private
 
-        prefix = extract_prefix(file)
-        relative_path = "transactions/#{prefix}/#{basename}"
+    def process_one(file, existing_includes)
+      entries = count_entries(file)
+      basename = File.basename(file)
+      prefix = extract_prefix(file)
+      relative_path = "transactions/#{prefix}/#{basename}"
 
-        if existing_includes.include?(relative_path)
-          puts "Skipped (already included): #{basename}" unless @quiet
-          next
-        end
-
-        if @dry_run
-          puts "Would copy: #{basename} → #{relative_path}" unless @quiet
-          puts "Would add include: #{relative_path} (#{entries} entries)" unless @quiet
-        else
-          include_file(file, prefix)
-          puts "Merged: #{basename} (#{entries} entries)" unless @quiet
-        end
+      if existing_includes.include?(relative_path)
+        puts "Skipped (already included): #{basename}" unless @quiet
+      elsif @dry_run
+        announce_dry_run(basename, relative_path, entries)
+      else
+        include_file(file, prefix)
+        puts "Merged: #{basename} (#{entries} entries)" unless @quiet
       end
 
+      entries
+    end
+
+    def announce_dry_run(basename, relative_path, entries)
+      return if @quiet
+
+      puts "Would copy: #{basename} → #{relative_path}"
+      puts "Would add include: #{relative_path} (#{entries} entries)"
+    end
+
+    def report_totals(total_entries)
       return if @quiet
 
       puts
@@ -49,8 +57,6 @@ module Frijolero
         puts "Done. Merged #{total_entries} entries from #{@files.size} file(s) into #{@output}"
       end
     end
-
-    private
 
     def validate!
       raise ArgumentError, 'No input files provided' if @files.empty?

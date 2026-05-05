@@ -37,7 +37,7 @@ module Frijolero
       @beancount_changes ||= beancount_files.filter_map do |path|
         original = File.read(path)
         count = original.scan(beancount_pattern).size
-        next if count == 0
+        next if count.zero?
 
         modified = original.gsub(beancount_pattern, new_name)
         { path: path, count: count, content: modified }
@@ -54,30 +54,32 @@ module Frijolero
           "#{::Regexp.last_match(1)}#{new_name}#{::Regexp.last_match(2)}"
         end
 
-        next if count == 0
+        next if count.zero?
 
         { path: path, count: count, content: modified }
       end
     end
 
     def accounts_yaml_changes
-      @accounts_yaml_changes ||= begin
-        path = Config.accounts_file
-        return [] unless File.exist?(path)
+      return @accounts_yaml_changes if defined?(@accounts_yaml_changes)
 
-        data = YAML.load_file(path) || {}
-        changes = []
+      path = Config.accounts_file
+      @accounts_yaml_changes = File.exist?(path) ? collect_yaml_changes(path) : []
+    end
 
-        data.each do |key, values|
-          next unless values.is_a?(Hash)
+    def collect_yaml_changes(path)
+      data = YAML.load_file(path) || {}
+      changes = []
 
-          ACCOUNT_FIELDS.each do |field|
-            changes << { account_key: key, field: field } if values[field] == old_name
-          end
+      data.each do |key, values|
+        next unless values.is_a?(Hash)
+
+        ACCOUNT_FIELDS.each do |field|
+          changes << { account_key: key, field: field } if values[field] == old_name
         end
-
-        changes
       end
+
+      changes
     end
 
     def apply_accounts_yaml!

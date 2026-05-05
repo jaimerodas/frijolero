@@ -50,7 +50,7 @@ module Frijolero
           completions.select { |c| c.downcase.include?(pattern) }
         end
 
-        Reline.readline(fmt(prompt) + ' ', false)&.strip
+        Reline.readline("#{fmt(prompt)} ", false)&.strip
       ensure
         Reline.completion_proc = old_proc
         Reline.completion_append_character = old_append
@@ -65,8 +65,8 @@ module Frijolero
         path.start_with?(home) ? path.sub(home, '~') : path
       end
 
-      def format_number(n)
-        int_part, dec_part = format('%.2f', n).split('.')
+      def format_number(number)
+        int_part, dec_part = format('%.2f', number).split('.')
         int_with_commas = int_part.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse
         "#{int_with_commas}.#{dec_part}"
       end
@@ -79,20 +79,18 @@ module Frijolero
       def transaction_summary(transactions)
         return '' if transactions.empty?
 
-        debits = transactions.select { |t| t['amount'].to_f < 0 }
-        credits = transactions.select { |t| t['amount'].to_f >= 0 }
+        debits, credits = transactions.partition { |t| t['amount'].to_f.negative? }
 
         parts = []
-        if debits.any?
-          total = debits.sum { |t| t['amount'].to_f.abs }
-          parts << "#{debits.size} debits (#{format_number(total)})"
-        end
-        if credits.any?
-          total = credits.sum { |t| t['amount'].to_f }
-          parts << "#{credits.size} credits (#{format_number(total)})"
-        end
+        parts << format_summary_part('debits', debits) { |t| t['amount'].to_f.abs } if debits.any?
+        parts << format_summary_part('credits', credits) { |t| t['amount'].to_f } if credits.any?
 
         ": #{parts.join(', ')}"
+      end
+
+      def format_summary_part(label, transactions, &block)
+        total = transactions.sum(&block)
+        "#{transactions.size} #{label} (#{format_number(total)})"
       end
     end
   end
