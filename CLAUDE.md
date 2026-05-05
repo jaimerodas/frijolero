@@ -40,14 +40,15 @@ gem build frijolero.gemspec
 
 **Processing pipeline:**
 1. `StatementProcessor` orchestrates the full workflow: PDF → OpenAI extraction → detailer enrichment → beancount
-2. `Detailer` enriches transactions using YAML rules
-3. `BeancountConverter` converts enriched JSON to Beancount format
-4. `BeancountMerger` appends processed beancount files to the main ledger
-5. `CsvConverter` exports transactions to CSV
-6. `OpenAIClient` handles PDF upload/extraction via OpenAI API
-7. `UI` wraps `cli-ui` gem for terminal output (frames, spinners, prompts)
-8. `Accounts` parses beancount file for account names (autocomplete support)
-9. `Web::App` Sinatra app for reviewing/editing transactions in browser
+2. `Pipeline.for(account_config)` returns a strategy (`Pipeline::Default`, `CetesDirecto`, or `Fintual`) that knows how to summarize the extracted data, whether to run the detailer, and which underlying converter to call. Adding a new bank statement type means adding one strategy class — no edits to `StatementProcessor`.
+3. `Detailer` enriches transactions using YAML rules (only for `Default` pipeline)
+4. `BeancountConverter` / `CetesDirectoConverter` / `FintualConverter` convert enriched JSON to Beancount format (invoked by the pipeline strategy)
+5. `BeancountMerger` appends processed beancount files to the main ledger
+6. `CsvConverter` exports transactions to CSV
+7. `OpenAIClient` handles PDF upload/extraction via OpenAI API. HTTP transport, auth, and error mapping live in nested `OpenAIClient::Transport`; the outer class is a thin domain layer over it. Errors surface as typed exceptions: `AuthenticationError`, `InsufficientQuotaError`, `RateLimitError`, `APIError`, `NetworkError` — `StatementProcessor` aborts the batch on the first two and continues on the others.
+8. `UI` wraps `cli-ui` gem for terminal output (frames, spinners, prompts)
+9. `Accounts` parses beancount file for account names (autocomplete support)
+10. `Web::App` Sinatra app for reviewing/editing transactions in browser
 
 **Key files:**
 - `lib/frijolero.rb` - main require file
@@ -56,6 +57,8 @@ gem build frijolero.gemspec
 - `lib/frijolero/config.rb` - loads config from `~/.frijolero/`
 - `lib/frijolero/account_config.rb` - filename parsing and account lookup
 - `lib/frijolero/accounts.rb` - beancount account extraction and search
+- `lib/frijolero/pipeline.rb` - per-account-type strategies (summary, detailer toggle, converter dispatch)
+- `lib/frijolero/openai_client.rb` - OpenAI client + nested `Transport` + typed exception hierarchy
 - `lib/frijolero/web/app.rb` - Sinatra web UI (lazy-loaded by `review` command)
 - `bin/frijolero` - CLI entry point
 
