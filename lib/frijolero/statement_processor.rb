@@ -1,16 +1,14 @@
 # frozen_string_literal: true
 
-require 'yaml'
-require 'json'
 require 'fileutils'
 
 module Frijolero
   class StatementProcessor
-    def initialize(dry_run: false, interactive: true)
+    def initialize(dry_run: false, interactive: true, client: nil)
       @dry_run = dry_run
       @input_dir = Config.statements_input_dir
       @output_dir = Config.statements_output_dir
-      @client = OpenAIClient.new unless @dry_run
+      @client = client || (OpenAIClient.new unless @dry_run)
       UI.auto_accept = !interactive
     end
 
@@ -26,9 +24,7 @@ module Frijolero
       UI.puts "Found #{pdf_files.size} PDF(s) to process"
       UI.puts
 
-      pdf_files.each do |pdf_path|
-        process_pdf(pdf_path)
-      end
+      pdf_files.each { |pdf_path| process_pdf(pdf_path) }
     rescue OpenAIClient::InsufficientQuotaError, OpenAIClient::AuthenticationError
       UI.puts '{{x}} Aborted batch.'
     end
@@ -36,204 +32,15 @@ module Frijolero
     private
 
     def ensure_directories
+      return if @dry_run
+
       %w[json beancount processed].each do |subdir|
-        dir = File.join(@output_dir, subdir)
-        FileUtils.mkdir_p(dir) unless @dry_run
+        FileUtils.mkdir_p(File.join(@output_dir, subdir))
       end
     end
 
     def process_pdf(pdf_path)
-      filename = File.basename(pdf_path)
-
-      # Parse filename to extract account and date
-      parsed = AccountConfig.parse_filename(pdf_path)
-
-      unless parsed
-        UI.puts "{{x}} #{filename}: Could not parse filename format"
-        return
-      end
-
-      account_name, date_str = parsed
-      account_config = AccountConfig.find_config(account_name)
-
-      unless account_config
-        UI.puts "{{x}} #{filename}: No account configuration found for '#{account_name}'"
-        return
-      end
-
-      UI.frame("Processing: #{filename}") do
-        UI.puts "Account: #{account_name}"
-
-        if @dry_run
-          UI.puts '{{i}} [DRY RUN] Would process this file'
-          return
-        end
-
-        # Define output paths
-        base_name = "#{account_name.gsub(' ', '_')}_#{date_str}"
-        json_path = File.join(@output_dir, 'json', "#{base_name}.json")
-        beancount_path = File.join(@output_dir, 'beancount', "#{base_name}.beancount")
-        processed_path = File.join(@output_dir, 'processed', File.basename(pdf_path))
-
-        # Check for existing output files before doing any work
-        unless check_overwrite(json_path, beancount_path)
-          UI.puts "{{i}} Skipping #{filename}"
-          return
-        end
-
-        begin
-          # Step 1: Upload PDF to OpenAI
-          file_id = nil
-          UI.spinner('Uploading to OpenAI...') do |spinner|
-            start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-            file_id = @client.upload_file(pdf_path)
-            elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
-            spinner.update_title("Uploaded to OpenAI (#{format_elapsed(elapsed)})")
-          end
-
-          # Step 2: Extract transactions
-          transactions = nil
-          prompt_id = get_prompt_id(account_config['openai_prompt_type'])
-          UI.spinner('Extracting transactions...') do |spinner|
-            start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-            transactions = @client.extract_transactions(file_id, prompt_id)
-            elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
-            spinner.update_title("Extracted transactions (#{format_elapsed(elapsed)})")
-          end
-
-          pipeline = Pipeline.for(account_config)
-          UI.puts pipeline.summary(transactions)
-
-          # Step 3: Save JSON
-          File.write(json_path, JSON.pretty_generate(transactions))
-          UI.puts "Saved JSON: #{UI.short_path(json_path)}"
-
-          # Step 4: Run detailer if applicable
-          run_detailer(json_path, account_name) if pipeline.runs_detailer?
-
-          # Step 5: Convert to beancount (interactive)
-          if UI.confirm("Convert to Beancount (#{pipeline.beancount_account})?")
-            pipeline.convert(json_path: json_path, output: beancount_path)
-            UI.puts "Saved Beancount: #{UI.short_path(beancount_path)}"
-
-            # Step 6: Merge into ledger (interactive)
-            if UI.confirm('Merge into ledger?')
-              main_file = Config.beancount_main_file
-              if main_file
-                BeancountMerger.new(files: [beancount_path], quiet: true).run
-                UI.puts "Merged into: #{UI.short_path(main_file)}"
-              else
-                UI.puts '{{i}} No main ledger configured (set paths.beancount_main in config)'
-              end
-            end
-          else
-            UI.puts '{{i}} Skipped Beancount conversion'
-          end
-
-          # Step 7: Delete file from OpenAI (silent)
-          @client.delete_file(file_id)
-
-          # Step 8: Move processed PDF
-          FileUtils.mv(pdf_path, processed_path)
-          UI.puts "Moved PDF to: #{UI.short_path(processed_path)}"
-        rescue OpenAIClient::InsufficientQuotaError => e
-          UI.puts '{{x}} OpenAI rejected the request: out of credits.'
-          UI.puts '    Add credits at https://platform.openai.com/account/billing'
-          UI.puts "    Detail: #{e.message}"
-          cleanup_openai_file(file_id)
-          raise
-        rescue OpenAIClient::AuthenticationError => e
-          UI.puts '{{x}} OpenAI rejected the API key. Check ~/.frijolero/config.yaml.'
-          UI.puts "    Detail: #{e.message}"
-          cleanup_openai_file(file_id)
-          raise
-        rescue OpenAIClient::RateLimitError => e
-          UI.puts '{{x}} OpenAI rate limit hit, try again in a few seconds.'
-          UI.puts "    Detail: #{e.message}"
-          cleanup_openai_file(file_id)
-        rescue OpenAIClient::NetworkError => e
-          UI.puts "{{x}} Network error calling OpenAI: #{e.message}"
-          UI.puts '    Check your internet connection.'
-          cleanup_openai_file(file_id)
-        rescue OpenAIClient::APIError => e
-          status = e.status ? " (HTTP #{e.status})" : ''
-          UI.puts "{{x}} OpenAI returned an error#{status}: #{e.message}"
-          cleanup_openai_file(file_id)
-        rescue StandardError => e
-          UI.puts "{{x}} ERROR processing #{filename}: #{e.message}"
-          cleanup_openai_file(file_id)
-        end
-      end
-    end
-
-    def get_prompt_id(prompt_type)
-      Config.openai_prompt(prompt_type || 'default')
-    end
-
-    def cleanup_openai_file(file_id)
-      return unless file_id
-
-      @client.delete_file(file_id)
-    rescue StandardError
-      # Ignore cleanup errors
-    end
-
-    def run_detailer(json_path, account_name)
-      yaml_path = Config.detailer_config_path(account_name)
-
-      if yaml_path && File.exist?(yaml_path)
-        stats = Detailer.new(json_path, yaml_path).run
-        UI.detailer_stats(stats)
-      else
-        UI.puts '{{i}} No detailer config found, skipping enrichment'
-      end
-    end
-
-    def check_overwrite(json_path, beancount_path)
-      existing = [json_path, beancount_path].select { |p| File.exist?(p) }
-      return true if existing.empty?
-
-      UI.puts '{{!}} Existing files will be overwritten:'
-
-      show_existing_json_info(json_path) if File.exist?(json_path)
-
-      if File.exist?(beancount_path)
-        mtime = File.mtime(beancount_path).strftime('%Y-%m-%d %H:%M')
-        UI.puts "  Beancount: #{UI.short_path(beancount_path)} (modified #{mtime})"
-      end
-
-      UI.confirm('Overwrite existing files?', default: false)
-    end
-
-    def show_existing_json_info(json_path)
-      mtime = File.mtime(json_path).strftime('%Y-%m-%d %H:%M')
-      data = JSON.parse(File.read(json_path))
-      tx_list = data['transactions'] || data['movements'] || []
-
-      summary = if data.key?('transactions') && tx_list.any?
-                  dates = tx_list.map { |t| t['date'] }.compact.sort
-                  date_range = dates.any? ? " (#{dates.first} to #{dates.last})" : ''
-                  "#{tx_list.size} transactions#{UI.transaction_summary(tx_list)}#{date_range}"
-                elsif data.key?('movements') && tx_list.any?
-                  "#{tx_list.size} movements"
-                else
-                  'empty'
-                end
-
-      UI.puts "  JSON: #{UI.short_path(json_path)} (modified #{mtime})"
-      UI.puts "  Contains: #{summary}"
-    rescue JSON::ParserError
-      UI.puts "  JSON: #{UI.short_path(json_path)} (modified #{File.mtime(json_path).strftime('%Y-%m-%d %H:%M')}, could not parse)"
-    end
-
-    def format_elapsed(seconds)
-      if seconds < 60
-        "#{seconds.round(1)}s"
-      else
-        mins = (seconds / 60).floor
-        secs = (seconds % 60).round(1)
-        "#{mins}m #{secs}s"
-      end
+      Statement.new(pdf_path, client: @client, output_dir: @output_dir, dry_run: @dry_run).process
     end
   end
 end

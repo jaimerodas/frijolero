@@ -7,6 +7,7 @@ class StatementProcessorTest < Minitest::Test
 
   def setup
     @processor = Frijolero::StatementProcessor.new(dry_run: true)
+    @statement = Frijolero::Statement.new('/tmp/Amex_2601.pdf', client: nil, output_dir: '/tmp/out')
   end
 
   def test_transaction_summary_mixed
@@ -57,22 +58,22 @@ class StatementProcessorTest < Minitest::Test
   end
 
   def test_format_elapsed_seconds
-    assert_equal '5.2s', @processor.send(:format_elapsed, 5.23)
+    assert_equal '5.2s', @statement.send(:format_elapsed, 5.23)
   end
 
   def test_format_elapsed_minutes
-    assert_equal '2m 30.0s', @processor.send(:format_elapsed, 150.0)
+    assert_equal '2m 30.0s', @statement.send(:format_elapsed, 150.0)
   end
 
   def test_format_elapsed_under_one_second
-    assert_equal '0.3s', @processor.send(:format_elapsed, 0.34)
+    assert_equal '0.3s', @statement.send(:format_elapsed, 0.34)
   end
 
   def test_check_overwrite_no_existing_files
     with_temp_dir do |dir|
       json_path = File.join(dir, 'Amex_2604.json')
       beancount_path = File.join(dir, 'Amex_2604.beancount')
-      assert @processor.send(:check_overwrite, json_path, beancount_path)
+      assert @statement.send(:check_overwrite, json_path, beancount_path)
     end
   end
 
@@ -82,14 +83,16 @@ class StatementProcessorTest < Minitest::Test
       beancount_path = File.join(dir, 'Amex_2603.beancount')
       File.write(json_path, JSON.pretty_generate({
                                                    'transactions' => [
-                                                     { 'date' => '2026-03-01', 'description' => 'Test', 'amount' => -100.0 },
-                                                     { 'date' => '2026-03-15', 'description' => 'Test 2', 'amount' => 50.0 }
+                                                     { 'date' => '2026-03-01', 'description' => 'Test',
+                                                       'amount' => -100.0 },
+                                                     { 'date' => '2026-03-15', 'description' => 'Test 2',
+                                                       'amount' => 50.0 }
                                                    ]
                                                  }))
 
       Frijolero::UI.stub(:puts, nil) do
         Frijolero::UI.stub(:confirm, false) do
-          refute @processor.send(:check_overwrite, json_path, beancount_path)
+          refute @statement.send(:check_overwrite, json_path, beancount_path)
         end
       end
     end
@@ -107,7 +110,7 @@ class StatementProcessorTest < Minitest::Test
 
       Frijolero::UI.stub(:puts, nil) do
         Frijolero::UI.stub(:confirm, true) do
-          assert @processor.send(:check_overwrite, json_path, beancount_path)
+          assert @statement.send(:check_overwrite, json_path, beancount_path)
         end
       end
     end
@@ -121,7 +124,7 @@ class StatementProcessorTest < Minitest::Test
 
       Frijolero::UI.stub(:puts, nil) do
         Frijolero::UI.stub(:confirm, false) do
-          refute @processor.send(:check_overwrite, json_path, beancount_path)
+          refute @statement.send(:check_overwrite, json_path, beancount_path)
         end
       end
     end
@@ -135,7 +138,7 @@ class StatementProcessorTest < Minitest::Test
 
       Frijolero::UI.stub(:puts, nil) do
         Frijolero::UI.stub(:confirm, false) do
-          refute @processor.send(:check_overwrite, json_path, beancount_path)
+          refute @statement.send(:check_overwrite, json_path, beancount_path)
         end
       end
     end
@@ -153,7 +156,7 @@ class StatementProcessorTest < Minitest::Test
 
       Frijolero::UI.stub(:puts, nil) do
         Frijolero::UI.stub(:short_path, json_path) do
-          @processor.send(:show_existing_json_info, json_path)
+          @statement.send(:show_existing_json_info, json_path)
         end
       end
     end
