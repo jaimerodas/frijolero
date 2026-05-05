@@ -244,44 +244,19 @@ module Frijolero
 
       parsed = AccountConfig.parse_filename(input)
       account_config = parsed ? AccountConfig.find_config(parsed.first) : nil
-      converter_type = account_config&.dig("converter_type")
+      pipeline = Pipeline.for(account_config)
+      data = JSON.load_file(input)
 
       UI.frame("Converting: #{filename}") do
         UI.puts "Account: #{options[:account]}"
+        UI.puts pipeline.summary(data)
 
-        case converter_type
-        when "cetes_directo"
-          movements = JSON.load_file(input).dig("movements") || []
-          UI.puts "Found #{movements.size} movements"
-
-          output_path = CetesDirectoConverter.convert(
-            input: input,
-            account: options[:account],
-            output: options[:output],
-            counterpart_account: account_config["counterpart_account"],
-            interest_account: account_config["interest_account"],
-            tax_account: account_config["tax_account"],
-            gains_account: account_config["gains_account"] || CetesDirectoConverter::DEFAULT_GAINS_ACCOUNT
-          )
-        when "fintual"
-          transactions = JSON.load_file(input).dig("transactions") || []
-          UI.puts "Found #{transactions.size} transactions"
-
-          output_path = FintualConverter.convert(
-            input: input,
-            account: options[:account],
-            output: options[:output],
-            counterpart_account: account_config["counterpart_account"],
-            dividend_account: account_config["dividend_account"],
-            interest_account: account_config["interest_account"],
-            gains_account: account_config["gains_account"] || FintualConverter::DEFAULT_GAINS_ACCOUNT
-          )
-        else
-          transactions = JSON.load_file(input).dig("transactions") || []
-          UI.puts "Found #{transactions.size} transactions#{UI.transaction_summary(transactions)}"
-
-          output_path = BeancountConverter.convert(**options)
-        end
+        output_path = pipeline.convert(
+          json_path: input,
+          output: options[:output],
+          account: options[:account],
+          expense_account: options[:expense_account]
+        )
 
         UI.puts "Saved: #{UI.short_path(output_path)}"
       end
