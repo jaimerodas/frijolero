@@ -140,28 +140,28 @@ module Frijolero
           UI.puts "{{x}} OpenAI rejected the request: out of credits."
           UI.puts "    Add credits at https://platform.openai.com/account/billing"
           UI.puts "    Detail: #{e.message}"
-          cleanup_openai_file(file_id) if defined?(file_id)
+          cleanup_openai_file(file_id)
           raise
         rescue OpenAIClient::AuthenticationError => e
           UI.puts "{{x}} OpenAI rejected the API key. Check ~/.frijolero/config.yaml."
           UI.puts "    Detail: #{e.message}"
-          cleanup_openai_file(file_id) if defined?(file_id)
+          cleanup_openai_file(file_id)
           raise
         rescue OpenAIClient::RateLimitError => e
           UI.puts "{{x}} OpenAI rate limit hit, try again in a few seconds."
           UI.puts "    Detail: #{e.message}"
-          cleanup_openai_file(file_id) if defined?(file_id)
+          cleanup_openai_file(file_id)
         rescue OpenAIClient::NetworkError => e
           UI.puts "{{x}} Network error calling OpenAI: #{e.message}"
           UI.puts "    Check your internet connection."
-          cleanup_openai_file(file_id) if defined?(file_id)
+          cleanup_openai_file(file_id)
         rescue OpenAIClient::APIError => e
           status = e.status ? " (HTTP #{e.status})" : ""
           UI.puts "{{x}} OpenAI returned an error#{status}: #{e.message}"
-          cleanup_openai_file(file_id) if defined?(file_id)
+          cleanup_openai_file(file_id)
         rescue => e
           UI.puts "{{x}} ERROR processing #{filename}: #{e.message}"
-          cleanup_openai_file(file_id) if defined?(file_id)
+          cleanup_openai_file(file_id)
         end
       end
     end

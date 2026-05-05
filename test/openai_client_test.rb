@@ -196,4 +196,23 @@ class OpenAIClientTest < Minitest::Test
       end
     end
   end
+
+  class StuckTransport
+    def get(_path) = {"status" => "queued"}
+  end
+
+  def test_poll_response_times_out_when_status_never_completes
+    client = Frijolero::OpenAIClient.new(
+      "test-key",
+      transport: StuckTransport.new,
+      poll_interval: 0,
+      poll_timeout: 0.001
+    )
+
+    error = assert_raises(Frijolero::OpenAIClient::APIError) do
+      client.send(:poll_response, "resp-123")
+    end
+    assert_includes error.message, "timed out"
+    assert_includes error.message, "queued"
+  end
 end

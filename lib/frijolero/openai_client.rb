@@ -136,18 +136,25 @@ module Frijolero
       end
     end
 
-    def initialize(api_key = nil, transport: nil)
+    POLL_INTERVAL_SECONDS = 2
+    POLL_TIMEOUT_SECONDS = 300
+
+    def initialize(api_key = nil, transport: nil, poll_interval: POLL_INTERVAL_SECONDS, poll_timeout: POLL_TIMEOUT_SECONDS)
       api_key ||= Config.openai_api_key
       raise ArgumentError, "OpenAI API key required" unless api_key
 
       @transport = transport || Transport.new(api_key: api_key)
+      @poll_interval = poll_interval
+      @poll_timeout = poll_timeout
     end
 
     def upload_file(path)
-      data = @transport.post_multipart("/files", [
-        ["purpose", "user_data"],
-        ["file", File.open(path, "rb"), {filename: File.basename(path), content_type: "application/pdf"}]
-      ])
+      data = File.open(path, "rb") do |io|
+        @transport.post_multipart("/files", [
+          ["purpose", "user_data"],
+          ["file", io, {filename: File.basename(path), content_type: "application/pdf"}]
+        ])
+      end
 
       raise APIError.new("File upload failed: #{data}") unless data["id"]
 
@@ -185,14 +192,19 @@ module Frijolero
     private
 
     def poll_response(response_id)
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + @poll_timeout
+
       loop do
-        sleep 2
+        sleep @poll_interval
         data = @transport.get("/responses/#{response_id}")
 
         case data["status"]
         when "completed"
           return data
         when "queued", "in_progress"
+          if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+            raise APIError.new("Response polling timed out after #{@poll_timeout}s (still #{data["status"]})")
+          end
           next
         else
           raise APIError.new("Response failed with status: #{data["status"]}")
