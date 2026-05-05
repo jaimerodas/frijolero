@@ -1,30 +1,98 @@
-inherit_from: .rubocop_todo.yml
-
 AllCops:
   NewCops: enable
 
 Style/Documentation:
   Enabled: false
 
-# Tests are intentionally verbose: arrange/act/assert blocks read like
-# specifications, which makes per-method limits noisy without improving the
-# suite. Same for Style/TrivialAccessors (singleton-method idioms in stubs)
-# and Naming/VariableNumber (HTTP status codes are meaningful in test names).
+# --- Test files ----------------------------------------------------------
+# Tests are intentionally verbose: arrange/act/assert reads like a
+# specification, and forcing extractions adds ceremony without value.
+# Stubs use singleton-method idioms (TrivialAccessors); test names with
+# HTTP status codes (test_..._on_401) are meaningful (VariableNumber).
+Metrics/BlockLength:
+  Exclude: ['test/**/*']
+
+Style/TrivialAccessors:
+  Exclude: ['test/**/*']
+
+Naming/VariableNumber:
+  Exclude: ['test/**/*']
+
+# --- Production methods that earned their length -------------------------
+# Each name below corresponds to a method that's measurably above the
+# default but where further extraction would weaken cohesion.
+#
+# OptionParser scaffolding (each opts.on block is 3 lines):
+#   parse_options, show_help
+#
+# Multi-line output builders (the structure of the output is the method):
+#   format_transaction      Converters::Beancount
+#   transaction_summary     UI
+#   handle_sell             Converters::Fintual
+#
+# Orchestrators with required rescue/branching at the call site:
+#   run_pipeline            Statement
+#   execute                 OpenAIClient::Transport
+#   ask_with_autocomplete   UI (Reline state restore in ensure)
+#   process_one             BeancountMerger
+#   load_metadata           Statement (parse + lookup + status return)
+#   raise_error_for         OpenAIClient::Transport (case on HTTP status)
+#   upload_file             OpenAIClient
+#   extract_transactions    OpenAIClient
+#   process_patterns        Detailer
+#   build_new_lines         Beancount::MainFileWriter
+#   collapse_blank_runs     Beancount::MainFileWriter
+#   run_conversion          CLI::Convert
+#   poll_response           OpenAIClient (loop with three case branches)
+#   run                     entry-point methods (CLI dispatch, batch loops)
+#   call                    CLI command entry points
 Metrics/MethodLength:
-  Exclude:
-    - 'test/**/*'
+  Exclude: ['test/**/*']
+  AllowedMethods:
+    - parse_options
+    - show_help
+    - format_transaction
+    - transaction_summary
+    - handle_sell
+    - run_pipeline
+    - execute
+    - ask_with_autocomplete
+    - process_one
+    - load_metadata
+    - raise_error_for
+    - upload_file
+    - extract_transactions
+    - process_patterns
+    - build_new_lines
+    - collapse_blank_runs
+    - run_conversion
+    - run
+    - call
+    - poll_response
+
+Metrics/AbcSize:
+  Exclude: ['test/**/*']
+  AllowedMethods:
+    - parse_options
+    - run_conversion
+    - format_transaction
+    - transaction_summary
+    - handle_sell
+    - run_pipeline
+    - execute
+    - ask_with_autocomplete
+
+# --- Class-level exceptions ----------------------------------------------
+# Statement orchestrates the full PDF lifecycle (parse, upload, extract,
+# save, detail, convert, merge, finalize, error handling). Methods are
+# small but there are enough of them that the class lands at ~158 lines —
+# splitting would shred a cohesive workflow.
+#
+# Converters::Fintual handles 6 transaction types, each in its own small
+# handler method, plus shared helpers. ~102 lines; splitting per-handler
+# files would be more navigation than understanding.
 Metrics/ClassLength:
   Exclude:
     - 'test/**/*'
-Metrics/AbcSize:
-  Exclude:
-    - 'test/**/*'
-Metrics/BlockLength:
-  Exclude:
-    - 'test/**/*'
-Style/TrivialAccessors:
-  Exclude:
-    - 'test/**/*'
-Naming/VariableNumber:
-  Exclude:
-    - 'test/**/*'
+    - 'lib/frijolero/statement.rb'
+    - 'lib/frijolero/converters/fintual.rb'

@@ -87,38 +87,11 @@ module Frijolero
 
     def show_existing_json_info(json_path)
       mtime = File.mtime(json_path).strftime('%Y-%m-%d %H:%M')
-      contents = summarize_json(json_path)
+      contents = JsonStatementSummary.describe(json_path)
       UI.puts "  JSON: #{UI.short_path(json_path)} (modified #{mtime})"
       UI.puts "  Contains: #{contents}"
     rescue JSON::ParserError
       UI.puts "  JSON: #{UI.short_path(json_path)} (modified #{mtime}, could not parse)"
-    end
-
-    def summarize_json(json_path)
-      data = JSON.parse(File.read(json_path))
-      return summarize_transactions(data['transactions']) if data['transactions']
-      return summarize_movements(data['movements']) if data['movements']
-
-      'empty'
-    end
-
-    def summarize_transactions(tx_list)
-      return 'empty' if tx_list.empty?
-
-      "#{tx_list.size} transactions#{UI.transaction_summary(tx_list)}#{format_date_range(tx_list)}"
-    end
-
-    def summarize_movements(movements)
-      return 'empty' if movements.empty?
-
-      "#{movements.size} movements"
-    end
-
-    def format_date_range(tx_list)
-      dates = tx_list.filter_map { |t| t['date'] }.sort
-      return '' if dates.empty?
-
-      " (#{dates.first} to #{dates.last})"
     end
 
     def show_existing_beancount_info(beancount_path)
