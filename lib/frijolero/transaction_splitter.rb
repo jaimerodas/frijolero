@@ -1,121 +1,101 @@
 # frozen_string_literal: true
 
-require 'set'
 require 'fileutils'
 
 module Frijolero
   class TransactionSplitter
+    OTHER = 'Other'
+
     def initialize(beancount_file:)
       @beancount_file = beancount_file
       @base_dir = File.dirname(beancount_file)
-      @blocks = parse_file
+      @blocks = Beancount::Parser.parse(beancount_file)
     end
 
     def summary
       account_map = build_reverse_account_map
       counts = Hash.new(0)
-
-      transaction_blocks.each do |block|
-        account = find_primary_account(block, account_map)
-        counts[account] += 1
-      end
-
-      counts.sort_by { |name, _| name == 'Other' ? 'zzz' : name }.to_h
+      transaction_blocks.each { |block| counts[find_primary_account(block, account_map)] += 1 }
+      counts.sort_by { |name, _| name == OTHER ? 'zzz' : name }.to_h
     end
 
     def split(account_key:, dry_run: false)
-      account_config = AccountConfig.find_config(account_key)
-      raise ArgumentError, "Account not found: #{account_key}" unless account_config
-
-      target_account = account_config['beancount_account']
+      target_account = lookup_target_account!(account_key)
       prefix = account_key.gsub(' ', '_')
-      transactions_dir = File.join(@base_dir, 'transactions', prefix)
+      matched = transactions_matching(target_account)
 
-      account_regex = /\b#{Regexp.escape(target_account)}\b/
-      matched = transaction_blocks.select { |b| b[:lines].any? { |l| l.match?(account_regex) } }
+      return empty_result if matched.empty?
 
-      return { matched: 0, extracted: 0, files: 0, groups: {} } if matched.empty?
-
-      groups = matched.group_by { |b| date_to_yymm(b[:date]) }
-
-      existing = groups.keys.select do |yymm|
-        File.exist?(File.join(transactions_dir, "#{prefix}_#{yymm}.beancount"))
-      end
-
-      result = {
-        matched: matched.length,
-        groups: groups.transform_values(&:length),
-        existing: existing,
-        prefix: prefix,
-        target_account: target_account
-      }
+      plan = build_plan(matched, prefix)
+      result = build_result(matched, plan, prefix, target_account)
 
       return result.merge(extracted: 0, files: 0) if dry_run
 
-      groups.reject! { |yymm, _| existing.include?(yymm) }
-      return result.merge(extracted: 0, files: 0) if groups.empty?
-
-      # Backup
-      FileUtils.cp(@beancount_file, @beancount_file + '.bak')
-
-      # Write transaction files
-      FileUtils.mkdir_p(transactions_dir)
-      groups.sort.each do |yymm, txs|
-        file = File.join(transactions_dir, "#{prefix}_#{yymm}.beancount")
-        content = txs.map { |t| t[:lines].join }.join.rstrip + "\n"
-        File.write(file, content)
-      end
-
-      # Rewrite main file
-      rewrite_main_file(groups, prefix)
-
-      result.merge(
-        extracted: groups.values.sum(&:length),
-        files: groups.length
-      )
+      apply_plan(plan, prefix, result)
     end
 
     private
 
-    def parse_file
-      blocks = []
-      lines = File.readlines(@beancount_file, encoding: 'UTF-8')
-      i = 0
+    def lookup_target_account!(account_key)
+      account_config = AccountConfig.find_config(account_key)
+      raise ArgumentError, "Account not found: #{account_key}" unless account_config
 
-      while i < lines.length
-        line = lines[i]
+      account_config['beancount_account']
+    end
 
-        if line.match?(/^; === (Start|End): .+ ===$/)
-          blocks << { type: :marker, lines: [line] }
-          i += 1
-          next
-        end
+    def transactions_matching(target_account)
+      regex = /\b#{Regexp.escape(target_account)}\b/
+      transaction_blocks.select { |b| b[:lines].any? { |l| l.match?(regex) } }
+    end
 
-        if line.match?(/^\d{4}-\d{2}-\d{2}\s+\*/)
-          date = line[0, 10]
-          tx_lines = [line]
-          i += 1
-          while i < lines.length
-            if lines[i].match?(/^\s+\S/)
-              tx_lines << lines[i]
-              i += 1
-            elsif lines[i].strip.empty?
-              tx_lines << lines[i]
-              i += 1
-              break
-            else
-              break
-            end
-          end
-          blocks << { type: :transaction, date: date, lines: tx_lines }
-          next
-        end
+    def empty_result
+      { matched: 0, extracted: 0, files: 0, groups: {} }
+    end
 
-        blocks << { type: :other, lines: [line] }
-        i += 1
+    def build_plan(matched, prefix)
+      groups = matched.group_by { |b| date_to_yymm(b[:date]) }
+      existing = groups.keys.select { |yymm| File.exist?(transactions_file(prefix, yymm)) }
+      { groups: groups, existing: existing }
+    end
+
+    def build_result(matched, plan, prefix, target_account)
+      {
+        matched: matched.length,
+        groups: plan[:groups].transform_values(&:length),
+        existing: plan[:existing],
+        prefix: prefix,
+        target_account: target_account
+      }
+    end
+
+    def apply_plan(plan, prefix, result)
+      writable_groups = plan[:groups].reject { |yymm, _| plan[:existing].include?(yymm) }
+      return result.merge(extracted: 0, files: 0) if writable_groups.empty?
+
+      backup_main_file
+      write_transaction_files(writable_groups, prefix)
+      Beancount::MainFileWriter.new(@beancount_file).rewrite(
+        blocks: @blocks, extracted_groups: writable_groups, prefix: prefix
+      )
+
+      result.merge(extracted: writable_groups.values.sum(&:length), files: writable_groups.length)
+    end
+
+    def backup_main_file
+      FileUtils.cp(@beancount_file, "#{@beancount_file}.bak")
+    end
+
+    def write_transaction_files(groups, prefix)
+      transactions_dir = File.join(@base_dir, 'transactions', prefix)
+      FileUtils.mkdir_p(transactions_dir)
+      groups.sort.each do |yymm, txs|
+        content = "#{txs.map { |t| t[:lines].join }.join.rstrip}\n"
+        File.write(transactions_file(prefix, yymm), content)
       end
+    end
 
-      blocks
+    def transactions_file(prefix, yymm)
+      File.join(@base_dir, 'transactions', prefix, "#{prefix}_#{yymm}.beancount")
     end
 
     def transaction_blocks
@@ -123,62 +103,23 @@ module Frijolero
     end
 
     def build_reverse_account_map
-      map = {}
-      Config.accounts.each do |key, config|
+      Config.accounts.each_with_object({}) do |(key, config), map|
         beancount_account = config['beancount_account']
         map[beancount_account] = key if beancount_account
       end
-      map
     end
 
     def find_primary_account(block, account_map)
       block[:lines].each do |line|
         next unless line.match?(/^\s+/)
 
-        account_map.each do |beancount_account, key|
-          return key if line.include?(beancount_account)
-        end
+        account_map.each { |beancount_account, key| return key if line.include?(beancount_account) }
       end
-      'Other'
+      OTHER
     end
 
     def date_to_yymm(date)
       date[2, 2] + date[5, 2]
-    end
-
-    def rewrite_main_file(groups, prefix)
-      extracted_ids = groups.values.flatten.map(&:object_id).to_set
-      include_inserted = Set.new
-
-      new_lines = []
-      @blocks.each do |block|
-        if block[:type] == :transaction && extracted_ids.include?(block.object_id)
-          yymm = date_to_yymm(block[:date])
-          unless include_inserted.include?(yymm)
-            include_inserted.add(yymm)
-            new_lines << "include \"transactions/#{prefix}/#{prefix}_#{yymm}.beancount\"\n"
-          end
-        elsif block[:type] == :marker
-          next
-        else
-          new_lines.concat(block[:lines])
-        end
-      end
-
-      # Collapse 3+ consecutive blank lines to 2
-      cleaned = []
-      blank_count = 0
-      new_lines.each do |line|
-        if line.strip.empty?
-          blank_count += 1
-          cleaned << line if blank_count <= 2
-        else
-          blank_count = 0
-          cleaned << line
-        end
-      end
-
-      File.write(@beancount_file, cleaned.join)
     end
   end
 end
