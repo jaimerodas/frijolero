@@ -87,13 +87,15 @@ class CetesDirectoConverterTest < Minitest::Test
   def test_run_to_writes_to_io
     io = StringIO.new
 
-    Frijolero::CetesDirectoConverter.new(
+    Frijolero::Converters::CetesDirecto.new(
       input: fixture_path('sample_cetes_directo.json'),
       account: 'Assets:Investments:CETESDirecto',
-      counterpart_account: 'Assets:BBVA',
-      interest_account: 'Income:Interest',
-      tax_account: 'Expenses:Taxes:ISR',
-      gains_account: 'Income:Gains:CetesDirecto'
+      targets: Frijolero::Converters::AccountTargets.new(
+        counterpart: 'Assets:BBVA',
+        interest: 'Income:Interest',
+        tax: 'Expenses:Taxes:ISR',
+        gains: 'Income:Gains:CetesDirecto'
+      )
     ).run_to(io)
 
     assert_includes io.string, '2026-02-15 * "CETESDirecto" "Depósito"'
@@ -102,25 +104,25 @@ class CetesDirectoConverterTest < Minitest::Test
 
   def test_raises_without_input
     assert_raises ArgumentError do
-      Frijolero::CetesDirectoConverter.convert(input: nil, account: 'Test')
+      Frijolero::Converters::CetesDirecto.convert(input: nil, account: 'Test')
     end
   end
 
   def test_raises_without_account
     assert_raises ArgumentError do
-      Frijolero::CetesDirectoConverter.convert(input: 'test.json', account: nil)
+      Frijolero::Converters::CetesDirecto.convert(input: 'test.json', account: nil)
     end
   end
 
   def test_initializer_raises_without_input
     assert_raises ArgumentError do
-      Frijolero::CetesDirectoConverter.new(input: nil, account: 'Test')
+      Frijolero::Converters::CetesDirecto.new(input: nil, account: 'Test')
     end
   end
 
   def test_initializer_raises_without_account
     assert_raises ArgumentError do
-      Frijolero::CetesDirectoConverter.new(input: 'test.json', account: nil)
+      Frijolero::Converters::CetesDirecto.new(input: 'test.json', account: nil)
     end
   end
 
@@ -129,14 +131,16 @@ class CetesDirectoConverterTest < Minitest::Test
   def convert_fixture(dir)
     output_path = File.join(dir, 'output.beancount')
 
-    Frijolero::CetesDirectoConverter.convert(
+    Frijolero::Converters::CetesDirecto.convert(
       input: fixture_path('sample_cetes_directo.json'),
       account: 'Assets:Investments:CETESDirecto',
       output: output_path,
-      counterpart_account: 'Assets:BBVA',
-      interest_account: 'Income:Interest',
-      tax_account: 'Expenses:Taxes:ISR',
-      gains_account: 'Income:Gains:CetesDirecto'
+      targets: Frijolero::Converters::AccountTargets.new(
+        counterpart: 'Assets:BBVA',
+        interest: 'Income:Interest',
+        tax: 'Expenses:Taxes:ISR',
+        gains: 'Income:Gains:CetesDirecto'
+      )
     )
 
     output_path

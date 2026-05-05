@@ -35,7 +35,7 @@ module Frijolero
       def convert(json_path:, output: nil, account: beancount_account, expense_account: nil, **)
         kwargs = { input: json_path, account: account, output: output }
         kwargs[:expense_account] = expense_account if expense_account
-        BeancountConverter.convert(**kwargs)
+        Converters::Beancount.convert(**kwargs)
       end
     end
 
@@ -46,14 +46,11 @@ module Frijolero
       end
 
       def convert(json_path:, output: nil, account: beancount_account, **)
-        CetesDirectoConverter.convert(
+        Converters::CetesDirecto.convert(
           input: json_path,
           account: account,
           output: output,
-          counterpart_account: @account_config['counterpart_account'],
-          interest_account: @account_config['interest_account'],
-          tax_account: @account_config['tax_account'],
-          gains_account: @account_config['gains_account'] || CetesDirectoConverter::DEFAULT_GAINS_ACCOUNT
+          targets: Converters::AccountTargets.from_config(@account_config)
         )
       end
     end
@@ -65,14 +62,11 @@ module Frijolero
       end
 
       def convert(json_path:, output: nil, account: beancount_account, **)
-        FintualConverter.convert(
+        Converters::Fintual.convert(
           input: json_path,
           account: account,
           output: output,
-          counterpart_account: @account_config['counterpart_account'],
-          dividend_account: @account_config['dividend_account'],
-          interest_account: @account_config['interest_account'],
-          gains_account: @account_config['gains_account'] || FintualConverter::DEFAULT_GAINS_ACCOUNT
+          targets: Converters::AccountTargets.from_config(@account_config)
         )
       end
     end

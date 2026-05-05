@@ -80,7 +80,7 @@ class PipelineTest < Minitest::Test
 
   def test_default_convert_delegates_to_beancount_converter
     captured = nil
-    Frijolero::BeancountConverter.stub(:convert, ->(**kwargs) { captured = kwargs }) do
+    Frijolero::Converters::Beancount.stub(:convert, ->(**kwargs) { captured = kwargs }) do
       pipeline = Frijolero::Pipeline::Default.new('beancount_account' => 'Liabilities:Amex')
       pipeline.convert(json_path: '/in.json', output: '/out.beancount')
     end
@@ -91,7 +91,7 @@ class PipelineTest < Minitest::Test
 
   def test_cetes_directo_convert_passes_all_account_config_keys
     captured = nil
-    Frijolero::CetesDirectoConverter.stub(:convert, ->(**kwargs) { captured = kwargs }) do
+    Frijolero::Converters::CetesDirecto.stub(:convert, ->(**kwargs) { captured = kwargs }) do
       pipeline = Frijolero::Pipeline::CetesDirecto.new(
         'beancount_account' => 'Assets:Cetes',
         'counterpart_account' => 'Assets:Bank',
@@ -102,24 +102,24 @@ class PipelineTest < Minitest::Test
       pipeline.convert(json_path: '/in.json', output: '/out.beancount')
     end
     assert_equal 'Assets:Cetes', captured[:account]
-    assert_equal 'Assets:Bank', captured[:counterpart_account]
-    assert_equal 'Income:Interest', captured[:interest_account]
-    assert_equal 'Expenses:Tax', captured[:tax_account]
-    assert_equal 'Income:Gains', captured[:gains_account]
+    assert_equal 'Assets:Bank', captured[:targets].counterpart
+    assert_equal 'Income:Interest', captured[:targets].interest
+    assert_equal 'Expenses:Tax', captured[:targets].tax
+    assert_equal 'Income:Gains', captured[:targets].gains
   end
 
   def test_cetes_directo_convert_uses_default_gains_account
     captured = nil
-    Frijolero::CetesDirectoConverter.stub(:convert, ->(**kwargs) { captured = kwargs }) do
+    Frijolero::Converters::CetesDirecto.stub(:convert, ->(**kwargs) { captured = kwargs }) do
       pipeline = Frijolero::Pipeline::CetesDirecto.new('beancount_account' => 'Assets:Cetes')
       pipeline.convert(json_path: '/in.json', output: '/out.beancount')
     end
-    assert_equal Frijolero::CetesDirectoConverter::DEFAULT_GAINS_ACCOUNT, captured[:gains_account]
+    assert_equal Frijolero::Converters::AccountTargets::DEFAULT_GAINS, captured[:targets].gains
   end
 
   def test_fintual_convert_passes_all_account_config_keys
     captured = nil
-    Frijolero::FintualConverter.stub(:convert, ->(**kwargs) { captured = kwargs }) do
+    Frijolero::Converters::Fintual.stub(:convert, ->(**kwargs) { captured = kwargs }) do
       pipeline = Frijolero::Pipeline::Fintual.new(
         'beancount_account' => 'Assets:Fintual',
         'counterpart_account' => 'Assets:Bank',
@@ -130,24 +130,24 @@ class PipelineTest < Minitest::Test
       pipeline.convert(json_path: '/in.json', output: '/out.beancount')
     end
     assert_equal 'Assets:Fintual', captured[:account]
-    assert_equal 'Assets:Bank', captured[:counterpart_account]
-    assert_equal 'Income:Dividend', captured[:dividend_account]
-    assert_equal 'Income:Interest', captured[:interest_account]
-    assert_equal 'Income:Gains', captured[:gains_account]
+    assert_equal 'Assets:Bank', captured[:targets].counterpart
+    assert_equal 'Income:Dividend', captured[:targets].dividend
+    assert_equal 'Income:Interest', captured[:targets].interest
+    assert_equal 'Income:Gains', captured[:targets].gains
   end
 
   def test_fintual_convert_uses_default_gains_account
     captured = nil
-    Frijolero::FintualConverter.stub(:convert, ->(**kwargs) { captured = kwargs }) do
+    Frijolero::Converters::Fintual.stub(:convert, ->(**kwargs) { captured = kwargs }) do
       pipeline = Frijolero::Pipeline::Fintual.new('beancount_account' => 'Assets:Fintual')
       pipeline.convert(json_path: '/in.json', output: '/out.beancount')
     end
-    assert_equal Frijolero::FintualConverter::DEFAULT_GAINS_ACCOUNT, captured[:gains_account]
+    assert_equal Frijolero::Converters::AccountTargets::DEFAULT_GAINS, captured[:targets].gains
   end
 
   def test_default_convert_accepts_account_override
     captured = nil
-    Frijolero::BeancountConverter.stub(:convert, ->(**kwargs) { captured = kwargs }) do
+    Frijolero::Converters::Beancount.stub(:convert, ->(**kwargs) { captured = kwargs }) do
       pipeline = Frijolero::Pipeline::Default.new('beancount_account' => 'Liabilities:Amex')
       pipeline.convert(json_path: '/in.json', output: '/out.beancount', account: 'Override:Account')
     end
@@ -156,7 +156,7 @@ class PipelineTest < Minitest::Test
 
   def test_default_convert_passes_expense_account_when_set
     captured = nil
-    Frijolero::BeancountConverter.stub(:convert, ->(**kwargs) { captured = kwargs }) do
+    Frijolero::Converters::Beancount.stub(:convert, ->(**kwargs) { captured = kwargs }) do
       pipeline = Frijolero::Pipeline::Default.new('beancount_account' => 'Liabilities:Amex')
       pipeline.convert(json_path: '/in.json', output: '/out.beancount', expense_account: 'Expenses:Custom')
     end
@@ -165,7 +165,7 @@ class PipelineTest < Minitest::Test
 
   def test_default_convert_omits_expense_account_when_nil
     captured = nil
-    Frijolero::BeancountConverter.stub(:convert, ->(**kwargs) { captured = kwargs }) do
+    Frijolero::Converters::Beancount.stub(:convert, ->(**kwargs) { captured = kwargs }) do
       pipeline = Frijolero::Pipeline::Default.new('beancount_account' => 'Liabilities:Amex')
       pipeline.convert(json_path: '/in.json', output: '/out.beancount')
     end
@@ -174,7 +174,7 @@ class PipelineTest < Minitest::Test
 
   def test_cetes_directo_convert_accepts_account_override
     captured = nil
-    Frijolero::CetesDirectoConverter.stub(:convert, ->(**kwargs) { captured = kwargs }) do
+    Frijolero::Converters::CetesDirecto.stub(:convert, ->(**kwargs) { captured = kwargs }) do
       pipeline = Frijolero::Pipeline::CetesDirecto.new('beancount_account' => 'Assets:Cetes')
       pipeline.convert(json_path: '/in.json', output: '/out.beancount', account: 'Override:Cetes')
     end
@@ -182,7 +182,7 @@ class PipelineTest < Minitest::Test
   end
 
   def test_strategies_ignore_unknown_kwargs
-    Frijolero::CetesDirectoConverter.stub(:convert, ->(**) {}) do
+    Frijolero::Converters::CetesDirecto.stub(:convert, ->(**) {}) do
       pipeline = Frijolero::Pipeline::CetesDirecto.new('beancount_account' => 'Assets:Cetes')
       # expense_account is meaningless for CetesDirecto, must not raise
       pipeline.convert(json_path: '/in.json', output: '/out.beancount', expense_account: 'ignored')

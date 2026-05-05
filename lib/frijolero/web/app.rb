@@ -37,7 +37,7 @@ module Frijolero
         data = JSON.parse(request.body.read)
         save_transactions(data['transactions'])
 
-        output = BeancountConverter.convert(
+        output = Converters::Beancount.convert(
           input: settings.json_file,
           account: settings.beancount_account
         )
@@ -50,7 +50,7 @@ module Frijolero
         data = JSON.parse(request.body.read)
         save_transactions(data['transactions'])
 
-        beancount_path = BeancountConverter.convert(
+        beancount_path = Converters::Beancount.convert(
           input: settings.json_file,
           account: settings.beancount_account
         )

@@ -9,7 +9,7 @@ class BeancountConverterTest < Minitest::Test
     with_temp_dir do |dir|
       output_path = File.join(dir, 'output.beancount')
 
-      Frijolero::BeancountConverter.convert(
+      Frijolero::Converters::Beancount.convert(
         input: fixture_path('sample_transactions.json'),
         account: 'Liabilities:Amex',
         output: output_path
@@ -28,7 +28,7 @@ class BeancountConverterTest < Minitest::Test
     with_temp_dir do |dir|
       output_path = File.join(dir, 'output.beancount')
 
-      Frijolero::BeancountConverter.convert(
+      Frijolero::Converters::Beancount.convert(
         input: fixture_path('sample_transactions.json'),
         account: 'Liabilities:Amex',
         output: output_path,
@@ -58,7 +58,7 @@ class BeancountConverterTest < Minitest::Test
       File.write(json_path, JSON.generate(json_content))
 
       output_path = File.join(dir, 'output.beancount')
-      Frijolero::BeancountConverter.convert(
+      Frijolero::Converters::Beancount.convert(
         input: json_path,
         account: 'Liabilities:Amex',
         output: output_path
@@ -89,7 +89,7 @@ class BeancountConverterTest < Minitest::Test
       File.write(json_path, JSON.generate(json_content))
 
       output_path = File.join(dir, 'output.beancount')
-      Frijolero::BeancountConverter.convert(
+      Frijolero::Converters::Beancount.convert(
         input: json_path,
         account: 'Liabilities:Amex',
         output: output_path
@@ -103,13 +103,13 @@ class BeancountConverterTest < Minitest::Test
 
   def test_raises_without_input
     assert_raises ArgumentError do
-      Frijolero::BeancountConverter.convert(input: nil, account: 'Test')
+      Frijolero::Converters::Beancount.convert(input: nil, account: 'Test')
     end
   end
 
   def test_raises_without_account
     assert_raises ArgumentError do
-      Frijolero::BeancountConverter.convert(input: 'test.json', account: nil)
+      Frijolero::Converters::Beancount.convert(input: 'test.json', account: nil)
     end
   end
 end
