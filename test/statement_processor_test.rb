@@ -10,6 +10,10 @@ class StatementProcessorTest < Minitest::Test
     @statement = Frijolero::Statement.new('/tmp/Amex_2601.pdf', client: nil, output_dir: '/tmp/out')
   end
 
+  def teardown
+    Frijolero::UI.auto_accept = false
+  end
+
   def test_transaction_summary_mixed
     transactions = [
       { 'amount' => -100.0 },
@@ -104,7 +108,8 @@ class StatementProcessorTest < Minitest::Test
       beancount_path = File.join(dir, 'Amex_2603.beancount')
       File.write(json_path, JSON.pretty_generate({
                                                    'transactions' => [
-                                                     { 'date' => '2026-03-01', 'description' => 'Test', 'amount' => -100.0 }
+                                                     { 'date' => '2026-03-01', 'description' => 'Test',
+                                                       'amount' => -100.0 }
                                                    ]
                                                  }))
 
@@ -179,7 +184,7 @@ class StatementProcessorTest < Minitest::Test
     end
 
     def delete_file(_id)
-      true
+      nil
     end
   end
 
@@ -187,7 +192,7 @@ class StatementProcessorTest < Minitest::Test
     Frijolero::Config.stub(:statements_input_dir, input_dir) do
       Frijolero::Config.stub(:statements_output_dir, output_dir) do
         Frijolero::Config.stub(:openai_api_key, 'test-key') do
-          Frijolero::AccountConfig.stub(:parse_filename, ->(_p) { %w[Amex 2601] }) do
+          Frijolero::AccountConfig.stub(:parse_filename, ->(_path) { %w[Amex 2601] }) do
             Frijolero::AccountConfig.stub(:find_config, { 'beancount_account' => 'Liabilities:Amex' }) do
               Frijolero::UI.stub(:puts, nil) do
                 Frijolero::UI.stub(:frame, ->(_t, **_o, &block) { block.call }) do
@@ -202,7 +207,7 @@ class StatementProcessorTest < Minitest::Test
   end
 
   class FakeSpinner
-    def update_title(_t); end
+    def update_title(_title); end
   end
 
   def test_run_aborts_on_insufficient_quota

@@ -70,11 +70,12 @@ module Frijolero
       def handle_sell(transaction)
         commodity = transaction['commodity']
         units = format_units(transaction['units'])
+        price = transaction['price_per_unit']
         cash_amount = transaction['reported_amount'].to_f
         narration = build_fund_narration(transaction['description'] || 'Venta', transaction['fund_code_raw'])
 
         write_header(transaction['trade_date'], narration)
-        @out.puts "  #{@account}:#{commodity}  -#{units} #{commodity} {} @ #{transaction['price_per_unit']} #{@currency}"
+        @out.puts "  #{@account}:#{commodity}  -#{units} #{commodity} {} @ #{price} #{@currency}"
         @out.puts "  #{@account}:Cash  #{format('%.2f', cash_amount)} #{@currency}"
         @out.puts "  #{@targets.gains}"
         @out.puts

@@ -69,7 +69,7 @@ module Frijolero
     end
 
     def apply_plan(plan, prefix, result)
-      writable_groups = plan[:groups].reject { |yymm, _| plan[:existing].include?(yymm) }
+      writable_groups = plan[:groups].except(*plan[:existing])
       return result.merge(extracted: 0, files: 0) if writable_groups.empty?
 
       backup_main_file

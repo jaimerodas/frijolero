@@ -76,12 +76,12 @@ class AccountRenamerTest < Minitest::Test
       result = renamer.preview
 
       beancount_total = result[:beancount].sum { |c| c[:count] }
-      assert beancount_total > 0, 'Expected beancount occurrences'
+      assert beancount_total.positive?, 'Expected beancount occurrences'
 
       result[:beancount].each do |change|
         assert change[:path].is_a?(String)
         assert change[:count].is_a?(Integer)
-        assert change[:count] > 0
+        assert change[:count].positive?
       end
     end
   end

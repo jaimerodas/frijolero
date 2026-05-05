@@ -5,3 +5,26 @@ AllCops:
 
 Style/Documentation:
   Enabled: false
+
+# Tests are intentionally verbose: arrange/act/assert blocks read like
+# specifications, which makes per-method limits noisy without improving the
+# suite. Same for Style/TrivialAccessors (singleton-method idioms in stubs)
+# and Naming/VariableNumber (HTTP status codes are meaningful in test names).
+Metrics/MethodLength:
+  Exclude:
+    - 'test/**/*'
+Metrics/ClassLength:
+  Exclude:
+    - 'test/**/*'
+Metrics/AbcSize:
+  Exclude:
+    - 'test/**/*'
+Metrics/BlockLength:
+  Exclude:
+    - 'test/**/*'
+Style/TrivialAccessors:
+  Exclude:
+    - 'test/**/*'
+Naming/VariableNumber:
+  Exclude:
+    - 'test/**/*'

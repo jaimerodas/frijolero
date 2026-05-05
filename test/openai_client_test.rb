@@ -165,7 +165,7 @@ class OpenAIClientTest < Minitest::Test
     transport = FakeTransport.new(delete: { 'deleted' => true })
     client = Frijolero::OpenAIClient.new('test-key', transport: transport)
 
-    assert_equal true, client.delete_file('file-123')
+    client.delete_file('file-123')
     assert_equal [[:delete, '/files/file-123']], transport.calls
   end
 

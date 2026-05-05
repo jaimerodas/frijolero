@@ -188,8 +188,8 @@ module Frijolero
     end
 
     def delete_file(file_id)
-      data = @transport.delete("/files/#{file_id}")
-      data['deleted'] == true
+      @transport.delete("/files/#{file_id}")
+      nil
     end
 
     private

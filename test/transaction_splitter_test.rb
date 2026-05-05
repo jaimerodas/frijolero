@@ -214,7 +214,7 @@ class TransactionSplitterTest < Minitest::Test
         splitter = Frijolero::TransactionSplitter.new(beancount_file: path)
         splitter.split(account_key: 'BBVA')
 
-        backup = path + '.bak'
+        backup = "#{path}.bak"
         assert File.exist?(backup)
         assert_equal original_content, File.read(backup)
       end
