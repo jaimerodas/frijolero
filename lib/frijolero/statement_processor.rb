@@ -29,6 +29,8 @@ module Frijolero
       pdf_files.each do |pdf_path|
         process_pdf(pdf_path)
       end
+    rescue OpenAIClient::InsufficientQuotaError, OpenAIClient::AuthenticationError
+      UI.puts "{{x}} Aborted batch."
     end
 
     private
@@ -173,21 +175,46 @@ module Frijolero
           # Step 8: Move processed PDF
           FileUtils.mv(pdf_path, processed_path)
           UI.puts "Moved PDF to: #{UI.short_path(processed_path)}"
+        rescue OpenAIClient::InsufficientQuotaError => e
+          UI.puts "{{x}} OpenAI rejected the request: out of credits."
+          UI.puts "    Add credits at https://platform.openai.com/account/billing"
+          UI.puts "    Detail: #{e.message}"
+          cleanup_openai_file(file_id) if defined?(file_id)
+          raise
+        rescue OpenAIClient::AuthenticationError => e
+          UI.puts "{{x}} OpenAI rejected the API key. Check ~/.frijolero/config.yaml."
+          UI.puts "    Detail: #{e.message}"
+          cleanup_openai_file(file_id) if defined?(file_id)
+          raise
+        rescue OpenAIClient::RateLimitError => e
+          UI.puts "{{x}} OpenAI rate limit hit, try again in a few seconds."
+          UI.puts "    Detail: #{e.message}"
+          cleanup_openai_file(file_id) if defined?(file_id)
+        rescue OpenAIClient::NetworkError => e
+          UI.puts "{{x}} Network error calling OpenAI: #{e.message}"
+          UI.puts "    Check your internet connection."
+          cleanup_openai_file(file_id) if defined?(file_id)
+        rescue OpenAIClient::APIError => e
+          status = e.status ? " (HTTP #{e.status})" : ""
+          UI.puts "{{x}} OpenAI returned an error#{status}: #{e.message}"
+          cleanup_openai_file(file_id) if defined?(file_id)
         rescue => e
-          UI.puts "{{x}} ERROR: #{e.message}"
-          if defined?(file_id) && file_id
-            begin
-              @client.delete_file(file_id)
-            rescue
-              # Ignore cleanup errors
-            end
-          end
+          UI.puts "{{x}} ERROR processing #{filename}: #{e.message}"
+          cleanup_openai_file(file_id) if defined?(file_id)
         end
       end
     end
 
     def get_prompt_id(prompt_type)
       Config.openai_prompt(prompt_type || "default")
+    end
+
+    def cleanup_openai_file(file_id)
+      return unless file_id
+
+      @client.delete_file(file_id)
+    rescue
+      # Ignore cleanup errors
     end
 
     def run_detailer(json_path, account_name)

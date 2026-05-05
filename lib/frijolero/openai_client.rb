@@ -9,6 +9,37 @@ module Frijolero
   class OpenAIClient
     BASE_URL = "https://api.openai.com/v1"
 
+    class Error < StandardError
+      attr_reader :status, :code
+
+      def initialize(message, status: nil, code: nil)
+        super(message)
+        @status = status
+        @code = code
+      end
+    end
+
+    class AuthenticationError < Error; end
+
+    class InsufficientQuotaError < Error; end
+
+    class RateLimitError < Error; end
+
+    class APIError < Error; end
+
+    class NetworkError < Error; end
+
+    NETWORK_EXCEPTIONS = [
+      Net::OpenTimeout,
+      Net::ReadTimeout,
+      SocketError,
+      Errno::ECONNREFUSED,
+      Errno::ECONNRESET,
+      Errno::EHOSTUNREACH,
+      Errno::ENETUNREACH,
+      OpenSSL::SSL::SSLError
+    ].freeze
+
     def initialize(api_key = nil)
       @api_key = api_key || Config.openai_api_key
       raise ArgumentError, "OpenAI API key required" unless @api_key
@@ -32,7 +63,7 @@ module Frijolero
       response = make_request(uri, request)
       data = JSON.parse(response.body)
 
-      raise "File upload failed: #{data}" unless data["id"]
+      raise APIError.new("File upload failed: #{data}") unless data["id"]
 
       data["id"]
     end
@@ -76,7 +107,7 @@ module Frijolero
       content = text_output&.dig("content")&.find { |c| c["type"] == "output_text" }
       json_text = content&.dig("text")
 
-      raise "Failed to extract transactions: #{data}" unless json_text
+      raise APIError.new("Failed to extract transactions: #{data}") unless json_text
 
       JSON.parse(json_text)
     end
@@ -112,7 +143,7 @@ module Frijolero
         when "queued", "in_progress"
           next
         else
-          raise "Response failed with status: #{data["status"]}"
+          raise APIError.new("Response failed with status: #{data["status"]}")
         end
       end
     end
@@ -126,13 +157,50 @@ module Frijolero
       cert_store.set_default_paths
       http.cert_store = cert_store
 
-      response = http.request(request)
-
-      unless response.is_a?(Net::HTTPSuccess)
-        raise "API request failed: #{response.code} - #{response.body}"
+      response = begin
+        http.request(request)
+      rescue *NETWORK_EXCEPTIONS => e
+        raise NetworkError.new("#{e.class}: #{e.message}")
       end
 
-      response
+      return response if response.is_a?(Net::HTTPSuccess)
+
+      raise_error_for(response)
+    end
+
+    def raise_error_for(response)
+      status = response.code.to_i
+      parsed = parse_error_body(response.body)
+      message = parsed[:message]
+      code = parsed[:code]
+
+      case status
+      when 401
+        raise AuthenticationError.new(message, status: status, code: code)
+      when 429
+        if code == "insufficient_quota"
+          raise InsufficientQuotaError.new(message, status: status, code: code)
+        else
+          raise RateLimitError.new(message, status: status, code: code)
+        end
+      else
+        raise APIError.new(message, status: status, code: code)
+      end
+    end
+
+    def parse_error_body(body)
+      return {message: "(empty response)", code: nil} if body.nil? || body.empty?
+
+      data = JSON.parse(body)
+      err = data.is_a?(Hash) ? data["error"] : nil
+
+      if err.is_a?(Hash)
+        {message: err["message"] || body.to_s[0, 200], code: err["code"]}
+      else
+        {message: body.to_s[0, 200], code: nil}
+      end
+    rescue JSON::ParserError
+      {message: body.to_s[0, 200], code: nil}
     end
   end
 end
