@@ -3,13 +3,14 @@
 module Frijolero
   module Pipeline
     def self.for(account_config)
-      klass = TYPES[account_config["converter_type"]] || Default
-      klass.new(account_config)
+      config = account_config || {}
+      klass = TYPES[config["converter_type"]] || Default
+      klass.new(config)
     end
 
     class Base
       def initialize(account_config)
-        @account_config = account_config
+        @account_config = account_config || {}
       end
 
       def beancount_account
@@ -31,12 +32,10 @@ module Frijolero
         "Found #{list.size} transactions#{UI.transaction_summary(list)}"
       end
 
-      def convert(json_path:, output:)
-        BeancountConverter.convert(
-          input: json_path,
-          account: beancount_account,
-          output: output
-        )
+      def convert(json_path:, output: nil, account: beancount_account, expense_account: nil, **)
+        kwargs = {input: json_path, account: account, output: output}
+        kwargs[:expense_account] = expense_account if expense_account
+        BeancountConverter.convert(**kwargs)
       end
     end
 
@@ -46,10 +45,10 @@ module Frijolero
         "Found #{list.size} movements"
       end
 
-      def convert(json_path:, output:)
+      def convert(json_path:, output: nil, account: beancount_account, **)
         CetesDirectoConverter.convert(
           input: json_path,
-          account: beancount_account,
+          account: account,
           output: output,
           counterpart_account: @account_config["counterpart_account"],
           interest_account: @account_config["interest_account"],
@@ -65,10 +64,10 @@ module Frijolero
         "Found #{list.size} transactions"
       end
 
-      def convert(json_path:, output:)
+      def convert(json_path:, output: nil, account: beancount_account, **)
         FintualConverter.convert(
           input: json_path,
-          account: beancount_account,
+          account: account,
           output: output,
           counterpart_account: @account_config["counterpart_account"],
           dividend_account: @account_config["dividend_account"],
