@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
-require "sinatra/base"
-require "json"
+require 'sinatra/base'
+require 'json'
 
 module Frijolero
   module Web
     class App < Sinatra::Base
-      set :views, File.join(__dir__, "views")
-      set :public_folder, File.join(__dir__, "public")
+      set :views, File.join(__dir__, 'views')
+      set :public_folder, File.join(__dir__, 'public')
       set :static_cache_control, [:no_cache]
 
       # Configured at launch by CLI
@@ -15,7 +15,7 @@ module Frijolero
       set :beancount_account, nil
       set :accounts_list, []
 
-      get "/" do
+      get '/' do
         transactions = load_transactions
         erb :review, locals: {
           transactions: transactions,
@@ -25,30 +25,30 @@ module Frijolero
         }
       end
 
-      put "/transactions" do
+      put '/transactions' do
         content_type :json
         data = JSON.parse(request.body.read)
-        save_transactions(data["transactions"])
-        {status: "ok"}.to_json
+        save_transactions(data['transactions'])
+        { status: 'ok' }.to_json
       end
 
-      post "/convert" do
+      post '/convert' do
         content_type :json
         data = JSON.parse(request.body.read)
-        save_transactions(data["transactions"])
+        save_transactions(data['transactions'])
 
         output = BeancountConverter.convert(
           input: settings.json_file,
           account: settings.beancount_account
         )
 
-        {status: "ok", output: output}.to_json
+        { status: 'ok', output: output }.to_json
       end
 
-      post "/convert-and-merge" do
+      post '/convert-and-merge' do
         content_type :json
         data = JSON.parse(request.body.read)
-        save_transactions(data["transactions"])
+        save_transactions(data['transactions'])
 
         beancount_path = BeancountConverter.convert(
           input: settings.json_file,
@@ -60,19 +60,19 @@ module Frijolero
           output: Config.beancount_main_file
         ).run
 
-        {status: "ok", output: beancount_path}.to_json
+        { status: 'ok', output: beancount_path }.to_json
       end
 
       private
 
       def load_transactions
-        JSON.parse(File.read(settings.json_file)).fetch("transactions", [])
+        JSON.parse(File.read(settings.json_file)).fetch('transactions', [])
       end
 
       def save_transactions(transactions)
         File.write(
           settings.json_file,
-          JSON.pretty_generate({"transactions" => transactions})
+          JSON.pretty_generate({ 'transactions' => transactions })
         )
       end
     end

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require "set"
-require "fileutils"
+require 'set'
+require 'fileutils'
 
 module Frijolero
   class BeancountMerger
@@ -40,21 +40,24 @@ module Frijolero
         end
       end
 
-      unless @quiet
-        puts
-        if @dry_run
-          puts "Dry run complete. Would merge #{total_entries} entries from #{@files.size} file(s)."
-        else
-          puts "Done. Merged #{total_entries} entries from #{@files.size} file(s) into #{@output}"
-        end
+      return if @quiet
+
+      puts
+      if @dry_run
+        puts "Dry run complete. Would merge #{total_entries} entries from #{@files.size} file(s)."
+      else
+        puts "Done. Merged #{total_entries} entries from #{@files.size} file(s) into #{@output}"
       end
     end
 
     private
 
     def validate!
-      raise ArgumentError, "No input files provided" if @files.empty?
-      raise ArgumentError, "Output file not specified. Set paths.beancount_main in ~/.frijolero/config.yaml or use -o" unless @output
+      raise ArgumentError, 'No input files provided' if @files.empty?
+      unless @output
+        raise ArgumentError,
+              'Output file not specified. Set paths.beancount_main in ~/.frijolero/config.yaml or use -o'
+      end
 
       @files.each do |file|
         raise ArgumentError, "File not found: #{file}" unless File.exist?(file)
@@ -70,7 +73,7 @@ module Frijolero
       if parsed
         parsed[0]
       else
-        File.basename(file, ".*")
+        File.basename(file, '.*')
       end
     end
 
@@ -88,14 +91,14 @@ module Frijolero
 
     def include_file(file, prefix)
       output_dir = File.dirname(@output)
-      target_dir = File.join(output_dir, "transactions", prefix)
+      target_dir = File.join(output_dir, 'transactions', prefix)
       target_path = File.join(target_dir, File.basename(file))
       relative_path = "transactions/#{prefix}/#{File.basename(file)}"
 
       FileUtils.mkdir_p(target_dir)
       FileUtils.cp(file, target_path)
 
-      File.open(@output, "a") do |out|
+      File.open(@output, 'a') do |out|
         out.puts "include \"#{relative_path}\""
       end
     end

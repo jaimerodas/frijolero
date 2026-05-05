@@ -12,7 +12,7 @@ module Frijolero
       end
 
       def setup
-        require "cli/ui"
+        require 'cli/ui'
         ::CLI::UI::StdoutRouter.enable
       end
 
@@ -30,7 +30,7 @@ module Frijolero
         ::CLI::UI.confirm(question, default: default)
       end
 
-      def puts(msg = "")
+      def puts(msg = '')
         ::CLI::UI.puts(msg)
       end
 
@@ -39,18 +39,18 @@ module Frijolero
       end
 
       def ask_with_autocomplete(prompt, completions)
-        require "reline"
+        require 'reline'
 
         old_proc = Reline.completion_proc
         old_append = Reline.completion_append_character
 
-        Reline.completion_append_character = ""
+        Reline.completion_append_character = ''
         Reline.completion_proc = proc do |input|
           pattern = input.downcase
           completions.select { |c| c.downcase.include?(pattern) }
         end
 
-        Reline.readline(fmt(prompt) + " ", false)&.strip
+        Reline.readline(fmt(prompt) + ' ', false)&.strip
       ensure
         Reline.completion_proc = old_proc
         Reline.completion_append_character = old_append
@@ -62,11 +62,11 @@ module Frijolero
 
       def short_path(path)
         home = Dir.home
-        path.start_with?(home) ? path.sub(home, "~") : path
+        path.start_with?(home) ? path.sub(home, '~') : path
       end
 
       def format_number(n)
-        int_part, dec_part = format("%.2f", n).split(".")
+        int_part, dec_part = format('%.2f', n).split('.')
         int_with_commas = int_part.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse
         "#{int_with_commas}.#{dec_part}"
       end
@@ -77,22 +77,22 @@ module Frijolero
       end
 
       def transaction_summary(transactions)
-        return "" if transactions.empty?
+        return '' if transactions.empty?
 
-        debits = transactions.select { |t| t["amount"].to_f < 0 }
-        credits = transactions.select { |t| t["amount"].to_f >= 0 }
+        debits = transactions.select { |t| t['amount'].to_f < 0 }
+        credits = transactions.select { |t| t['amount'].to_f >= 0 }
 
         parts = []
         if debits.any?
-          total = debits.sum { |t| t["amount"].to_f.abs }
+          total = debits.sum { |t| t['amount'].to_f.abs }
           parts << "#{debits.size} debits (#{format_number(total)})"
         end
         if credits.any?
-          total = credits.sum { |t| t["amount"].to_f }
+          total = credits.sum { |t| t['amount'].to_f }
           parts << "#{credits.size} credits (#{format_number(total)})"
         end
 
-        ": #{parts.join(", ")}"
+        ": #{parts.join(', ')}"
       end
     end
   end

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "test_helper"
+require 'test_helper'
 
 class TransactionSplitterTest < Minitest::Test
   include TestHelpers
@@ -29,13 +29,13 @@ class TransactionSplitterTest < Minitest::Test
   BEANCOUNT
 
   def write_beancount(dir, content = SAMPLE_BEANCOUNT)
-    path = File.join(dir, "transactions.beancount")
+    path = File.join(dir, 'transactions.beancount')
     File.write(path, content)
     path
   end
 
   def write_accounts_yaml(config_dir)
-    File.write(File.join(config_dir, "accounts.yaml"), <<~YAML)
+    File.write(File.join(config_dir, 'accounts.yaml'), <<~YAML)
       BBVA:
         beancount_account: "Assets:BBVA"
       Amex Aeromexico:
@@ -52,8 +52,8 @@ class TransactionSplitterTest < Minitest::Test
         splitter = Frijolero::TransactionSplitter.new(beancount_file: path)
         summary = splitter.summary
 
-        assert_equal 2, summary["BBVA"]
-        assert_equal 2, summary["Amex Aeromexico"]
+        assert_equal 2, summary['BBVA']
+        assert_equal 2, summary['Amex Aeromexico']
       end
     end
   end
@@ -67,7 +67,7 @@ class TransactionSplitterTest < Minitest::Test
         splitter = Frijolero::TransactionSplitter.new(beancount_file: path)
         summary = splitter.summary
 
-        assert_equal 1, summary["Other"]
+        assert_equal 1, summary['Other']
       end
     end
   end
@@ -79,23 +79,23 @@ class TransactionSplitterTest < Minitest::Test
       with_temp_dir do |dir|
         path = write_beancount(dir)
         splitter = Frijolero::TransactionSplitter.new(beancount_file: path)
-        result = splitter.split(account_key: "BBVA")
+        result = splitter.split(account_key: 'BBVA')
 
         assert_equal 2, result[:extracted]
         assert_equal 2, result[:files]
 
-        jan_file = File.join(dir, "transactions", "BBVA", "BBVA_2501.beancount")
-        feb_file = File.join(dir, "transactions", "BBVA", "BBVA_2502.beancount")
+        jan_file = File.join(dir, 'transactions', 'BBVA', 'BBVA_2501.beancount')
+        feb_file = File.join(dir, 'transactions', 'BBVA', 'BBVA_2502.beancount')
 
         assert File.exist?(jan_file)
         assert File.exist?(feb_file)
 
         jan_content = File.read(jan_file)
-        assert_includes jan_content, "Steelcase"
-        assert_includes jan_content, "Assets:BBVA"
+        assert_includes jan_content, 'Steelcase'
+        assert_includes jan_content, 'Assets:BBVA'
 
         feb_content = File.read(feb_file)
-        assert_includes feb_content, "Renta Febrero"
+        assert_includes feb_content, 'Renta Febrero'
       end
     end
   end
@@ -107,18 +107,18 @@ class TransactionSplitterTest < Minitest::Test
       with_temp_dir do |dir|
         path = write_beancount(dir)
         splitter = Frijolero::TransactionSplitter.new(beancount_file: path)
-        splitter.split(account_key: "BBVA")
+        splitter.split(account_key: 'BBVA')
 
         content = File.read(path)
         assert_includes content, 'include "transactions/BBVA/BBVA_2501.beancount"'
         assert_includes content, 'include "transactions/BBVA/BBVA_2502.beancount"'
-        refute_includes content, "Steelcase"
-        refute_includes content, "Renta Febrero"
+        refute_includes content, 'Steelcase'
+        refute_includes content, 'Renta Febrero'
 
         # Non-BBVA transactions should remain
-        assert_includes content, "Amazon"
-        assert_includes content, "Starbucks"
-        assert_includes content, "Saldo Inicial"
+        assert_includes content, 'Amazon'
+        assert_includes content, 'Starbucks'
+        assert_includes content, 'Saldo Inicial'
       end
     end
   end
@@ -131,23 +131,23 @@ class TransactionSplitterTest < Minitest::Test
         path = write_beancount(dir)
 
         # Pre-create the January file
-        existing_dir = File.join(dir, "transactions", "BBVA")
+        existing_dir = File.join(dir, 'transactions', 'BBVA')
         FileUtils.mkdir_p(existing_dir)
-        File.write(File.join(existing_dir, "BBVA_2501.beancount"), "existing content")
+        File.write(File.join(existing_dir, 'BBVA_2501.beancount'), 'existing content')
 
         splitter = Frijolero::TransactionSplitter.new(beancount_file: path)
-        result = splitter.split(account_key: "BBVA")
+        result = splitter.split(account_key: 'BBVA')
 
         assert_equal 2, result[:matched]
         assert_equal 1, result[:extracted]
         assert_equal 1, result[:files]
-        assert_includes result[:existing], "2501"
+        assert_includes result[:existing], '2501'
 
         # Existing file should not be overwritten
-        assert_equal "existing content", File.read(File.join(existing_dir, "BBVA_2501.beancount"))
+        assert_equal 'existing content', File.read(File.join(existing_dir, 'BBVA_2501.beancount'))
 
         # February should be extracted
-        assert File.exist?(File.join(existing_dir, "BBVA_2502.beancount"))
+        assert File.exist?(File.join(existing_dir, 'BBVA_2502.beancount'))
       end
     end
   end
@@ -166,15 +166,15 @@ class TransactionSplitterTest < Minitest::Test
           ; === End: BBVA_2501.beancount ===
         BEANCOUNT
 
-        path = File.join(dir, "transactions.beancount")
+        path = File.join(dir, 'transactions.beancount')
         File.write(path, content)
 
         splitter = Frijolero::TransactionSplitter.new(beancount_file: path)
-        splitter.split(account_key: "BBVA")
+        splitter.split(account_key: 'BBVA')
 
         result = File.read(path)
-        refute_includes result, "; === Start:"
-        refute_includes result, "; === End:"
+        refute_includes result, '; === Start:'
+        refute_includes result, '; === End:'
       end
     end
   end
@@ -188,7 +188,7 @@ class TransactionSplitterTest < Minitest::Test
         original_content = File.read(path)
 
         splitter = Frijolero::TransactionSplitter.new(beancount_file: path)
-        result = splitter.split(account_key: "BBVA", dry_run: true)
+        result = splitter.split(account_key: 'BBVA', dry_run: true)
 
         assert_equal 2, result[:matched]
         assert_equal 0, result[:extracted]
@@ -198,7 +198,7 @@ class TransactionSplitterTest < Minitest::Test
         assert_equal original_content, File.read(path)
 
         # No transaction files should be created
-        refute Dir.exist?(File.join(dir, "transactions"))
+        refute Dir.exist?(File.join(dir, 'transactions'))
       end
     end
   end
@@ -212,9 +212,9 @@ class TransactionSplitterTest < Minitest::Test
         original_content = File.read(path)
 
         splitter = Frijolero::TransactionSplitter.new(beancount_file: path)
-        splitter.split(account_key: "BBVA")
+        splitter.split(account_key: 'BBVA')
 
-        backup = path + ".bak"
+        backup = path + '.bak'
         assert File.exist?(backup)
         assert_equal original_content, File.read(backup)
       end
@@ -233,14 +233,14 @@ class TransactionSplitterTest < Minitest::Test
 
         BEANCOUNT
 
-        path = File.join(dir, "transactions.beancount")
+        path = File.join(dir, 'transactions.beancount')
         File.write(path, content)
 
         splitter = Frijolero::TransactionSplitter.new(beancount_file: path)
-        result = splitter.split(account_key: "BBVA")
+        result = splitter.split(account_key: 'BBVA')
 
         assert_equal 0, result[:matched]
-        refute Dir.exist?(File.join(dir, "transactions"))
+        refute Dir.exist?(File.join(dir, 'transactions'))
       end
     end
   end
@@ -254,7 +254,7 @@ class TransactionSplitterTest < Minitest::Test
         splitter = Frijolero::TransactionSplitter.new(beancount_file: path)
 
         assert_raises ArgumentError do
-          splitter.split(account_key: "NonExistent")
+          splitter.split(account_key: 'NonExistent')
         end
       end
     end

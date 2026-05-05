@@ -13,8 +13,8 @@ module Frijolero
 
     def preview
       {
-        beancount: beancount_changes.map { |c| {path: c[:path], count: c[:count]} },
-        detailers: detailer_changes.map { |c| {path: c[:path], count: c[:count]} },
+        beancount: beancount_changes.map { |c| { path: c[:path], count: c[:count] } },
+        detailers: detailer_changes.map { |c| { path: c[:path], count: c[:count] } },
         accounts_yaml: accounts_yaml_changes
       }
     end
@@ -40,7 +40,7 @@ module Frijolero
         next if count == 0
 
         modified = original.gsub(beancount_pattern, new_name)
-        {path: path, count: count, content: modified}
+        { path: path, count: count, content: modified }
       end
     end
 
@@ -51,11 +51,12 @@ module Frijolero
 
         modified = original.gsub(yaml_account_pattern) do
           count += 1
-          "#{$1}#{new_name}#{$2}"
+          "#{::Regexp.last_match(1)}#{new_name}#{::Regexp.last_match(2)}"
         end
 
         next if count == 0
-        {path: path, count: count, content: modified}
+
+        { path: path, count: count, content: modified }
       end
     end
 
@@ -71,7 +72,7 @@ module Frijolero
           next unless values.is_a?(Hash)
 
           ACCOUNT_FIELDS.each do |field|
-            changes << {account_key: key, field: field} if values[field] == old_name
+            changes << { account_key: key, field: field } if values[field] == old_name
           end
         end
 
@@ -83,13 +84,13 @@ module Frijolero
       path = Config.accounts_file
       original = File.read(path)
       modified = original.gsub(yaml_account_pattern) do
-        "#{$1}#{new_name}#{$2}"
+        "#{::Regexp.last_match(1)}#{new_name}#{::Regexp.last_match(2)}"
       end
       File.write(path, modified)
     end
 
     def yaml_account_pattern
-      @yaml_account_pattern ||= /^(\s*(?:#{ACCOUNT_FIELDS.join("|")}):\s*"?)#{Regexp.escape(old_name)}("?\s*)$/
+      @yaml_account_pattern ||= /^(\s*(?:#{ACCOUNT_FIELDS.join('|')}):\s*"?)#{Regexp.escape(old_name)}("?\s*)$/
     end
 
     def beancount_files
@@ -101,14 +102,14 @@ module Frijolero
       main_file = Config.beancount_main_file
       if main_file && File.exist?(main_file)
         main_dir = File.dirname(main_file)
-        Dir.glob(File.join(main_dir, "**", "*.beancount")).each { |f| files << f }
+        Dir.glob(File.join(main_dir, '**', '*.beancount')).each { |f| files << f }
       end
 
       files.to_a
     end
 
     def detailer_files
-      Dir.glob(File.join(Config.detailers_dir, "*.yaml"))
+      Dir.glob(File.join(Config.detailers_dir, '*.yaml'))
     end
   end
 end

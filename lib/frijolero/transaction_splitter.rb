@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require "set"
-require "fileutils"
+require 'set'
+require 'fileutils'
 
 module Frijolero
   class TransactionSplitter
@@ -20,21 +20,21 @@ module Frijolero
         counts[account] += 1
       end
 
-      counts.sort_by { |name, _| name == "Other" ? "zzz" : name }.to_h
+      counts.sort_by { |name, _| name == 'Other' ? 'zzz' : name }.to_h
     end
 
     def split(account_key:, dry_run: false)
       account_config = AccountConfig.find_config(account_key)
       raise ArgumentError, "Account not found: #{account_key}" unless account_config
 
-      target_account = account_config["beancount_account"]
-      prefix = account_key.gsub(" ", "_")
-      transactions_dir = File.join(@base_dir, "transactions", prefix)
+      target_account = account_config['beancount_account']
+      prefix = account_key.gsub(' ', '_')
+      transactions_dir = File.join(@base_dir, 'transactions', prefix)
 
       account_regex = /\b#{Regexp.escape(target_account)}\b/
       matched = transaction_blocks.select { |b| b[:lines].any? { |l| l.match?(account_regex) } }
 
-      return {matched: 0, extracted: 0, files: 0, groups: {}} if matched.empty?
+      return { matched: 0, extracted: 0, files: 0, groups: {} } if matched.empty?
 
       groups = matched.group_by { |b| date_to_yymm(b[:date]) }
 
@@ -56,7 +56,7 @@ module Frijolero
       return result.merge(extracted: 0, files: 0) if groups.empty?
 
       # Backup
-      FileUtils.cp(@beancount_file, @beancount_file + ".bak")
+      FileUtils.cp(@beancount_file, @beancount_file + '.bak')
 
       # Write transaction files
       FileUtils.mkdir_p(transactions_dir)
@@ -79,14 +79,14 @@ module Frijolero
 
     def parse_file
       blocks = []
-      lines = File.readlines(@beancount_file, encoding: "UTF-8")
+      lines = File.readlines(@beancount_file, encoding: 'UTF-8')
       i = 0
 
       while i < lines.length
         line = lines[i]
 
         if line.match?(/^; === (Start|End): .+ ===$/)
-          blocks << {type: :marker, lines: [line]}
+          blocks << { type: :marker, lines: [line] }
           i += 1
           next
         end
@@ -107,11 +107,11 @@ module Frijolero
               break
             end
           end
-          blocks << {type: :transaction, date: date, lines: tx_lines}
+          blocks << { type: :transaction, date: date, lines: tx_lines }
           next
         end
 
-        blocks << {type: :other, lines: [line]}
+        blocks << { type: :other, lines: [line] }
         i += 1
       end
 
@@ -125,7 +125,7 @@ module Frijolero
     def build_reverse_account_map
       map = {}
       Config.accounts.each do |key, config|
-        beancount_account = config["beancount_account"]
+        beancount_account = config['beancount_account']
         map[beancount_account] = key if beancount_account
       end
       map
@@ -134,11 +134,12 @@ module Frijolero
     def find_primary_account(block, account_map)
       block[:lines].each do |line|
         next unless line.match?(/^\s+/)
+
         account_map.each do |beancount_account, key|
           return key if line.include?(beancount_account)
         end
       end
-      "Other"
+      'Other'
     end
 
     def date_to_yymm(date)

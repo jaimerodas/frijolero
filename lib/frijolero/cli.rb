@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-require "optparse"
-require "fileutils"
+require 'optparse'
+require 'fileutils'
 
 module Frijolero
   class CLI
-    TEMPLATES_DIR = File.expand_path("templates", __dir__)
+    TEMPLATES_DIR = File.expand_path('templates', __dir__)
 
     def self.run(args = ARGV)
       new.run(args)
@@ -14,35 +14,35 @@ module Frijolero
     def run(args)
       Frijolero::UI.setup
 
-      if args.empty? || args.first == "--help" || args.first == "-h"
+      if args.empty? || args.first == '--help' || args.first == '-h'
         show_help
         return
       end
 
-      if args.first == "--version" || args.first == "-v"
+      if ['--version', '-v'].include?(args.first)
         puts "frijolero #{VERSION}"
         return
       end
 
       command = args.shift
       case command
-      when "init"
+      when 'init'
         run_init(args)
-      when "process"
+      when 'process'
         run_process(args)
-      when "detail"
+      when 'detail'
         run_detail(args)
-      when "convert"
+      when 'convert'
         run_convert(args)
-      when "merge"
+      when 'merge'
         run_merge(args)
-      when "csv"
+      when 'csv'
         run_csv(args)
-      when "review"
+      when 'review'
         run_review(args)
-      when "rename"
+      when 'rename'
         run_rename(args)
-      when "split"
+      when 'split'
         run_split(args)
       else
         warn "Unknown command: #{command}"
@@ -77,7 +77,7 @@ module Frijolero
     end
 
     def run_init(args)
-      if args.include?("--help") || args.include?("-h")
+      if args.include?('--help') || args.include?('-h')
         puts <<~HELP
           Usage: frijolero init
 
@@ -93,40 +93,40 @@ module Frijolero
 
       if Config.initialized?
         warn "Configuration already exists at #{config_dir}"
-        warn "Remove it first if you want to reinitialize"
+        warn 'Remove it first if you want to reinitialize'
         exit 1
       end
 
       FileUtils.mkdir_p(config_dir)
       FileUtils.mkdir_p(Config.detailers_dir)
 
-      FileUtils.cp(File.join(TEMPLATES_DIR, "config.yaml"), Config.config_file)
-      FileUtils.cp(File.join(TEMPLATES_DIR, "accounts.yaml"), Config.accounts_file)
-      FileUtils.cp(File.join(TEMPLATES_DIR, "detailer.yaml"), File.join(Config.detailers_dir, "example.yaml"))
+      FileUtils.cp(File.join(TEMPLATES_DIR, 'config.yaml'), Config.config_file)
+      FileUtils.cp(File.join(TEMPLATES_DIR, 'accounts.yaml'), Config.accounts_file)
+      FileUtils.cp(File.join(TEMPLATES_DIR, 'detailer.yaml'), File.join(Config.detailers_dir, 'example.yaml'))
 
       puts "Created configuration at #{config_dir}"
       puts
-      puts "Edit these files to configure frijolero:"
+      puts 'Edit these files to configure frijolero:'
       puts "  #{Config.config_file}         - API keys and paths"
       puts "  #{Config.accounts_file}       - Account mappings"
       puts "  #{Config.detailers_dir}/   - Transaction matching rules"
     end
 
     def run_process(args)
-      options = {dry_run: false, interactive: true}
+      options = { dry_run: false, interactive: true }
 
       parser = OptionParser.new do |opts|
-        opts.banner = "Usage: frijolero process [OPTIONS]"
+        opts.banner = 'Usage: frijolero process [OPTIONS]'
 
-        opts.on("--dry-run", "Show what would be processed without making changes") do
+        opts.on('--dry-run', 'Show what would be processed without making changes') do
           options[:dry_run] = true
         end
 
-        opts.on("--auto-accept-prompts", "Skip interactive prompts (auto-yes)") do
+        opts.on('--auto-accept-prompts', 'Skip interactive prompts (auto-yes)') do
           options[:interactive] = false
         end
 
-        opts.on("-h", "--help", "Show this help") do
+        opts.on('-h', '--help', 'Show this help') do
           puts opts
           exit
         end
@@ -145,13 +145,13 @@ module Frijolero
       options = {}
 
       parser = OptionParser.new do |opts|
-        opts.banner = "Usage: frijolero detail FILE.json [-c CONFIG.yaml]"
+        opts.banner = 'Usage: frijolero detail FILE.json [-c CONFIG.yaml]'
 
-        opts.on("-c", "--config CONFIG", "Config YAML file (auto-detected from filename if omitted)") do |v|
+        opts.on('-c', '--config CONFIG', 'Config YAML file (auto-detected from filename if omitted)') do |v|
           options[:config] = v
         end
 
-        opts.on("-h", "--help", "Show this help") do
+        opts.on('-h', '--help', 'Show this help') do
           puts opts
           exit
         end
@@ -161,7 +161,7 @@ module Frijolero
       file = args.first
 
       unless file
-        warn "Error: Input file required"
+        warn 'Error: Input file required'
         warn parser
         exit 1
       end
@@ -175,8 +175,8 @@ module Frijolero
           auto_detected = true
         else
           UI.puts "{{x}} Could not auto-detect config for '#{File.basename(file)}'"
-          UI.puts "Available accounts: #{AccountConfig.available_accounts.join(", ")}"
-          UI.puts "Use -c to specify a config file explicitly"
+          UI.puts "Available accounts: #{AccountConfig.available_accounts.join(', ')}"
+          UI.puts 'Use -c to specify a config file explicitly'
           exit 1
         end
       end
@@ -186,7 +186,7 @@ module Frijolero
       UI.frame("Detailing: #{filename}") do
         UI.puts "Config: #{UI.short_path(config)}" if auto_detected
 
-        transactions = JSON.load_file(file).dig("transactions") || []
+        transactions = JSON.load_file(file).dig('transactions') || []
         UI.puts "Found #{transactions.size} transactions#{UI.transaction_summary(transactions)}"
 
         stats = Detailer.new(file, config).run
@@ -198,21 +198,21 @@ module Frijolero
       options = {}
 
       parser = OptionParser.new do |opts|
-        opts.banner = "Usage: frijolero convert FILE.json [-a ACCOUNT] [-o OUTPUT.beancount]"
+        opts.banner = 'Usage: frijolero convert FILE.json [-a ACCOUNT] [-o OUTPUT.beancount]'
 
-        opts.on("-a", "--account ACCOUNT", "Primary account (auto-detected from filename if omitted)") do |v|
+        opts.on('-a', '--account ACCOUNT', 'Primary account (auto-detected from filename if omitted)') do |v|
           options[:account] = v
         end
 
-        opts.on("-o", "--output FILE", "Output Beancount file") do |v|
+        opts.on('-o', '--output FILE', 'Output Beancount file') do |v|
           options[:output] = v
         end
 
-        opts.on("-e", "--expense ACCOUNT", "Default expense account (default: Expenses:FIXME)") do |v|
+        opts.on('-e', '--expense ACCOUNT', 'Default expense account (default: Expenses:FIXME)') do |v|
           options[:expense_account] = v
         end
 
-        opts.on("-h", "--help", "Show this help") do
+        opts.on('-h', '--help', 'Show this help') do
           puts opts
           exit
         end
@@ -222,7 +222,7 @@ module Frijolero
       input = args.first
 
       unless input
-        warn "Error: Input file required"
+        warn 'Error: Input file required'
         warn parser
         exit 1
       end
@@ -236,8 +236,8 @@ module Frijolero
           options[:account] = account
         else
           UI.puts "{{x}} Could not auto-detect account for '#{filename}'"
-          UI.puts "Available accounts: #{AccountConfig.available_accounts.join(", ")}"
-          UI.puts "Use -a to specify an account explicitly"
+          UI.puts "Available accounts: #{AccountConfig.available_accounts.join(', ')}"
+          UI.puts 'Use -a to specify an account explicitly'
           exit 1
         end
       end
@@ -263,20 +263,20 @@ module Frijolero
     end
 
     def run_merge(args)
-      options = {dry_run: false}
+      options = { dry_run: false }
 
       parser = OptionParser.new do |opts|
-        opts.banner = "Usage: frijolero merge FILE [FILE...] [-o MAIN_FILE] [--dry-run]"
+        opts.banner = 'Usage: frijolero merge FILE [FILE...] [-o MAIN_FILE] [--dry-run]'
 
-        opts.on("-o", "--output FILE", "Main beancount file to append to") do |v|
+        opts.on('-o', '--output FILE', 'Main beancount file to append to') do |v|
           options[:output] = v
         end
 
-        opts.on("--dry-run", "Show what would be merged without making changes") do
+        opts.on('--dry-run', 'Show what would be merged without making changes') do
           options[:dry_run] = true
         end
 
-        opts.on("-h", "--help", "Show this help") do
+        opts.on('-h', '--help', 'Show this help') do
           puts opts
           exit
         end
@@ -285,7 +285,7 @@ module Frijolero
       parser.parse!(args)
 
       if args.empty?
-        warn "Error: No input files provided"
+        warn 'Error: No input files provided'
         warn parser
         exit 1
       end
@@ -306,13 +306,13 @@ module Frijolero
       options = {}
 
       parser = OptionParser.new do |opts|
-        opts.banner = "Usage: frijolero csv FILE.json [-o OUTPUT.csv]"
+        opts.banner = 'Usage: frijolero csv FILE.json [-o OUTPUT.csv]'
 
-        opts.on("-o", "--output FILE", "Output CSV file") do |v|
+        opts.on('-o', '--output FILE', 'Output CSV file') do |v|
           options[:output] = v
         end
 
-        opts.on("-h", "--help", "Show this help") do
+        opts.on('-h', '--help', 'Show this help') do
           puts opts
           exit
         end
@@ -322,7 +322,7 @@ module Frijolero
       input = args.first
 
       unless input
-        warn "Error: Input file required"
+        warn 'Error: Input file required'
         warn parser
         exit 1
       end
@@ -331,20 +331,20 @@ module Frijolero
     end
 
     def run_review(args)
-      options = {port: 4567}
+      options = { port: 4567 }
 
       parser = OptionParser.new do |opts|
-        opts.banner = "Usage: frijolero review FILE.json [-p PORT]"
+        opts.banner = 'Usage: frijolero review FILE.json [-p PORT]'
 
-        opts.on("-p", "--port PORT", Integer, "Server port (default: 4567)") do |v|
+        opts.on('-p', '--port PORT', Integer, 'Server port (default: 4567)') do |v|
           options[:port] = v
         end
 
-        opts.on("-a", "--account ACCOUNT", "Primary account (auto-detected from filename if omitted)") do |v|
+        opts.on('-a', '--account ACCOUNT', 'Primary account (auto-detected from filename if omitted)') do |v|
           options[:account] = v
         end
 
-        opts.on("-h", "--help", "Show this help") do
+        opts.on('-h', '--help', 'Show this help') do
           puts opts
           exit
         end
@@ -354,7 +354,7 @@ module Frijolero
       input = args.first
 
       unless input
-        warn "Error: Input file required"
+        warn 'Error: Input file required'
         warn parser
         exit 1
       end
@@ -371,8 +371,8 @@ module Frijolero
         account = AccountConfig.beancount_account_for_file(input)
         unless account
           UI.puts "{{x}} Could not auto-detect account for '#{File.basename(input)}'"
-          UI.puts "Available accounts: #{AccountConfig.available_accounts.join(", ")}"
-          UI.puts "Use -a to specify an account explicitly"
+          UI.puts "Available accounts: #{AccountConfig.available_accounts.join(', ')}"
+          UI.puts 'Use -a to specify an account explicitly'
           exit 1
         end
       end
@@ -383,7 +383,7 @@ module Frijolero
         []
       end
 
-      require_relative "web/app"
+      require_relative 'web/app'
 
       Web::App.set :json_file, File.expand_path(input)
       Web::App.set :beancount_account, account
@@ -392,23 +392,23 @@ module Frijolero
       url = "http://localhost:#{options[:port]}"
       UI.puts "{{*}} Starting review server at {{bold:#{url}}}"
       UI.puts "{{i}} Reviewing: #{File.basename(input)} (#{account})"
-      UI.puts "Press Ctrl+C to stop"
+      UI.puts 'Press Ctrl+C to stop'
 
       # Open browser after a short delay
       Thread.new do
         sleep 0.5
-        system("open", url)
+        system('open', url)
       end
 
-      Web::App.run!(port: options[:port], bind: "localhost")
+      Web::App.run!(port: options[:port], bind: 'localhost')
     end
 
     def run_rename(args)
-      if args.include?("--help") || args.include?("-h")
-        puts "Usage: frijolero rename"
+      if args.include?('--help') || args.include?('-h')
+        puts 'Usage: frijolero rename'
         puts
-        puts "Interactively rename an account across beancount files,"
-        puts "detailer configs, and accounts.yaml."
+        puts 'Interactively rename an account across beancount files,'
+        puts 'detailer configs, and accounts.yaml.'
         return
       end
 
@@ -420,15 +420,15 @@ module Frijolero
         []
       end
 
-      UI.frame("Rename account") do
-        old_name = UI.ask_with_autocomplete("Current account:", accounts)
-        return UI.puts("{{x}} No account specified") if old_name.nil? || old_name.empty?
+      UI.frame('Rename account') do
+        old_name = UI.ask_with_autocomplete('Current account:', accounts)
+        return UI.puts('{{x}} No account specified') if old_name.nil? || old_name.empty?
 
-        new_name = UI.ask_with_autocomplete("New name:", accounts)
-        return UI.puts("{{x}} No new name specified") if new_name.nil? || new_name.empty?
+        new_name = UI.ask_with_autocomplete('New name:', accounts)
+        return UI.puts('{{x}} No new name specified') if new_name.nil? || new_name.empty?
 
         if old_name == new_name
-          UI.puts "{{x}} Names are the same, nothing to do"
+          UI.puts '{{x}} Names are the same, nothing to do'
           return
         end
 
@@ -465,24 +465,24 @@ module Frijolero
           end
         end
 
-        if UI.confirm("Apply changes?")
+        if UI.confirm('Apply changes?')
           renamer.apply!
-          UI.puts "{{v}} Changes applied"
+          UI.puts '{{v}} Changes applied'
         end
       end
     end
 
     def run_split(args)
-      options = {dry_run: false}
+      options = { dry_run: false }
 
       parser = OptionParser.new do |opts|
-        opts.banner = "Usage: frijolero split [ACCOUNT] [--dry-run]"
+        opts.banner = 'Usage: frijolero split [ACCOUNT] [--dry-run]'
 
-        opts.on("--dry-run", "Show what would be done without modifying files") do
+        opts.on('--dry-run', 'Show what would be done without modifying files') do
           options[:dry_run] = true
         end
 
-        opts.on("-h", "--help", "Show this help") do
+        opts.on('-h', '--help', 'Show this help') do
           puts opts
           exit
         end
@@ -493,7 +493,7 @@ module Frijolero
 
       beancount_file = Config.beancount_main_file
       unless beancount_file && File.exist?(beancount_file)
-        warn "Beancount file not found. Set paths.beancount_main in ~/.frijolero/config.yaml"
+        warn 'Beancount file not found. Set paths.beancount_main in ~/.frijolero/config.yaml'
         exit 1
       end
 
@@ -501,7 +501,7 @@ module Frijolero
       summary = splitter.summary
 
       if summary.empty?
-        UI.puts "No inline transactions found."
+        UI.puts 'No inline transactions found.'
         return
       end
 
@@ -516,12 +516,12 @@ module Frijolero
       # Determine account key
       account_key = args.first
       unless account_key
-        choosable = summary.keys.reject { |k| k == "Other" }
+        choosable = summary.keys.reject { |k| k == 'Other' }
         if choosable.empty?
-          UI.puts "No configured accounts to split."
+          UI.puts 'No configured accounts to split.'
           return
         end
-        account_key = UI.ask_select("Which account do you want to split?", choosable)
+        account_key = UI.ask_select('Which account do you want to split?', choosable)
       end
 
       # Run split
@@ -534,15 +534,15 @@ module Frijolero
         end
 
         result[:groups].sort.each do |yymm, count|
-          skip = result[:existing]&.include?(yymm) ? " {{x}} already exists" : ""
+          skip = result[:existing]&.include?(yymm) ? ' {{x}} already exists' : ''
           UI.puts "  #{result[:prefix]}_#{yymm}.beancount: #{count} transactions#{skip}"
         end
 
         if options[:dry_run]
-          UI.puts ""
-          UI.puts "(dry run — no files modified)"
+          UI.puts ''
+          UI.puts '(dry run — no files modified)'
         else
-          UI.puts ""
+          UI.puts ''
           UI.puts "{{v}} #{result[:extracted]} transactions extracted into #{result[:files]} files"
         end
       end

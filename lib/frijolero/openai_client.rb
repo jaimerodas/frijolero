@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
-require "net/http"
-require "json"
-require "uri"
-require "openssl"
+require 'net/http'
+require 'json'
+require 'uri'
+require 'openssl'
 
 module Frijolero
   class OpenAIClient
-    BASE_URL = "https://api.openai.com/v1"
+    BASE_URL = 'https://api.openai.com/v1'
 
     class Error < StandardError
       attr_reader :status, :code
@@ -50,14 +50,14 @@ module Frijolero
       def post_multipart(path, parts)
         uri = uri_for(path)
         request = Net::HTTP::Post.new(uri)
-        request.set_form(parts, "multipart/form-data")
+        request.set_form(parts, 'multipart/form-data')
         execute(uri, request)
       end
 
       def post_json(path, body)
         uri = uri_for(path)
         request = Net::HTTP::Post.new(uri)
-        request["Content-Type"] = "application/json"
+        request['Content-Type'] = 'application/json'
         request.body = JSON.generate(body)
         execute(uri, request)
       end
@@ -79,7 +79,7 @@ module Frijolero
       end
 
       def execute(uri, request)
-        request["Authorization"] = "Bearer #{@api_key}"
+        request['Authorization'] = "Bearer #{@api_key}"
 
         http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl = true
@@ -110,38 +110,38 @@ module Frijolero
         when 401
           raise AuthenticationError.new(message, status: status, code: code)
         when 429
-          if code == "insufficient_quota"
-            raise InsufficientQuotaError.new(message, status: status, code: code)
-          else
-            raise RateLimitError.new(message, status: status, code: code)
-          end
+          raise InsufficientQuotaError.new(message, status: status, code: code) if code == 'insufficient_quota'
+
+          raise RateLimitError.new(message, status: status, code: code)
+
         else
           raise APIError.new(message, status: status, code: code)
         end
       end
 
       def parse_error_body(body)
-        return {message: "(empty response)", code: nil} if body.nil? || body.empty?
+        return { message: '(empty response)', code: nil } if body.nil? || body.empty?
 
         data = JSON.parse(body)
-        err = data.is_a?(Hash) ? data["error"] : nil
+        err = data.is_a?(Hash) ? data['error'] : nil
 
         if err.is_a?(Hash)
-          {message: err["message"] || body.to_s[0, 200], code: err["code"]}
+          { message: err['message'] || body.to_s[0, 200], code: err['code'] }
         else
-          {message: body.to_s[0, 200], code: nil}
+          { message: body.to_s[0, 200], code: nil }
         end
       rescue JSON::ParserError
-        {message: body.to_s[0, 200], code: nil}
+        { message: body.to_s[0, 200], code: nil }
       end
     end
 
     POLL_INTERVAL_SECONDS = 2
     POLL_TIMEOUT_SECONDS = 300
 
-    def initialize(api_key = nil, transport: nil, poll_interval: POLL_INTERVAL_SECONDS, poll_timeout: POLL_TIMEOUT_SECONDS)
+    def initialize(api_key = nil, transport: nil, poll_interval: POLL_INTERVAL_SECONDS,
+                   poll_timeout: POLL_TIMEOUT_SECONDS)
       api_key ||= Config.openai_api_key
-      raise ArgumentError, "OpenAI API key required" unless api_key
+      raise ArgumentError, 'OpenAI API key required' unless api_key
 
       @transport = transport || Transport.new(api_key: api_key)
       @poll_interval = poll_interval
@@ -149,35 +149,35 @@ module Frijolero
     end
 
     def upload_file(path)
-      data = File.open(path, "rb") do |io|
-        @transport.post_multipart("/files", [
-          ["purpose", "user_data"],
-          ["file", io, {filename: File.basename(path), content_type: "application/pdf"}]
-        ])
+      data = File.open(path, 'rb') do |io|
+        @transport.post_multipart('/files', [
+                                    %w[purpose user_data],
+                                    ['file', io, { filename: File.basename(path), content_type: 'application/pdf' }]
+                                  ])
       end
 
-      raise APIError.new("File upload failed: #{data}") unless data["id"]
+      raise APIError.new("File upload failed: #{data}") unless data['id']
 
-      data["id"]
+      data['id']
     end
 
     def extract_transactions(file_id, prompt_id)
-      data = @transport.post_json("/responses", {
-        prompt: {id: prompt_id},
-        input: [
-          {
-            role: "user",
-            content: [{type: "input_file", file_id: file_id}]
-          }
-        ],
-        background: true
-      })
+      data = @transport.post_json('/responses', {
+                                    prompt: { id: prompt_id },
+                                    input: [
+                                      {
+                                        role: 'user',
+                                        content: [{ type: 'input_file', file_id: file_id }]
+                                      }
+                                    ],
+                                    background: true
+                                  })
 
-      data = poll_response(data["id"])
+      data = poll_response(data['id'])
 
-      text_output = data.dig("output")&.find { |o| o["type"] == "message" }
-      content = text_output&.dig("content")&.find { |c| c["type"] == "output_text" }
-      json_text = content&.dig("text")
+      text_output = data.dig('output')&.find { |o| o['type'] == 'message' }
+      content = text_output&.dig('content')&.find { |c| c['type'] == 'output_text' }
+      json_text = content&.dig('text')
 
       raise APIError.new("Failed to extract transactions: #{data}") unless json_text
 
@@ -186,7 +186,7 @@ module Frijolero
 
     def delete_file(file_id)
       data = @transport.delete("/files/#{file_id}")
-      data["deleted"] == true
+      data['deleted'] == true
     end
 
     private
@@ -198,16 +198,17 @@ module Frijolero
         sleep @poll_interval
         data = @transport.get("/responses/#{response_id}")
 
-        case data["status"]
-        when "completed"
+        case data['status']
+        when 'completed'
           return data
-        when "queued", "in_progress"
+        when 'queued', 'in_progress'
           if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
-            raise APIError.new("Response polling timed out after #{@poll_timeout}s (still #{data["status"]})")
+            raise APIError.new("Response polling timed out after #{@poll_timeout}s (still #{data['status']})")
           end
+
           next
         else
-          raise APIError.new("Response failed with status: #{data["status"]}")
+          raise APIError.new("Response failed with status: #{data['status']}")
         end
       end
     end

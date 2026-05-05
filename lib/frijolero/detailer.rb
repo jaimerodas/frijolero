@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require "json"
-require "yaml"
-require "set"
+require 'json'
+require 'yaml'
+require 'set'
 
 module Frijolero
   class Detailer
@@ -34,18 +34,18 @@ module Frijolero
     private
 
     def load_json
-      @transactions = JSON.load_file(file).dig("transactions")
+      @transactions = JSON.load_file(file).dig('transactions')
     end
 
     def process_transactions
       config = YAML.load_file(@config_path)
 
-      process_patterns(config["start_with"]) do |pattern, transaction|
-        transaction["description"].start_with?(pattern)
+      process_patterns(config['start_with']) do |pattern, transaction|
+        transaction['description'].start_with?(pattern)
       end
 
-      process_patterns(config["include"]) do |pattern, transaction|
-        transaction["description"].include?(pattern)
+      process_patterns(config['include']) do |pattern, transaction|
+        transaction['description'].include?(pattern)
       end
     end
 
@@ -76,7 +76,7 @@ module Frijolero
     end
 
     def find_matching_rules(candidates, transaction)
-      candidates.find { |entry| conditions_met?(entry["when"], transaction) }
+      candidates.find { |entry| conditions_met?(entry['when'], transaction) }
     end
 
     def conditions_met?(conditions, transaction)
@@ -84,20 +84,20 @@ module Frijolero
 
       conditions.all? do |field, expected|
         case field
-        when "amount" then transaction["amount"] == expected
+        when 'amount' then transaction['amount'] == expected
         else false
         end
       end
     end
 
     def apply_rules(rules, transaction)
-      transaction["payee"] = rules["payee"] if rules["payee"]
-      transaction["narration"] = rules["narration"] if rules["narration"]
-      transaction["expense_account"] = rules["account"] if rules["account"]
+      transaction['payee'] = rules['payee'] if rules['payee']
+      transaction['narration'] = rules['narration'] if rules['narration']
+      transaction['expense_account'] = rules['account'] if rules['account']
     end
 
     def write_file
-      File.write(file, JSON.pretty_generate({"transactions" => @transactions}))
+      File.write(file, JSON.pretty_generate({ 'transactions' => @transactions }))
     end
   end
 end

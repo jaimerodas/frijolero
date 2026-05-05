@@ -6,7 +6,10 @@ module Frijolero
 
     def initialize(file: nil)
       file ||= Config.beancount_accounts_file
-      raise ArgumentError, "No accounts file specified. Set paths.beancount_accounts in ~/.frijolero/config.yaml" unless file
+      unless file
+        raise ArgumentError,
+              'No accounts file specified. Set paths.beancount_accounts in ~/.frijolero/config.yaml'
+      end
       raise ArgumentError, "File not found: #{file}" unless File.exist?(file)
 
       @accounts = parse(file)

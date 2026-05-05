@@ -18,9 +18,10 @@ module Frijolero
       #   "BBVA_TDC_2501.json" => ["BBVA_TDC", "2501"]
       #   "Amex_2501.json" => ["Amex", "2501"]
       def parse_filename(filepath)
-        filename = File.basename(filepath).sub(/\.(pdf|json|beancount)$/i, "")
+        filename = File.basename(filepath).sub(/\.(pdf|json|beancount)$/i, '')
         match = filename.match(/^(.+?)[\s_](\d{4})$/)
         return unless match
+
         [match[1], match[2]]
       end
 
@@ -32,7 +33,7 @@ module Frijolero
         return accounts[account_name] if accounts[account_name]
 
         # Normalize: replace underscores with spaces for comparison
-        normalized = account_name.gsub("_", " ")
+        normalized = account_name.gsub('_', ' ')
 
         # Try case-insensitive match with underscore normalization
         accounts.find do |key, _|
@@ -53,7 +54,7 @@ module Frijolero
 
         account_name, = parsed
         config = find_config(account_name)
-        config&.dig("beancount_account")
+        config&.dig('beancount_account')
       end
 
       # Returns the detailer config path for a given filepath
@@ -69,7 +70,7 @@ module Frijolero
         if config
           # Find the canonical key name from accounts.yaml
           canonical_name = accounts.find do |key, _|
-            normalized = account_name.gsub("_", " ")
+            normalized = account_name.gsub('_', ' ')
             key.downcase == normalized.downcase ||
               key.downcase == account_name.downcase
           end&.first

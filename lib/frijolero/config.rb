@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
-require "yaml"
-require "fileutils"
+require 'yaml'
+require 'fileutils'
 
 module Frijolero
   class Config
-    CONFIG_DIR = File.expand_path("~/.frijolero")
-    CONFIG_FILE = File.join(CONFIG_DIR, "config.yaml")
-    ACCOUNTS_FILE = File.join(CONFIG_DIR, "accounts.yaml")
-    DETAILERS_DIR = File.join(CONFIG_DIR, "detailers")
+    CONFIG_DIR = File.expand_path('~/.frijolero')
+    CONFIG_FILE = File.join(CONFIG_DIR, 'config.yaml')
+    ACCOUNTS_FILE = File.join(CONFIG_DIR, 'accounts.yaml')
+    DETAILERS_DIR = File.join(CONFIG_DIR, 'detailers')
 
     class << self
       def config_dir
@@ -41,39 +41,39 @@ module Frijolero
       end
 
       def openai_api_key
-        load.dig("openai_api_key") || ENV["OPENAI_API_KEY"]
+        load.dig('openai_api_key') || ENV.fetch('OPENAI_API_KEY', nil)
       end
 
-      def openai_prompt(type = "default")
-        load.dig("openai_prompts", type) ||
-          load.dig("openai_prompts", "default") ||
-          ENV["OPENAI_PROMPT_DEFAULT"]
+      def openai_prompt(type = 'default')
+        load.dig('openai_prompts', type) ||
+          load.dig('openai_prompts', 'default') ||
+          ENV.fetch('OPENAI_PROMPT_DEFAULT', nil)
       end
 
       def statements_input_dir
-        expand_path(load.dig("paths", "statements_input")) ||
-          ENV.fetch("STATEMENTS_INPUT_DIR", "./data/statements")
+        expand_path(load.dig('paths', 'statements_input')) ||
+          ENV.fetch('STATEMENTS_INPUT_DIR', './data/statements')
       end
 
       def statements_output_dir
-        expand_path(load.dig("paths", "statements_output")) ||
-          ENV.fetch("STATEMENTS_OUTPUT_DIR", "./data/output")
+        expand_path(load.dig('paths', 'statements_output')) ||
+          ENV.fetch('STATEMENTS_OUTPUT_DIR', './data/output')
       end
 
       def beancount_main_file
-        expand_path(load.dig("paths", "beancount_main")) ||
-          ENV["BEANCOUNT_MAIN_FILE"]
+        expand_path(load.dig('paths', 'beancount_main')) ||
+          ENV.fetch('BEANCOUNT_MAIN_FILE', nil)
       end
 
       def beancount_accounts_file
-        expand_path(load.dig("paths", "beancount_accounts")) ||
-          ENV["BEANCOUNT_ACCOUNTS_FILE"]
+        expand_path(load.dig('paths', 'beancount_accounts')) ||
+          ENV.fetch('BEANCOUNT_ACCOUNTS_FILE', nil)
       end
 
       def detailer_config_path(account_name)
         return nil unless account_name
 
-        config_name = account_name.downcase.gsub(" ", "_")
+        config_name = account_name.downcase.gsub(' ', '_')
         File.join(DETAILERS_DIR, "#{config_name}.yaml")
       end
 
