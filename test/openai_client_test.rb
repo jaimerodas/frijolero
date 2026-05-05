@@ -2,6 +2,7 @@
 
 require "test_helper"
 require "net/http"
+require "tempfile"
 
 class OpenAIClientTest < Minitest::Test
   include TestHelpers
@@ -138,5 +139,61 @@ class OpenAIClientTest < Minitest::Test
 
     assert_equal 500, error.status
     refute_nil error.message
+  end
+
+  class FakeTransport
+    attr_reader :calls
+
+    def initialize(responses)
+      @responses = responses
+      @calls = []
+    end
+
+    def delete(path)
+      @calls << [:delete, path]
+      @responses.fetch(:delete)
+    end
+
+    def post_multipart(path, parts)
+      @calls << [:post_multipart, path, parts]
+      @responses.fetch(:post_multipart)
+    end
+  end
+
+  def test_accepts_injected_transport_for_delete
+    transport = FakeTransport.new(delete: {"deleted" => true})
+    client = Frijolero::OpenAIClient.new("test-key", transport: transport)
+
+    assert_equal true, client.delete_file("file-123")
+    assert_equal [[:delete, "/files/file-123"]], transport.calls
+  end
+
+  def test_upload_file_returns_id_from_transport
+    transport = FakeTransport.new(post_multipart: {"id" => "file-abc"})
+    client = Frijolero::OpenAIClient.new("test-key", transport: transport)
+
+    Tempfile.create(["statement", ".pdf"]) do |f|
+      f.write("%PDF-1.4")
+      f.flush
+      assert_equal "file-abc", client.upload_file(f.path)
+    end
+
+    method, path, parts = transport.calls.first
+    assert_equal :post_multipart, method
+    assert_equal "/files", path
+    assert_equal "user_data", parts.first[1]
+  end
+
+  def test_upload_file_raises_api_error_when_id_missing
+    transport = FakeTransport.new(post_multipart: {"error" => "something"})
+    client = Frijolero::OpenAIClient.new("test-key", transport: transport)
+
+    Tempfile.create(["statement", ".pdf"]) do |f|
+      f.write("%PDF-1.4")
+      f.flush
+      assert_raises(Frijolero::OpenAIClient::APIError) do
+        client.upload_file(f.path)
+      end
+    end
   end
 end
