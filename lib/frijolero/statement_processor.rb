@@ -101,58 +101,19 @@ module Frijolero
             spinner.update_title("Extracted transactions (#{format_elapsed(elapsed)})")
           end
 
-          converter_type = account_config["converter_type"]
-
-          case converter_type
-          when "cetes_directo"
-            mov_list = transactions["movements"] || []
-            UI.puts "Found #{mov_list.size} movements"
-          when "fintual"
-            tx_list = transactions["transactions"] || []
-            UI.puts "Found #{tx_list.size} transactions"
-          else
-            tx_list = transactions["transactions"] || []
-            UI.puts "Found #{tx_list.size} transactions#{UI.transaction_summary(tx_list)}"
-          end
+          pipeline = Pipeline.for(account_config)
+          UI.puts pipeline.summary(transactions)
 
           # Step 3: Save JSON
           File.write(json_path, JSON.pretty_generate(transactions))
           UI.puts "Saved JSON: #{UI.short_path(json_path)}"
 
-          # Step 4: Run detailer if config exists (skip for investment converters)
-          run_detailer(json_path, account_name) unless %w[cetes_directo fintual].include?(converter_type)
+          # Step 4: Run detailer if applicable
+          run_detailer(json_path, account_name) if pipeline.runs_detailer?
 
           # Step 5: Convert to beancount (interactive)
-          beancount_account = account_config["beancount_account"]
-          if UI.confirm("Convert to Beancount (#{beancount_account})?")
-            case converter_type
-            when "cetes_directo"
-              CetesDirectoConverter.convert(
-                input: json_path,
-                account: beancount_account,
-                output: beancount_path,
-                counterpart_account: account_config["counterpart_account"],
-                interest_account: account_config["interest_account"],
-                tax_account: account_config["tax_account"],
-                gains_account: account_config["gains_account"] || CetesDirectoConverter::DEFAULT_GAINS_ACCOUNT
-              )
-            when "fintual"
-              FintualConverter.convert(
-                input: json_path,
-                account: beancount_account,
-                output: beancount_path,
-                counterpart_account: account_config["counterpart_account"],
-                dividend_account: account_config["dividend_account"],
-                interest_account: account_config["interest_account"],
-                gains_account: account_config["gains_account"] || FintualConverter::DEFAULT_GAINS_ACCOUNT
-              )
-            else
-              BeancountConverter.convert(
-                input: json_path,
-                account: beancount_account,
-                output: beancount_path
-              )
-            end
+          if UI.confirm("Convert to Beancount (#{pipeline.beancount_account})?")
+            pipeline.convert(json_path: json_path, output: beancount_path)
             UI.puts "Saved Beancount: #{UI.short_path(beancount_path)}"
 
             # Step 6: Merge into ledger (interactive)
