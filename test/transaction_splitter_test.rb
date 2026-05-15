@@ -84,8 +84,8 @@ class TransactionSplitterTest < Minitest::Test
         assert_equal 2, result[:extracted]
         assert_equal 2, result[:files]
 
-        jan_file = File.join(dir, 'transactions', 'BBVA', 'BBVA_2501.beancount')
-        feb_file = File.join(dir, 'transactions', 'BBVA', 'BBVA_2502.beancount')
+        jan_file = File.join(dir, 'BBVA', 'BBVA_2501.beancount')
+        feb_file = File.join(dir, 'BBVA', 'BBVA_2502.beancount')
 
         assert File.exist?(jan_file)
         assert File.exist?(feb_file)
@@ -110,8 +110,8 @@ class TransactionSplitterTest < Minitest::Test
         splitter.split(account_key: 'BBVA')
 
         content = File.read(path)
-        assert_includes content, 'include "transactions/BBVA/BBVA_2501.beancount"'
-        assert_includes content, 'include "transactions/BBVA/BBVA_2502.beancount"'
+        assert_includes content, 'include "BBVA/BBVA_2501.beancount"'
+        assert_includes content, 'include "BBVA/BBVA_2502.beancount"'
         refute_includes content, 'Steelcase'
         refute_includes content, 'Renta Febrero'
 
@@ -131,7 +131,7 @@ class TransactionSplitterTest < Minitest::Test
         path = write_beancount(dir)
 
         # Pre-create the January file
-        existing_dir = File.join(dir, 'transactions', 'BBVA')
+        existing_dir = File.join(dir, 'BBVA')
         FileUtils.mkdir_p(existing_dir)
         File.write(File.join(existing_dir, 'BBVA_2501.beancount'), 'existing content')
 
@@ -198,7 +198,7 @@ class TransactionSplitterTest < Minitest::Test
         assert_equal original_content, File.read(path)
 
         # No transaction files should be created
-        refute Dir.exist?(File.join(dir, 'transactions'))
+        refute Dir.exist?(File.join(dir, 'BBVA'))
       end
     end
   end
@@ -240,7 +240,7 @@ class TransactionSplitterTest < Minitest::Test
         result = splitter.split(account_key: 'BBVA')
 
         assert_equal 0, result[:matched]
-        refute Dir.exist?(File.join(dir, 'transactions'))
+        refute Dir.exist?(File.join(dir, 'BBVA'))
       end
     end
   end

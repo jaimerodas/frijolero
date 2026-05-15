@@ -56,8 +56,10 @@ module Frijolero
       end
 
       def statements_output_dir
-        expand_path(data.dig('paths', 'statements_output')) ||
-          ENV.fetch('STATEMENTS_OUTPUT_DIR', './data/output')
+        main = beancount_main_file
+        raise 'beancount_main_file must be configured (set paths.beancount_main)' unless main
+
+        File.dirname(main)
       end
 
       def beancount_main_file

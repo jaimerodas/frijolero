@@ -86,7 +86,7 @@ module Frijolero
     end
 
     def write_transaction_files(groups, prefix)
-      transactions_dir = File.join(@base_dir, 'transactions', prefix)
+      transactions_dir = File.join(@base_dir, prefix)
       FileUtils.mkdir_p(transactions_dir)
       groups.sort.each do |yymm, txs|
         content = "#{txs.map { |t| t[:lines].join }.join.rstrip}\n"
@@ -95,7 +95,7 @@ module Frijolero
     end
 
     def transactions_file(prefix, yymm)
-      File.join(@base_dir, 'transactions', prefix, "#{prefix}_#{yymm}.beancount")
+      File.join(@base_dir, prefix, "#{prefix}_#{yymm}.beancount")
     end
 
     def transaction_blocks

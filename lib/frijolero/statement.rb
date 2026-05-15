@@ -61,16 +61,21 @@ module Frijolero
         return NO_ACCOUNT_CONFIG
       end
 
+      # Use the canonical account name from accounts.yaml so output paths are
+      # consistent regardless of how the PDF filename was capitalized.
+      @account_name = AccountConfig.canonical_account_name(@account_name) || @account_name
       OK
     end
 
     def output_paths
       @output_paths ||= begin
-        base_name = "#{@account_name.gsub(' ', '_')}_#{@date_str}"
+        safe_account = @account_name.gsub(' ', '_')
+        base = "#{safe_account}_#{@date_str}"
+        account_dir = File.join(@output_dir, safe_account)
         {
-          json: File.join(@output_dir, 'json', "#{base_name}.json"),
-          beancount: File.join(@output_dir, 'beancount', "#{base_name}.beancount"),
-          processed: File.join(@output_dir, 'processed', @filename)
+          beancount: File.join(account_dir, "#{base}.beancount"),
+          json: File.join(account_dir, 'json', "#{base}.json"),
+          pdf: File.join(account_dir, 'pdf', "#{base}.pdf")
         }
       end
     end
@@ -139,6 +144,7 @@ module Frijolero
     end
 
     def save_json(transactions)
+      FileUtils.mkdir_p(File.dirname(output_paths[:json]))
       File.write(output_paths[:json], JSON.pretty_generate(transactions))
       UI.puts "Saved JSON: #{UI.short_path(output_paths[:json])}"
     end
@@ -160,6 +166,7 @@ module Frijolero
     end
 
     def convert_to_beancount(pipeline)
+      FileUtils.mkdir_p(File.dirname(output_paths[:beancount]))
       pipeline.convert(json_path: output_paths[:json], output: output_paths[:beancount])
       UI.puts "Saved Beancount: #{UI.short_path(output_paths[:beancount])}"
     end
@@ -177,8 +184,9 @@ module Frijolero
 
     def finalize(file_id)
       client.delete_file(file_id)
-      FileUtils.mv(@pdf_path, output_paths[:processed])
-      UI.puts "Moved PDF to: #{UI.short_path(output_paths[:processed])}"
+      FileUtils.mkdir_p(File.dirname(output_paths[:pdf]))
+      FileUtils.mv(@pdf_path, output_paths[:pdf])
+      UI.puts "Moved PDF to: #{UI.short_path(output_paths[:pdf])}"
     end
 
     def measure

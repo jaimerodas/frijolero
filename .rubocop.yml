@@ -91,8 +91,15 @@ Metrics/AbcSize:
 # Converters::Fintual handles 6 transaction types, each in its own small
 # handler method, plus shared helpers. ~102 lines; splitting per-handler
 # files would be more navigation than understanding.
+#
+# LayoutMigrator orchestrates plan → copy → verify → rewrite → prompt →
+# delete with required rollback on failure. Plan building and formatting
+# already live in their own classes; the orchestrator itself coordinates
+# the steps and the rescue path. ~140 lines.
 Metrics/ClassLength:
   Exclude:
     - 'test/**/*'
     - 'lib/frijolero/statement.rb'
     - 'lib/frijolero/converters/fintual.rb'
+    - 'lib/frijolero/layout_migrator.rb'
+    - 'lib/frijolero/layout_migrator/plan_builder.rb'

@@ -6,7 +6,6 @@ class StatementProcessorTest < Minitest::Test
   include TestHelpers
 
   def setup
-    @processor = Frijolero::StatementProcessor.new(dry_run: true)
     @statement = Frijolero::Statement.new('/tmp/Amex_2601.pdf', client: nil, output_dir: '/tmp/out')
   end
 
@@ -71,6 +70,42 @@ class StatementProcessorTest < Minitest::Test
 
   def test_format_elapsed_under_one_second
     assert_equal '0.3s', @statement.send(:format_elapsed, 0.34)
+  end
+
+  def test_output_paths_use_account_first_layout
+    statement = Frijolero::Statement.new('/tmp/Amex 2601.pdf', client: nil, output_dir: '/tmp/out')
+    statement.instance_variable_set(:@account_name, 'Amex')
+    statement.instance_variable_set(:@date_str, '2601')
+
+    paths = statement.send(:output_paths)
+    assert_equal '/tmp/out/Amex/Amex_2601.beancount', paths[:beancount]
+    assert_equal '/tmp/out/Amex/json/Amex_2601.json', paths[:json]
+    assert_equal '/tmp/out/Amex/pdf/Amex_2601.pdf', paths[:pdf]
+  end
+
+  def test_output_paths_canonicalize_account_with_spaces
+    statement = Frijolero::Statement.new('/tmp/BBVA TDC 2601.pdf', client: nil, output_dir: '/tmp/out')
+    statement.instance_variable_set(:@account_name, 'BBVA TDC')
+    statement.instance_variable_set(:@date_str, '2601')
+
+    paths = statement.send(:output_paths)
+    assert_equal '/tmp/out/BBVA_TDC/BBVA_TDC_2601.beancount', paths[:beancount]
+    assert_equal '/tmp/out/BBVA_TDC/pdf/BBVA_TDC_2601.pdf', paths[:pdf]
+  end
+
+  def test_load_metadata_canonicalizes_account_name_from_accounts_yaml
+    statement = Frijolero::Statement.new('/tmp/AMEX 2602.pdf', client: nil, output_dir: '/tmp/out')
+
+    Frijolero::AccountConfig.stub(:parse_filename, ->(_) { %w[AMEX 2602] }) do
+      Frijolero::AccountConfig.stub(:find_config, { 'beancount_account' => 'Liabilities:Amex' }) do
+        Frijolero::AccountConfig.stub(:canonical_account_name, ->(_) { 'Amex' }) do
+          statement.send(:load_metadata)
+        end
+      end
+    end
+
+    paths = statement.send(:output_paths)
+    assert_equal '/tmp/out/Amex/Amex_2602.beancount', paths[:beancount]
   end
 
   def test_check_overwrite_no_existing_files

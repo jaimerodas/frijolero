@@ -23,6 +23,7 @@ require_relative 'frijolero/transaction_splitter'
 require_relative 'frijolero/json_statement_summary'
 require_relative 'frijolero/statement'
 require_relative 'frijolero/statement_processor'
+require_relative 'frijolero/layout_migrator'
 require_relative 'frijolero/cli'
 
 module Frijolero

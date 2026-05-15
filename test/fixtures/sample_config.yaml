@@ -7,4 +7,3 @@ paths:
   beancount_main: /tmp/main.beancount
   beancount_accounts: /tmp/accounts.beancount
   statements_input: /tmp/statements
-  statements_output: /tmp/output

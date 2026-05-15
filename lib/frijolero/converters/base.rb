@@ -31,7 +31,7 @@ module Frijolero
       private
 
       def derived_output_path
-        File.expand_path(File.join(File.dirname(@input), '..', 'beancount',
+        File.expand_path(File.join(File.dirname(@input), '..',
                                    "#{File.basename(@input, '.json')}.beancount"))
       end
 

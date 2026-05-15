@@ -10,6 +10,7 @@ require_relative 'cli/csv'
 require_relative 'cli/review'
 require_relative 'cli/rename'
 require_relative 'cli/split'
+require_relative 'cli/migrate'
 
 module Frijolero
   class CLI
@@ -22,7 +23,8 @@ module Frijolero
       'csv' => Csv,
       'review' => Review,
       'rename' => Rename,
-      'split' => Split
+      'split' => Split,
+      'migrate' => Migrate
     }.freeze
 
     HELP_FLAGS = %w[--help -h].freeze
@@ -65,6 +67,7 @@ module Frijolero
           review FILE.json   Review and edit transactions in web UI
           rename             Rename an account across all files
           split [ACCOUNT]    Split inline transactions into monthly files
+          migrate            Migrate files from the legacy layout
 
         Options:
           --help, -h         Show this help message

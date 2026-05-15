@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'set'
-require 'fileutils'
 
 module Frijolero
   class BeancountMerger
@@ -25,26 +24,18 @@ module Frijolero
     def process_one(file, existing_includes)
       entries = count_entries(file)
       basename = File.basename(file)
-      prefix = extract_prefix(file)
-      relative_path = "transactions/#{prefix}/#{basename}"
+      relative_path = "#{extract_prefix(file)}/#{basename}"
 
       if existing_includes.include?(relative_path)
         puts "Skipped (already included): #{basename}" unless @quiet
       elsif @dry_run
-        announce_dry_run(basename, relative_path, entries)
+        puts "Would add include: #{relative_path} (#{entries} entries)" unless @quiet
       else
-        include_file(file, prefix)
+        File.open(@output, 'a') { |out| out.puts "include \"#{relative_path}\"" }
         puts "Merged: #{basename} (#{entries} entries)" unless @quiet
       end
 
       entries
-    end
-
-    def announce_dry_run(basename, relative_path, entries)
-      return if @quiet
-
-      puts "Would copy: #{basename} → #{relative_path}"
-      puts "Would add include: #{relative_path} (#{entries} entries)"
     end
 
     def report_totals(total_entries)
@@ -93,20 +84,6 @@ module Frijolero
         end
       end
       includes
-    end
-
-    def include_file(file, prefix)
-      output_dir = File.dirname(@output)
-      target_dir = File.join(output_dir, 'transactions', prefix)
-      target_path = File.join(target_dir, File.basename(file))
-      relative_path = "transactions/#{prefix}/#{File.basename(file)}"
-
-      FileUtils.mkdir_p(target_dir)
-      FileUtils.cp(file, target_path)
-
-      File.open(@output, 'a') do |out|
-        out.puts "include \"#{relative_path}\""
-      end
     end
   end
 end

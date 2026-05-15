@@ -67,9 +67,21 @@ class ConfigTest < Minitest::Test
     Frijolero::Config.reload!
 
     assert_equal '/tmp/statements', Frijolero::Config.statements_input_dir
-    assert_equal '/tmp/output', Frijolero::Config.statements_output_dir
     assert_equal '/tmp/main.beancount', Frijolero::Config.beancount_main_file
     assert_equal '/tmp/accounts.beancount', Frijolero::Config.beancount_accounts_file
+  end
+
+  def test_statements_output_dir_derives_from_main_file
+    FileUtils.cp(fixture_path('sample_config.yaml'), Frijolero::Config.config_file)
+    Frijolero::Config.reload!
+
+    assert_equal '/tmp', Frijolero::Config.statements_output_dir
+  end
+
+  def test_statements_output_dir_raises_without_main_file
+    Frijolero::Config.reload!
+
+    assert_raises(RuntimeError) { Frijolero::Config.statements_output_dir }
   end
 
   private

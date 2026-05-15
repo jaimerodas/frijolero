@@ -7,9 +7,10 @@ class BeancountMergerTest < Minitest::Test
 
   def test_merges_single_file
     with_temp_dir do |dir|
-      input_path = File.join(dir, 'Amex_2501.beancount')
+      input_path = File.join(dir, 'Amex', 'Amex_2501.beancount')
       output_path = File.join(dir, 'main.beancount')
 
+      FileUtils.mkdir_p(File.dirname(input_path))
       File.write(input_path, <<~BEANCOUNT)
         2025-01-15 * "Test Transaction"
           Liabilities:Amex  -50.00 MXN
@@ -24,26 +25,24 @@ class BeancountMergerTest < Minitest::Test
       )
       merger.run
 
-      # File was copied to transactions/Amex/
-      copied = File.join(dir, 'transactions', 'Amex', 'Amex_2501.beancount')
-      assert File.exist?(copied), "Expected copied file at #{copied}"
-      assert_equal File.read(input_path), File.read(copied)
-
-      # Include directive was added
       content = File.read(output_path)
-      assert_includes content, 'include "transactions/Amex/Amex_2501.beancount"'
+      assert_includes content, 'include "Amex/Amex_2501.beancount"'
 
-      # Old markers should NOT be present
+      # No copy is made — the canonical file stays where the converter wrote it
+      refute Dir.exist?(File.join(dir, 'transactions'))
+
       refute_includes content, '; === Start:'
     end
   end
 
   def test_merges_multiple_files
     with_temp_dir do |dir|
-      input1 = File.join(dir, 'Amex_2501.beancount')
-      input2 = File.join(dir, 'BBVA_2501.beancount')
+      input1 = File.join(dir, 'Amex', 'Amex_2501.beancount')
+      input2 = File.join(dir, 'BBVA', 'BBVA_2501.beancount')
       output_path = File.join(dir, 'main.beancount')
 
+      FileUtils.mkdir_p(File.dirname(input1))
+      FileUtils.mkdir_p(File.dirname(input2))
       File.write(input1, "2025-01-15 * \"Transaction 1\"\n  Account  100 MXN\n  Other")
       File.write(input2, "2025-01-16 * \"Transaction 2\"\n  Account  200 MXN\n  Other")
       File.write(output_path, '')
@@ -55,19 +54,17 @@ class BeancountMergerTest < Minitest::Test
       merger.run
 
       content = File.read(output_path)
-      assert_includes content, 'include "transactions/Amex/Amex_2501.beancount"'
-      assert_includes content, 'include "transactions/BBVA/BBVA_2501.beancount"'
-
-      assert File.exist?(File.join(dir, 'transactions', 'Amex', 'Amex_2501.beancount'))
-      assert File.exist?(File.join(dir, 'transactions', 'BBVA', 'BBVA_2501.beancount'))
+      assert_includes content, 'include "Amex/Amex_2501.beancount"'
+      assert_includes content, 'include "BBVA/BBVA_2501.beancount"'
     end
   end
 
   def test_dry_run_does_not_modify_output
     with_temp_dir do |dir|
-      input_path = File.join(dir, 'Amex_2501.beancount')
+      input_path = File.join(dir, 'Amex', 'Amex_2501.beancount')
       output_path = File.join(dir, 'main.beancount')
 
+      FileUtils.mkdir_p(File.dirname(input_path))
       File.write(input_path, "2025-01-15 * \"Test\"\n  A  100 MXN\n  B")
       File.write(output_path, 'original content')
 
@@ -79,20 +76,17 @@ class BeancountMergerTest < Minitest::Test
       merger.run
 
       assert_equal 'original content', File.read(output_path)
-      refute Dir.exist?(File.join(dir, 'transactions'))
     end
   end
 
   def test_skips_duplicate_include
     with_temp_dir do |dir|
-      input_path = File.join(dir, 'Amex_2501.beancount')
+      input_path = File.join(dir, 'Amex', 'Amex_2501.beancount')
       output_path = File.join(dir, 'main.beancount')
 
+      FileUtils.mkdir_p(File.dirname(input_path))
       File.write(input_path, "2025-01-15 * \"Test\"\n  A  100 MXN\n  B")
-      File.write(output_path, "include \"transactions/Amex/Amex_2501.beancount\"\n")
-
-      FileUtils.mkdir_p(File.join(dir, 'transactions', 'Amex'))
-      FileUtils.cp(input_path, File.join(dir, 'transactions', 'Amex', 'Amex_2501.beancount'))
+      File.write(output_path, "include \"Amex/Amex_2501.beancount\"\n")
 
       merger = Frijolero::BeancountMerger.new(
         files: [input_path],
@@ -115,8 +109,7 @@ class BeancountMergerTest < Minitest::Test
 
       Frijolero::BeancountMerger.new(files: [input_path], output: output_path).run
 
-      assert File.exist?(File.join(dir, 'transactions', 'custom', 'custom.beancount'))
-      assert_includes File.read(output_path), 'include "transactions/custom/custom.beancount"'
+      assert_includes File.read(output_path), 'include "custom/custom.beancount"'
     end
   end
 
@@ -146,9 +139,10 @@ class BeancountMergerTest < Minitest::Test
 
   def test_counts_entries_correctly
     with_temp_dir do |dir|
-      input_path = File.join(dir, 'Amex_2501.beancount')
+      input_path = File.join(dir, 'Amex', 'Amex_2501.beancount')
       output_path = File.join(dir, 'main.beancount')
 
+      FileUtils.mkdir_p(File.dirname(input_path))
       File.write(input_path, <<~BEANCOUNT)
         2025-01-15 * "Transaction 1"
           Account  100 MXN

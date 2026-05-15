@@ -51,12 +51,27 @@ openai_prompts:
 paths:
   beancount_main: ~/finances/main.beancount
   statements_input: ~/Downloads/statements
-  statements_output: ~/finances/processed
+```
+
+Processed statement artifacts (PDFs, JSON, beancount files) are organized
+under the directory containing `beancount_main`, one folder per account:
+
+```
+~/finances/
+  main.beancount
+  Amex/
+    Amex_2501.beancount   # included directly by main.beancount
+    pdf/Amex_2501.pdf
+    json/Amex_2501.json
 ```
 
 ### accounts.yaml
 
-Maps filename prefixes to beancount accounts:
+Maps filename prefixes to beancount accounts. The **keys are the canonical
+capitalization** used for file and directory names — drop `AMEX 2501.pdf`
+in your inbox and it still lands as `Amex/Amex_2501.beancount`, matching
+the `Amex:` key below. The lookup is case-insensitive and treats spaces
+and underscores as equivalent.
 
 ```yaml
 Amex:
@@ -165,6 +180,32 @@ frijolero merge file1.beancount file2.beancount --dry-run
 frijolero csv transactions.json
 frijolero csv transactions.json -o output.csv
 ```
+
+### Migrate from the old layout
+
+Earlier versions of frijolero stored artifacts under
+`{statements_output}/{json,beancount,processed}` and copied .beancount files
+into `{main_dir}/transactions/{account}/`. The current layout co-locates
+everything per account under the main ledger's directory.
+
+```bash
+# Preview the migration plan (touches nothing)
+frijolero migrate --old-output-dir ~/finances/processed
+
+# Copy files into the new layout, verify, then prompt before deleting originals
+frijolero migrate --apply --old-output-dir ~/finances/processed
+```
+
+The migrator copies first, verifies every file with SHA-256, rewrites
+`main.beancount` includes (saving a timestamped `.bak`), and only deletes
+the originals if you explicitly type `yes` at the final prompt. Pass
+`--no-prompt` for non-interactive runs (originals are retained).
+
+File and directory names are normalized to match the canonical capitalization
+from `accounts.yaml`: `transactions/Cetes/CETES_2604.beancount` becomes
+`Cetes/Cetes_2604.beancount`. Files whose prefix isn't found in `accounts.yaml`
+are migrated with their original capitalization and surfaced in an
+"Unknown accounts" section of the plan output.
 
 ## Transaction JSON Format
 

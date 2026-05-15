@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'fileutils'
-
 module Frijolero
   class StatementProcessor
     def initialize(dry_run: false, interactive: true, client: nil)
@@ -13,7 +11,6 @@ module Frijolero
     end
 
     def run
-      ensure_directories
       pdf_files = Dir.glob(File.join(@input_dir, '*.pdf'))
 
       if pdf_files.empty?
@@ -30,14 +27,6 @@ module Frijolero
     end
 
     private
-
-    def ensure_directories
-      return if @dry_run
-
-      %w[json beancount processed].each do |subdir|
-        FileUtils.mkdir_p(File.join(@output_dir, subdir))
-      end
-    end
 
     def process_pdf(pdf_path)
       Statement.new(pdf_path, client: @client, output_dir: @output_dir, dry_run: @dry_run).process

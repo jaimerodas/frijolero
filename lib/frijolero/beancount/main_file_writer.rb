@@ -44,7 +44,7 @@ module Frijolero
       end
 
       def include_line(prefix, yymm)
-        "include \"transactions/#{prefix}/#{prefix}_#{yymm}.beancount\"\n"
+        "include \"#{prefix}/#{prefix}_#{yymm}.beancount\"\n"
       end
 
       def collapse_blank_runs(lines)

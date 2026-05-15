@@ -21,7 +21,7 @@ class AccountRenamerTest < Minitest::Test
       renamer = Frijolero::AccountRenamer.new(old_name: 'Expenses:Food', new_name: 'Expenses:Dining')
       renamer.apply!
 
-      content = File.read(File.join(dir, 'ledger', 'transactions', 'Amex', 'Amex_2501.beancount'))
+      content = File.read(File.join(dir, 'ledger', 'Amex', 'Amex_2501.beancount'))
       assert_includes content, "  Expenses:Dining\n"
       refute_includes content, "  Expenses:Food\n"
     end
@@ -125,7 +125,7 @@ class AccountRenamerTest < Minitest::Test
       renamer = Frijolero::AccountRenamer.new(old_name: 'Liabilities:Amex', new_name: 'Liabilities:AmericanExpress')
       renamer.apply!
 
-      content = File.read(File.join(dir, 'ledger', 'transactions', 'Amex', 'Amex_2501.beancount'))
+      content = File.read(File.join(dir, 'ledger', 'Amex', 'Amex_2501.beancount'))
       assert_includes content, 'Liabilities:AmericanExpress  -50.00 MXN'
     end
   end
@@ -145,7 +145,7 @@ class AccountRenamerTest < Minitest::Test
   def with_rename_fixtures
     with_temp_config_dir do |config_dir|
       ledger_dir = File.join(config_dir, 'ledger')
-      transactions_dir = File.join(ledger_dir, 'transactions', 'Amex')
+      transactions_dir = File.join(ledger_dir, 'Amex')
       detailers_dir = File.join(config_dir, 'detailers')
 
       FileUtils.mkdir_p(transactions_dir)
@@ -162,7 +162,7 @@ class AccountRenamerTest < Minitest::Test
       # Main ledger
       File.write(File.join(ledger_dir, 'main.beancount'), <<~BEANCOUNT)
         include "accounts.beancount"
-        include "transactions/Amex/Amex_2501.beancount"
+        include "Amex/Amex_2501.beancount"
       BEANCOUNT
 
       # Transaction file

@@ -76,6 +76,13 @@ module Frijolero
         accounts.find { |key, _| key.downcase == normalized || key.downcase == account_name.downcase }&.first
       end
 
+      # Returns the canonical account name with spaces converted to underscores,
+      # suitable for use as a filename or directory prefix. Returns nil when no
+      # accounts.yaml entry matches.
+      def canonical_prefix(account_name)
+        canonical_account_name(account_name)&.gsub(' ', '_')
+      end
+
       # Returns a list of available account names for error messages
       def available_accounts
         accounts.keys
