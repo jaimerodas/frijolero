@@ -1,0 +1,8 @@
+{
+  "model": "gpt-test-default",
+  "format": {
+    "type": "json_schema",
+    "name": "transactions",
+    "strict": true
+  }
+}

@@ -136,16 +136,16 @@ module Frijolero
     end
 
     POLL_INTERVAL_SECONDS = 2
-    POLL_TIMEOUT_SECONDS = 300
+    POLL_TIMEOUT_SECONDS = 900
 
     def initialize(api_key = nil, transport: nil, poll_interval: POLL_INTERVAL_SECONDS,
-                   poll_timeout: POLL_TIMEOUT_SECONDS)
+                   poll_timeout: nil)
       api_key ||= Config.openai_api_key
       raise ArgumentError, 'OpenAI API key required' unless api_key
 
       @transport = transport || Transport.new(api_key: api_key)
       @poll_interval = poll_interval
-      @poll_timeout = poll_timeout
+      @poll_timeout = poll_timeout || Config.openai_poll_timeout
     end
 
     def upload_file(path)
@@ -161,8 +161,8 @@ module Frijolero
       data['id']
     end
 
-    def extract_transactions(file_id, prompt_id)
-      data = poll_response(start_extraction(file_id, prompt_id)['id'])
+    def extract_transactions(file_id, spec)
+      data = poll_response(start_extraction(file_id, spec)['id'])
       json_text = parse_response_text(data)
 
       raise APIError, "Failed to extract transactions: #{data}" unless json_text
@@ -170,15 +170,8 @@ module Frijolero
       JSON.parse(json_text)
     end
 
-    def start_extraction(file_id, prompt_id)
-      @transport.post_json('/responses', {
-                             prompt: { id: prompt_id },
-                             input: [{
-                               role: 'user',
-                               content: [{ type: 'input_file', file_id: file_id }]
-                             }],
-                             background: true
-                           })
+    def start_extraction(file_id, spec)
+      @transport.post_json('/responses', extraction_request_body(spec, file_id))
     end
 
     def parse_response_text(data)
@@ -193,6 +186,19 @@ module Frijolero
     end
 
     private
+
+    # The loaded spec already mirrors the Responses API request body (model, instructions,
+    # reasoning, and any other params set in spec.json). Rather than rebuilding the body from
+    # a fixed set of fields, forward the spec as-is — only reshaping our top-level `format`
+    # into the API's `text.format` and adding the per-request `input` + `background`. Keys
+    # prefixed with `_` (e.g. `_comment`) are treated as documentation and dropped.
+    def extraction_request_body(spec, file_id)
+      body = spec.reject { |key, _| key.to_s.start_with?('_') }
+      body['text'] = { 'format' => body.delete('format') }
+      body['input'] = [{ role: 'user', content: [{ type: 'input_file', file_id: file_id }] }]
+      body['background'] = true
+      body
+    end
 
     def poll_response(response_id)
       deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + @poll_timeout

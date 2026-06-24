@@ -1,0 +1,12 @@
+{
+  "name": "transactions_bbva",
+  "strict": true,
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["transactions"],
+    "properties": {
+      "transactions": { "type": "array" }
+    }
+  }
+}

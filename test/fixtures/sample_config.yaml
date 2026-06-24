@@ -1,7 +1,4 @@
 openai_api_key: test_key_123
-openai_prompts:
-  default: pmpt_default
-  bbva: pmpt_bbva
 
 paths:
   beancount_main: /tmp/main.beancount

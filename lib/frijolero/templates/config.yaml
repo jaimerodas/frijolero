@@ -4,11 +4,13 @@
 # OpenAI API key for PDF extraction
 openai_api_key: your_key_here
 
-# OpenAI stored prompts for different account types
-openai_prompts:
-  default: pmpt_xxx
-  bbva: pmpt_yyy
-  fintual: pmpt_zzz
+# Seconds to keep polling a background extraction before giving up (default 900).
+# OpenAI retains background results for ~10 minutes, so avoid going much higher.
+# openai_poll_timeout: 900
+
+# Extraction prompts live in ~/.frijolero/prompts/<type>/ — one folder per prompt type,
+# each with spec.json (model + format), instructions.txt, and schema.json. accounts.yaml
+# selects a folder via `openai_prompt_type`.
 
 # File paths (use ~ for home directory)
 paths:

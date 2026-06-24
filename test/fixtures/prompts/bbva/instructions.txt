@@ -1,0 +1,1 @@
+BBVA test instructions: extract transactions from the BBVA statement.

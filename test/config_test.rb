@@ -32,15 +32,71 @@ class ConfigTest < Minitest::Test
     Frijolero::Config.reload!
 
     assert_equal 'test_key_123', Frijolero::Config.openai_api_key
-    assert_equal 'pmpt_default', Frijolero::Config.openai_prompt('default')
-    assert_equal 'pmpt_bbva', Frijolero::Config.openai_prompt('bbva')
   end
 
-  def test_openai_prompt_falls_back_to_default
-    FileUtils.cp(fixture_path('sample_config.yaml'), Frijolero::Config.config_file)
+  def test_openai_prompt_spec_assembles_folder_with_wrapped_schema
+    copy_prompt_fixtures
+
+    spec = Frijolero::Config.openai_prompt_spec('bbva')
+
+    assert_equal 'gpt-test-bbva', spec['model']
+    assert_includes spec['instructions'], 'BBVA test instructions'
+    assert_equal 'json_schema', spec['format']['type']
+    # wrapped schema.json keys (name/strict/schema) merge into format
+    assert_equal 'transactions_bbva', spec['format']['name']
+    assert_equal({ 'type' => 'array' }, spec['format']['schema']['properties']['transactions'])
+  end
+
+  def test_openai_prompt_spec_accepts_bare_schema
+    copy_prompt_fixtures
+
+    spec = Frijolero::Config.openai_prompt_spec('default')
+
+    # default fixture's schema.json is a bare JSON schema, inlined as format.schema
+    assert_equal 'json_schema', spec['format']['type']
+    assert_equal({ 'type' => 'array' }, spec['format']['schema']['properties']['transactions'])
+  end
+
+  def test_openai_prompt_spec_falls_back_to_default
+    copy_prompt_fixtures
+
+    spec = Frijolero::Config.openai_prompt_spec('unknown')
+
+    assert_equal 'gpt-test-default', spec['model']
+  end
+
+  def test_openai_prompt_spec_raises_without_default_fallback
+    error = assert_raises(RuntimeError) { Frijolero::Config.openai_prompt_spec('unknown') }
+    assert_match(/no 'default' fallback/, error.message)
+  end
+
+  def test_openai_prompt_spec_raises_when_schema_missing
+    copy_prompt_fixtures
+    FileUtils.rm(File.join(Frijolero::Config.prompts_dir, 'default', 'schema.json'))
+
+    error = assert_raises(RuntimeError) { Frijolero::Config.openai_prompt_spec('default') }
+    assert_match(/Missing prompt file/, error.message)
+  end
+
+  def test_openai_prompt_spec_raises_when_spec_keys_missing
+    copy_prompt_fixtures
+    File.write(File.join(Frijolero::Config.prompts_dir, 'default', 'spec.json'), '{"model":"x"}')
+
+    error = assert_raises(RuntimeError) { Frijolero::Config.openai_prompt_spec('default') }
+    assert_match(/missing keys: format/, error.message)
+  end
+
+  def test_openai_poll_timeout_defaults_to_constant
     Frijolero::Config.reload!
 
-    assert_equal 'pmpt_default', Frijolero::Config.openai_prompt('unknown')
+    assert_equal Frijolero::OpenAIClient::POLL_TIMEOUT_SECONDS, Frijolero::Config.openai_poll_timeout
+  end
+
+  def test_openai_poll_timeout_reads_override
+    File.write(Frijolero::Config.config_file, "openai_poll_timeout: 1500\n")
+    Frijolero::Config.reload!
+
+    assert_equal 1500, Frijolero::Config.openai_poll_timeout
   end
 
   def test_loads_accounts
@@ -86,6 +142,13 @@ class ConfigTest < Minitest::Test
 
   private
 
+  def copy_prompt_fixtures
+    FileUtils.mkdir_p(Frijolero::Config.prompts_dir)
+    %w[default bbva].each do |type|
+      FileUtils.cp_r(fixture_path("prompts/#{type}"), File.join(Frijolero::Config.prompts_dir, type))
+    end
+  end
+
   def setup_test_config(dir)
     Frijolero::Config.send(:remove_const, :CONFIG_DIR) if Frijolero::Config.const_defined?(:CONFIG_DIR, false)
     Frijolero::Config.const_set(:CONFIG_DIR, dir)
@@ -95,6 +158,8 @@ class ConfigTest < Minitest::Test
     Frijolero::Config.const_set(:ACCOUNTS_FILE, File.join(dir, 'accounts.yaml'))
     Frijolero::Config.send(:remove_const, :DETAILERS_DIR) if Frijolero::Config.const_defined?(:DETAILERS_DIR, false)
     Frijolero::Config.const_set(:DETAILERS_DIR, File.join(dir, 'detailers'))
+    Frijolero::Config.send(:remove_const, :PROMPTS_DIR) if Frijolero::Config.const_defined?(:PROMPTS_DIR, false)
+    Frijolero::Config.const_set(:PROMPTS_DIR, File.join(dir, 'prompts'))
   end
 
   def restore_config(original_dir)
@@ -106,5 +171,7 @@ class ConfigTest < Minitest::Test
     Frijolero::Config.const_set(:ACCOUNTS_FILE, File.join(original_dir, 'accounts.yaml'))
     Frijolero::Config.send(:remove_const, :DETAILERS_DIR) if Frijolero::Config.const_defined?(:DETAILERS_DIR, false)
     Frijolero::Config.const_set(:DETAILERS_DIR, File.join(original_dir, 'detailers'))
+    Frijolero::Config.send(:remove_const, :PROMPTS_DIR) if Frijolero::Config.const_defined?(:PROMPTS_DIR, false)
+    Frijolero::Config.const_set(:PROMPTS_DIR, File.join(original_dir, 'prompts'))
   end
 end

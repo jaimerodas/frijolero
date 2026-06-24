@@ -76,7 +76,8 @@ The directory containing `main.beancount` IS the implicit `statements_output_dir
 - `lib/frijolero/cli/{init,process,detail,convert,merge,csv,review,rename,split,migrate}.rb` - one class per subcommand, each implementing `.call(args)`
 - `lib/frijolero/cli/helpers.rb` - shared mixin for command classes (`check_config!`, `help_option`, etc.)
 - `lib/frijolero/ui.rb` - reusable terminal UI wrapper (CLI::UI)
-- `lib/frijolero/config.rb` - loads config from `~/.frijolero/`; `statements_output_dir` derives from `File.dirname(beancount_main_file)`
+- `lib/frijolero/config.rb` - loads config from `~/.frijolero/`; `statements_output_dir` derives from `File.dirname(beancount_main_file)`; `openai_prompt_spec` delegates to `PromptSpec`
+- `lib/frijolero/prompt_spec.rb` - assembles the inline OpenAI request spec from a `prompts/<type>/` folder (spec.json + instructions.txt + schema.json)
 - `lib/frijolero/account_config.rb` - filename parsing and account lookup; `canonical_account_name`/`canonical_prefix` resolve a parsed prefix to its `accounts.yaml` key
 - `lib/frijolero/accounts.rb` - beancount account extraction and search
 - `lib/frijolero/pipeline.rb` - per-account-type strategies (summary, detailer toggle, converter dispatch)
@@ -91,9 +92,10 @@ The directory containing `main.beancount` IS the implicit `statements_output_dir
 - `bin/frijolero` - CLI entry point
 
 **Configuration (in `~/.frijolero/`):**
-- `config.yaml` - API keys, OpenAI prompts, and `paths` (`beancount_main`, `beancount_accounts`, `statements_input`). There is no `statements_output` key — the output dir is the directory containing `beancount_main`.
-- `accounts.yaml` - maps filename prefixes to beancount accounts; keys are the canonical capitalization used in file/dir names
+- `config.yaml` - API key and `paths` (`beancount_main`, `beancount_accounts`, `statements_input`). There is no `statements_output` key — the output dir is the directory containing `beancount_main`. (No longer holds OpenAI prompt IDs — those moved to `prompts/`.)
+- `accounts.yaml` - maps filename prefixes to beancount accounts; keys are the canonical capitalization used in file/dir names. `openai_prompt_type` selects which `prompts/<type>/` folder to use.
 - `detailers/{account}.yaml` - transaction matching rules per account
+- `prompts/{type}/` - inline OpenAI extraction prompt per type: `spec.json` (model + `text.format` metadata), `instructions.txt` (system instructions), `schema.json` (strict JSON schema). `Config.openai_prompt_spec(type)` reads the folder and assembles the request body — sent inline on every `/responses` call (no stored `pmpt_...` IDs).
 
 **Tests:** Minitest, run with `bundle exec rake test`. Fixtures in `test/fixtures/`.
 

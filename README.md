@@ -44,10 +44,6 @@ Edit these files to configure your accounts and rules.
 ```yaml
 openai_api_key: sk-xxx
 
-openai_prompts:
-  default: pmpt_xxx
-  bbva: pmpt_yyy
-
 paths:
   beancount_main: ~/finances/main.beancount
   statements_input: ~/Downloads/statements
@@ -82,6 +78,27 @@ BBVA:
   beancount_account: "Assets:BBVA"
   openai_prompt_type: bbva
 ```
+
+### Extraction prompts
+
+Each `openai_prompt_type` maps to a folder under `~/.frijolero/prompts/`. The full
+prompt is sent inline to OpenAI on every request (no stored `pmpt_...` prompt objects):
+
+```
+~/.frijolero/prompts/
+  default/
+    spec.json          # model + text.format metadata (json_schema name, strict)
+    instructions.txt   # system instructions
+    schema.json        # strict JSON schema for the extracted transactions
+  bbva/
+    ...
+```
+
+`frijolero init` scaffolds a placeholder `default/` folder. Copy it to a new
+folder per prompt type, then fill each `instructions.txt`, `schema.json`, and the
+`model` in `spec.json` with the contents of your prompt (export them from the
+OpenAI dashboard if you previously used a stored prompt). `schema.json` accepts the
+structured-output block exported from OpenAI (`{name, strict, schema}`).
 
 ### Detailer rules
 

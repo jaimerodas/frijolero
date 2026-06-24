@@ -9,6 +9,7 @@ module Frijolero
     CONFIG_FILE = File.join(CONFIG_DIR, 'config.yaml')
     ACCOUNTS_FILE = File.join(CONFIG_DIR, 'accounts.yaml')
     DETAILERS_DIR = File.join(CONFIG_DIR, 'detailers')
+    PROMPTS_DIR = File.join(CONFIG_DIR, 'prompts')
 
     class << self
       def config_dir
@@ -25,6 +26,10 @@ module Frijolero
 
       def detailers_dir
         DETAILERS_DIR
+      end
+
+      def prompts_dir
+        PROMPTS_DIR
       end
 
       def data
@@ -44,10 +49,17 @@ module Frijolero
         data['openai_api_key'] || ENV.fetch('OPENAI_API_KEY', nil)
       end
 
-      def openai_prompt(type = 'default')
-        data.dig('openai_prompts', type) ||
-          data.dig('openai_prompts', 'default') ||
-          ENV.fetch('OPENAI_PROMPT_DEFAULT', nil)
+      # Seconds to keep polling a background extraction before giving up. Background
+      # responses are retained by OpenAI for ~10 minutes, so values beyond that risk the
+      # result expiring server-side. Override via `openai_poll_timeout` or OPENAI_POLL_TIMEOUT.
+      def openai_poll_timeout
+        value = data['openai_poll_timeout'] || ENV.fetch('OPENAI_POLL_TIMEOUT', nil)
+        value ? value.to_i : OpenAIClient::POLL_TIMEOUT_SECONDS
+      end
+
+      # Assembles the inline OpenAI prompt spec from prompts/<type>/ (see PromptSpec).
+      def openai_prompt_spec(type = 'default')
+        PromptSpec.load(type, prompts_dir)
       end
 
       def statements_input_dir

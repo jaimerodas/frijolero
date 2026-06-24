@@ -1,0 +1,1 @@
+Default test instructions: extract transactions from the statement.

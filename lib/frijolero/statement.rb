@@ -135,9 +135,9 @@ module Frijolero
 
     def extract_transactions(file_id)
       transactions = nil
-      prompt_id = Config.openai_prompt(@account_config['openai_prompt_type'] || 'default')
+      spec = Config.openai_prompt_spec(@account_config['openai_prompt_type'] || 'default')
       UI.spinner('Extracting transactions...') do |spinner|
-        elapsed = measure { transactions = client.extract_transactions(file_id, prompt_id) }
+        elapsed = measure { transactions = client.extract_transactions(file_id, spec) }
         spinner.update_title("Extracted transactions (#{format_elapsed(elapsed)})")
       end
       transactions

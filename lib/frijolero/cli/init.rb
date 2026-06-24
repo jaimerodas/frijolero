@@ -42,6 +42,8 @@ module Frijolero
             - config.yaml      API keys and paths
             - accounts.yaml    Account name → beancount account mapping
             - detailers/       Directory for transaction matching rules
+            - prompts/         Per-type OpenAI extraction prompts (spec.json,
+                               instructions.txt, schema.json)
         HELP
       end
 
@@ -57,6 +59,7 @@ module Frijolero
         FileUtils.cp(File.join(TEMPLATES_DIR, 'config.yaml'), Config.config_file)
         FileUtils.cp(File.join(TEMPLATES_DIR, 'accounts.yaml'), Config.accounts_file)
         FileUtils.cp(File.join(TEMPLATES_DIR, 'detailer.yaml'), File.join(Config.detailers_dir, 'example.yaml'))
+        FileUtils.cp_r(File.join(TEMPLATES_DIR, 'prompts'), Config.prompts_dir)
       end
 
       def announce
@@ -66,6 +69,7 @@ module Frijolero
         puts "  #{Config.config_file}         - API keys and paths"
         puts "  #{Config.accounts_file}       - Account mappings"
         puts "  #{Config.detailers_dir}/   - Transaction matching rules"
+        puts "  #{Config.prompts_dir}/     - OpenAI extraction prompts per type"
       end
     end
   end

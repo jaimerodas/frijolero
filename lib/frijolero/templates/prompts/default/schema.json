@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["transactions"],
+  "properties": {
+    "transactions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["date", "description", "amount", "currency"],
+        "properties": {
+          "date": { "type": "string" },
+          "description": { "type": "string" },
+          "amount": { "type": "number" },
+          "currency": { "type": "string" },
+          "payee": { "type": ["string", "null"] },
+          "narration": { "type": ["string", "null"] },
+          "expense_account": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

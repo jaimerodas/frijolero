@@ -1,0 +1,4 @@
+Replace this with the system instructions from your OpenAI stored prompt.
+
+These instructions tell the model how to read the uploaded bank/credit-card statement
+PDF and return the transactions as JSON matching schema.json.

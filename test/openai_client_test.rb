@@ -159,6 +159,11 @@ class OpenAIClientTest < Minitest::Test
       @calls << [:post_multipart, path, parts]
       @responses.fetch(:post_multipart)
     end
+
+    def post_json(path, body)
+      @calls << [:post_json, path, body]
+      @responses.fetch(:post_json)
+    end
   end
 
   def test_accepts_injected_transport_for_delete
@@ -196,6 +201,47 @@ class OpenAIClientTest < Minitest::Test
         client.upload_file(f.path)
       end
     end
+  end
+
+  def test_start_extraction_forwards_spec_inline
+    transport = FakeTransport.new(post_json: { 'id' => 'resp-1' })
+    client = Frijolero::OpenAIClient.new('test-key', transport: transport)
+
+    format = { 'type' => 'json_schema', 'name' => 'transactions', 'strict' => true,
+               'schema' => { 'type' => 'object' } }
+    spec = {
+      '_comment' => 'a note for humans, not the API',
+      'model' => 'gpt-test',
+      'instructions' => 'Extract the transactions.',
+      'format' => format,
+      'reasoning' => { 'effort' => 'high', 'summary' => 'auto' }
+    }
+
+    client.start_extraction('file-xyz', spec)
+
+    method, path, body = transport.calls.first
+    assert_equal :post_json, method
+    assert_equal '/responses', path
+    refute body.key?('prompt'), 'must not reference a stored prompt by id'
+    refute body.key?('_comment'), 'comment keys must be stripped'
+    refute body.key?('format'), 'format must move under text.format'
+    assert_equal 'gpt-test', body['model']
+    assert_equal 'Extract the transactions.', body['instructions']
+    # arbitrary extra params (e.g. reasoning) pass straight through
+    assert_equal({ 'effort' => 'high', 'summary' => 'auto' }, body['reasoning'])
+    assert_equal format, body['text']['format']
+    assert_equal true, body['background']
+    assert_equal 'file-xyz', body['input'].first[:content].first[:file_id]
+  end
+
+  def test_start_extraction_does_not_mutate_spec
+    transport = FakeTransport.new(post_json: { 'id' => 'resp-1' })
+    client = Frijolero::OpenAIClient.new('test-key', transport: transport)
+    spec = { 'model' => 'gpt-test', 'format' => { 'type' => 'json_schema' } }
+
+    client.start_extraction('file-xyz', spec)
+
+    assert_equal({ 'model' => 'gpt-test', 'format' => { 'type' => 'json_schema' } }, spec)
   end
 
   class StuckTransport

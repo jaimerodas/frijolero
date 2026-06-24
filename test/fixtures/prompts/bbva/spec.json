@@ -1,0 +1,8 @@
+{
+  "model": "gpt-test-bbva",
+  "format": {
+    "type": "json_schema",
+    "name": "transactions",
+    "strict": true
+  }
+}

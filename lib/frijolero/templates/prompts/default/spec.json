@@ -1,0 +1,9 @@
+{
+  "_comment": "Placeholder. Copy the model and response-format metadata from your OpenAI stored prompt (Playground > Prompts). Put the system instructions in instructions.txt and the strict JSON schema in schema.json.",
+  "model": "gpt-5",
+  "format": {
+    "type": "json_schema",
+    "name": "transactions",
+    "strict": true
+  }
+}
