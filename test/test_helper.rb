@@ -3,6 +3,7 @@
 $LOAD_PATH.unshift File.expand_path('../lib', __dir__)
 require 'frijolero'
 require 'minitest/autorun'
+require 'minitest/mock'
 require 'fileutils'
 require 'tmpdir'
 
