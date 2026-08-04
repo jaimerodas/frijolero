@@ -1,0 +1,32 @@
+;; Account declarations and opening positions that sample_plata.json's output
+;; assumes. Prepended to the converter's output in plata_beancount_test.rb so a
+;; real Beancount parser can check the generated ledger end to end.
+;;
+;; Commodity accounts use FIFO because the converter emits `{}` reductions, which
+;; are ambiguous under the default STRICT booking once a ticker has two lots --
+;; and the split FIXME guarantees exactly that for NFLX.
+
+option "operating_currency" "USD"
+
+2025-10-31 open Assets:Investments:Plata:Cash USD
+2025-10-31 open Assets:Investments:Plata:NFLX NFLX "FIFO"
+2025-10-31 open Assets:Investments:Plata:VGK  VGK  "FIFO"
+2025-10-31 open Assets:Investments:Plata:AAPL AAPL "FIFO"
+2025-10-31 open Assets:Investments:Plata:RVRS RVRS "FIFO"
+2025-10-31 open Assets:BBVA USD
+2025-10-31 open Income:Dividends:Plata USD
+2025-10-31 open Income:Interest USD
+2025-10-31 open Income:Gains:Plata USD
+2025-10-31 open Expenses:Fees:Plata USD
+2025-10-31 open Expenses:Taxes:ISR USD
+2025-10-31 open Expenses:Taxes:Withholding:USA USD
+2025-10-31 open Equity:Opening-Balances
+2025-10-31 open Equity:FIXME
+
+2025-10-31 * "Apertura" "posiciones previas al periodo"
+  Assets:Investments:Plata:Cash   813.96 USD
+  Assets:Investments:Plata:NFLX     5 NFLX {480.46 USD}
+  Assets:Investments:Plata:VGK      5 VGK  {80.14 USD}
+  Assets:Investments:Plata:AAPL    14 AAPL {157.81 USD}
+  Assets:Investments:Plata:RVRS    20 RVRS {10.00 USD}
+  Equity:Opening-Balances

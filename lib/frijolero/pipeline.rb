@@ -71,9 +71,26 @@ module Frijolero
       end
     end
 
+    class Plata < Base
+      def summary(data)
+        list = data['transactions'] || []
+        "Found #{list.size} transactions"
+      end
+
+      def convert(json_path:, output: nil, account: beancount_account, **)
+        Converters::Plata.convert(
+          input: json_path,
+          account: account,
+          output: output,
+          targets: Converters::AccountTargets.from_config(@account_config)
+        )
+      end
+    end
+
     TYPES = {
       'cetes_directo' => CetesDirecto,
-      'fintual' => Fintual
+      'fintual' => Fintual,
+      'plata' => Plata
     }.freeze
   end
 end

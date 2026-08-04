@@ -30,6 +30,11 @@ class PipelineTest < Minitest::Test
     assert_instance_of Frijolero::Pipeline::Fintual, pipeline
   end
 
+  def test_for_returns_plata_strategy
+    pipeline = Frijolero::Pipeline.for('converter_type' => 'plata')
+    assert_instance_of Frijolero::Pipeline::Plata, pipeline
+  end
+
   def test_for_falls_back_to_default_for_unknown_type
     pipeline = Frijolero::Pipeline.for('converter_type' => 'unknown_bank')
     assert_instance_of Frijolero::Pipeline::Default, pipeline
@@ -71,6 +76,39 @@ class PipelineTest < Minitest::Test
     pipeline = Frijolero::Pipeline::Fintual.new({})
     data = { 'transactions' => [{}, {}, {}] }
     assert_equal 'Found 3 transactions', pipeline.summary(data)
+  end
+
+  def test_plata_skips_detailer
+    pipeline = Frijolero::Pipeline::Plata.new({})
+    refute pipeline.runs_detailer?
+  end
+
+  def test_plata_summary_counts_transactions
+    pipeline = Frijolero::Pipeline::Plata.new({})
+    data = { 'transactions' => [{}, {}] }
+    assert_equal 'Found 2 transactions', pipeline.summary(data)
+  end
+
+  def test_plata_convert_passes_all_account_config_keys
+    captured = nil
+    Frijolero::Converters::Plata.stub(:convert, ->(**kwargs) { captured = kwargs }) do
+      pipeline = Frijolero::Pipeline::Plata.new(
+        'beancount_account' => 'Assets:Investments:Plata',
+        'counterpart_account' => 'Assets:Bank',
+        'dividend_account' => 'Income:Dividends:Plata',
+        'interest_account' => 'Income:Interest',
+        'gains_account' => 'Income:Gains:Plata',
+        'fees_account' => 'Expenses:Fees:Plata',
+        'withholding_account' => 'Expenses:Taxes:Withholding:USA'
+      )
+      pipeline.convert(json_path: '/in.json', output: '/out.beancount')
+    end
+    assert_equal 'Assets:Investments:Plata', captured[:account]
+    assert_equal 'Assets:Bank', captured[:targets].counterpart
+    assert_equal 'Income:Dividends:Plata', captured[:targets].dividend
+    assert_equal 'Income:Gains:Plata', captured[:targets].gains
+    assert_equal 'Expenses:Fees:Plata', captured[:targets].fees
+    assert_equal 'Expenses:Taxes:Withholding:USA', captured[:targets].withholding
   end
 
   def test_beancount_account_pulled_from_config

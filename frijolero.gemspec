@@ -22,6 +22,7 @@ Gem::Specification.new do |spec|
   spec.metadata['source_code_uri'] = spec.homepage
   spec.metadata['rubygems_mfa_required'] = 'true'
 
+  spec.add_dependency 'bigdecimal', '~> 3.1'
   spec.add_dependency 'cli-ui'
   spec.add_dependency 'csv', '~> 3.0'
   spec.add_dependency 'rackup'

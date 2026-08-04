@@ -70,6 +70,13 @@ Metrics/MethodLength:
     - call
     - poll_response
 
+# AccountTargets is a named bag of destination accounts (counterpart, interest,
+# tax, dividend, gains, fees, withholding). Keyword arguments are the point of
+# the class; collapsing them into a hash would lose the named defaults.
+Metrics/ParameterLists:
+  Exclude:
+    - 'lib/frijolero/converters/account_targets.rb'
+
 Metrics/AbcSize:
   Exclude: ['test/**/*']
   AllowedMethods:
@@ -92,6 +99,22 @@ Metrics/AbcSize:
 # handler method, plus shared helpers. ~102 lines; splitting per-handler
 # files would be more navigation than understanding.
 #
+# Converters::Plata is 201 lines -- the largest class in the gem, and twice
+# the limit. Measured, not estimated. It is one job (convert a Plata statement)
+# expressed as many small writers: every method passes Metrics/MethodLength,
+# and the collaborators that could reasonably be pulled out already have been
+# (Converters::UnitReconciler for split detection, Converters::Amounts for
+# number handling). What is left is 8 transaction handlers, a fallback writer
+# for unclassifiable movements, and three period-end writers (prices,
+# unreported charges, closing balance).
+#
+# Those three period-end writers are the honest split candidate -- they derive
+# from the statement's closing tables rather than its movements. They are not
+# extracted because a collaborator would need io, account, currency, holdings,
+# cash, period end, service fees, ISR items, the fee target, and the movement
+# commission totals: ten pieces of borrowed state for fifty lines. Revisit if
+# a fourth period-end concern appears.
+#
 # LayoutMigrator orchestrates plan → copy → verify → rewrite → prompt →
 # delete with required rollback on failure. Plan building and formatting
 # already live in their own classes; the orchestrator itself coordinates
@@ -101,5 +124,6 @@ Metrics/ClassLength:
     - 'test/**/*'
     - 'lib/frijolero/statement.rb'
     - 'lib/frijolero/converters/fintual.rb'
+    - 'lib/frijolero/converters/plata.rb'
     - 'lib/frijolero/layout_migrator.rb'
     - 'lib/frijolero/layout_migrator/plan_builder.rb'
