@@ -39,7 +39,6 @@ Naming/VariableNumber:
 #   raise_error_for         OpenAIClient::Transport (case on HTTP status)
 #   upload_file             OpenAIClient
 #   extract_transactions    OpenAIClient
-#   process_patterns        Detailer
 #   build_new_lines         Beancount::MainFileWriter
 #   collapse_blank_runs     Beancount::MainFileWriter
 #   run_conversion          CLI::Convert
@@ -62,7 +61,6 @@ Metrics/MethodLength:
     - raise_error_for
     - upload_file
     - extract_transactions
-    - process_patterns
     - build_new_lines
     - collapse_blank_runs
     - run_conversion

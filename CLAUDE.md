@@ -23,6 +23,8 @@ bundle exec frijolero --help
 bundle exec frijolero process [--dry-run] [--auto-accept-prompts]
 bundle exec frijolero detail Amex_2501.json
 bundle exec frijolero detail transactions.json -c config.yaml
+bundle exec frijolero detail Amex_2501.beancount             # re-run rules on an already-converted ledger
+bundle exec frijolero detail Amex_2501.beancount --dry-run
 bundle exec frijolero convert Amex_2501.json
 bundle exec frijolero convert input.json -a "Liabilities:Amex" -o output.beancount
 bundle exec frijolero csv input.json -o output.csv
@@ -59,7 +61,7 @@ The directory containing `main.beancount` IS the implicit `statements_output_dir
 2. `Statement` owns one PDF's lifecycle (parse filename → check overwrite → upload → extract → save JSON → detail → convert → merge → finalize). Each step is a small private method.
 3. `OpenAIErrorReporter` is the error-handling policy table — maps each `OpenAIClient::Error` subclass to `{recoverable:, report:}` and is invoked from `Statement#run_pipeline`'s single rescue clause.
 4. `Pipeline.for(account_config)` returns a strategy (`Pipeline::Default`, `CetesDirecto`, `Fintual`, or `Plata`) that knows how to summarize the extracted data, whether to run the detailer, and which underlying converter to call. Adding a new bank statement type means adding one strategy class plus one converter — no edits to `Statement` or `StatementProcessor`.
-5. `Detailer` enriches transactions using YAML rules (only for `Default` pipeline).
+5. `Detailer` enriches transactions using YAML rules (only for `Default` pipeline). The matching itself lives in `Detailer::Rules` — a pure engine over the YAML that knows nothing about JSON — so `BeancountDetailer` can reuse it to re-run the rules against an already-converted `.beancount` file. That closes the loop where you notice a missing rule while cleaning up `Expenses:FIXME` rows in fava: add the rule, re-run `detail` on the `.beancount`, no need to go back to the JSON and redo the conversion and merge. `BeancountDetailer` only ever rewrites transactions still posting to `Expenses:FIXME`, which both protects hand edits and makes the run idempotent. It edits surgically via `Beancount::Transaction` (header line + the one FIXME posting), so hand-added metadata, comments and extra postings survive verbatim. Known limitation, inherited from `Beancount::Parser::TRANSACTION_RE` (which matches only the `*` flag): a transaction flagged `!` is invisible to the detailer — it is neither detailed nor counted in `remaining`, so the summary under-reports if you flag a row `!` in fava while leaving it on `Expenses:FIXME`.
 6. `Converters::Beancount` / `Converters::CetesDirecto` / `Converters::Fintual` / `Converters::Plata` convert enriched JSON to Beancount format (invoked by the pipeline strategy). All four inherit from `Converters::Base` (output path resolution, `convert`/`run_to(io)` template). `Converters::AccountTargets` is the value object that bundles `counterpart`/`interest`/`tax`/`dividend`/`gains`/`fees`/`withholding` so converters take three keyword args instead of nine. `Converters::UnitReconciler` compares a holding's closing share count against its opening count plus the period's trades, so unreported corporate actions (splits) surface as an explicit mismatch instead of silent drift. `Converters::Amounts` is the shared number mixin — all parsing goes through `BigDecimal`, because Float turns an exact reconciliation into a residue like `-5.55e-17` that renders in scientific notation and that Beancount's parser rejects.
 
 **Beancount booking methods:** the investment converters emit `{}` reductions on sales, which are ambiguous under Beancount's default STRICT booking once a commodity has more than one lot. Commodity accounts must therefore be opened with FIFO — `2025-01-01 open Assets:Investments:Plata:AAPL AAPL "FIFO"`. `"AVERAGE"` is not a substitute: real Beancount rejects it outright (`AVERAGE method is not supported`) and rustledger silently zeroes the position on any reduction. Note that a `booking: "AVERAGE"` line indented under an `open` is *metadata*, silently ignored — the method belongs on the open line itself.
@@ -87,7 +89,10 @@ The directory containing `main.beancount` IS the implicit `statements_output_dir
 - `lib/frijolero/openai_client.rb` - OpenAI client + nested `Transport` + typed exception hierarchy
 - `lib/frijolero/openai_error_reporter.rb` - error → `{recoverable, report}` policy table
 - `lib/frijolero/converters/{base,amounts,account_targets,unit_reconciler,beancount,cetes_directo,fintual,plata}.rb` - JSON-to-beancount converters and shared scaffolding
+- `lib/frijolero/detailer.rb` + `lib/frijolero/detailer/rules.rb` - JSON enrichment + the shared YAML matching engine
+- `lib/frijolero/beancount_detailer.rb` - re-runs detailer rules against a converted `.beancount` (FIXME-only, idempotent)
 - `lib/frijolero/beancount/{parser,main_file_writer}.rb` - parse/rewrite `.beancount` files (used by TransactionSplitter)
+- `lib/frijolero/beancount/{quoting,header,transaction}.rb` - string-literal escaping, the `DATE FLAG "payee" "narration"` line, and a surgically-editable view of a parsed transaction block (used by BeancountDetailer)
 - `lib/frijolero/json_statement_summary.rb` - describes the contents of a transactions JSON file (used in overwrite prompts)
 - `lib/frijolero/layout_migrator.rb` + `lib/frijolero/layout_migrator/{plan,plan_builder,plan_formatter,file_compare}.rb` - legacy-to-current layout migrator (copy/verify/rewrite/prompt/delete) and its helper classes
 - `lib/frijolero/web/app.rb` - Sinatra web UI (lazy-loaded by `review` command)

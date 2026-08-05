@@ -60,7 +60,7 @@ module Frijolero
         Commands:
           init               Create ~/.frijolero/ with example configs
           process            Process PDF statements end-to-end
-          detail FILE.json   Enrich transactions with config rules
+          detail FILE        Enrich .json or .beancount with config rules
           convert FILE.json  Convert JSON to Beancount format
           merge FILE.bc      Merge beancount into main ledger
           csv FILE.json      Convert JSON to CSV
