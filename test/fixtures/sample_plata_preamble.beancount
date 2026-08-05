@@ -3,30 +3,40 @@
 ;; real Beancount parser can check the generated ledger end to end.
 ;;
 ;; Commodity accounts use FIFO because the converter emits `{}` reductions, which
-;; are ambiguous under the default STRICT booking once a ticker has two lots --
-;; and the split FIXME guarantees exactly that for NFLX.
+;; are ambiguous under the default STRICT booking once a ticker has two lots.
+;;
+;; Only positions held BEFORE the period are opened here. AMZN (transferred in),
+;; MBGL (spun off) and TEMP (bought and sold within the month) appear during the
+;; period, so the converter opens them itself — declaring them here as well would
+;; be a duplicate open, which is exactly the collision to watch for when moving
+;; these declarations out of a hand-maintained account_opens file.
 
 option "operating_currency" "USD"
 
-2025-10-31 open Assets:Investments:Plata:Cash USD
-2025-10-31 open Assets:Investments:Plata:NFLX NFLX "FIFO"
-2025-10-31 open Assets:Investments:Plata:VGK  VGK  "FIFO"
-2025-10-31 open Assets:Investments:Plata:AAPL AAPL "FIFO"
-2025-10-31 open Assets:Investments:Plata:RVRS RVRS "FIFO"
-2025-10-31 open Assets:BBVA USD
+2025-10-31 open Assets:Investments:Plata:Cash    USD
+2025-10-31 open Assets:Investments:Plata:AAPL    AAPL    "FIFO"
+2025-10-31 open Assets:Investments:Plata:BND     BND     "FIFO"
+2025-10-31 open Assets:Investments:Plata:EDV     EDV     "FIFO"
+2025-10-31 open Assets:Investments:Plata:NFLX    NFLX    "FIFO"
+2025-10-31 open Assets:Investments:Plata:NOPRICE NOPRICE "FIFO"
+2025-10-31 open Assets:Investments:Plata:SPGI    SPGI    "FIFO"
+2025-10-31 open Assets:Investments:Plata:VGK     VGK     "FIFO"
 2025-10-31 open Income:Dividends:Plata USD
 2025-10-31 open Income:Interest USD
 2025-10-31 open Income:Gains:Plata USD
 2025-10-31 open Expenses:Fees:Plata USD
-2025-10-31 open Expenses:Taxes:ISR USD
 2025-10-31 open Expenses:Taxes:Withholding:USA USD
+2025-10-31 open Expenses:FIXME
 2025-10-31 open Equity:Opening-Balances
 2025-10-31 open Equity:FIXME
 
 2025-10-31 * "Apertura" "posiciones previas al periodo"
-  Assets:Investments:Plata:Cash   813.96 USD
-  Assets:Investments:Plata:NFLX     5 NFLX {480.46 USD}
-  Assets:Investments:Plata:VGK      5 VGK  {80.14 USD}
-  Assets:Investments:Plata:AAPL    14 AAPL {157.81 USD}
-  Assets:Investments:Plata:RVRS    20 RVRS {10.00 USD}
+  Assets:Investments:Plata:Cash     813.96 USD
+  Assets:Investments:Plata:AAPL        14 AAPL    {157.81 USD}
+  Assets:Investments:Plata:BND         16 BND     {73.30 USD}
+  Assets:Investments:Plata:EDV         27 EDV     {86.68 USD}
+  Assets:Investments:Plata:NFLX         5 NFLX    {480.46 USD}
+  Assets:Investments:Plata:NOPRICE     10 NOPRICE {1.00 USD}
+  Assets:Investments:Plata:SPGI         5 SPGI    {342.04 USD}
+  Assets:Investments:Plata:VGK          5 VGK     {80.14 USD}
   Equity:Opening-Balances

@@ -72,9 +72,16 @@ module Frijolero
     end
 
     class Plata < Base
+      # An Alpaca statement spreads its movements over four tables, so counting one
+      # of them under-reports badly. Entry.stream is what the converter itself walks,
+      # so this counts exactly what will reach the ledger — sweep rows, which are
+      # internal transfers the converter drops, are reported separately.
       def summary(data)
-        list = data['transactions'] || []
-        "Found #{list.size} transactions"
+        entries = Converters::Plata::Entry.stream(data)
+        sweeps = entries.count { |entry| entry.entry_type == Converters::Plata::SWEEP }
+        parts = [pluralize(entries.size - sweeps, 'movement')]
+        parts << "#{pluralize(sweeps, 'cash sweep')} ignored" if sweeps.positive?
+        "Found #{parts.join(', ')}"
       end
 
       def convert(json_path:, output: nil, account: beancount_account, **)
@@ -84,6 +91,12 @@ module Frijolero
           output: output,
           targets: Converters::AccountTargets.from_config(@account_config)
         )
+      end
+
+      private
+
+      def pluralize(count, noun)
+        "#{count} #{noun}#{'s' unless count == 1}"
       end
     end
 

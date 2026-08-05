@@ -9,6 +9,10 @@ require 'English'
 # rendered in scientific notation) produced text that looked plausible and failed
 # to load.
 #
+# It also proves more than parseability: the converter's own closing `balance`
+# directives are checked by beancount against the postings it emitted, so a split
+# that loses basis or a dropped movement fails here rather than in fava months later.
+#
 # Skips when no checker is installed, so the suite stays runnable without one.
 class PlataBeancountTest < Minitest::Test
   include TestHelpers
@@ -44,10 +48,8 @@ class PlataBeancountTest < Minitest::Test
       input: fixture_path('sample_plata.json'),
       account: 'Assets:Investments:Plata',
       targets: Frijolero::Converters::AccountTargets.new(
-        counterpart: 'Assets:BBVA',
         dividend: 'Income:Dividends:Plata',
         interest: 'Income:Interest',
-        tax: 'Expenses:Taxes:ISR',
         gains: 'Income:Gains:Plata',
         fees: 'Expenses:Fees:Plata',
         withholding: 'Expenses:Taxes:Withholding:USA'

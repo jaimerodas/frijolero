@@ -1,0 +1,8 @@
+{
+  "model": "gpt-5.5",
+  "format": {
+    "type": "json_schema",
+    "name": "alpaca_statement_v1",
+    "strict": true
+  }
+}

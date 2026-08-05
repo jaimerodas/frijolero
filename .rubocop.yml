@@ -97,21 +97,25 @@ Metrics/AbcSize:
 # handler method, plus shared helpers. ~102 lines; splitting per-handler
 # files would be more navigation than understanding.
 #
-# Converters::Plata is 201 lines -- the largest class in the gem, and twice
-# the limit. Measured, not estimated. It is one job (convert a Plata statement)
-# expressed as many small writers: every method passes Metrics/MethodLength,
-# and the collaborators that could reasonably be pulled out already have been
-# (Converters::UnitReconciler for split detection, Converters::Amounts for
-# number handling). What is left is 8 transaction handlers, a fallback writer
-# for unclassifiable movements, and three period-end writers (prices,
-# unreported charges, closing balance).
+# Converters::Plata is the largest class in the gem: 41 methods over ~380 lines
+# of file. Measured, not estimated. It is one job (convert an Alpaca statement)
+# expressed as many small writers -- every method passes Metrics/MethodLength,
+# AbcSize and CyclomaticComplexity on its own.
 #
-# Those three period-end writers are the honest split candidate -- they derive
-# from the statement's closing tables rather than its movements. They are not
-# extracted because a collaborator would need io, account, currency, holdings,
-# cash, period end, service fees, ISR items, the fee target, and the movement
-# commission totals: ten pieces of borrowed state for fifty lines. Revisit if
-# a fourth period-end concern appears.
+# The collaborators that could reasonably be pulled out already have been, and
+# they are the ones that carry rules rather than formatting: Plata::Entry
+# (flattening four detail tables into one ordered stream) and
+# Plata::CorporateAction (allocating cost basis across a split or spinoff), plus
+# Converters::Amounts for number handling. What is left is a handler per Alpaca
+# entry type, a fallback writer for entry types we do not recognise, and the
+# period-end writers (prices, balance assertions, the audit header).
+#
+# The remaining split candidate is the period-end group, which derives from the
+# statement's closing tables rather than its movements. It is not extracted
+# because a collaborator would need io, account, currency, holdings, the cash
+# summary, the cash holding row, realized gain/loss and the period dates:
+# eight pieces of borrowed state for sixty lines. Revisit if a fourth
+# period-end concern appears.
 #
 # LayoutMigrator orchestrates plan → copy → verify → rewrite → prompt →
 # delete with required rollback on failure. Plan building and formatting

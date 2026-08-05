@@ -1,239 +1,378 @@
 {
-  "schema_version": "plata_statement_compact_v1",
+  "schema_version": "alpaca_statement_v1",
   "provider": "Asesor en Inversiones Plata, S.A.P.I. de C.V.",
-  "contract_number": "FAKECONTRACT0000",
-  "custodian_account_number": "000000000",
+  "custodian": "Alpaca",
+  "account_number": "601812865",
+  "account_holder": "Fake Account Holder",
   "statement_period": {
-    "month_label": "Noviembre 2025",
+    "month_label": "NOVEMBER - 2025",
     "start_date": "2025-11-01",
     "end_date": "2025-11-30"
   },
   "currency": "USD",
-  "summary": {
-    "opening_balance": "109248.14",
-    "closing_balance": "109741.93",
-    "deposits": "1000.00",
-    "withdrawals": "250.00",
-    "commissions": "4.53",
-    "commission_vat": "0.73",
-    "total_commissions": "5.26",
-    "isr_withheld": "0.00"
+  "cash_summary": {
+    "beginning_balance": "813.96",
+    "addition": "113.04",
+    "subtraction": "7.75",
+    "trade_transaction": "2952.71",
+    "cost_and_fees": "-11.03",
+    "ending_value": "3860.93"
   },
-  "performance": {
-    "gross_return_amount": "493.79",
-    "gross_return_percent": "0.45",
-    "net_return_amount": "487.79",
-    "net_return_percent": "0.45"
+  "account_summary": {
+    "long": "16787.03",
+    "short": null,
+    "options": null,
+    "fixed_income": null,
+    "total_market_value": "19035.81"
   },
-  "cash": {
-    "current": "2897.15",
-    "previous": "813.96"
+  "income_summary": {
+    "dividend": "7.54",
+    "interest": "1.27"
+  },
+  "realized_gain_loss": {
+    "short_term": { "gain": "1182.28", "loss": "734.94", "net": "447.34" },
+    "long_term": { "gain": null, "loss": null, "net": null }
+  },
+  "sweep_balances": [
+    {
+      "description": "13622, DAYSPRING BANK",
+      "opening_balance": "519.51",
+      "ending_balance": "0.39"
+    },
+    {
+      "description": "18221, WEBSTER BANK",
+      "opening_balance": null,
+      "ending_balance": "659.33"
+    }
+  ],
+  "sweep_totals": {
+    "opening_balance": "519.51",
+    "ending_balance": "659.72"
+  },
+  "cash_holding": {
+    "market_value": "3860.93"
   },
   "holdings": [
     {
-      "name": "Netflix",
-      "ticker": "NFLX",
-      "units_current": "30",
-      "units_previous": "5",
-      "average_cost": "48.05",
-      "market_price_current": "107.58",
-      "market_price_previous": "111.89",
-      "market_value": "3227.40",
-      "return_amount": "1786.02",
-      "return_percent": "123.91",
-      "portfolio_percent": "2.94"
-    },
-    {
-      "name": "Vanguard FTSE Europe ETF",
-      "ticker": "VGK",
-      "units_current": "15",
-      "units_previous": "5",
-      "average_cost": "80.14",
-      "market_price_current": "81.53",
-      "market_price_previous": "80.30",
-      "market_value": "1222.95",
-      "return_amount": "20.84",
-      "return_percent": "1.73",
-      "portfolio_percent": "1.11"
-    },
-    {
-      "name": "Apple",
-      "ticker": "AAPL",
-      "units_current": "14",
-      "units_previous": "14",
-      "average_cost": "157.81",
-      "market_price_current": "278.85",
-      "market_price_previous": "270.37",
+      "symbol": "AAPL",
+      "description": "APPLE INC COM",
+      "quantity": "14",
+      "market_price": "278.85",
       "market_value": "3903.90",
-      "return_amount": "1694.50",
-      "return_percent": "76.7",
-      "portfolio_percent": "3.56"
+      "cost_price": "157.81",
+      "unrealized": "1694.56",
+      "td_cost_basis": "2209.34"
     },
     {
-      "name": "Sin Precio",
-      "ticker": "NOPRICE",
-      "units_current": "10",
-      "units_previous": "10",
-      "average_cost": null,
-      "market_price_current": null,
-      "market_price_previous": null,
+      "symbol": "AMZN",
+      "description": "AMAZON COM INC COM",
+      "quantity": "15",
+      "market_price": "233.22",
+      "market_value": "3498.30",
+      "cost_price": "154.53",
+      "unrealized": "1180.35",
+      "td_cost_basis": "2317.95"
+    },
+    {
+      "symbol": "BND",
+      "description": "VANGUARD BD INDEX FDS TOTAL BND MRKT",
+      "quantity": "16",
+      "market_price": "74.78",
+      "market_value": "1196.48",
+      "cost_price": "73.30",
+      "unrealized": "23.68",
+      "td_cost_basis": "1172.80"
+    },
+    {
+      "symbol": "MBGL",
+      "description": "MOBILITY GLOBAL INC COM SHS",
+      "quantity": "5",
+      "market_price": "20.38",
+      "market_value": "101.90",
+      "cost_price": "17.57",
+      "unrealized": "14.05",
+      "td_cost_basis": "87.85"
+    },
+    {
+      "symbol": "NFLX",
+      "description": "NETFLIX INC COM",
+      "quantity": "30",
+      "market_price": "107.58",
+      "market_value": "3227.40",
+      "cost_price": "48.05",
+      "unrealized": "1786.02",
+      "td_cost_basis": "1441.38"
+    },
+    {
+      "symbol": "NOPRICE",
+      "description": "UNPRICED SECURITY",
+      "quantity": "10",
+      "market_price": null,
       "market_value": null,
-      "return_amount": null,
-      "return_percent": null,
-      "portfolio_percent": null
+      "cost_price": null,
+      "unrealized": null,
+      "td_cost_basis": null
     },
     {
-      "name": "Reverse Split Co",
-      "ticker": "RVRS",
-      "units_current": "8",
-      "units_previous": "20",
-      "average_cost": "10.00",
-      "market_price_current": "25.00",
-      "market_price_previous": "10.00",
-      "market_value": "200.00",
-      "return_amount": "300.00",
-      "return_percent": "150.0",
-      "portfolio_percent": "0.5"
+      "symbol": "SPGI",
+      "description": "S&P GLOBAL INC COM",
+      "quantity": "5",
+      "market_price": "498.83",
+      "market_value": "2494.15",
+      "cost_price": "324.47",
+      "unrealized": "871.80",
+      "td_cost_basis": "1622.35"
+    },
+    {
+      "symbol": "VGK",
+      "description": "VANGUARD INTL EQUITY INDEX FDS FTSE EUROPE ETF",
+      "quantity": "15",
+      "market_price": "81.53",
+      "market_value": "1222.95",
+      "cost_price": "79.77",
+      "unrealized": "26.34",
+      "td_cost_basis": "1196.61"
+    }
+  ],
+  "income": [
+    {
+      "trade_date": "2025-11-03",
+      "entry_type": "ACATS IN/OUT (Cash)",
+      "symbol": null,
+      "description": "ACAT Transfer 20250270052117",
+      "net_amount": "79.69"
+    },
+    {
+      "trade_date": "2025-11-05",
+      "entry_type": "Dividends",
+      "symbol": "BND",
+      "description": "Cash DIV @ 0.243631, Pos QTY: 16, Rec Date: 2025-11-03",
+      "net_amount": "3.90"
+    },
+    {
+      "trade_date": "2025-11-05",
+      "entry_type": "Div. Adj(NRA Withheld)",
+      "symbol": "BND",
+      "description": "DIV tax withholding on $3.9 at 10% for tax country MEX; w8w9: w8",
+      "net_amount": "-0.39"
+    },
+    {
+      "trade_date": "2025-11-13",
+      "entry_type": "Dividends",
+      "symbol": "AAPL",
+      "description": "Cash DIV @ 0.26, Pos QTY: 14, Rec Date: 2025-11-10",
+      "net_amount": "3.64"
+    },
+    {
+      "trade_date": "2025-11-13",
+      "entry_type": "Dividends",
+      "symbol": "AAPL",
+      "description": "Cash DIV @ 0.26, Pos QTY: 14, Rec Date: 2025-11-10",
+      "net_amount": "-3.64"
+    },
+    {
+      "trade_date": "2025-11-13",
+      "entry_type": "Dividends",
+      "symbol": "AAPL",
+      "description": "Cash DIV @ 0.26, Pos QTY: 14, Rec Date: 2025-11-10",
+      "net_amount": "3.64"
+    },
+    {
+      "trade_date": "2025-11-13",
+      "entry_type": "Div. Adj(NRA Withheld)",
+      "symbol": "AAPL",
+      "description": "DIV tax withholding on $3.64 at 10% for tax country MEX; w8w9: w8",
+      "net_amount": "-0.36"
+    },
+    {
+      "trade_date": "2025-11-13",
+      "entry_type": "Div. Adj(NRA Withheld)",
+      "symbol": "AAPL",
+      "description": "DIV tax withholding on $3.64 at 10% for tax country MEX; w8w9: w8",
+      "net_amount": "0.36"
+    },
+    {
+      "trade_date": "2025-11-13",
+      "entry_type": "Div. Adj(NRA Withheld)",
+      "symbol": "AAPL",
+      "description": "DIV tax withholding on $3.64 at 10% for tax country MEX; w8w9: w8",
+      "net_amount": "-0.36"
+    },
+    {
+      "trade_date": "2025-11-30",
+      "entry_type": "Cash Interest**",
+      "symbol": null,
+      "description": "November 2025 Sweep",
+      "net_amount": "1.27"
+    },
+    {
+      "trade_date": "2025-11-30",
+      "entry_type": "Custody Adjustment",
+      "symbol": null,
+      "description": "unrecognised entry type, must not vanish",
+      "net_amount": "-3.00"
+    }
+  ],
+  "fees": [
+    {
+      "trade_date": "2025-11-29",
+      "description": "ADR pass-through fee",
+      "net_amount": "-2.50"
     }
   ],
   "transactions": [
     {
+      "trade_date": "2025-11-03",
+      "entry_type": "ACATS IN/OUT (Securities)",
+      "side": null,
+      "symbol": "AMZN",
+      "description": "ACAT Transfer 20250270052117",
+      "quantity": "15",
+      "price": "154.53",
+      "amount": null,
+      "commission": null
+    },
+    {
       "trade_date": "2025-11-05",
-      "trade_time": "10:05 a.m.",
-      "transaction_type": "dividend",
-      "description_raw": "Dividendo",
-      "ticker": "BND",
-      "units": null,
-      "price_per_unit": null,
-      "amount": "3.51",
-      "commission_total": "0.00",
-      "withholding": "0.39"
+      "entry_type": "High-Yield Cash Sweep",
+      "side": null,
+      "symbol": null,
+      "description": "banking.transactions.id: 019e93d8-b944-0161-eb33-365b849534fb, sweep.transactions.id: 1d2b21e5-430a-4200-92c5-afa9ac615558",
+      "quantity": null,
+      "price": null,
+      "amount": "-50.00",
+      "commission": null
     },
     {
-      "trade_date": "2025-11-06",
-      "trade_time": "07:08 a.m.",
-      "transaction_type": "dividend",
-      "description_raw": "Dividendo",
-      "ticker": "ASML",
-      "units": null,
-      "price_per_unit": null,
-      "amount": "4.75",
-      "commission_total": "0.00",
-      "withholding": "0.00"
+      "trade_date": "2025-11-17",
+      "entry_type": "Stock Split",
+      "side": null,
+      "symbol": "NFLX",
+      "description": "REMOVE, From QTY:-5, To QTY:50, Position Value:2402.3",
+      "quantity": "-5",
+      "price": "480.46",
+      "amount": null,
+      "commission": null
     },
     {
-      "trade_date": "2025-11-10",
-      "trade_time": null,
-      "transaction_type": "deposit",
-      "description_raw": "Depósito",
-      "ticker": null,
-      "units": null,
-      "price_per_unit": null,
-      "amount": "1000.00",
-      "commission_total": "0.00",
-      "withholding": "0.00"
+      "trade_date": "2025-11-17",
+      "entry_type": "Stock Split",
+      "side": null,
+      "symbol": "NFLX",
+      "description": "ADD, From QTY:-5, To QTY:50, Position Value:2402.3",
+      "quantity": "50",
+      "price": "48.05",
+      "amount": null,
+      "commission": null
     },
     {
-      "trade_date": "2025-11-11",
-      "trade_time": null,
-      "transaction_type": "withdrawal",
-      "description_raw": "Retiro",
-      "ticker": null,
-      "units": null,
-      "price_per_unit": null,
-      "amount": "250.00",
-      "commission_total": "0.00",
-      "withholding": "0.00"
+      "trade_date": "2025-11-20",
+      "entry_type": "Stock SpinOff",
+      "side": null,
+      "symbol": "MBGL",
+      "description": "Target Symbol: MBGL, Initiating Symbol: SPGI, 1 MBGL for each 1 SPGI",
+      "quantity": "5",
+      "price": "17.57",
+      "amount": null,
+      "commission": null
+    },
+    {
+      "trade_date": "2025-11-20",
+      "entry_type": "Stock SpinOff",
+      "side": null,
+      "symbol": "SPGI",
+      "description": "ADD, Cost basis adjustment for source company",
+      "quantity": "5",
+      "price": "324.47",
+      "amount": null,
+      "commission": null
+    },
+    {
+      "trade_date": "2025-11-20",
+      "entry_type": "Stock SpinOff",
+      "side": null,
+      "symbol": "SPGI",
+      "description": "REMOVE, Cost basis adjustment for source company",
+      "quantity": "-5",
+      "price": "342.04",
+      "amount": null,
+      "commission": null
     },
     {
       "trade_date": "2025-11-25",
-      "trade_time": "08:20 a.m.",
-      "transaction_type": "buy",
-      "description_raw": "Compra",
-      "ticker": "VGK",
-      "units": "10",
-      "price_per_unit": "79.59",
-      "amount": "795.91",
-      "commission_total": "1.43",
-      "withholding": null
+      "entry_type": "Trade Entry",
+      "side": "sell",
+      "symbol": "NFLX",
+      "description": null,
+      "quantity": "-20",
+      "price": "106.66",
+      "amount": "2133.20",
+      "commission": "3.83"
     },
     {
       "trade_date": "2025-11-25",
-      "trade_time": "08:21 a.m.",
-      "transaction_type": "sell",
-      "description_raw": "Venta",
-      "ticker": "NFLX",
-      "units": "20",
-      "price_per_unit": "106.66",
-      "amount": "2133.25",
-      "commission_total": "3.83",
-      "withholding": null
+      "entry_type": "Trade Entry",
+      "side": "buy",
+      "symbol": "VGK",
+      "description": null,
+      "quantity": "10",
+      "price": "79.59",
+      "amount": "-795.91",
+      "commission": "1.43"
+    },
+    {
+      "trade_date": "2025-11-26",
+      "entry_type": "Trade Entry",
+      "side": "sell",
+      "symbol": "EDV",
+      "description": null,
+      "quantity": "-27",
+      "price": "59.46",
+      "amount": "1605.42",
+      "commission": "2.89"
+    },
+    {
+      "trade_date": "2025-11-27",
+      "entry_type": "Trade Entry",
+      "side": "buy",
+      "symbol": "TEMP",
+      "description": null,
+      "quantity": "5",
+      "price": "20.00",
+      "amount": "-100.00",
+      "commission": "0.18"
+    },
+    {
+      "trade_date": "2025-11-27",
+      "entry_type": "Trade Entry",
+      "side": "sell",
+      "symbol": "TEMP",
+      "description": null,
+      "quantity": "-5",
+      "price": "22.00",
+      "amount": "110.00",
+      "commission": "0.20"
     },
     {
       "trade_date": "2025-11-28",
-      "trade_time": "10:48 a.m.",
-      "transaction_type": "interest",
-      "description_raw": "Intereses",
-      "ticker": null,
-      "units": null,
-      "price_per_unit": null,
-      "amount": "2.10",
-      "commission_total": "0.00",
-      "withholding": "0.00"
-    },
-    {
-      "trade_date": "2025-11-29",
-      "trade_time": null,
-      "transaction_type": "fee",
-      "description_raw": "Comisión administrativa",
-      "ticker": null,
-      "units": null,
-      "price_per_unit": null,
-      "amount": "5.00",
-      "commission_total": "0.00",
-      "withholding": null
-    },
-    {
-      "trade_date": "2025-11-29",
-      "trade_time": null,
-      "transaction_type": "tax",
-      "description_raw": "ISR retenido",
-      "ticker": null,
-      "units": null,
-      "price_per_unit": null,
-      "amount": "1.25",
-      "commission_total": "0.00",
-      "withholding": null
-    },
-    {
-      "trade_date": "2025-11-30",
-      "trade_time": null,
-      "transaction_type": "other",
-      "description_raw": "Ajuste de custodia",
-      "ticker": null,
-      "units": null,
-      "price_per_unit": null,
-      "amount": "-3.00",
-      "commission_total": "0.00",
-      "withholding": null
+      "entry_type": "High-Yield Cash Sweep",
+      "side": null,
+      "symbol": null,
+      "description": "banking.transactions.id: 019eb323-78e0-b434-424a-8383ebd68d4b, sweep.transactions.id: 1bc0ef79-449b-41fe-b17b-056efe26c4e0",
+      "quantity": null,
+      "price": null,
+      "amount": "30.00",
+      "commission": null
     }
   ],
-  "service_fees": [
+  "deposits_withdrawals": [
     {
-      "date": "2025-11-25",
-      "time": "08:20 a.m.",
-      "description": "Comisión por servicios de asesoría de inversiones",
-      "amount": "1.43"
+      "trade_date": "2025-11-10",
+      "entry_type": "Journal Entry(Cash)",
+      "description": "NRA withholding refund - Income Reallocation",
+      "net_amount": "20.54",
+      "account_number": "601812865"
     }
   ],
-  "isr_withheld_items": [],
-  "tax_receipt": {
-    "folio_fiscal": "9BCFBA4D-51F2-4A61-A99F-C3F25799E85C",
-    "issue_date": "2025-12-02",
-    "subtotal": "5.17",
-    "vat": "0.83",
-    "total": "6.00",
-    "exchange_rate": "18.31"
-  },
   "warnings": []
 }

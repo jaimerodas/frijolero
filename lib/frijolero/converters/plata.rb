@@ -1,34 +1,50 @@
 # frozen_string_literal: true
 
 require 'date'
+require_relative '../beancount/quoting'
 
 module Frijolero
   module Converters
-    # Plata Inversiones (VestFi / Alpaca) brokerage statements. USD, Spanish labels.
+    # Alpaca monthly brokerage statements, held through the Mexican advisor Plata.
+    # USD, English labels, and — unlike the advisor's own summary statement this
+    # replaced — internally complete: every Cash Summary line is reproducible from
+    # the detail tables to the cent.
     #
-    # Two things drive the output shape:
+    # Three things drive the output shape:
     #
-    # 1. The statement's `Importe` is authoritative; `Precio unitario` is rounded and
-    #    does not always multiply back to it (14 VGK x 84.15 = 1178.10, reported
-    #    1178.16). Buys therefore use total-cost syntax so the ledger balances.
-    # 2. Corporate actions (splits) change the share count with no movement row. The
-    #    difference is detectable against the portfolio table and is emitted as a
-    #    FIXME dated at period start, so later sales in the same period still have
-    #    units to draw from.
+    # 1. The Amount column is authoritative; Price is rounded and does not always
+    #    multiply back to it (10 VGK x 79.59 = 795.90, reported 795.91). Buys use
+    #    total-cost syntax so the ledger balances.
+    # 2. Corporate actions arrive as explicit REMOVE/ADD rows carrying old and new
+    #    cost prices, so splits and spinoffs are booked as basis-conserving
+    #    rebasings rather than guessed at from a change in share count.
+    # 3. `High-Yield Cash Sweep` rows move cash between the brokerage and the FDIC
+    #    partner banks. They are absent from the Cash Summary, so emitting them
+    #    would double-count; they are skipped and reported in the header.
     class Plata < Base
       include Amounts
 
       PAYEE = 'Plata'
+      SWEEP = 'High-Yield Cash Sweep'
+      # Sales emit `{}` reductions, which are ambiguous under Beancount's default
+      # STRICT booking as soon as a commodity has more than one lot.
+      BOOKING = '"FIFO"'
+      DEFAULT_OPENING = 'Equity:Opening-Balances'
+      CORPORATE_ACTIONS = ['Stock Split', 'Stock SpinOff'].freeze
+      SECURITY_TRANSFER = 'ACATS IN/OUT (Securities)'
 
-      TRANSACTION_HANDLERS = {
-        'deposit' => :handle_deposit,
-        'withdrawal' => :handle_withdrawal,
-        'buy' => :handle_buy,
-        'sell' => :handle_sell,
-        'dividend' => :handle_dividend,
-        'interest' => :handle_interest,
-        'fee' => :handle_fee,
-        'tax' => :handle_tax
+      HANDLERS = {
+        'Trade Entry' => :write_trade,
+        'Stock Split' => :write_corporate_action,
+        'Stock SpinOff' => :write_corporate_action,
+        SECURITY_TRANSFER => :write_security_transfer,
+        'ACATS IN/OUT (Cash)' => :write_cash_transfer,
+        'Dividends' => :write_dividend,
+        'Div. Adj(NRA Withheld)' => :write_withholding,
+        'Cash Interest' => :write_interest,
+        'Fee' => :write_fee,
+        'Journal Entry(Cash)' => :write_journal_entry,
+        SWEEP => :skip_sweep
       }.freeze
 
       def initialize(targets: AccountTargets.new, **kwargs)
@@ -40,34 +56,43 @@ module Frijolero
         json = load_json
         @out = io
         load_statement(json)
-
-        write_entries(json.fetch('transactions', []))
+        write_statement(Entry.stream(json))
       ensure
         @out = nil
       end
 
       private
 
-      attr_reader :period_start, :period_end
+      # Ordered so the file reads the way the statement does: what it claimed, which
+      # accounts came into existence, the movements themselves, then the closing
+      # facts that check them and the accounts the period emptied.
+      def write_statement(stream)
+        positions = Positions.new(@holdings, stream)
 
-      def write_entries(transactions)
-        write_unit_adjustments(transactions)
-        transactions.each { |transaction| dispatch(transaction) }
-        write_unreported_charges(transactions)
+        write_file_header(stream)
+        write_opens(positions)
+        groups(stream).each { |group| dispatch(group) }
         write_price_declarations
-        write_cash_balance
+        write_balances
+        write_closes(positions)
       end
+
+      attr_reader :period_end
 
       def load_statement(json)
         @currency = json['currency'] || 'USD'
-        @holdings = json.fetch('holdings', [])
-        period = json.fetch('statement_period', {})
-        @period_start = period['start_date']
-        @cash = json['cash'] || {}
-        @service_fees = json['service_fees'] || []
-        @isr_items = json['isr_withheld_items'] || []
-        # Normalised once: an unparseable period end must not reach the price
-        # directives or the balance assertion, both of which emit it as a date.
+        @provider = json['provider']
+        @holdings = json['holdings'] || []
+        @cash_summary = json['cash_summary'] || {}
+        @cash_holding = json['cash_holding'] || {}
+        @realized = json['realized_gain_loss'] || {}
+        load_period(json['statement_period'] || {})
+      end
+
+      # Normalised once: an unparseable period end must not reach the price
+      # directives or the balance assertions, both of which emit it as a date.
+      def load_period(period)
+        @period_start = parsed_date(period['start_date'])
         @period_end = parsed_date(period['end_date'])
       end
 
@@ -77,220 +102,333 @@ module Frijolero
         nil
       end
 
-      # A `balance` directive asserts the balance at the START of its date, so the
-      # statement's closing cash is dated the day after the period ends -- dating it
-      # at period end would exclude any movement falling on the last day.
-      def write_cash_balance
-        closing = @cash['current']
-        return if closing.nil? || period_end.nil?
+      # --- grouping -----------------------------------------------------------
+
+      # Corporate actions and securities transfers are several rows describing one
+      # event. Everything else is one row per transaction. Entry.stream keeps the
+      # rows of an event adjacent, so a chunk on the group key is enough.
+      def groups(stream)
+        stream.chunk_while do |left, right|
+          key = group_key(left)
+          !key.nil? && key == group_key(right)
+        end
+      end
+
+      # A split's rows differ in description ("REMOVE, ..." against "ADD, ..."), so
+      # they group on the date alone. A statement can carry two unrelated ACATS
+      # transfers on one date, which the transfer reference distinguishes.
+      def group_key(entry)
+        case entry.entry_type
+        when *CORPORATE_ACTIONS then [entry.date, entry.entry_type]
+        when SECURITY_TRANSFER then [entry.date, entry.entry_type, entry.description]
+        end
+      end
+
+      # An unrecognised entry type must not be dropped: its cash movement would go
+      # with it, and the only symptom would be a failed balance assertion with
+      # nothing to point at.
+      def dispatch(group)
+        handler = HANDLERS[group.first.entry_type]
+        return write_unclassified(group.first) unless handler
+
+        send(handler, group)
+      end
+
+      # --- transaction writers ------------------------------------------------
+
+      def write_trade(group)
+        entry = group.first
+        sell?(entry) ? write_sell(entry) : write_buy(entry)
+      end
+
+      def sell?(entry)
+        return entry.side.to_s.casecmp('sell').zero? unless entry.side.nil?
+
+        entry.quantity.negative?
+      end
+
+      def write_buy(entry)
+        write_header(entry, "Buy #{entry.symbol}")
+        write_units(entry.symbol, entry.quantity, "{{#{money(entry.amount.abs)} #{@currency}}}")
+        write_commission(entry)
+        write_posting(cash_account, entry.amount - entry.commission)
+        @out.puts
+      end
+
+      # Total proceeds, for the same reason buys use total cost: the printed unit
+      # price is rounded, and a per-unit @ would quietly book the difference as
+      # capital gain via the elastic gains posting.
+      def write_sell(entry)
+        write_header(entry, "Sell #{entry.symbol}")
+        write_units(entry.symbol, entry.quantity, "{} @@ #{money(entry.amount)} #{@currency}")
+        write_commission(entry)
+        write_posting(cash_account, entry.amount - entry.commission)
+        @out.puts "  #{@targets.gains}"
+        @out.puts
+      end
+
+      def write_corporate_action(group)
+        action = CorporateAction.new(group)
+        write_action_header(group.first, action)
+        action.descriptions.each { |text| @out.puts "  ; #{text}" }
+        write_action_legs(action)
+        @out.puts '  Equity:FIXME' unless action.balanced?
+        @out.puts
+      end
+
+      # Removals first: they read as the "before" side, and leaving the cost open
+      # lets the account's booking method pick the lots being rebased.
+      def write_action_legs(action)
+        action.removed_legs.each { |leg| write_units(leg.symbol, leg.quantity, '{}') }
+        action.added_legs.each do |leg|
+          write_units(leg.symbol, leg.quantity, "{{#{money(leg.total)} #{@currency}}}")
+        end
+      end
+
+      # Shares removed with nothing added cannot balance on their own — a delisting
+      # paid out in cash, say. Flag it and leave an equity plug rather than emit a
+      # file beancount will refuse to load.
+      def write_action_header(entry, action)
+        return write_header(entry, action.narration) if action.balanced?
+
+        write_header(entry, "FIXME unbalanced corporate action: #{action.narration}",
+                     flag: '!')
+      end
+
+      def write_security_transfer(group)
+        write_header(group.first, group.first.description || 'ACATS transfer')
+        group.each { |entry| write_units(entry.symbol, entry.quantity, transfer_cost(entry)) }
+        @out.puts "  #{opening_account}"
+        @out.puts
+      end
+
+      # Shares arriving carry the cost basis the statement reports. Shares leaving
+      # are a reduction: asking for a lot at a given cost would only find one by
+      # luck, so the cost stays open for the account's booking method.
+      def transfer_cost(entry)
+        return '{}' if entry.quantity.negative?
+
+        "{#{money(entry.price)} #{@currency}}"
+      end
+
+      def write_cash_transfer(group)
+        entry = group.first
+        write_header(entry, entry.description || 'ACATS transfer')
+        write_posting(cash_account, entry.amount)
+        @out.puts "  #{opening_account}"
+        @out.puts
+      end
+
+      # Alpaca reports the gross dividend and the tax withheld at source as separate
+      # rows, and reverses a mis-booked one by repeating it with the opposite sign.
+      # Both postings are therefore explicit and sign-driven: a reversal reverses.
+      def write_dividend(group)
+        entry = group.first
+        write_two_sided(entry, labelled('Dividend', entry),
+                        @targets.dividend || 'Income:FIXME')
+      end
+
+      def write_withholding(group)
+        entry = group.first
+        write_two_sided(entry, labelled('Withholding', entry),
+                        @targets.withholding || 'Expenses:FIXME')
+      end
+
+      def write_interest(group)
+        entry = group.first
+        write_two_sided(entry, 'Cash Interest', @targets.interest || 'Income:FIXME')
+      end
+
+      def write_fee(group)
+        entry = group.first
+        write_two_sided(entry, entry.description || 'Fee',
+                        @targets.fees || 'Expenses:FIXME')
+      end
+
+      def write_two_sided(entry, narration, account)
+        write_header(entry, narration)
+        write_posting(cash_account, entry.amount)
+        write_posting(account, -entry.amount)
+        @out.puts
+      end
+
+      def labelled(prefix, entry)
+        entry.symbol ? "#{prefix} #{entry.symbol}" : prefix
+      end
+
+      # The counterpart of a journal entry is not knowable from the statement — the
+      # description is either an opaque UUID or free text. Expenses:FIXME with a `*`
+      # flag is exactly what `frijolero detail` rewrites from a rules file, so these
+      # are left for that pass rather than guessed at here.
+      def write_journal_entry(group)
+        entry = group.first
+        write_header(entry, "Journal Entry: #{entry.description}")
+        write_posting(cash_account, entry.amount)
+        @out.puts '  Expenses:FIXME'
+        @out.puts
+      end
+
+      def skip_sweep(_group); end
+
+      def write_unclassified(entry)
+        write_header(entry, "FIXME unclassified entry: #{entry.entry_type}", flag: '!')
+        write_posting(cash_account, entry.amount)
+        @out.puts '  Equity:FIXME'
+        @out.puts
+      end
+
+      # --- account lifecycle --------------------------------------------------
+
+      # Dated at period start rather than at the movement that created the position:
+      # an `open` only has to precede the account's first posting, and period start
+      # is always safe without having to find that posting.
+      #
+      # Only commodity accounts are managed here. Cash, income, expense and equity
+      # accounts belong in the ledger's own account_opens file — they outlive any
+      # single statement.
+      def write_opens(positions)
+        return if @period_start.nil?
+
+        symbols = positions.opened
+        return if symbols.empty?
+
+        symbols.each do |symbol|
+          @out.puts "#{@period_start} open #{@account}:#{symbol} #{symbol} #{BOOKING}"
+        end
+        @out.puts
+      end
+
+      # Dated with the balance assertions, one day past the period, so the close
+      # falls after every posting it covers.
+      #
+      # Known limitation: beancount refuses to reopen a closed account, so a position
+      # exited in one month and re-entered in a later one produces a colliding
+      # open/close pair across two files. It fails loudly at bean-check
+      # ("Account ... is already open" plus "Posting to inactive account") and the fix
+      # is to delete the earlier `close` and the later `open`. Nothing here can detect
+      # it, because a converter only ever sees one month.
+      def write_closes(positions)
+        return if period_end.nil?
+
+        symbols = positions.closed
+        return if symbols.empty?
 
         @out.puts
-        @out.puts "#{assertion_date} balance #{@account}:Cash " \
-                  "#{grouped(closing)} #{@currency}"
+        symbols.each { |symbol| @out.puts "#{assertion_date} close #{@account}:#{symbol}" }
+      end
+
+      # --- period-end directives ----------------------------------------------
+
+      def write_price_declarations
+        return if period_end.nil?
+
+        @holdings.each do |holding|
+          symbol = holding['symbol']
+          price = holding['market_price']
+          next if symbol.nil? || price.nil?
+
+          @out.puts "#{period_end} price #{symbol}  #{price} #{@currency}"
+        end
+        @out.puts
+      end
+
+      # A `balance` directive asserts the balance at the START of its date, so the
+      # closing figures are dated the day after the period ends — dating them at
+      # period end would exclude any movement falling on the last day.
+      #
+      # Every holding is asserted, not just cash: the statement reports exact closing
+      # share counts, so beancount can police share drift directly. A position exited
+      # during the month drops out of the Holdings table, so it cannot be asserted to
+      # zero — that gap is the one thing this does not catch.
+      def write_balances
+        return if period_end.nil?
+
+        write_cash_balance
+        @holdings.each do |holding|
+          symbol = holding['symbol']
+          next if symbol.nil? || holding['quantity'].nil?
+
+          @out.puts "#{assertion_date} balance #{@account}:#{symbol}  " \
+                    "#{number(holding['quantity'])} #{symbol}"
+        end
+      end
+
+      def write_cash_balance
+        closing = @cash_summary['ending_value'] || @cash_holding['market_value']
+        return if closing.nil?
+
+        @out.puts "#{assertion_date} balance #{cash_account}  #{grouped(closing)} #{@currency}"
       end
 
       def assertion_date
         (Date.parse(period_end) + 1).to_s
       end
 
-      def write_unit_adjustments(transactions)
-        UnitReconciler.new(@holdings, transactions).mismatches.each do |mismatch|
-          write_unit_adjustment(mismatch)
-        end
-      end
+      # --- file header --------------------------------------------------------
 
-      # The schema's transaction_type enum includes "other" -- the extractor's
-      # "could not classify this" bucket -- which no handler covers. Dropping such a
-      # row would take its cash movement with it, and the only symptom would be the
-      # closing balance assertion failing with nothing to point at.
-      def dispatch(transaction)
-        handler = TRANSACTION_HANDLERS[transaction['transaction_type']]
-        return send(handler, transaction) if handler
-
-        write_unclassified(transaction)
-      end
-
-      def write_unclassified(transaction)
-        label = transaction['description_raw'] || transaction['transaction_type']
-        write_header(transaction, "FIXME movimiento sin clasificar: #{label}", flag: '!')
-        write_posting("#{@account}:Cash", amount_of(transaction))
-        @out.puts '  Equity:FIXME'
+      # Restates the statement's own reconciliation so a later reader can check the
+      # ledger against the source without opening the PDF.
+      def write_file_header(stream)
+        @out.puts "; Alpaca statement #{@period_start}..#{period_end} (#{@provider})"
+        @out.puts "; Cash: #{cash_summary_line}"
+        @out.puts "; Realized gain/loss this period: #{realized_line}"
+        write_sweep_note(stream.count { |entry| entry.entry_type == SWEEP })
         @out.puts
       end
 
-      def handle_deposit(transaction)
-        write_cash_movement(transaction, amount_of(transaction),
-                            transaction['description_raw'] || 'Depósito',
-                            @targets.counterpart || 'Assets:FIXME')
+      def cash_summary_line
+        summary = @cash_summary
+        "#{money(summary['beginning_balance'])} + #{money(summary['addition'])} " \
+          "- #{money(summary['subtraction'])} + #{money(summary['trade_transaction'])} " \
+          "+ #{money(summary['cost_and_fees'])} = #{money(summary['ending_value'])}"
       end
 
-      def handle_withdrawal(transaction)
-        write_cash_movement(transaction, -amount_of(transaction),
-                            transaction['description_raw'] || 'Retiro',
-                            @targets.counterpart || 'Assets:FIXME')
+      def realized_line
+        short = (@realized['short_term'] || {})['net']
+        long = (@realized['long_term'] || {})['net']
+        "short #{money(short)}, long #{money(long)}"
       end
 
-      def handle_buy(transaction)
-        ticker = transaction['ticker']
-        amount = amount_of(transaction)
-        commission = commission_of(transaction)
+      def write_sweep_note(count)
+        return if count.zero?
 
-        write_header(transaction, "Compra #{ticker}")
-        @out.puts "  #{@account}:#{ticker}  #{units_of(transaction)} #{ticker} " \
-                  "{{#{money(amount)} #{@currency}}}"
-        write_commission(commission)
-        write_posting("#{@account}:Cash", -(amount + commission))
-        @out.puts
+        @out.puts "; #{count} #{SWEEP} rows ignored (internal transfers)"
       end
 
-      def handle_sell(transaction)
-        ticker = transaction['ticker']
-        amount = amount_of(transaction)
-        commission = commission_of(transaction)
+      # --- primitives ---------------------------------------------------------
 
-        # Total proceeds, for the same reason buys use total cost: the printed unit
-        # price is rounded, and a per-unit @ would quietly book the difference as
-        # capital gain via the elastic gains posting.
-        write_header(transaction, "Venta #{ticker}")
-        @out.puts "  #{@account}:#{ticker}  -#{units_of(transaction)} #{ticker} " \
-                  "{} @@ #{money(amount)} #{@currency}"
-        write_commission(commission)
-        write_posting("#{@account}:Cash", amount - commission)
-        @out.puts "  #{@targets.gains}"
-        @out.puts
+      def cash_account
+        "#{@account}:Cash"
       end
 
-      # `amount` is the cash actually credited; the withholding column is reported
-      # alongside it, so gross income is the sum of the two.
-      def handle_dividend(transaction)
-        ticker = transaction['ticker']
-        narration = ticker ? "Dividendo #{ticker}" : 'Dividendo'
-
-        write_header(transaction, narration)
-        write_posting("#{@account}:Cash", amount_of(transaction))
-        withheld = withholding_of(transaction)
-        write_posting(@targets.withholding || 'Expenses:FIXME', withheld) if withheld.positive?
-        @out.puts "  #{@targets.dividend || 'Income:FIXME'}"
-        @out.puts
+      def opening_account
+        @targets.opening || DEFAULT_OPENING
       end
 
-      def handle_interest(transaction)
-        write_cash_movement(transaction, amount_of(transaction),
-                            transaction['description_raw'] || 'Intereses',
-                            @targets.interest || 'Income:FIXME')
+      def write_units(symbol, quantity, cost)
+        @out.puts "  #{@account}:#{symbol}  #{number(quantity)} #{symbol} #{cost}"
       end
 
-      def handle_fee(transaction)
-        write_cash_movement(transaction, -amount_of(transaction),
-                            transaction['description_raw'] || 'Comisión',
-                            @targets.fees || 'Expenses:FIXME')
-      end
+      def write_commission(entry)
+        return unless entry.commission.positive?
 
-      def handle_tax(transaction)
-        write_cash_movement(transaction, -amount_of(transaction),
-                            transaction['description_raw'] || 'ISR retenido',
-                            @targets.tax || 'Expenses:FIXME')
-      end
-
-      # Dated at period start so the sales that follow still have units to draw
-      # from, and left as a FIXME because the correct cost basis for a corporate
-      # action cannot be inferred from the statement alone.
-      def write_unit_adjustment(mismatch)
-        ticker = mismatch.ticker
-        @out.puts %(#{period_start} ! "#{PAYEE}" "FIXME ajuste de títulos no reportado #{ticker}")
-        @out.puts "  ; esperado #{number(mismatch.expected)} #{ticker}, " \
-                  "reportado #{number(mismatch.reported)} #{ticker} #{hint(mismatch)}"
-        @out.puts "  #{@account}:#{ticker}  #{number(mismatch.delta)} #{ticker} " \
-                  "#{adjustment_cost(mismatch)}"
-        @out.puts '  Equity:FIXME'
-        @out.puts
-      end
-
-      # Shares appearing against a zero opening position cannot be a split -- nothing
-      # splits from nothing -- so it is a grant or an unreported transfer in.
-      def hint(mismatch)
-        return '(¿acciones recibidas?)' if mismatch.expected.zero?
-
-        mismatch.delta.negative? ? '(¿split inverso?)' : '(¿split?)'
-      end
-
-      # A negative delta is a reduction, and asking for a lot at 0.00 finds nothing.
-      # Leave the cost open so the account's booking method picks the lot.
-      def adjustment_cost(mismatch)
-        mismatch.delta.negative? ? '{}' : "{{0.00 #{@currency}}}"
-      end
-
-      # "Comisiones y gastos por servicios" restates the per-trade commissions rather
-      # than charging anything new -- in every statement processed so far each row
-      # matches a movement's `commission_total`. Rather than trust that indefinitely,
-      # flag the excess, so a standalone advisory fee cannot leave the account
-      # unrecorded. "Impuesto sobre la renta retenido" has always been empty and has
-      # no movement-row equivalent at all, so every entry there is flagged.
-      def write_unreported_charges(transactions)
-        billed = transactions.sum { |transaction| commission_of(transaction) }
-        listed = @service_fees.sum { |fee| to_d(fee['amount']) }
-        write_unreported_charge('comisiones por servicios', listed - billed) if listed > billed
-
-        @isr_items.each do |item|
-          write_unreported_charge(item['description'] || 'ISR retenido', to_d(item['amount']))
-        end
-      end
-
-      def write_unreported_charge(label, amount)
-        return unless amount.positive?
-
-        @out.puts %(#{period_end} ! "#{PAYEE}" "FIXME cargo no reflejado en movimientos: #{label}")
-        write_posting("#{@account}:Cash", -amount)
-        @out.puts "  #{@targets.fees || 'Expenses:FIXME'}"
-        @out.puts
-      end
-
-      def write_cash_movement(transaction, amount, narration, target)
-        write_header(transaction, narration)
-        write_posting("#{@account}:Cash", amount)
-        @out.puts "  #{target}"
-        @out.puts
-      end
-
-      def write_commission(commission)
-        return unless commission.positive?
-
-        write_posting(@targets.fees || 'Expenses:FIXME', commission)
+        write_posting(@targets.fees || 'Expenses:FIXME', entry.commission)
       end
 
       def write_posting(account, amount)
         @out.puts "  #{account}  #{money(amount)} #{@currency}"
       end
 
-      def write_header(transaction, narration, flag: '*')
-        @out.puts %(#{transaction['trade_date']} #{flag} "#{PAYEE}" "#{narration}")
-      end
-
-      def write_price_declarations
-        @holdings.each do |holding|
-          ticker = holding['ticker']
-          price = holding['market_price_current']
-          next if ticker.nil? || price.nil? || period_end.nil?
-
-          @out.puts "#{period_end} price #{ticker}  #{price} #{@currency}"
-        end
-      end
-
-      def amount_of(transaction)
-        to_d(transaction['amount'])
-      end
-
-      def commission_of(transaction)
-        to_d(transaction['commission_total'])
-      end
-
-      def withholding_of(transaction)
-        to_d(transaction['withholding'])
-      end
-
-      def units_of(transaction)
-        number(transaction['units'])
+      # `Beancount` alone would resolve to Converters::Beancount, the default
+      # converter class, rather than the string-literal helpers.
+      def write_header(entry, narration, flag: '*')
+        quoted = ::Frijolero::Beancount::Quoting.escape(narration)
+        @out.puts %(#{entry.date} #{flag} "#{PAYEE}" "#{quoted}")
       end
     end
   end
 end
+
+require_relative 'plata/entry'
+require_relative 'plata/corporate_action'
+require_relative 'plata/positions'
