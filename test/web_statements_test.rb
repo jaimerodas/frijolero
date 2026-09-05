@@ -32,7 +32,6 @@ class WebStatementsTest < Minitest::Test
     FileUtils.mkdir_p(File.join(@dir, 'config'))
     write_accounts_yaml
     File.write(File.join(@dir, 'transactions.beancount'), '')
-    Frijolero::Config.reload!
 
     @fake_repo = FakeRepo.new
     Frijolero::Web::App.repo = @fake_repo
@@ -41,7 +40,6 @@ class WebStatementsTest < Minitest::Test
   def teardown
     restore_env('RACK_ENV', @previous_rack_env)
     restore_env('LEDGER_DIR', @previous_ledger_dir)
-    Frijolero::Config.reload!
     Frijolero::Web::App.repo = nil
     FileUtils.remove_entry(@dir)
   end
@@ -94,7 +92,6 @@ class WebStatementsTest < Minitest::Test
 
   def test_account_with_a_space_in_the_url
     write_accounts_yaml(extra: "BBVA TDC:\n  beancount_account: \"Assets:BBVA\"\n")
-    Frijolero::Config.reload!
     write_statement('BBVA TDC', '2508', json: { 'transactions' => [] }, beancount: '')
 
     get '/statements/BBVA%20TDC/2508'

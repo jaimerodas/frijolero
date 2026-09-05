@@ -35,7 +35,6 @@ class WebEditorsTest < Minitest::Test
       BBVA TDC:
         beancount_account: "Assets:BBVA"
     YAML
-    Frijolero::Config.reload!
 
     @repo = FakeRepo.new
     Frijolero::Web::App.repo = @repo
@@ -44,7 +43,6 @@ class WebEditorsTest < Minitest::Test
   def teardown
     restore_env('RACK_ENV', @previous_rack_env)
     restore_env('LEDGER_DIR', @previous_ledger_dir)
-    Frijolero::Config.reload!
     Frijolero::Web::App.repo = nil
     FileUtils.remove_entry(@dir)
   end

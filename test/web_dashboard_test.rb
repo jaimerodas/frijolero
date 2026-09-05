@@ -11,9 +11,7 @@ class WebDashboardTest < Minitest::Test
 
   VIEW_PATH = File.expand_path('../lib/frijolero/web/views/dashboard.erb', __dir__)
 
-  def teardown
-    Frijolero::Config.reload!
-  end
+  def teardown; end
 
   def write_accounts(dir)
     File.write(File.join(dir, 'config', 'accounts.yaml'), <<~YAML)
@@ -22,7 +20,6 @@ class WebDashboardTest < Minitest::Test
       BBVA TDC:
         beancount_account: "Liabilities:BBVA"
     YAML
-    Frijolero::Config.reload!
   end
 
   def test_periods_returns_previous_and_current_month
@@ -88,7 +85,6 @@ class WebDashboardTest < Minitest::Test
         <x>:
           beancount_account: "Liabilities:X"
       YAML
-      Frijolero::Config.reload!
 
       path = Frijolero::Config.statement_path('BBVA TDC', '2608', 'beancount')
       FileUtils.mkdir_p(File.dirname(path))

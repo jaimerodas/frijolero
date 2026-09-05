@@ -5,9 +5,7 @@ require 'test_helper'
 class AccountConfigTest < Minitest::Test
   include TestHelpers
 
-  def teardown
-    Frijolero::Config.reload!
-  end
+  def teardown; end
 
   def test_parse_filename_with_space_separator
     result = Frijolero::AccountConfig.parse_filename('Amex 2501.pdf')
@@ -76,7 +74,6 @@ class AccountConfigTest < Minitest::Test
   def with_accounts_config
     with_ledger_dir do |dir|
       FileUtils.cp(fixture_path('sample_accounts.yaml'), File.join(dir, 'config', 'accounts.yaml'))
-      Frijolero::Config.reload!
       yield
     end
   end

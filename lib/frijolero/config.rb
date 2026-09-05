@@ -49,12 +49,12 @@ module Frijolero
         "#{B2_PREFIX}/accounts/#{account_key}/#{account_key} #{period}.pdf"
       end
 
+      # Read on every call, never cached: a `git pull` or the accounts editor can
+      # change the file under a running app, and the file is tiny.
       def accounts
-        @accounts ||= load_accounts
-      end
+        return {} unless File.exist?(accounts_file)
 
-      def reload!
-        @accounts = nil
+        YAML.load_file(accounts_file) || {}
       end
 
       def data_dir
@@ -84,14 +84,6 @@ module Frijolero
       # Assembles the inline OpenAI prompt spec from prompts/<type>/ (see PromptSpec).
       def openai_prompt_spec(type = 'default')
         PromptSpec.load(type, prompts_dir)
-      end
-
-      private
-
-      def load_accounts
-        return {} unless File.exist?(accounts_file)
-
-        YAML.load_file(accounts_file) || {}
       end
     end
   end

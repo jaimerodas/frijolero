@@ -25,13 +25,11 @@ module TestHelpers
       ENV['LEDGER_DIR'] = dir
       ENV.delete('LEDGER_MAIN_FILE')
       FileUtils.mkdir_p(File.join(dir, 'config'))
-      Frijolero::Config.reload!
       yield dir
     ensure
       ENV.delete('LEDGER_DIR')
       ENV.delete('LEDGER_MAIN_FILE')
       ENV.merge!(old)
-      Frijolero::Config.reload!
     end
   end
 end

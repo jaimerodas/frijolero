@@ -40,7 +40,6 @@ class ClassifierTest < Minitest::Test
     FileUtils.mkdir_p(File.join(dir, 'config', 'prompts'))
     FileUtils.cp_r(File.expand_path('../lib/frijolero/templates/prompts/classify', __dir__),
                    File.join(dir, 'config', 'prompts', 'classify'))
-    Frijolero::Config.reload!
   end
 
   def test_known_filename_answers_without_openai_call

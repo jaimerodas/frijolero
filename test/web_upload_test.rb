@@ -101,7 +101,6 @@ class WebUploadTest < Minitest::Test
     FileUtils.cp_r(File.expand_path('../lib/frijolero/templates/prompts/classify', __dir__),
                    File.join(@dir, 'config', 'prompts', 'classify'))
     File.write(File.join(@dir, 'transactions.beancount'), '')
-    Frijolero::Config.reload!
 
     Frijolero::Web::App.jobs = Frijolero::Web::Jobs.new(log_path: File.join(@dir, 'jobs.jsonl'))
     @client = FakeClient.new
@@ -117,7 +116,6 @@ class WebUploadTest < Minitest::Test
   def teardown
     restore_env('RACK_ENV', @previous_rack_env)
     restore_env('LEDGER_DIR', @previous_ledger_dir)
-    Frijolero::Config.reload!
     Frijolero::Web::App.jobs = nil
     Frijolero::Web::App.client = nil
     Frijolero::Web::App.b2 = nil
@@ -357,7 +355,6 @@ class WebUploadTest < Minitest::Test
       BBVA TDC:
         beancount_account: "Assets:BBVA"
     YAML
-    Frijolero::Config.reload!
 
     get '/statements/BBVA%20TDC/2508/pdf'
 

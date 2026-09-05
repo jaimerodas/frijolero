@@ -30,7 +30,6 @@ class WebAppTest < Minitest::Test
     @previous_ledger_dir = ENV.fetch('LEDGER_DIR', nil)
     ENV['LEDGER_DIR'] = @dir
     FileUtils.mkdir_p(File.join(@dir, 'config'))
-    Frijolero::Config.reload!
 
     # config.ru calls App.jobs at load time; set it first so the ||= keeps this
     # instance (no start, so no worker thread spins up under the tests).
@@ -41,7 +40,6 @@ class WebAppTest < Minitest::Test
     restore_env('APP_PASSWORD', @previous_app_password)
     restore_env('RACK_ENV', @previous_rack_env)
     restore_env('LEDGER_DIR', @previous_ledger_dir)
-    Frijolero::Config.reload!
     Frijolero::Web::App.jobs = nil
     FileUtils.remove_entry(@dir)
   end

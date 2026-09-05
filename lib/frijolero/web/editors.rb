@@ -52,7 +52,6 @@ module Frijolero
         content = params[:content].to_s
         validate_accounts_yaml!(content)
         save_config!(Config.accounts_file, content, 'accounts.yaml')
-        Config.reload!
         redirect '/accounts?saved=1', 303
       rescue EditorError => e
         render_editor(status: 422, title: 'Cuentas', action: '/accounts', content: content, error: e.message)

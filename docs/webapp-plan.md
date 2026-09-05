@@ -82,6 +82,10 @@ Linux containers, RSS after `GC.start`:
 | + sinatra + puma (+ yaml, json, net/http)   | 30 MB    | 30 MB           |
 | serving 100 requests plus one HTTPS call    | 34 MB    | 39 MB           |
 
+Measured on the droplet after the first deploy (2026-09-05, `ruby:4.0.6-slim`,
+amd64, after boot and about 20 requests): 41.9 MiB of cgroup memory, 51.5 MB
+`VmRSS`, cap 64 MiB.
+
 The frijolero code adds a few MB. A job holds one PDF in memory during the
 upload (1 MB to 3 MB, temporary). The expected steady state is **about
 45 MB**. The cap in Kamal is 64 MB. Then an overrun is a visible restart, not

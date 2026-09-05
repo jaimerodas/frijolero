@@ -78,7 +78,6 @@ class StatementTest < Minitest::Test
       FileUtils.mkdir_p(File.join(dir, 'config', 'prompts'))
       FileUtils.cp_r(fixture_path('prompts/default'), File.join(dir, 'config', 'prompts', 'default'))
       File.write(File.join(dir, 'transactions.beancount'), '')
-      Frijolero::Config.reload!
       yield dir
     end
   end

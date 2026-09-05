@@ -7,10 +7,6 @@ module Frijolero
         Config.accounts
       end
 
-      def reload!
-        Config.reload!
-      end
-
       # Parses a filename to extract account key and period.
       #   "AMEX Aeromexico 2508.pdf" => ["AMEX Aeromexico", "2508"]
       # The period is the last word (4 digits); everything before the single

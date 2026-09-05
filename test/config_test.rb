@@ -5,9 +5,7 @@ require 'test_helper'
 class ConfigTest < Minitest::Test
   include TestHelpers
 
-  def teardown
-    Frijolero::Config.reload!
-  end
+  def teardown; end
 
   def test_ledger_dir_raises_without_env
     ENV.delete('LEDGER_DIR')
@@ -64,7 +62,6 @@ class ConfigTest < Minitest::Test
   def test_accounts_loads_from_config_accounts_yaml
     with_ledger_dir do |dir|
       FileUtils.cp(fixture_path('sample_accounts.yaml'), File.join(dir, 'config', 'accounts.yaml'))
-      Frijolero::Config.reload!
 
       assert_equal 'Liabilities:Amex', Frijolero::Config.accounts['Amex']['beancount_account']
     end
