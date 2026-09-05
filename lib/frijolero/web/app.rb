@@ -6,6 +6,7 @@ require 'securerandom'
 require 'fileutils'
 require_relative 'jobs'
 require_relative 'dashboard'
+require_relative 'ledger_repo'
 
 module Frijolero
   module Web
