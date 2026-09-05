@@ -121,6 +121,27 @@ class LedgerBuilderTest < Minitest::Test
     assert_kind_of Array, report.warnings
   end
 
+  def test_hand_made_account_files_and_root_includes_survive
+    File.write(File.join(@source, 'accounts.yaml'),
+               "#{accounts_yaml}Openbank:\n  beancount_account: \"Assets:Openbank\"\n")
+    File.write(File.join(@frijolero_dir, 'accounts.yaml'), File.read(File.join(@source, 'accounts.yaml')))
+    write_dir(File.join(@source, 'Openbank'), { 'openbank 26.beancount' => "2026-01-01 * \"Hand made\" \"\"\n" })
+    File.write(File.join(@source, 'metasegurabbva.beancount'), "; root include\n")
+    File.open(File.join(@source, 'transactions.beancount'), 'a') do |f|
+      f.puts 'include "Openbank/openbank 26.beancount"'
+      f.puts 'include "metasegurabbva.beancount"'
+    end
+
+    report = run_builder
+    lines = File.readlines(File.join(@target, 'transactions.beancount'))
+
+    assert File.exist?(File.join(@target, 'accounts', 'Openbank', 'openbank 26.beancount'))
+    assert_includes lines, %(include "accounts/Openbank/openbank 26.beancount"\n)
+    assert_includes lines, %(include "metasegurabbva.beancount"\n)
+    assert(report.warnings.any? { |w| w.include?('copied verbatim') && w.include?('openbank 26') })
+    refute(report.warnings.any? { |w| w.include?('metasegurabbva') })
+  end
+
   private
 
   def run_builder

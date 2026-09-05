@@ -224,7 +224,7 @@ class WebUploadTest < Minitest::Test
 
     assert_equal %i[pull put commit_and_push], @order
     assert_equal ['AMEX 2508'], @repo.messages
-    assert_equal ['accounts/AMEX/AMEX 2508.pdf'], @b2.calls
+    assert_equal ['frijolero/accounts/AMEX/AMEX 2508.pdf'], @b2.calls
   end
 
   # A clone that cannot pull is a clone that cannot push either, so there is no point
@@ -344,8 +344,8 @@ class WebUploadTest < Minitest::Test
     get '/statements/AMEX/2508/pdf'
 
     assert_equal 302, last_response.status
-    assert_equal 'https://b2.example/accounts/AMEX/AMEX%202508.pdf?sig=1', last_response.headers['Location']
-    assert_equal ['accounts/AMEX/AMEX 2508.pdf'], Frijolero::Web::App.b2.calls
+    assert_equal 'https://b2.example/frijolero/accounts/AMEX/AMEX%202508.pdf?sig=1', last_response.headers['Location']
+    assert_equal ['frijolero/accounts/AMEX/AMEX 2508.pdf'], Frijolero::Web::App.b2.calls
   end
 
   def test_pdf_download_with_account_containing_space
@@ -362,8 +362,9 @@ class WebUploadTest < Minitest::Test
     get '/statements/BBVA%20TDC/2508/pdf'
 
     assert_equal 302, last_response.status
-    assert_equal 'https://b2.example/accounts/BBVA%20TDC/BBVA%20TDC%202508.pdf?sig=1', last_response.headers['Location']
-    assert_equal ['accounts/BBVA TDC/BBVA TDC 2508.pdf'], Frijolero::Web::App.b2.calls
+    assert_equal 'https://b2.example/frijolero/accounts/BBVA%20TDC/BBVA%20TDC%202508.pdf?sig=1',
+                 last_response.headers['Location']
+    assert_equal ['frijolero/accounts/BBVA TDC/BBVA TDC 2508.pdf'], Frijolero::Web::App.b2.calls
   end
 
   def test_pdf_download_returns_404_for_unknown_account

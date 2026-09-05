@@ -214,7 +214,7 @@ class StatementTest < Minitest::Test
 
       assert_equal Frijolero::Statement::OK, status
       assert_equal %i[put extract], @order
-      assert_equal [['accounts/AMEX/AMEX 2508.pdf', pdf]], @b2.calls
+      assert_equal [['frijolero/accounts/AMEX/AMEX 2508.pdf', pdf]], @b2.calls
       refute_path_exists pdf
     end
   end

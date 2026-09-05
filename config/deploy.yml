@@ -33,8 +33,8 @@ env:
   clear:
     LEDGER_DIR: /data/ledger
     PUMA_THREADS: "3"
-    B2_ENDPOINT: s3.us-west-004.backblazeb2.com # TODO: confirm the bucket's endpoint before the first deploy
-    B2_BUCKET: frijolero # TODO: confirm the bucket name before the first deploy
+    B2_ENDPOINT: s3.us-west-000.backblazeb2.com
+    B2_BUCKET: rodas-app-backups
   secret:
     - OPENAI_API_KEY
     - APP_PASSWORD

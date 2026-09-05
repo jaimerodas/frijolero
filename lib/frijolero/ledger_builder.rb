@@ -12,7 +12,6 @@ module Frijolero
 
     STATEMENT_FILE_RE = /\A(.+)_(\d{4})\.(beancount|json)\z/
     INCLUDE_LINE_RE = /\Ainclude "([^"]+)"\s*\z/
-    INCLUDE_TARGET_RE = %r{\A(.+?)/(.+)_(\d{4})\.beancount\z}
     ROOT_SKIP_RE = /\.(bak.*|backup|cache)\z/
 
     def initialize(source:, target:, frijolero_dir:,
@@ -84,14 +83,26 @@ module Frijolero
       match = line.match(INCLUDE_LINE_RE)
       return line unless match
 
-      target_match = match[1].match(INCLUDE_TARGET_RE)
-      return warn_unresolved_include(line, match[1]) unless target_match
+      target = match[1]
+      # A root file (metasegurabbva.beancount) keeps its place; nothing to rewrite.
+      return line if !target.include?('/') && File.exist?(File.join(@target, target))
 
-      _dir, prefix, period = target_match.captures
-      key = resolve(prefix)
-      return warn_unresolved_include(line, match[1]) unless key
+      rewritten = rewrite_include_target(target)
+      rewritten ? %(include "#{rewritten}"\n) : warn_unresolved_include(line, target)
+    end
 
-      %(include "accounts/#{key}/#{key} #{period}.beancount"\n)
+    # Dir/Prefix_YYMM.beancount → accounts/Key/Key YYMM.beancount. Any other file in an
+    # account directory (a hand-made Openbank/openbank 26.beancount) was copied verbatim
+    # under accounts/Key/, so its include follows it there.
+    def rewrite_include_target(target)
+      dir, filename = target.split('/', 2)
+      key = filename && resolve(dir)
+      return nil unless key
+
+      statement = filename.match(STATEMENT_FILE_RE)
+      return "accounts/#{key}/#{key} #{statement[2]}.beancount" if statement && resolve(statement[1]) == key
+
+      "accounts/#{key}/#{filename}"
     end
 
     def warn_unresolved_include(line, target)
@@ -150,20 +161,23 @@ module Frijolero
         filenames.each { |filename| copy_statement_file(filename, dir, key) }
       end
 
+      # Prefix_YYMM files get the new name. Anything else in an account directory (a
+      # hand-made Openbank/openbank 26.beancount) is copied verbatim, with a warning so
+      # the person knows it kept its odd name.
       def copy_statement_file(filename, dir, key)
         match = filename.match(STATEMENT_FILE_RE)
-        unless match && @resolve.call(match[1]) == key
-          @warnings << "unrecognized statement file: #{File.join(dir, filename)}"
-          return
+        if match && @resolve.call(match[1]) == key
+          write_statement_file(dir, filename, key, "#{key} #{match[2]}.#{match[3]}")
+        else
+          @warnings << "copied verbatim (name is not Prefix_YYMM): #{File.join(dir, filename)}"
+          write_statement_file(dir, filename, key, filename)
         end
-
-        write_statement_file(dir, filename, key, match[2], match[3])
       end
 
-      def write_statement_file(dir, filename, key, period, ext)
+      def write_statement_file(dir, filename, key, new_name)
         target_dir = File.join(@target, 'accounts', key)
         FileUtils.mkdir_p(target_dir)
-        FileUtils.cp(File.join(dir, filename), File.join(target_dir, "#{key} #{period}.#{ext}"))
+        FileUtils.cp(File.join(dir, filename), File.join(target_dir, new_name))
         @copied += 1
       end
     end

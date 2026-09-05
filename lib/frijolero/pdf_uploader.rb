@@ -57,18 +57,18 @@ module Frijolero
       name.tr('_', ' ').downcase
     end
 
+    # The directory is the account: the pipeline filed the PDF there. The filename
+    # only supplies the period, because legacy prefixes drift (AMEX_Aeromexico/pdf/AMEX_2501.pdf,
+    # Openbank/pdf/Open_2507.pdf, BBVA/pdf/BBVA 2605.pdf).
     def resolve_pdf(path)
       dir, _pdf, filename = path.split('/')
-      match = filename.match(/\A(.+)_(\d{4})\.pdf\z/i)
-      return unresolved!(path, 'name is not Prefix_YYMM.pdf') unless match
+      match = filename.match(/[\s_](\d{4})\.pdf\z/i)
+      return unresolved!(path, 'name does not end in _YYMM.pdf') unless match
 
-      prefix, yymm = match.captures
       dir_key = @normalized_keys[normalize(dir)]
-      prefix_key = @normalized_keys[normalize(prefix)]
       return unresolved!(path, 'directory matches no account key') unless dir_key
-      return unresolved!(path, 'prefix does not match the directory account') unless prefix_key == dir_key
 
-      [path, "accounts/#{dir_key}/#{dir_key} #{yymm}.pdf"]
+      [path, Config.pdf_key(dir_key, match[1])]
     end
 
     def unresolved!(path, reason)

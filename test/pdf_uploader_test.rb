@@ -60,16 +60,17 @@ class PdfUploaderTest < Minitest::Test
     assert_equal 2, plan.size
     assert_equal(
       [
-        ['AMEX/pdf/AMEX_2508.pdf', 'accounts/AMEX/AMEX 2508.pdf'],
-        ['AMEX_Aeromexico/pdf/Amex_Aeromexico_2412.pdf', 'accounts/AMEX Aeromexico/AMEX Aeromexico 2412.pdf']
+        ['AMEX/pdf/AMEX_2508.pdf', 'frijolero/accounts/AMEX/AMEX 2508.pdf'],
+        ['AMEX_Aeromexico/pdf/Amex_Aeromexico_2412.pdf', 'frijolero/accounts/AMEX Aeromexico/AMEX Aeromexico 2412.pdf']
       ],
       plan
     )
   end
 
-  def test_plan_skips_files_with_mismatched_prefix_and_dir
-    # Directory is AMEX but prefix is BBVA - should not be in plan
-    create_pdf('AMEX/pdf/BBVA_2508.pdf')
+  def test_plan_trusts_the_directory_over_a_drifted_prefix
+    # Legacy prefixes drift; the directory is where the pipeline filed the PDF.
+    create_pdf('AMEX Aeromexico/pdf/AMEX_2501.pdf')
+    create_pdf('AMEX/pdf/BBVA 2605.pdf')
 
     uploader = Frijolero::PdfUploader.new(
       source: @source,
@@ -77,27 +78,15 @@ class PdfUploaderTest < Minitest::Test
       b2_client: @b2
     )
 
-    plan = uploader.plan
-    assert_empty plan
+    keys = uploader.plan.map(&:last)
+    assert_includes keys, 'frijolero/accounts/AMEX Aeromexico/AMEX Aeromexico 2501.pdf'
+    assert_includes keys, 'frijolero/accounts/AMEX/AMEX 2605.pdf'
+    assert_empty uploader.unresolved
   end
 
   def test_plan_skips_files_with_unresolvable_dir
     # Directory "Mystery" doesn't resolve to any account key
     create_pdf('Mystery/pdf/Mystery_2601.pdf')
-
-    uploader = Frijolero::PdfUploader.new(
-      source: @source,
-      accounts_file: @accounts_file,
-      b2_client: @b2
-    )
-
-    plan = uploader.plan
-    assert_empty plan
-  end
-
-  def test_plan_skips_files_with_unresolvable_prefix
-    # Prefix "Unknown" doesn't resolve to any account key
-    create_pdf('AMEX/pdf/Unknown_2508.pdf')
 
     uploader = Frijolero::PdfUploader.new(
       source: @source,
@@ -137,8 +126,8 @@ class PdfUploaderTest < Minitest::Test
     result = uploader.run
 
     assert_equal 2, result.uploaded.size
-    assert_includes result.uploaded, 'accounts/AMEX/AMEX 2508.pdf'
-    assert_includes result.uploaded, 'accounts/BBVA/BBVA 2601.pdf'
+    assert_includes result.uploaded, 'frijolero/accounts/AMEX/AMEX 2508.pdf'
+    assert_includes result.uploaded, 'frijolero/accounts/BBVA/BBVA 2601.pdf'
     assert_empty result.skipped
 
     # Check B2 put calls
@@ -159,8 +148,8 @@ class PdfUploaderTest < Minitest::Test
     uploader.run
 
     output = @out.string
-    assert_includes output, 'ok  accounts/AMEX/AMEX 2508.pdf'
-    assert_includes output, 'ok  accounts/BBVA/BBVA 2601.pdf'
+    assert_includes output, 'ok  frijolero/accounts/AMEX/AMEX 2508.pdf'
+    assert_includes output, 'ok  frijolero/accounts/BBVA/BBVA 2601.pdf'
   end
 
   def test_run_catches_b2_error_and_continues
@@ -168,7 +157,7 @@ class PdfUploaderTest < Minitest::Test
     create_pdf('BBVA/pdf/BBVA_2601.pdf')
 
     # Make B2 raise for AMEX key
-    @b2 = FakeB2.new('accounts/AMEX/AMEX 2508.pdf')
+    @b2 = FakeB2.new('frijolero/accounts/AMEX/AMEX 2508.pdf')
 
     uploader = Frijolero::PdfUploader.new(
       source: @source,
@@ -180,7 +169,7 @@ class PdfUploaderTest < Minitest::Test
     result = uploader.run
 
     # BBVA should be uploaded
-    assert_includes result.uploaded, 'accounts/BBVA/BBVA 2601.pdf'
+    assert_includes result.uploaded, 'frijolero/accounts/BBVA/BBVA 2601.pdf'
     assert_equal 1, result.uploaded.size
 
     # AMEX should be in skipped
@@ -189,7 +178,7 @@ class PdfUploaderTest < Minitest::Test
     assert_includes result.skipped[0], 'boom'
 
     # But BBVA should have been printed
-    assert_includes @out.string, 'ok  accounts/BBVA/BBVA 2601.pdf'
+    assert_includes @out.string, 'ok  frijolero/accounts/BBVA/BBVA 2601.pdf'
   end
 
   def test_run_skips_unresolvable_files_without_uploading
@@ -206,7 +195,7 @@ class PdfUploaderTest < Minitest::Test
     result = uploader.run
 
     # Only AMEX should be uploaded
-    assert_includes result.uploaded, 'accounts/AMEX/AMEX 2508.pdf'
+    assert_includes result.uploaded, 'frijolero/accounts/AMEX/AMEX 2508.pdf'
     assert_equal 1, result.uploaded.size
 
     # Mystery is reported, not lost
@@ -233,9 +222,9 @@ class PdfUploaderTest < Minitest::Test
     # Paths should be sorted
     assert_equal(
       [
-        ['AMEX/pdf/AMEX_2508.pdf', 'accounts/AMEX/AMEX 2508.pdf'],
-        ['AMEX_Aeromexico/pdf/Amex_Aeromexico_2412.pdf', 'accounts/AMEX Aeromexico/AMEX Aeromexico 2412.pdf'],
-        ['BBVA/pdf/BBVA_2601.pdf', 'accounts/BBVA/BBVA 2601.pdf']
+        ['AMEX/pdf/AMEX_2508.pdf', 'frijolero/accounts/AMEX/AMEX 2508.pdf'],
+        ['AMEX_Aeromexico/pdf/Amex_Aeromexico_2412.pdf', 'frijolero/accounts/AMEX Aeromexico/AMEX Aeromexico 2412.pdf'],
+        ['BBVA/pdf/BBVA_2601.pdf', 'frijolero/accounts/BBVA/BBVA 2601.pdf']
       ],
       plan
     )
@@ -251,8 +240,8 @@ class PdfUploaderTest < Minitest::Test
     )
 
     assert_equal 0, status.exitstatus
-    assert_includes output, 'AMEX/pdf/AMEX_2508.pdf → accounts/AMEX/AMEX 2508.pdf'
-    assert_includes output, 'BBVA/pdf/BBVA_2601.pdf → accounts/BBVA/BBVA 2601.pdf'
+    assert_includes output, 'AMEX/pdf/AMEX_2508.pdf → frijolero/accounts/AMEX/AMEX 2508.pdf'
+    assert_includes output, 'BBVA/pdf/BBVA_2601.pdf → frijolero/accounts/BBVA/BBVA 2601.pdf'
   end
 
   private

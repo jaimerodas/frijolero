@@ -51,7 +51,7 @@ class ConfigTest < Minitest::Test
   # The bucket mirrors the ledger layout, spaces and all: percent-encoding the space
   # is the signer's job, and doing it here would sign a key nobody stored.
   def test_pdf_key_mirrors_the_accounts_subtree
-    assert_equal 'accounts/AMEX Aeromexico/AMEX Aeromexico 2508.pdf',
+    assert_equal 'frijolero/accounts/AMEX Aeromexico/AMEX Aeromexico 2508.pdf',
                  Frijolero::Config.pdf_key('AMEX Aeromexico', '2508')
   end
 
