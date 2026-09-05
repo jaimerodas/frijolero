@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    frijolero (0.10.0)
+    frijolero (2.0.0)
       bigdecimal (~> 3.1)
       puma (~> 8.0)
       sinatra (~> 4.0)

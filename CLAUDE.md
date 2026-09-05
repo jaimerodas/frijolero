@@ -19,7 +19,11 @@ bundle exec rake test
 bundle exec rubocop
 
 # Run the app locally
-bundle exec puma -C config/puma.rb config.ru
+LEDGER_DIR=... APP_PASSWORD=... OPENAI_API_KEY=... bundle exec puma -C config/puma.rb config.ru
+
+# Image and deploy (Kamal 2; secrets come from the shell, see .kamal/secrets)
+docker build -t frijolero .
+kamal deploy
 
 # Build gem
 gem build frijolero.gemspec
@@ -52,10 +56,10 @@ ledger_dir/                     # LEDGER_DIR
 There is no `config.yaml` file. Every setting comes from an environment variable. A statement file name is an account key, one space, and a period as `YYMM`. The period is the month the statement closes, not the month you upload it.
 
 **Processing pipeline:**
-1. `Statement` owns one PDF's lifecycle (resolve account and period → check overwrite → upload → extract → save JSON → detail → convert → merge → finalize). Each step is a small private method. The caller passes `account:`, `period:`, `file_id:` (already uploaded) and `overwrite:`; the filename is only the fallback for account and period. There are no prompts: convert and merge always run.
+1. `Statement` owns one PDF's lifecycle: resolve account and period → check overwrite → upload (or reuse `file_id:`) → **save the PDF to B2** → extract → **`pipeline.validate!`** → delete the local PDF → save JSON → detail → convert → merge → delete the OpenAI file. The order is the point: B2 has the PDF before the paid extraction, and the local copy survives every failure, so a failed job leaves a retry on disk. The caller passes `account:`, `period:`, `file_id:`, `overwrite:` and an optional `b2:`; without `b2:` the PDF is neither uploaded nor deleted. The filename is only the fallback for account and period. There are no prompts: convert and merge always run.
 1a. `Classifier` decides account and period for a PDF. A parseable known filename answers with no OpenAI call. Otherwise it uploads once, runs the `classify` prompt with the account enum and the account list filled from `accounts.yaml`, checks that the dates are plausible, and derives `YYMM` from `period_end`. Anything doubtful becomes `unknown`, and the person confirms before the paid extraction.
 2. `OpenAIErrorReporter` is the error-handling policy table — maps each `OpenAIClient::Error` subclass to `{recoverable:, report:}` and is invoked from `Statement#run_pipeline`'s single rescue clause.
-3. `Pipeline.for(account_config)` returns a strategy (`Pipeline::Default`, `CetesDirecto`, `Fintual`, or `Plata`) that knows how to summarize the extracted data, whether to run the detailer, and which underlying converter to call. Adding a new bank statement type means adding one strategy class plus one converter — no edits to `Statement`.
+3. `Pipeline.for(account_config)` returns a strategy (`Pipeline::Default`, `CetesDirecto`, `Fintual`, or `Plata`) that knows how to summarize the extracted data, whether to run the detailer, and which underlying converter to call. Adding a new bank statement type means adding one strategy class plus one converter — no edits to `Statement`. Each strategy also owns `validate!(data)`, which raises `Pipeline::InvalidData` naming the missing table or field (`transactions[3] lacks amount`); `Statement` calls it before it deletes the local PDF, so a bad extraction never costs the source document.
 4. `Detailer` enriches transactions using YAML rules (only for `Default` pipeline). The matching itself lives in `Detailer::Rules` — a pure engine over the YAML that knows nothing about JSON — so `BeancountDetailer` can reuse it to re-run the rules against an already-converted `.beancount` file. That closes the loop where you notice a missing rule while cleaning up `Expenses:FIXME` rows in fava: add the rule, re-run the detailer on the `.beancount`, no need to go back to the JSON and redo the conversion and merge. `BeancountDetailer` only ever rewrites transactions still posting to `Expenses:FIXME`, which both protects hand edits and makes the run idempotent. It edits surgically via `Beancount::Transaction` (header line + the one FIXME posting), so hand-added metadata, comments and extra postings survive verbatim. Known limitation, inherited from `Beancount::Parser::TRANSACTION_RE` (which matches only the `*` flag): a transaction flagged `!` is invisible to the detailer — it is neither detailed nor counted in `remaining`, so the summary under-reports if you flag a row `!` in fava while leaving it on `Expenses:FIXME`.
 5. `Converters::Beancount` / `Converters::CetesDirecto` / `Converters::Fintual` / `Converters::Plata` convert enriched JSON to Beancount format (invoked by the pipeline strategy). All four inherit from `Converters::Base` (output path resolution, `convert`/`run_to(io)` template). `Converters::AccountTargets` is the value object that bundles `counterpart`/`interest`/`tax`/`dividend`/`gains`/`fees`/`withholding`/`opening` so converters take three keyword args instead of ten. `Converters::Amounts` is the shared number mixin — all parsing goes through `BigDecimal`, because Float turns an exact reconciliation into a residue like `-5.55e-17` that renders in scientific notation and that Beancount's parser rejects.
 
@@ -74,9 +78,12 @@ Consequences worth knowing: **only commodity accounts are managed this way** —
 7. `OpenAIClient` handles PDF upload/extraction via OpenAI API. HTTP transport, auth, and error mapping live in nested `OpenAIClient::Transport`; the outer class is a thin domain layer over it. Errors surface as typed exceptions: `AuthenticationError`, `InsufficientQuotaError`, `RateLimitError`, `APIError`, `NetworkError`.
 8. `UI` writes plain lines to `UI.sink` (`$stdout` by default). The web app can point `UI.sink` at a job log. `confirm` has no terminal to ask, so it always returns `UI.auto_accept?`.
 9. `Accounts` parses a beancount file for account names (autocomplete support in the browser review UI).
-10. `Web::App` is the Rack/Sinatra app. `config.ru` mounts `GET /up` without auth (kamal-proxy health check) and everything else behind `Rack::Auth::Basic` with `APP_PASSWORD`. `config/puma.rb` runs single mode with `PUMA_THREADS`.
+10. `Web::App` is the Rack/Sinatra app. `config.ru` mounts `GET /up` without auth (kamal-proxy health check) and everything else behind `Rack::Auth::Basic` with `APP_PASSWORD`, and starts the job worker at boot. `config/puma.rb` runs single mode with `PUMA_THREADS`. Routes live in three files that reopen the class: `app.rb` (dashboard, upload, confirm, jobs, PDF redirect), `web/statements.rb` (statement page, re-run rules) and `web/editors.rb` (rules and accounts editors). The class holds four lazily built collaborators with `attr_writer`s so tests can swap fakes: `jobs`, `client` (OpenAI), `b2`, `repo`. Views are standalone ERB pages in Spanish with inline CSS; there is no layout.
 11. `Web::Jobs` is one `Queue`, one worker `Thread` and an append-only `jobs.jsonl` (one line per state change). The job body runs with `UI.sink` pointed at the job's output and `UI.auto_accept = true`. At boot, jobs left `running` or `queued` are marked `failed`. There are no retries.
 12. `Web::Dashboard` computes, on each request, whether each account's statement exists for the previous and the current month (`received`, `missing`, `pending`, `failed`). Nothing is stored. Data paths: `Config.data_dir` is the parent of `LEDGER_DIR`; `jobs.jsonl` and `incoming/` live there.
+13. `Web::LedgerRepo` runs `git pull --rebase` and `git add -A && commit && push` as shell commands. **Every git subprocess scrubs the `GIT_*` environment.** The pre-commit hook runs the test suite inside `git commit`, git exports `GIT_DIR`/`GIT_WORK_TREE` to hook children, and those override `chdir:` — without the scrub, a test that "commits in a tmpdir" commits to this repo (it happened once, and pushed). `GIT_TOKEN` travels as an `http.extraheader` `-c` flag per invocation and is never written to disk. A rejected push raises and leaves the local commit.
+14. `B2` is a hand-rolled SigV4 client over `Net::HTTP` (no aws-sdk, for memory). Path-style URLs, header auth for `put`, query auth for `presigned_url` (10 minutes). Keys contain spaces (`accounts/AMEX/AMEX 2508.pdf`), and the canonical URI must encode them as `%20` in both the signature and the emitted URL; `uri_encode` is the single place that does it, and the tests replay two official AWS vectors. `Config.pdf_key` is the one formula for the key.
+15. One-time scripts, both idempotent and read-only on their source: `LedgerBuilder` (`script/build_ledger_repo`) turns `~/Documents/Beancount` + `~/.frijolero` into the ledger repo layout (renames `Account_YYMM` → `Account YYMM`, resolves keys case-insensitively, rewrites `include` lines, `detailers/` → `rules/`, drops `config.yaml`, adds the `classify` prompt). `PdfUploader` (`script/upload_pdfs_to_b2`) sends the old PDFs to B2 under the new keys. Both report every file they do not understand as `skip` and exit 1.
 
 **Key files:**
 - `lib/frijolero.rb` - main require file
@@ -96,8 +103,13 @@ Consequences worth knowing: **only commodity accounts are managed this way** —
 - `lib/frijolero/beancount/{parser,quoting,header,transaction}.rb` - parses a `.beancount` file into typed blocks, escapes string literals, builds the `DATE FLAG "payee" "narration"` line, and gives a surgically-editable view of a parsed transaction block (used by `BeancountDetailer`)
 - `lib/frijolero/ui.rb` - writes plain lines to `UI.sink`
 - `lib/frijolero/classifier.rb` - account and period for a PDF (filename shortcut, else one OpenAI call with the `classify` prompt)
-- `lib/frijolero/web/app.rb` - the Rack/Sinatra app (routes only; logic lives in the classes below)
+- `lib/frijolero/b2.rb` - SigV4 `put` and `presigned_url` over `Net::HTTP`
+- `lib/frijolero/ledger_builder.rb`, `lib/frijolero/pdf_uploader.rb` + `script/build_ledger_repo`, `script/upload_pdfs_to_b2` - the one-time migration scripts
+- `lib/frijolero/web/app.rb` - the Rack/Sinatra app: collaborators, dashboard, upload/confirm, jobs, PDF redirect
+- `lib/frijolero/web/statements.rb` - statement page and `POST .../detail` (reopens `App`)
+- `lib/frijolero/web/editors.rb` - rules and accounts editors (reopens `App`)
 - `lib/frijolero/web/jobs.rb` - queue, worker thread, `jobs.jsonl`
+- `lib/frijolero/web/ledger_repo.rb` - `git pull` / `commit_and_push` with the `GIT_*` scrub
 - `lib/frijolero/web/dashboard.rb` - received/missing/pending per account and month
 - `lib/frijolero/web/views/*.erb`, `lib/frijolero/web/public/{app.js,style.css}` - browser UI (standalone pages, no layout)
 - `lib/frijolero/templates/prompts/{default,plata,classify}/` - version-controlled prompt templates. Copy a folder into a ledger repo's `config/prompts/` to start a new one. `classify` is the classifier's prompt; its account enum is a placeholder that `Classifier` fills at request time
@@ -118,10 +130,10 @@ Consequences worth knowing: **only commodity accounts are managed this way** —
 | `OPENAI_POLL_TIMEOUT` | Seconds to poll a background extraction before it times out. Default: 900. |
 | `APP_PASSWORD` | The one password for HTTP basic auth. Required. |
 | `PUMA_THREADS` | Thread pool size for the Puma server. |
-| `B2_ENDPOINT`, `B2_BUCKET`, `B2_KEY_ID`, `B2_KEY` | Backblaze B2 credentials for statement PDFs. Not read yet. |
-| `GIT_TOKEN` | Push access to the ledger repo over HTTPS. Not read yet. |
+| `B2_ENDPOINT`, `B2_BUCKET`, `B2_KEY_ID`, `B2_KEY` | The S3-compatible endpoint, bucket and key pair of Backblaze B2, where the PDFs live. Required. |
+| `GIT_TOKEN` | GitHub fine-grained token with push access to the ledger repo. Sent as an HTTP header per git call; never written to disk. |
 
-**Tests:** Minitest, run with `bundle exec rake test`. Fixtures in `test/fixtures/`. `with_ledger_dir` is the test helper that points `LEDGER_DIR` at a temp dir.
+**Tests:** Minitest, run with `bundle exec rake test`. Fixtures in `test/fixtures/`. `with_ledger_dir` is the test helper that points `LEDGER_DIR` at a temp dir. Web tests use `rack-test` against `Web::App` directly and swap the class-level collaborators for fakes; `test/web_app_test.rb` alone loads `config.ru` to cover the auth wiring. Any test that shells out to git must scrub `GIT_*` from the subprocess environment (see item 13) and should be run once as `GIT_DIR=$(pwd)/.git GIT_WORK_TREE=$(pwd) bundle exec rake test` to prove it cannot touch this repo.
 
 **Transaction JSON format:**
 ```json
