@@ -11,6 +11,29 @@ module Frijolero
             beancount: Config.statement_path(account, period, 'beancount') }
         end
       end
+
+      get '/statements/:account/:yymm' do
+        account = params[:account]
+        period = params[:yymm]
+        halt 404, 'Cuenta desconocida' unless Config.accounts.key?(account)
+        halt 404, 'Periodo inválido' unless period.match?(/\A\d{4}\z/)
+
+        paths = statement_paths(account, period)
+        halt 404, 'No existe ese estado de cuenta' unless File.exist?(paths[:beancount])
+
+        data = File.exist?(paths[:json]) ? JSON.parse(File.read(paths[:json])) : nil
+        beancount = File.read(paths[:beancount])
+
+        erb :statement, locals: {
+          account: account,
+          period: period,
+          summary: data && Pipeline.for(Config.accounts[account]).summary(data),
+          transactions: data&.dig('transactions'),
+          fixme_count: beancount.scan(/^\s+Expenses:FIXME\b/).size,
+          beancount: beancount,
+          notice: params[:detailed] && "#{params[:detailed]} detalladas, #{params[:remaining]} pendientes"
+        }
+      end
     end
   end
 end
