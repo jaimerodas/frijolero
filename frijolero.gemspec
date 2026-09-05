@@ -22,7 +22,6 @@ Gem::Specification.new do |spec|
   spec.metadata['rubygems_mfa_required'] = 'true'
 
   spec.add_dependency 'bigdecimal', '~> 3.1'
-  spec.add_dependency 'cli-ui'
   spec.add_dependency 'puma', '~> 8.0'
   spec.add_dependency 'sinatra', '~> 4.0'
 end
