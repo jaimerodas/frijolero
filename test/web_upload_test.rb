@@ -140,6 +140,14 @@ class WebUploadTest < Minitest::Test
     Frijolero::Web::Dashboard.new.periods.each { |period| assert_includes last_response.body, period }
   end
 
+  def test_dashboard_links_to_jobs_accounts_and_rules
+    get '/'
+
+    assert_includes last_response.body, 'href="/jobs"'
+    assert_includes last_response.body, 'href="/accounts"'
+    assert_includes last_response.body, 'href="/rules/AMEX"'
+  end
+
   def test_upload_form_has_pdf_field
     get '/upload'
 

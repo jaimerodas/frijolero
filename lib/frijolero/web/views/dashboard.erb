@@ -16,11 +16,12 @@
     .status.failed { color: #b00020; font-weight: 600; }
     .status.received { color: #1b7f3b; }
     .status.pending { color: #666; }
+    a.rules { font-size: 0.85em; margin-left: 0.5rem; }
   </style>
 </head>
 <body>
   <h1>Frijolero</h1>
-  <p><a href="/upload">Subir estado de cuenta</a></p>
+  <p><a href="/upload">Subir estado de cuenta</a> · <a href="/jobs">Jobs</a> · <a href="/accounts">Cuentas</a></p>
   <table>
     <tr>
       <th>Cuenta</th>
@@ -30,7 +31,7 @@
     </tr>
     <% dashboard.rows.each do |row| %>
       <tr>
-        <td><%= h.(row.account) %></td>
+        <td><%= h.(row.account) %> <a class="rules" href="/rules/<%= Rack::Utils.escape_path(row.account) %>" title="Reglas de <%= h.(row.account) %>">reglas</a></td>
         <% periods.each do |period| %>
           <% status = row.statuses[period] %>
           <td>
