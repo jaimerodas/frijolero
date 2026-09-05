@@ -1,246 +1,160 @@
 # Frijolero
 
-CLI tool for processing PDF bank/credit card statements and converting them to Beancount accounting format.
+Frijolero is a web app for personal accounting. You upload a PDF bank or
+credit card statement. OpenAI extracts the transactions. Rules enrich each
+transaction with a payee and an account. The app writes the result to a
+Beancount file, and that file joins a ledger that lives in a git repo.
 
-## Features
+Version 2 of Frijolero replaced the command-line tool with this web app.
 
-- Process PDF statements through OpenAI extraction
-- Enrich transactions with custom matching rules
-- Convert to Beancount format
-- Merge into main ledger
-- Export to CSV
+## Status
 
-## Installation
+Frijolero is under construction. Two parts exist today:
 
-```bash
-gem install frijolero
+- The domain code (converters, detailer, and Beancount parser) is unchanged from the CLI.
+- `Config` reads its settings from environment variables.
+- A Rack app skeleton, with HTTP basic auth and a `/up` health check route that answers without a password.
+
+These parts are still in progress:
+
+- The upload flow for a PDF statement
+- Automatic account classification
+- A dashboard of received and missing statements
+- Backups to Backblaze B2
+- Git sync for the ledger repo
+- A web editor for the rules files
+
+See `docs/webapp-plan.md` for the full plan.
+
+## Environment variables
+
+| Variable | Purpose |
+|---|---|
+| `LEDGER_DIR` | Path to the clone of the ledger repo. Required. |
+| `LEDGER_MAIN_FILE` | Name of the main Beancount file, relative to `LEDGER_DIR`. Default: `transactions.beancount`. |
+| `OPENAI_API_KEY` | Key for the OpenAI extraction calls. Required. |
+| `APP_PASSWORD` | The one password for HTTP basic auth, on every route except `/up`. Required. |
+| `B2_ENDPOINT`, `B2_BUCKET`, `B2_KEY_ID`, `B2_KEY` | Backblaze B2 credentials for statement PDFs. Not read yet. |
+| `GIT_TOKEN` | Push access to the ledger repo over HTTPS. Not read yet. |
+| `PUMA_THREADS` | Thread pool size for the Puma server. |
+| `OPENAI_POLL_TIMEOUT` | Seconds to poll a background extraction before it times out. Default: 900. |
+
+## The ledger repo
+
+`LEDGER_DIR` points at a git repo with this layout:
+
+```
+ledger/
+  transactions.beancount        # LEDGER_MAIN_FILE, includes the account files
+  config/
+    accounts.yaml
+    rules/
+      Amex.yaml
+    prompts/
+      default/
+        spec.json
+        instructions.txt
+        schema.json
+  accounts/
+    Amex/
+      Amex 2501.beancount
+      Amex 2501.json
 ```
 
-Or add to your Gemfile:
-
-```ruby
-gem "frijolero"
-```
-
-## Setup
-
-Initialize configuration:
-
-```bash
-frijolero init
-```
-
-This creates `~/.frijolero/` with:
-- `config.yaml` - API keys and paths
-- `accounts.yaml` - Account name to beancount account mapping
-- `detailers/` - Transaction matching rules
-
-Edit these files to configure your accounts and rules.
+A statement file name has the account key, one space, and the closing
+period as `YYMM`. The period is the month the statement closes, not the
+month you upload it.
 
 ## Configuration
 
-### config.yaml
+### config/accounts.yaml
 
-```yaml
-openai_api_key: sk-xxx
-
-paths:
-  beancount_main: ~/finances/main.beancount
-  statements_input: ~/Downloads/statements
-```
-
-Processed statement artifacts (PDFs, JSON, beancount files) are organized
-under the directory containing `beancount_main`, one folder per account:
-
-```
-~/finances/
-  main.beancount
-  Amex/
-    Amex_2501.beancount   # included directly by main.beancount
-    pdf/Amex_2501.pdf
-    json/Amex_2501.json
-```
-
-### accounts.yaml
-
-Maps filename prefixes to beancount accounts. The **keys are the canonical
-capitalization** used for file and directory names — drop `AMEX 2501.pdf`
-in your inbox and it still lands as `Amex/Amex_2501.beancount`, matching
-the `Amex:` key below. The lookup is case-insensitive and treats spaces
-and underscores as equivalent.
+This file maps an account key to a Beancount account. The key is also the
+folder name under `accounts/` and the prefix of every file name for that
+account. `description` gives the app a hint for classification.
 
 ```yaml
 Amex:
   beancount_account: "Liabilities:Amex"
   openai_prompt_type: default
+  description: "Amex credit card (tarjeta de crédito), MXN"
 
 BBVA:
   beancount_account: "Assets:BBVA"
   openai_prompt_type: bbva
+  description: "BBVA checking account (cuenta de débito), MXN"
 ```
 
-### Extraction prompts
+### config/rules/\<Account\>.yaml
 
-Each `openai_prompt_type` maps to a folder under `~/.frijolero/prompts/`. The full
-prompt is sent inline to OpenAI on every request (no stored `pmpt_...` prompt objects):
-
-```
-~/.frijolero/prompts/
-  default/
-    spec.json          # model + text.format metadata (json_schema name, strict)
-    instructions.txt   # system instructions
-    schema.json        # strict JSON schema for the extracted transactions
-  bbva/
-    ...
-```
-
-`frijolero init` scaffolds a placeholder `default/` folder. Copy it to a new
-folder per prompt type, then fill each `instructions.txt`, `schema.json`, and the
-`model` in `spec.json` with the contents of your prompt (export them from the
-OpenAI dashboard if you previously used a stored prompt). `schema.json` accepts the
-structured-output block exported from OpenAI (`{name, strict, schema}`).
-
-### Detailer rules
-
-Create YAML files in `~/.frijolero/detailers/` (e.g., `amex.yaml`):
+Each account has one rules file, named after its account key
+(`config/rules/Amex.yaml` for the `Amex` account). Each rule matches a
+transaction description and sets a `payee`, a `narration`, and an
+`account`.
 
 ```yaml
 start_with:
+  # Simple rule: matches a description that starts with the pattern.
   AMAZON WEB SERVICES:
     payee: Amazon
     narration: AWS
     account: Expenses:Subscriptions
 
-  STARBUCKS:
-    payee: Starbucks
-    account: Expenses:Food:Coffee
-
-include:
-  GROCERY:
-    account: Expenses:Food:Groceries
-```
-
-Rules support an optional `when` clause for additional conditions (currently exact `amount` match):
-
-```yaml
-start_with:
-  # Only match when amount is exactly -149
+  # `when` adds a condition. This rule also needs an exact amount match.
   NETFLIX:
     when:
       amount: -149
     payee: Netflix
     account: Expenses:Subscriptions
 
-  # Use an array to classify the same prefix by amount.
-  # First matching entry wins; entry without `when` is a fallback.
+  # A list tries each `when` in order. An entry with no `when` is the fallback.
   TRANSFERENCIA:
     - when:
         amount: -15000
       payee: Landlord
       narration: Rent
       account: Expenses:Housing:Rent
-    - when:
-        amount: -500
-      payee: Gym
-      account: Expenses:Health
     - payee: Transfer
       account: Expenses:Misc
+
+include:
+  # `include` matches a description that contains the pattern, anywhere in it.
+  GROCERY:
+    account: Expenses:Food:Groceries
 ```
 
-## Usage
+### config/prompts/\<type\>/
 
-### Process PDF statements
+Each `openai_prompt_type` in `accounts.yaml` points at a folder here. The
+folder holds three files:
+
+- `spec.json` sets the model and the output format.
+- `instructions.txt` holds the system prompt.
+- `schema.json` gives the strict JSON schema for the extracted transactions.
+
+The `default` and `plata` folders ship as templates at
+`lib/frijolero/templates/prompts/`. Copy one to start a new prompt type.
+
+## Run locally
+
+Install the dependencies, then start the app:
 
 ```bash
-# Process all PDFs in input directory
-frijolero process
-
-# Preview without making changes
-frijolero process --dry-run
+bundle install
+LEDGER_DIR=~/Developer/beancount-ledger APP_PASSWORD=change-me OPENAI_API_KEY=sk-... \
+  bundle exec puma -C config/puma.rb config.ru
 ```
 
-Filename format: `Account Name YYMM.pdf` (e.g., `Amex 2501.pdf`)
+Open http://localhost:9292. The `/up` route answers without a password.
 
-### Enrich transactions
+## Development
 
 ```bash
-# Auto-detect config from filename
-frijolero detail Amex_2501.json
-
-# Specify config explicitly
-frijolero detail transactions.json -c ~/.frijolero/detailers/amex.yaml
+bundle exec rake test
+bundle exec rubocop
 ```
 
-### Convert to Beancount
-
-```bash
-# Auto-detect account from filename
-frijolero convert Amex_2501.json
-
-# Specify account and output
-frijolero convert input.json -a "Liabilities:Amex" -o output.beancount
-```
-
-### Merge into main ledger
-
-```bash
-# Merge files
-frijolero merge file.beancount
-
-# Preview without merging
-frijolero merge file1.beancount file2.beancount --dry-run
-```
-
-### Export to CSV
-
-```bash
-frijolero csv transactions.json
-frijolero csv transactions.json -o output.csv
-```
-
-### Migrate from the old layout
-
-Earlier versions of frijolero stored artifacts under
-`{statements_output}/{json,beancount,processed}` and copied .beancount files
-into `{main_dir}/transactions/{account}/`. The current layout co-locates
-everything per account under the main ledger's directory.
-
-```bash
-# Preview the migration plan (touches nothing)
-frijolero migrate --old-output-dir ~/finances/processed
-
-# Copy files into the new layout, verify, then prompt before deleting originals
-frijolero migrate --apply --old-output-dir ~/finances/processed
-```
-
-The migrator copies first, verifies every file with SHA-256, rewrites
-`main.beancount` includes (saving a timestamped `.bak`), and only deletes
-the originals if you explicitly type `yes` at the final prompt. Pass
-`--no-prompt` for non-interactive runs (originals are retained).
-
-File and directory names are normalized to match the canonical capitalization
-from `accounts.yaml`: `transactions/Cetes/CETES_2604.beancount` becomes
-`Cetes/Cetes_2604.beancount`. Files whose prefix isn't found in `accounts.yaml`
-are migrated with their original capitalization and surfaced in an
-"Unknown accounts" section of the plan output.
-
-## Transaction JSON Format
-
-```json
-{
-  "transactions": [
-    {
-      "date": "2024-01-15",
-      "description": "AMAZON WEB SERVICES",
-      "amount": -50.00,
-      "currency": "MXN",
-      "payee": "optional",
-      "narration": "optional",
-      "expense_account": "optional"
-    }
-  ]
-}
-```
+The Ruby version comes from `.ruby-version` (4.0.6).
 
 ## License
 
