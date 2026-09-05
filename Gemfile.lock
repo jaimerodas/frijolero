@@ -84,7 +84,7 @@ DEPENDENCIES
   rubocop
 
 RUBY VERSION
-   ruby 4.0.6p0
+  ruby 4.0.6p0
 
 BUNDLED WITH
-   2.7.0
+  4.0.16
