@@ -7,15 +7,14 @@ Gem::Specification.new do |spec|
   spec.version = Frijolero::VERSION
   spec.authors = ['Jaime Rodas']
   spec.summary = 'Process bank/credit card statements and convert to Beancount format'
-  spec.description = 'CLI tool for processing PDF bank statements through OpenAI extraction, ' \
-                     'enriching transactions with custom rules, and converting to Beancount accounting format.'
+  spec.description = 'Web app that processes PDF bank statements through OpenAI ' \
+                     'extraction, enriches transactions with custom rules, and ' \
+                     'converts them to Beancount accounting format.'
   spec.homepage = 'https://github.com/jaimerodas/frijolero'
   spec.license = 'MIT'
   spec.required_ruby_version = '>= 3.0.0'
 
-  spec.files = Dir.glob('{bin,lib}/**/*') + %w[README.md]
-  spec.bindir = 'bin'
-  spec.executables = ['frijolero']
+  spec.files = Dir.glob('lib/**/*') + %w[README.md]
   spec.require_paths = ['lib']
 
   spec.metadata['homepage_uri'] = spec.homepage
@@ -24,8 +23,6 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency 'bigdecimal', '~> 3.1'
   spec.add_dependency 'cli-ui'
-  spec.add_dependency 'csv', '~> 3.0'
-  spec.add_dependency 'rackup'
-  spec.add_dependency 'reline'
+  spec.add_dependency 'puma', '~> 8.0'
   spec.add_dependency 'sinatra', '~> 4.0'
 end
