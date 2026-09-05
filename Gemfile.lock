@@ -3,7 +3,6 @@ PATH
   specs:
     frijolero (0.10.0)
       bigdecimal (~> 3.1)
-      cli-ui
       puma (~> 8.0)
       sinatra (~> 4.0)
 
@@ -13,7 +12,6 @@ GEM
     ast (2.4.3)
     base64 (0.3.0)
     bigdecimal (3.3.1)
-    cli-ui (2.7.0)
     drb (2.2.3)
     json (2.21.2)
     language_server-protocol (3.17.0.6)

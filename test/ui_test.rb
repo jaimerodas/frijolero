@@ -1,10 +1,17 @@
 # frozen_string_literal: true
 
 require 'test_helper'
+require 'stringio'
 
 class UITest < Minitest::Test
+  def setup
+    @sink = StringIO.new
+    Frijolero::UI.sink = @sink
+  end
+
   def teardown
     Frijolero::UI.auto_accept = false
+    Frijolero::UI.sink = $stdout
   end
 
   def test_short_path_replaces_home_directory
@@ -50,8 +57,51 @@ class UITest < Minitest::Test
     assert_equal true, Frijolero::UI.auto_accept?
   end
 
-  def test_confirm_returns_true_when_auto_accept
+  def test_puts_writes_to_sink_and_translates_glyphs
+    Frijolero::UI.puts('{{x}} done')
+    assert_equal "✗ done\n", @sink.string
+  end
+
+  def test_fmt_strips_color_markup
+    assert_equal 'Error ✗ done', Frijolero::UI.fmt('{{red:Error}} {{x}} done')
+  end
+
+  def test_fmt_leaves_plain_text_unchanged
+    assert_equal 'plain text', Frijolero::UI.fmt('plain text')
+  end
+
+  def test_frame_prints_title_and_runs_block
+    ran = false
+    Frijolero::UI.frame('Title') { ran = true }
+    assert_equal "== Title\n", @sink.string
+    assert ran
+  end
+
+  def test_spinner_prints_last_title_set_via_update_title
+    Frijolero::UI.spinner('Working...') { |spinner| spinner.update_title('Done') }
+    assert_equal "Done\n", @sink.string
+  end
+
+  def test_spinner_prints_initial_title_when_never_updated
+    Frijolero::UI.spinner('Working...') { |spinner| spinner }
+    assert_equal "Working...\n", @sink.string
+  end
+
+  def test_confirm_returns_false_when_auto_accept_is_false
+    assert_equal false, Frijolero::UI.confirm('Test?')
+  end
+
+  def test_confirm_returns_true_when_auto_accept_is_true
     Frijolero::UI.auto_accept = true
     assert_equal true, Frijolero::UI.confirm('Test?')
+  end
+
+  def test_detailer_stats_prints_debit_and_credit_summary_lines
+    stats = {
+      detailed: [{ 'amount' => -100 }],
+      remaining: [{ 'amount' => 50 }]
+    }
+    Frijolero::UI.detailer_stats(stats)
+    assert_equal "1 detailed: 1 debits (100.00)\n1 remaining: 1 credits (50.00)\n", @sink.string
   end
 end

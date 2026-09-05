@@ -60,6 +60,12 @@ Metrics/ParameterLists:
   Exclude:
     - 'lib/frijolero/converters/account_targets.rb'
 
+# UI.confirm is the public name callers already use (a yes/no answer without
+# a terminal to ask); renaming it to confirm? would ripple through every caller.
+Naming/PredicateMethod:
+  Exclude:
+    - 'lib/frijolero/ui.rb'
+
 Metrics/AbcSize:
   Exclude: ['test/**/*']
   AllowedMethods:
