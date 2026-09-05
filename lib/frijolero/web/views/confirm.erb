@@ -1,0 +1,46 @@
+<%
+  h = ->(s) { Rack::Utils.escape_html(s.to_s) }
+%>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Frijolero</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 2rem; }
+    label { display: block; margin: 1rem 0 0.25rem; }
+    .note { color: #666; }
+  </style>
+</head>
+<body>
+  <h1><%= h.(filename) %></h1>
+
+  <% if result.period_start && result.period_end %>
+    <p>Periodo impreso: <%= h.(result.period_start) %> a <%= h.(result.period_end) %></p>
+  <% end %>
+
+  <form method="post" action="/upload/confirm">
+    <label for="account">Cuenta</label>
+    <select id="account" name="account" required>
+      <option value=""></option>
+      <% accounts.each do |account| %>
+        <option value="<%= h.(account) %>" <%= 'selected' if !result.unknown? && account == result.account %>>
+          <%= h.(account) %>
+        </option>
+      <% end %>
+    </select>
+
+    <label for="period">Periodo (YYMM)</label>
+    <input type="text" id="period" name="period" pattern="\d{4}" required value="<%= h.(result.period) %>">
+
+    <input type="hidden" name="token" value="<%= h.(token) %>">
+    <input type="hidden" name="file_id" value="<%= h.(result.file_id) %>">
+    <input type="hidden" name="overwrite" value="<%= h.(overwrite) %>">
+
+    <p class="note">Revisa antes de procesar: la extracción cuesta dinero.</p>
+
+    <p><button type="submit">Procesar</button></p>
+  </form>
+  <p><a href="/upload">Regresar</a></p>
+</body>
+</html>

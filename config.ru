@@ -3,6 +3,8 @@
 require_relative 'lib/frijolero'
 require_relative 'lib/frijolero/web/app'
 
+Frijolero::Web::App.jobs
+
 password = ENV.fetch('APP_PASSWORD')
 
 map '/up' do

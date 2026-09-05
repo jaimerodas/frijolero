@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Frijolero</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 2rem; }
+    label { display: block; margin: 1rem 0 0.25rem; }
+  </style>
+</head>
+<body>
+  <h1>Subir estado de cuenta</h1>
+  <form method="post" action="/upload" enctype="multipart/form-data">
+    <label for="pdf">PDF</label>
+    <input type="file" id="pdf" name="pdf" accept="application/pdf" required>
+
+    <label>
+      <input type="checkbox" name="overwrite">
+      Sobrescribir si ya existe
+    </label>
+
+    <p><button type="submit">Clasificar</button></p>
+  </form>
+  <p><a href="/">Regresar</a></p>
+</body>
+</html>

@@ -2,7 +2,10 @@
 
 require 'sinatra/base'
 require 'json'
+require 'securerandom'
+require 'fileutils'
 require_relative 'jobs'
+require_relative 'dashboard'
 
 module Frijolero
   module Web
@@ -16,8 +19,50 @@ module Frijolero
       set :beancount_account, nil
       set :accounts_list, []
 
+      class << self
+        attr_writer :jobs, :client
+
+        def jobs = @jobs ||= Jobs.new(log_path: Config.jobs_file).tap(&:start)
+        def client = @client ||= OpenAIClient.new
+      end
+
       get '/' do
-        '<!doctype html><title>Frijolero</title><h1>Frijolero</h1>'
+        failed = self.class.jobs.all.select { |j| j.status == 'failed' }.map(&:label)
+        erb :dashboard, locals: { dashboard: Dashboard.new(failed: failed) }
+      end
+
+      get '/upload' do
+        erb :upload
+      end
+
+      post '/upload' do
+        path = save_upload
+        result = Classifier.new(client: self.class.client).classify(path)
+        erb :confirm, locals: {
+          token: File.basename(File.dirname(path)),
+          filename: File.basename(path),
+          result: result,
+          accounts: Config.accounts.keys,
+          overwrite: params[:overwrite] ? '1' : '0'
+        }
+      end
+
+      post '/upload/confirm' do
+        account, period, pdf_path, file_id, overwrite = validate_confirm!
+        job = enqueue_statement(account: account, period: period, pdf_path: pdf_path,
+                                file_id: file_id, overwrite: overwrite)
+        redirect "/jobs/#{job.id}", 303
+      end
+
+      get '/jobs' do
+        erb :jobs, locals: { jobs: self.class.jobs.all }
+      end
+
+      get '/jobs/:id' do
+        job = self.class.jobs.find(params[:id])
+        halt 404, 'No existe ese job' unless job
+
+        erb :job, locals: { job: job }
       end
 
       get '/review' do
@@ -79,6 +124,57 @@ module Frijolero
           settings.json_file,
           JSON.pretty_generate({ 'transactions' => transactions })
         )
+      end
+
+      # One directory per upload (named by a random token) so the original filename
+      # survives, which is what lets Classifier's filename shortcut fire.
+      def save_upload
+        file = params[:pdf]
+        halt 422, 'Sube un PDF' unless file && file[:filename].to_s.match?(/\.pdf\z/i)
+
+        dir = File.join(Config.incoming_dir, SecureRandom.hex(8))
+        FileUtils.mkdir_p(dir)
+        dest = File.join(dir, file[:filename])
+        FileUtils.cp(file[:tempfile].path, dest)
+        dest
+      end
+
+      def validate_confirm!
+        account, period = validate_account_and_period!
+        [account, period, validate_token!(params[:token]), blank_to_nil(params[:file_id]), params[:overwrite] == '1']
+      end
+
+      def validate_account_and_period!
+        halt 422, 'Cuenta inválida' unless Config.accounts.key?(params[:account])
+        halt 422, 'Periodo inválido' unless params[:period].to_s.match?(/\A\d{4}\z/)
+
+        [params[:account], params[:period]]
+      end
+
+      def validate_token!(token)
+        halt 422, 'Token inválido' unless token.to_s.match?(/\A\h{16}\z/)
+
+        dir = File.join(Config.incoming_dir, token)
+        files = Dir.exist?(dir) ? Dir.children(dir) : []
+        halt 422, 'Token inválido' unless files.size == 1
+
+        File.join(dir, files.first)
+      end
+
+      def blank_to_nil(value)
+        value.to_s.strip.empty? ? nil : value
+      end
+
+      def enqueue_statement(account:, period:, pdf_path:, file_id:, overwrite:)
+        upload_dir = File.dirname(pdf_path)
+        client = self.class.client
+        self.class.jobs.push(label: "#{account} #{period}") do
+          status = Statement.new(pdf_path, client: client, account: account, period: period,
+                                           file_id: file_id, overwrite: overwrite).process
+          raise "Statement terminó con #{status}" unless status == Statement::OK
+
+          FileUtils.rm_rf(upload_dir)
+        end
       end
     end
   end

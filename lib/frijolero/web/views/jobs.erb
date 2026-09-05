@@ -1,0 +1,35 @@
+<%
+  h = ->(s) { Rack::Utils.escape_html(s.to_s) }
+%>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Frijolero</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 2rem; }
+    table { border-collapse: collapse; }
+    th, td { padding: 0.5rem 1rem; text-align: left; border-bottom: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <h1>Jobs</h1>
+  <table>
+    <tr>
+      <th>Etiqueta</th>
+      <th>Estado</th>
+      <th>Inicio</th>
+      <th>Fin</th>
+    </tr>
+    <% jobs.each do |job| %>
+      <tr>
+        <td><a href="/jobs/<%= h.(job.id) %>"><%= h.(job.label) %></a></td>
+        <td><%= h.(job.status) %></td>
+        <td><%= h.(job.started_at) %></td>
+        <td><%= h.(job.finished_at) %></td>
+      </tr>
+    <% end %>
+  </table>
+  <p><a href="/">Regresar</a></p>
+</body>
+</html>
