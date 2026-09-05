@@ -9,6 +9,18 @@ class WebStatementsTest < Minitest::Test
   include Rack::Test::Methods
   include TestHelpers
 
+  class FakeRepo
+    attr_reader :calls
+
+    def initialize
+      @calls = []
+    end
+
+    def commit_and_push(message)
+      @calls << message
+    end
+  end
+
   def setup
     @previous_rack_env = ENV.fetch('RACK_ENV', nil)
     ENV['RACK_ENV'] = 'test'
@@ -21,12 +33,16 @@ class WebStatementsTest < Minitest::Test
     write_accounts_yaml
     File.write(File.join(@dir, 'transactions.beancount'), '')
     Frijolero::Config.reload!
+
+    @fake_repo = FakeRepo.new
+    Frijolero::Web::App.repo = @fake_repo
   end
 
   def teardown
     restore_env('RACK_ENV', @previous_rack_env)
     restore_env('LEDGER_DIR', @previous_ledger_dir)
     Frijolero::Config.reload!
+    Frijolero::Web::App.repo = nil
     FileUtils.remove_entry(@dir)
   end
 
@@ -155,6 +171,95 @@ class WebStatementsTest < Minitest::Test
     assert_includes last_response.body, '&lt;script&gt;alert(1)&lt;/script&gt;'
   end
 
+  def test_post_detail_applies_rules_and_commits
+    write_rules('AMEX', 'start_with' => { 'OXXO' => { 'payee' => 'Oxxo', 'account' => 'Expenses:Food' } })
+    write_statement('AMEX', '2508',
+                    json: { 'transactions' => [] },
+                    beancount: <<~BEAN)
+                      2025-08-01 * "OXXO 123"
+                        Liabilities:Amex -100 MXN
+                        Expenses:FIXME
+
+                      2025-08-02 * "UBER"
+                        Liabilities:Amex -50 MXN
+                        Expenses:FIXME
+                    BEAN
+
+    post '/statements/AMEX/2508/detail'
+
+    assert_equal 303, last_response.status
+    assert last_response.location.include?('detailed=1&remaining=1')
+    assert_equal ['detail AMEX 2508'], @fake_repo.calls
+  end
+
+  def test_post_detail_with_nothing_to_detail_does_not_commit
+    write_rules('AMEX', 'start_with' => { 'OXXO' => { 'payee' => 'Oxxo', 'account' => 'Expenses:Food' } })
+    write_statement('AMEX', '2508',
+                    json: { 'transactions' => [] },
+                    beancount: <<~BEAN)
+                      2025-08-01 * "OXXO 123"
+                        Expenses:Food -100 MXN
+                        Liabilities:Amex
+
+                      2025-08-02 * "UBER"
+                        Liabilities:Amex -50 MXN
+                        Expenses:FIXME
+                    BEAN
+
+    post '/statements/AMEX/2508/detail'
+
+    assert_equal 303, last_response.status
+    assert last_response.location.include?('detailed=0&remaining=1')
+    assert_empty @fake_repo.calls
+  end
+
+  def test_post_detail_no_rules_returns_422
+    write_statement('AMEX', '2508', json: { 'transactions' => [] }, beancount: '')
+
+    post '/statements/AMEX/2508/detail'
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, 'No hay reglas'
+  end
+
+  def test_post_detail_unknown_account_returns_404
+    write_rules('AMEX', {})
+
+    post '/statements/HSBC/2508/detail'
+
+    assert_equal 404, last_response.status
+    assert_includes last_response.body, 'Cuenta desconocida'
+  end
+
+  def test_post_detail_missing_beancount_returns_404
+    write_rules('AMEX', {})
+
+    post '/statements/AMEX/2508/detail'
+
+    assert_equal 404, last_response.status
+    assert_includes last_response.body, 'No existe ese estado'
+  end
+
+  def test_post_detail_redirect_shows_notice
+    write_rules('AMEX', 'start_with' => { 'OXXO' => { 'payee' => 'Oxxo', 'account' => 'Expenses:Food' } })
+    write_statement('AMEX', '2508',
+                    json: { 'transactions' => [] },
+                    beancount: <<~BEAN)
+                      2025-08-01 * "OXXO 123"
+                        Liabilities:Amex -100 MXN
+                        Expenses:FIXME
+
+                      2025-08-02 * "UBER"
+                        Liabilities:Amex -50 MXN
+                        Expenses:FIXME
+                    BEAN
+
+    post '/statements/AMEX/2508/detail'
+    follow_redirect!
+
+    assert_includes last_response.body, '1 detalladas, 1 pendientes'
+  end
+
   private
 
   def write_accounts_yaml(extra: '')
@@ -174,6 +279,12 @@ class WebStatementsTest < Minitest::Test
     FileUtils.mkdir_p(File.dirname(paths[:beancount]))
     File.write(paths[:json], JSON.generate(json))
     File.write(paths[:beancount], beancount)
+  end
+
+  def write_rules(account, rules)
+    rules_dir = File.join(@dir, 'config', 'rules')
+    FileUtils.mkdir_p(rules_dir)
+    File.write(File.join(rules_dir, "#{account}.yaml"), YAML.dump(rules))
   end
 
   def restore_env(key, previous_value)

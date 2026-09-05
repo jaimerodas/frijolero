@@ -34,6 +34,21 @@ module Frijolero
           notice: params[:detailed] && "#{params[:detailed]} detalladas, #{params[:remaining]} pendientes"
         }
       end
+
+      post '/statements/:account/:yymm/detail' do
+        account, period = params.values_at(:account, :yymm)
+        halt 404, 'Cuenta desconocida' unless Config.accounts.key?(account)
+        halt 404, 'Periodo inválido' unless period.match?(/\A\d{4}\z/)
+        beancount = statement_paths(account, period)[:beancount]
+        halt 404, 'No existe ese estado de cuenta' unless File.exist?(beancount)
+        rules = Config.rules_path(account)
+        halt 422, 'No hay reglas para esta cuenta' unless File.exist?(rules)
+
+        stats = BeancountDetailer.new(beancount, rules).run
+        self.class.repo.commit_and_push("detail #{account} #{period}") if stats[:detailed].any?
+        redirect_path = "/statements/#{Rack::Utils.escape_path(account)}/#{period}"
+        redirect "#{redirect_path}?detailed=#{stats[:detailed].size}&remaining=#{stats[:remaining].size}", 303
+      end
     end
   end
 end
