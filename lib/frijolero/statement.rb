@@ -92,11 +92,7 @@ module Frijolero
 
     def show_existing_json_info(json_path)
       mtime = File.mtime(json_path).strftime('%Y-%m-%d %H:%M')
-      contents = JsonStatementSummary.describe(json_path)
       UI.puts "  JSON: #{UI.short_path(json_path)} (modified #{mtime})"
-      UI.puts "  Contains: #{contents}"
-    rescue JSON::ParserError
-      UI.puts "  JSON: #{UI.short_path(json_path)} (modified #{mtime}, could not parse)"
     end
 
     def show_existing_beancount_info(beancount_path)

@@ -22,9 +22,6 @@ Naming/VariableNumber:
 # Each name below corresponds to a method that's measurably above the
 # default but where further extraction would weaken cohesion.
 #
-# OptionParser scaffolding (each opts.on block is 3 lines):
-#   parse_options, show_help
-#
 # Multi-line output builders (the structure of the output is the method):
 #   format_transaction      Converters::Beancount
 #   transaction_summary     UI
@@ -33,39 +30,27 @@ Naming/VariableNumber:
 # Orchestrators with required rescue/branching at the call site:
 #   run_pipeline            Statement
 #   execute                 OpenAIClient::Transport
-#   ask_with_autocomplete   UI (Reline state restore in ensure)
 #   process_one             BeancountMerger
 #   load_metadata           Statement (parse + lookup + status return)
 #   raise_error_for         OpenAIClient::Transport (case on HTTP status)
 #   upload_file             OpenAIClient
 #   extract_transactions    OpenAIClient
-#   build_new_lines         Beancount::MainFileWriter
-#   collapse_blank_runs     Beancount::MainFileWriter
-#   run_conversion          CLI::Convert
 #   poll_response           OpenAIClient (loop with three case branches)
-#   run                     entry-point methods (CLI dispatch, batch loops)
-#   call                    CLI command entry points
+#   run                     entry-point methods (batch loops)
 Metrics/MethodLength:
   Exclude: ['test/**/*']
   AllowedMethods:
-    - parse_options
-    - show_help
     - format_transaction
     - transaction_summary
     - handle_sell
     - run_pipeline
     - execute
-    - ask_with_autocomplete
     - process_one
     - load_metadata
     - raise_error_for
     - upload_file
     - extract_transactions
-    - build_new_lines
-    - collapse_blank_runs
-    - run_conversion
     - run
-    - call
     - poll_response
 
 # AccountTargets is a named bag of destination accounts (counterpart, interest,
@@ -78,14 +63,11 @@ Metrics/ParameterLists:
 Metrics/AbcSize:
   Exclude: ['test/**/*']
   AllowedMethods:
-    - parse_options
-    - run_conversion
     - format_transaction
     - transaction_summary
     - handle_sell
     - run_pipeline
     - execute
-    - ask_with_autocomplete
 
 # --- Class-level exceptions ----------------------------------------------
 # Statement orchestrates the full PDF lifecycle (parse, upload, extract,
@@ -116,16 +98,9 @@ Metrics/AbcSize:
 # summary, the cash holding row, realized gain/loss and the period dates:
 # eight pieces of borrowed state for sixty lines. Revisit if a fourth
 # period-end concern appears.
-#
-# LayoutMigrator orchestrates plan → copy → verify → rewrite → prompt →
-# delete with required rollback on failure. Plan building and formatting
-# already live in their own classes; the orchestrator itself coordinates
-# the steps and the rescue path. ~140 lines.
 Metrics/ClassLength:
   Exclude:
     - 'test/**/*'
     - 'lib/frijolero/statement.rb'
     - 'lib/frijolero/converters/fintual.rb'
     - 'lib/frijolero/converters/plata.rb'
-    - 'lib/frijolero/layout_migrator.rb'
-    - 'lib/frijolero/layout_migrator/plan_builder.rb'
