@@ -1,0 +1,35 @@
+<%
+  h = ->(s) { Rack::Utils.escape_html(s.to_s) }
+%>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= h.(title) %></title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 2rem; }
+    nav a { margin-right: 1rem; }
+    .notice { color: #1b7f3b; }
+    .error { color: #b00020; font-weight: 600; }
+    textarea { border: 1px solid #ccc; padding: 0.5rem; box-sizing: border-box; }
+  </style>
+</head>
+<body>
+  <h1><%= h.(title) %></h1>
+  <nav>
+    <a href="<%= h.(back) %>">Volver</a>
+    <a href="/accounts">Cuentas</a>
+  </nav>
+  <% if notice %>
+    <p class="notice"><%= h.(notice) %></p>
+  <% end %>
+  <% if error %>
+    <p class="error" role="alert"><%= h.(error) %></p>
+  <% end %>
+  <form method="post" action="<%= h.(action) %>">
+    <textarea name="content" rows="30" spellcheck="false" style="width:100%;font-family:ui-monospace,monospace"><%= h.(content) %></textarea>
+    <p><button type="submit">Guardar</button></p>
+  </form>
+</body>
+</html>
