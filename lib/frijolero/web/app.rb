@@ -21,10 +21,11 @@ module Frijolero
       set :accounts_list, []
 
       class << self
-        attr_writer :jobs, :client
+        attr_writer :jobs, :client, :b2
 
         def jobs = @jobs ||= Jobs.new(log_path: Config.jobs_file).tap(&:start)
         def client = @client ||= OpenAIClient.new
+        def b2 = @b2 ||= B2.from_env
       end
 
       get '/' do
@@ -64,6 +65,14 @@ module Frijolero
         halt 404, 'No existe ese job' unless job
 
         erb :job, locals: { job: job }
+      end
+
+      get '/statements/:account/:yymm/pdf' do
+        halt 404, 'Cuenta desconocida' unless Config.accounts.key?(params[:account])
+        halt 404, 'Periodo inválido' unless params[:yymm].match?(/\A\d{4}\z/)
+
+        key = "accounts/#{params[:account]}/#{params[:account]} #{params[:yymm]}.pdf"
+        redirect self.class.b2.presigned_url(key), 302
       end
 
       get '/review' do

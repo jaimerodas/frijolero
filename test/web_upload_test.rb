@@ -35,6 +35,13 @@ class WebUploadTest < Minitest::Test
     end
   end
 
+  FakeB2 = Struct.new(:calls) do
+    def presigned_url(key, **)
+      calls << key
+      "https://b2.example/#{key.gsub(' ', '%20')}?sig=1"
+    end
+  end
+
   def setup
     @previous_rack_env = ENV.fetch('RACK_ENV', nil)
     ENV['RACK_ENV'] = 'test'
@@ -70,6 +77,7 @@ class WebUploadTest < Minitest::Test
     Frijolero::Config.reload!
     Frijolero::Web::App.jobs = nil
     Frijolero::Web::App.client = nil
+    Frijolero::Web::App.b2 = nil
     Frijolero::UI.sink = $stdout
     Frijolero::UI.auto_accept = false
     FileUtils.remove_entry(@dir)
@@ -235,6 +243,54 @@ class WebUploadTest < Minitest::Test
     get '/jobs'
 
     assert_includes last_response.body, 'AMEX 2508'
+  end
+
+  def test_pdf_download_redirects_to_b2_presigned_url
+    Frijolero::Web::App.b2 = FakeB2.new([])
+
+    get '/statements/AMEX/2508/pdf'
+
+    assert_equal 302, last_response.status
+    assert_equal 'https://b2.example/accounts/AMEX/AMEX%202508.pdf?sig=1', last_response.headers['Location']
+    assert_equal ['accounts/AMEX/AMEX 2508.pdf'], Frijolero::Web::App.b2.calls
+  end
+
+  def test_pdf_download_with_account_containing_space
+    Frijolero::Web::App.b2 = FakeB2.new([])
+
+    # Add BBVA TDC to accounts
+    accounts_file = File.join(@dir, 'config', 'accounts.yaml')
+    File.write(accounts_file, <<~YAML)
+      AMEX:
+        beancount_account: "Liabilities:Amex"
+      BBVA TDC:
+        beancount_account: "Assets:BBVA"
+    YAML
+    Frijolero::Config.reload!
+
+    get '/statements/BBVA%20TDC/2508/pdf'
+
+    assert_equal 302, last_response.status
+    assert_equal 'https://b2.example/accounts/BBVA%20TDC/BBVA%20TDC%202508.pdf?sig=1', last_response.headers['Location']
+    assert_equal ['accounts/BBVA TDC/BBVA TDC 2508.pdf'], Frijolero::Web::App.b2.calls
+  end
+
+  def test_pdf_download_returns_404_for_unknown_account
+    Frijolero::Web::App.b2 = FakeB2.new([])
+
+    get '/statements/UNKNOWN/2508/pdf'
+
+    assert_equal 404, last_response.status
+    assert_empty Frijolero::Web::App.b2.calls
+  end
+
+  def test_pdf_download_returns_404_for_invalid_period
+    Frijolero::Web::App.b2 = FakeB2.new([])
+
+    get '/statements/AMEX/25-08/pdf'
+
+    assert_equal 404, last_response.status
+    assert_empty Frijolero::Web::App.b2.calls
   end
 
   private
