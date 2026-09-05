@@ -10,12 +10,13 @@ class WebUploadTest < Minitest::Test
   include TestHelpers
 
   class FakeClient
-    attr_reader :uploaded, :deleted
+    attr_reader :uploaded, :deleted, :extractions
     attr_accessor :classification
 
     def initialize
       @uploaded = []
       @deleted = []
+      @extractions = []
       @classification = { 'account' => 'unknown', 'period_start' => nil, 'period_end' => nil }
     end
 
@@ -25,7 +26,9 @@ class WebUploadTest < Minitest::Test
     end
 
     def extract_transactions(_file_id, spec)
-      return @classification if spec['format']['name'] == 'statement_classification'
+      name = spec['format']['name']
+      @extractions << name
+      return @classification if name == 'statement_classification'
 
       { 'transactions' => [{ 'date' => '2025-08-03', 'description' => 'X', 'amount' => -10.0, 'currency' => 'MXN' }] }
     end
@@ -35,10 +38,45 @@ class WebUploadTest < Minitest::Test
     end
   end
 
-  FakeB2 = Struct.new(:calls) do
+  # The bucket and the clone. Both append to one shared `order` array, which is what
+  # lets a test assert that the PDF reached B2 between the pull and the push.
+  class FakeB2
+    attr_reader :calls
+
+    def initialize(order = [])
+      @order = order
+      @calls = []
+    end
+
     def presigned_url(key, **)
-      calls << key
+      @calls << key
       "https://b2.example/#{key.gsub(' ', '%20')}?sig=1"
+    end
+
+    def put(key, _path, **)
+      @order << :put
+      @calls << key
+    end
+  end
+
+  class FakeRepo
+    attr_reader :messages
+    attr_accessor :pull_error
+
+    def initialize(order = [])
+      @order = order
+      @messages = []
+    end
+
+    def pull
+      @order << :pull
+      raise Frijolero::Web::LedgerRepo::Error, @pull_error if @pull_error
+    end
+
+    # The real LedgerRepo answers whether it pushed anything; the job ignores it.
+    def commit_and_push(message)
+      @order << :commit_and_push
+      @messages << message
     end
   end
 
@@ -67,7 +105,12 @@ class WebUploadTest < Minitest::Test
 
     Frijolero::Web::App.jobs = Frijolero::Web::Jobs.new(log_path: File.join(@dir, 'jobs.jsonl'))
     @client = FakeClient.new
+    @order = []
+    @b2 = FakeB2.new(@order)
+    @repo = FakeRepo.new(@order)
     Frijolero::Web::App.client = @client
+    Frijolero::Web::App.b2 = @b2
+    Frijolero::Web::App.repo = @repo
     Frijolero::UI.sink = StringIO.new
   end
 
@@ -78,6 +121,7 @@ class WebUploadTest < Minitest::Test
     Frijolero::Web::App.jobs = nil
     Frijolero::Web::App.client = nil
     Frijolero::Web::App.b2 = nil
+    Frijolero::Web::App.repo = nil
     Frijolero::UI.sink = $stdout
     Frijolero::UI.auto_accept = false
     FileUtils.remove_entry(@dir)
@@ -160,6 +204,49 @@ class WebUploadTest < Minitest::Test
     assert File.exist?(Frijolero::Config.statement_path('AMEX', '2508', 'beancount'))
     assert_includes File.read(Frijolero::Config.main_file), 'include'
     refute Dir.exist?(File.join(Frijolero::Config.incoming_dir, token))
+  end
+
+  # The order is the durability property: pull before anything is written, the PDF in
+  # B2 before the extraction is paid for, the push only once a statement landed.
+  def test_the_job_pulls_saves_the_pdf_and_pushes_in_that_order
+    token = upload_and_extract_token('AMEX 2508.pdf')
+    post '/upload/confirm', account: 'AMEX', period: '2508', token: token, overwrite: '0'
+
+    Frijolero::Web::App.jobs.work_one
+
+    assert_equal %i[pull put commit_and_push], @order
+    assert_equal ['AMEX 2508'], @repo.messages
+    assert_equal ['accounts/AMEX/AMEX 2508.pdf'], @b2.calls
+  end
+
+  # A clone that cannot pull is a clone that cannot push either, so there is no point
+  # paying OpenAI for the extraction.
+  def test_a_failed_pull_fails_the_job_before_the_extraction
+    @repo.pull_error = 'offline'
+    token = upload_and_extract_token('AMEX 2508.pdf')
+    post '/upload/confirm', account: 'AMEX', period: '2508', token: token, overwrite: '0'
+    job_id = last_response.location[%r{/jobs/(.+)\z}, 1]
+
+    Frijolero::Web::App.jobs.work_one
+
+    job = Frijolero::Web::App.jobs.find(job_id)
+    assert_equal 'failed', job.status
+    assert_includes job.error, 'offline'
+    assert_empty @client.extractions
+    assert Dir.exist?(File.join(Frijolero::Config.incoming_dir, token))
+  end
+
+  def test_a_failed_statement_is_never_pushed
+    beancount_path = Frijolero::Config.statement_path('AMEX', '2508', 'beancount')
+    FileUtils.mkdir_p(File.dirname(beancount_path))
+    File.write(beancount_path, '')
+
+    token = upload_and_extract_token('AMEX 2508.pdf')
+    post '/upload/confirm', account: 'AMEX', period: '2508', token: token, overwrite: '0'
+    Frijolero::Web::App.jobs.work_one
+
+    refute_includes @order, :commit_and_push
+    assert_empty @repo.messages
   end
 
   def test_confirm_rejects_bad_period
@@ -246,8 +333,6 @@ class WebUploadTest < Minitest::Test
   end
 
   def test_pdf_download_redirects_to_b2_presigned_url
-    Frijolero::Web::App.b2 = FakeB2.new([])
-
     get '/statements/AMEX/2508/pdf'
 
     assert_equal 302, last_response.status
@@ -256,8 +341,6 @@ class WebUploadTest < Minitest::Test
   end
 
   def test_pdf_download_with_account_containing_space
-    Frijolero::Web::App.b2 = FakeB2.new([])
-
     # Add BBVA TDC to accounts
     accounts_file = File.join(@dir, 'config', 'accounts.yaml')
     File.write(accounts_file, <<~YAML)
@@ -276,8 +359,6 @@ class WebUploadTest < Minitest::Test
   end
 
   def test_pdf_download_returns_404_for_unknown_account
-    Frijolero::Web::App.b2 = FakeB2.new([])
-
     get '/statements/UNKNOWN/2508/pdf'
 
     assert_equal 404, last_response.status
@@ -285,8 +366,6 @@ class WebUploadTest < Minitest::Test
   end
 
   def test_pdf_download_returns_404_for_invalid_period
-    Frijolero::Web::App.b2 = FakeB2.new([])
-
     get '/statements/AMEX/25-08/pdf'
 
     assert_equal 404, last_response.status

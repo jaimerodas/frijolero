@@ -7,14 +7,19 @@ class StatementTest < Minitest::Test
   include TestHelpers
 
   # Records what the pipeline asks of OpenAI, and answers with one transaction.
+  # `order` is shared with FakeB2, so a test can see which happened first.
   class FakeClient
     attr_reader :uploads, :extractions, :deletions
-    attr_accessor :extract_error
+    attr_accessor :extract_error, :payload
 
-    def initialize
+    def initialize(order = [])
+      @order = order
       @uploads = []
       @extractions = []
       @deletions = []
+      @payload = { 'transactions' => [
+        { 'date' => '2025-08-03', 'description' => 'X', 'amount' => -10.0, 'currency' => 'MXN' }
+      ] }
     end
 
     def upload_file(path)
@@ -23,12 +28,11 @@ class StatementTest < Minitest::Test
     end
 
     def extract_transactions(file_id, spec)
+      @order << :extract
       @extractions << [file_id, spec]
       raise @extract_error if @extract_error
 
-      { 'transactions' => [
-        { 'date' => '2025-08-03', 'description' => 'X', 'amount' => -10.0, 'currency' => 'MXN' }
-      ] }
+      @payload
     end
 
     def delete_file(file_id)
@@ -36,10 +40,29 @@ class StatementTest < Minitest::Test
     end
   end
 
+  # The bucket. `put` records the key and the local path it was told to read.
+  class FakeB2
+    attr_reader :calls
+    attr_accessor :error
+
+    def initialize(order = [])
+      @order = order
+      @calls = []
+    end
+
+    def put(key, path, **)
+      @order << :put
+      @calls << [key, path]
+      raise @error if @error
+    end
+  end
+
   def setup
     @sink = StringIO.new
     Frijolero::UI.sink = @sink
-    @client = FakeClient.new
+    @order = []
+    @client = FakeClient.new(@order)
+    @b2 = FakeB2.new(@order)
   end
 
   def teardown
@@ -178,6 +201,63 @@ class StatementTest < Minitest::Test
       2.times { Frijolero::Statement.new(pdf, client: @client, overwrite: true).process }
 
       assert_equal 1, main_file(dir).scan('include "accounts/AMEX/AMEX 2508.beancount"').size
+    end
+  end
+
+  # The whole point of the order: if the extraction fails or reads badly, the PDF is
+  # already in the bucket and the month can be retried without the original file.
+  def test_b2_gets_the_pdf_before_the_extraction_and_the_local_copy_goes
+    with_configured_ledger do
+      pdf = pdf_in_temp_dir('AMEX 2508.pdf')
+
+      status = Frijolero::Statement.new(pdf, client: @client, b2: @b2).process
+
+      assert_equal Frijolero::Statement::OK, status
+      assert_equal %i[put extract], @order
+      assert_equal [['accounts/AMEX/AMEX 2508.pdf', pdf]], @b2.calls
+      refute_path_exists pdf
+    end
+  end
+
+  # The CLI passes no b2:, and it must not delete the user's own file.
+  def test_without_b2_nothing_is_uploaded_and_the_pdf_stays
+    with_configured_ledger do
+      pdf = pdf_in_temp_dir('AMEX 2508.pdf')
+
+      assert_equal Frijolero::Statement::OK, Frijolero::Statement.new(pdf, client: @client).process
+      assert_path_exists pdf
+      assert_empty @b2.calls
+    end
+  end
+
+  # An extraction missing an amount would convert into a ledger that quietly lost
+  # money. It fails the job, and the PDF stays for a retry.
+  def test_an_invalid_extraction_fails_before_writing_and_keeps_the_pdf
+    with_configured_ledger do |dir|
+      @client.payload = { 'transactions' => [{ 'date' => 'x' }] }
+      pdf = pdf_in_temp_dir('AMEX 2508.pdf')
+
+      status = Frijolero::Statement.new(pdf, client: @client, b2: @b2).process
+
+      assert_equal Frijolero::Statement::ERROR, status
+      assert_path_exists pdf
+      refute_path_exists json_path(dir)
+      assert_equal ['file-up'], @client.deletions
+      assert_includes @sink.string, 'transactions[0] lacks description'
+    end
+  end
+
+  def test_a_failed_b2_upload_stops_before_the_extraction
+    with_configured_ledger do
+      @b2.error = Frijolero::B2::Error.new('boom', status: 500)
+      pdf = pdf_in_temp_dir('AMEX 2508.pdf')
+
+      status = Frijolero::Statement.new(pdf, client: @client, b2: @b2).process
+
+      assert_equal Frijolero::Statement::ERROR, status
+      assert_empty @client.extractions
+      assert_path_exists pdf
+      assert_equal ['file-up'], @client.deletions
     end
   end
 

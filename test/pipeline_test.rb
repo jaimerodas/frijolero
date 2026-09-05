@@ -249,7 +249,88 @@ class PipelineTest < Minitest::Test
     end
   end
 
+  # --- validate! ---------------------------------------------------------
+
+  def test_validate_rejects_a_payload_that_is_not_an_object
+    error = assert_raises(Frijolero::Pipeline::InvalidData) do
+      Frijolero::Pipeline::Default.new({}).validate!([{ 'date' => '2025-08-03' }])
+    end
+    assert_match(/not a JSON object/, error.message)
+  end
+
+  def test_default_validate_accepts_a_complete_transaction
+    assert_valid Frijolero::Pipeline::Default.new({}),
+                 'transactions' => [{ 'date' => '2025-08-03', 'description' => 'X', 'amount' => -10 }]
+  end
+
+  def test_default_validate_names_the_row_and_the_missing_key
+    error = assert_raises(Frijolero::Pipeline::InvalidData) do
+      Frijolero::Pipeline::Default.new({}).validate!(
+        'transactions' => [{ 'date' => '2025-08-03', 'description' => 'X', 'amount' => -10 },
+                           { 'date' => '2025-08-04', 'description' => 'Y' }]
+      )
+    end
+    assert_equal 'transactions[1] lacks amount', error.message
+  end
+
+  def test_cetes_directo_validate_accepts_a_movement
+    assert_valid Frijolero::Pipeline::CetesDirecto.new({}),
+                 'movements' => [{ 'movement_type' => 'cash_in', 'settlement_date' => '2025-08-03',
+                                   'cash_inflow' => '100' }]
+  end
+
+  # Either date will do: the converter prefers settlement_date and falls back.
+  def test_cetes_directo_validate_accepts_a_movement_with_only_a_trade_date
+    assert_valid Frijolero::Pipeline::CetesDirecto.new({}),
+                 'movements' => [{ 'movement_type' => 'cash_out', 'trade_date' => '2025-08-03' }]
+  end
+
+  def test_cetes_directo_validate_requires_a_date
+    error = assert_raises(Frijolero::Pipeline::InvalidData) do
+      Frijolero::Pipeline::CetesDirecto.new({}).validate!('movements' => [{ 'movement_type' => 'cash_in' }])
+    end
+    assert_equal 'movements[0] lacks settlement_date or trade_date', error.message
+  end
+
+  def test_fintual_validate_accepts_a_transaction
+    assert_valid Frijolero::Pipeline::Fintual.new({}),
+                 'transactions' => [{ 'trade_date' => '2025-08-03', 'transaction_type' => 'buy',
+                                      'reported_amount' => '100' }]
+  end
+
+  # Fintual's money column is reported_amount, so a row with the default converter's
+  # `amount` is not a valid Fintual row.
+  def test_fintual_validate_requires_reported_amount
+    error = assert_raises(Frijolero::Pipeline::InvalidData) do
+      Frijolero::Pipeline::Fintual.new({}).validate!(
+        'transactions' => [{ 'trade_date' => '2025-08-03', 'transaction_type' => 'buy', 'amount' => '100' }]
+      )
+    end
+    assert_equal 'transactions[0] lacks reported_amount', error.message
+  end
+
+  def test_plata_validate_accepts_the_four_tables_and_the_holdings
+    assert_valid Frijolero::Pipeline::Plata.new({}),
+                 'transactions' => [plata_row('Trade Entry')], 'income' => [], 'fees' => [],
+                 'deposits_withdrawals' => [], 'holdings' => []
+  end
+
+  def test_plata_validate_requires_every_table
+    error = assert_raises(Frijolero::Pipeline::InvalidData) do
+      Frijolero::Pipeline::Plata.new({}).validate!(
+        'transactions' => [], 'income' => [], 'fees' => [], 'deposits_withdrawals' => []
+      )
+    end
+    assert_equal 'holdings is not an array', error.message
+  end
+
   private
+
+  # Minitest has no assert_nothing_raised, and the valid cases need an assertion.
+  def assert_valid(pipeline, data)
+    pipeline.validate!(data)
+    pass "#{pipeline.class} accepted the payload"
+  end
 
   def plata_row(entry_type)
     { 'trade_date' => '2025-11-01', 'entry_type' => entry_type, 'net_amount' => '1.00' }

@@ -63,6 +63,13 @@ Metrics/ParameterLists:
     - 'lib/frijolero/converters/account_targets.rb'
     - 'lib/frijolero/statement.rb'
 
+# `b2` is what the class (Frijolero::B2) and the collaborator are called everywhere
+# else, so it is the name the keyword argument has to have. The rest of the list is
+# the cop's own default, which must be repeated because AllowedNames replaces it
+# (`io` in particular is the converters' `run_to(io)`).
+Naming/MethodParameterName:
+  AllowedNames: [as, at, b2, by, cc, db, id, 'if', 'in', io, ip, of, 'on', os, pp, to]
+
 # UI.confirm is the public name callers already use (a yes/no answer without
 # a terminal to ask); renaming it to confirm? would ripple through every caller.
 Naming/PredicateMethod:

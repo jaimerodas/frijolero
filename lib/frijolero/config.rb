@@ -39,6 +39,13 @@ module Frijolero
         File.join(ledger_dir, 'accounts', account_key, "#{account_key} #{period}.#{ext}")
       end
 
+      # The B2 bucket mirrors the ledger's own layout, so one key formula serves both
+      # the upload and the signed download. Spaces stay literal here; percent-encoding
+      # is the signer's job (B2#host_and_path).
+      def pdf_key(account_key, period)
+        "accounts/#{account_key}/#{account_key} #{period}.pdf"
+      end
+
       def accounts
         @accounts ||= load_accounts
       end

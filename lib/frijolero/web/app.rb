@@ -21,11 +21,12 @@ module Frijolero
       set :accounts_list, []
 
       class << self
-        attr_writer :jobs, :client, :b2
+        attr_writer :jobs, :client, :b2, :repo
 
         def jobs = @jobs ||= Jobs.new(log_path: Config.jobs_file).tap(&:start)
         def client = @client ||= OpenAIClient.new
         def b2 = @b2 ||= B2.from_env
+        def repo = @repo ||= LedgerRepo.new(dir: Config.ledger_dir)
       end
 
       get '/' do
@@ -71,8 +72,7 @@ module Frijolero
         halt 404, 'Cuenta desconocida' unless Config.accounts.key?(params[:account])
         halt 404, 'Periodo inválido' unless params[:yymm].match?(/\A\d{4}\z/)
 
-        key = "accounts/#{params[:account]}/#{params[:account]} #{params[:yymm]}.pdf"
-        redirect self.class.b2.presigned_url(key), 302
+        redirect self.class.b2.presigned_url(Config.pdf_key(params[:account], params[:yymm])), 302
       end
 
       get '/review' do
@@ -175,14 +175,25 @@ module Frijolero
         value.to_s.strip.empty? ? nil : value
       end
 
+      # The collaborators are read here rather than inside the block: the block runs on
+      # the worker thread, long after this request is gone.
       def enqueue_statement(account:, period:, pdf_path:, file_id:, overwrite:)
-        upload_dir = File.dirname(pdf_path)
-        client = self.class.client
-        self.class.jobs.push(label: "#{account} #{period}") do
-          status = Statement.new(pdf_path, client: client, account: account, period: period,
-                                           file_id: file_id, overwrite: overwrite).process
+        statement = Statement.new(pdf_path, client: self.class.client, b2: self.class.b2, account: account,
+                                            period: period, file_id: file_id, overwrite: overwrite)
+        run_job("#{account} #{period}", statement, File.dirname(pdf_path))
+      end
+
+      # Pull before the work and push after it. The volume holds a clone, so a job that
+      # writes without pulling first turns the next push into a conflict to untangle by
+      # hand; a job that fails leaves the upload where it is, for a retry.
+      def run_job(label, statement, upload_dir)
+        repo = self.class.repo
+        self.class.jobs.push(label: label) do
+          repo.pull
+          status = statement.process
           raise "Statement terminó con #{status}" unless status == Statement::OK
 
+          repo.commit_and_push(label)
           FileUtils.rm_rf(upload_dir)
         end
       end

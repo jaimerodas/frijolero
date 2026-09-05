@@ -16,9 +16,11 @@ module Frijolero
 
     DRY_RUN = :dry_run
 
-    def initialize(pdf_path, client:, account: nil, period: nil, file_id: nil, overwrite: false, dry_run: false)
+    def initialize(pdf_path, client:, b2: nil, account: nil, period: nil, file_id: nil, overwrite: false,
+                   dry_run: false)
       @pdf_path = pdf_path
       @client = client
+      @b2 = b2
       @account_name = account
       @date_str = period
       @file_id = file_id
@@ -99,10 +101,16 @@ module Frijolero
       UI.puts "  Beancount: #{UI.short_path(beancount_path)} (modified #{mtime})"
     end
 
+    # The order is the point. B2 has the PDF before we pay for an extraction, and the
+    # local copy outlives everything that can fail, so a failed job leaves a retry
+    # sitting on disk instead of nothing at all.
     def run_pipeline
       file_id = @file_id || upload_pdf
+      back_up_pdf
       transactions = extract_transactions(file_id)
       pipeline = Pipeline.for(@account_config)
+      pipeline.validate!(transactions)
+      discard_local_pdf
 
       UI.puts pipeline.summary(transactions)
       save_json(transactions)
@@ -118,6 +126,23 @@ module Frijolero
       UI.puts "{{x}} ERROR processing #{@filename}: #{e.message}"
       OpenAIErrorReporter.cleanup(client, file_id)
       ERROR
+    end
+
+    # Without a B2 client (the CLI, and every test that does not ask for one) there is
+    # nowhere to put the PDF and so nothing to delete either: the file stays put.
+    def back_up_pdf
+      return unless @b2
+
+      key = Config.pdf_key(@account_name, @date_str)
+      @b2.put(key, @pdf_path)
+      UI.puts "Saved PDF to B2: #{key}"
+    end
+
+    def discard_local_pdf
+      return unless @b2
+
+      File.delete(@pdf_path)
+      UI.puts 'Deleted local PDF'
     end
 
     def upload_pdf
