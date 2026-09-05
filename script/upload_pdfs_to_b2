@@ -35,7 +35,8 @@ if dry_run
   plan.each do |path, key|
     puts "#{path} → #{key}"
   end
-  exit 0
+  uploader.unresolved.each { |reason| puts "skip #{reason}" }
+  exit(uploader.unresolved.empty? ? 0 : 1)
 end
 
 b2 = Frijolero::B2.from_env
@@ -50,11 +51,4 @@ result = uploader.run
 skipped_count = result.skipped.size
 puts "Uploaded #{result.uploaded.size}, skipped #{skipped_count}"
 
-if skipped_count.positive?
-  result.skipped.each do |skip|
-    puts "skip #{skip}"
-  end
-  exit 1
-end
-
-exit 0
+exit(skipped_count.positive? ? 1 : 0)

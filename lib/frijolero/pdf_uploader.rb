@@ -17,18 +17,27 @@ module Frijolero
       @normalized_keys = @keys.to_h { |key| [normalize(key), key] }
     end
 
-    # Array of [local_path, b2_key] pairs, sorted.
+    # Array of [local_path, b2_key] pairs, sorted. Files that resolve to no key
+    # land in `unresolved` so a run never loses a PDF silently.
     def plan
+      @unresolved = []
       glob = Dir.glob('*/pdf/*.pdf', base: @source).sort
       glob.map { |path| resolve_pdf(path) }.compact
+    end
+
+    def unresolved
+      plan if @unresolved.nil?
+      @unresolved
     end
 
     # Execute the plan: upload each PDF, print results, return Result with uploaded and skipped.
     def run
       uploaded = []
-      skipped = []
+      pairs = plan
+      skipped = @unresolved.dup
+      skipped.each { |reason| @out.puts "skip #{reason}" }
 
-      plan.each do |local_path, b2_key|
+      pairs.each do |local_path, b2_key|
         full_path = File.join(@source, local_path)
         begin
           @b2.put(b2_key, full_path)
@@ -49,18 +58,22 @@ module Frijolero
     end
 
     def resolve_pdf(path)
-      parts = path.split('/')
-      return nil unless parts.size == 3 && parts[1] == 'pdf'
-
-      match = parts[2].match(/\A(.+)_(\d{4})\.pdf\z/i)
-      return nil unless match
+      dir, _pdf, filename = path.split('/')
+      match = filename.match(/\A(.+)_(\d{4})\.pdf\z/i)
+      return unresolved!(path, 'name is not Prefix_YYMM.pdf') unless match
 
       prefix, yymm = match.captures
-      dir_key = @normalized_keys[normalize(parts[0])]
+      dir_key = @normalized_keys[normalize(dir)]
       prefix_key = @normalized_keys[normalize(prefix)]
-      return nil unless dir_key && prefix_key && dir_key == prefix_key
+      return unresolved!(path, 'directory matches no account key') unless dir_key
+      return unresolved!(path, 'prefix does not match the directory account') unless prefix_key == dir_key
 
       [path, "accounts/#{dir_key}/#{dir_key} #{yymm}.pdf"]
+    end
+
+    def unresolved!(path, reason)
+      @unresolved << "#{path}: #{reason}"
+      nil
     end
   end
 end

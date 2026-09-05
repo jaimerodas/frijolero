@@ -209,8 +209,9 @@ class PdfUploaderTest < Minitest::Test
     assert_includes result.uploaded, 'accounts/AMEX/AMEX 2508.pdf'
     assert_equal 1, result.uploaded.size
 
-    # Mystery should be absent (not in skipped, because it's not in plan)
-    assert_empty result.skipped
+    # Mystery is reported, not lost
+    assert_equal ['Mystery/pdf/Mystery_2601.pdf: directory matches no account key'], result.skipped
+    assert_includes @out.string, 'skip Mystery/pdf/Mystery_2601.pdf'
 
     # Only one B2 put call
     assert_equal 1, @b2.puts_calls.size
