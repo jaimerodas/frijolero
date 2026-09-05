@@ -1,59 +1,61 @@
 # frozen_string_literal: true
 
 require 'yaml'
-require 'fileutils'
 
 module Frijolero
   class Config
-    CONFIG_DIR = File.expand_path('~/.frijolero')
-    CONFIG_FILE = File.join(CONFIG_DIR, 'config.yaml')
-    ACCOUNTS_FILE = File.join(CONFIG_DIR, 'accounts.yaml')
-    DETAILERS_DIR = File.join(CONFIG_DIR, 'detailers')
-    PROMPTS_DIR = File.join(CONFIG_DIR, 'prompts')
-
     class << self
-      def config_dir
-        CONFIG_DIR
+      def ledger_dir
+        ENV.fetch('LEDGER_DIR') { raise 'LEDGER_DIR is not set' }
       end
 
-      def config_file
-        CONFIG_FILE
+      def main_file
+        File.join(ledger_dir, ENV.fetch('LEDGER_MAIN_FILE', 'transactions.beancount'))
+      end
+
+      def config_dir
+        File.join(ledger_dir, 'config')
       end
 
       def accounts_file
-        ACCOUNTS_FILE
+        File.join(config_dir, 'accounts.yaml')
       end
 
-      def detailers_dir
-        DETAILERS_DIR
+      def rules_dir
+        File.join(config_dir, 'rules')
       end
 
       def prompts_dir
-        PROMPTS_DIR
+        File.join(config_dir, 'prompts')
       end
 
-      def data
-        @data ||= load_config
+      def rules_path(account_key)
+        return nil unless account_key
+
+        File.join(rules_dir, "#{account_key}.yaml")
       end
 
-      def reload!
-        @data = nil
-        @accounts = nil
+      def statement_path(account_key, period, ext)
+        File.join(ledger_dir, 'accounts', account_key, "#{account_key} #{period}.#{ext}")
       end
 
       def accounts
         @accounts ||= load_accounts
       end
 
+      def reload!
+        @accounts = nil
+      end
+
       def openai_api_key
-        data['openai_api_key'] || ENV.fetch('OPENAI_API_KEY', nil)
+        ENV.fetch('OPENAI_API_KEY', nil)
       end
 
       # Seconds to keep polling a background extraction before giving up. Background
       # responses are retained by OpenAI for ~10 minutes, so values beyond that risk the
-      # result expiring server-side. Override via `openai_poll_timeout` or OPENAI_POLL_TIMEOUT.
+      # result expiring server-side. Override via OPENAI_POLL_TIMEOUT.
       def openai_poll_timeout
-        value = data['openai_poll_timeout'] || ENV.fetch('OPENAI_POLL_TIMEOUT', nil)
+        value = ENV.fetch('OPENAI_POLL_TIMEOUT', nil)
         value ? value.to_i : OpenAIClient::POLL_TIMEOUT_SECONDS
       end
 
@@ -62,57 +64,12 @@ module Frijolero
         PromptSpec.load(type, prompts_dir)
       end
 
-      def statements_input_dir
-        expand_path(data.dig('paths', 'statements_input')) ||
-          ENV.fetch('STATEMENTS_INPUT_DIR', './data/statements')
-      end
-
-      def statements_output_dir
-        main = beancount_main_file
-        raise 'beancount_main_file must be configured (set paths.beancount_main)' unless main
-
-        File.dirname(main)
-      end
-
-      def beancount_main_file
-        expand_path(data.dig('paths', 'beancount_main')) ||
-          ENV.fetch('BEANCOUNT_MAIN_FILE', nil)
-      end
-
-      def beancount_accounts_file
-        expand_path(data.dig('paths', 'beancount_accounts')) ||
-          ENV.fetch('BEANCOUNT_ACCOUNTS_FILE', nil)
-      end
-
-      def detailer_config_path(account_name)
-        return nil unless account_name
-
-        config_name = account_name.downcase.gsub(' ', '_')
-        File.join(DETAILERS_DIR, "#{config_name}.yaml")
-      end
-
-      def initialized?
-        File.exist?(CONFIG_FILE)
-      end
-
       private
 
-      def load_config
-        return {} unless File.exist?(CONFIG_FILE)
-
-        YAML.load_file(CONFIG_FILE) || {}
-      end
-
       def load_accounts
-        return {} unless File.exist?(ACCOUNTS_FILE)
+        return {} unless File.exist?(accounts_file)
 
-        YAML.load_file(ACCOUNTS_FILE) || {}
-      end
-
-      def expand_path(path)
-        return nil unless path
-
-        File.expand_path(path)
+        YAML.load_file(accounts_file) || {}
       end
     end
   end

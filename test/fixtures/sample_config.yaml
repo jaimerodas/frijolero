@@ -1,6 +1,0 @@
-openai_api_key: test_key_123
-
-paths:
-  beancount_main: /tmp/main.beancount
-  beancount_accounts: /tmp/accounts.beancount
-  statements_input: /tmp/statements

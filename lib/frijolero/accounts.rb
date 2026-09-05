@@ -4,12 +4,7 @@ module Frijolero
   class Accounts
     OPEN_DIRECTIVE_REGEX = /^\d{4}-\d{2}-\d{2}\s+open\s+((?:Assets|Liabilities|Income|Expenses|Equity)(?::\S+)+)/
 
-    def initialize(file: nil)
-      file ||= Config.beancount_accounts_file
-      unless file
-        raise ArgumentError,
-              'No accounts file specified. Set paths.beancount_accounts in ~/.frijolero/config.yaml'
-      end
+    def initialize(file:)
       raise ArgumentError, "File not found: #{file}" unless File.exist?(file)
 
       @accounts = parse(file)

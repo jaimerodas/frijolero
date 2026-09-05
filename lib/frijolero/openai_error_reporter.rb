@@ -14,7 +14,7 @@ module Frijolero
       OpenAIClient::AuthenticationError => {
         recoverable: false,
         report: lambda do |e|
-          UI.puts '{{x}} OpenAI rejected the API key. Check ~/.frijolero/config.yaml.'
+          UI.puts '{{x}} OpenAI rejected the API key. Check OPENAI_API_KEY.'
           UI.puts "    Detail: #{e.message}"
         end
       },

@@ -13,10 +13,9 @@ module Frijolero
 
     DRY_RUN = :dry_run
 
-    def initialize(pdf_path, client:, output_dir:, dry_run: false)
+    def initialize(pdf_path, client:, dry_run: false)
       @pdf_path = pdf_path
       @client = client
-      @output_dir = output_dir
       @dry_run = dry_run
       @filename = File.basename(pdf_path)
     end
@@ -61,23 +60,14 @@ module Frijolero
         return NO_ACCOUNT_CONFIG
       end
 
-      # Use the canonical account name from accounts.yaml so output paths are
-      # consistent regardless of how the PDF filename was capitalized.
-      @account_name = AccountConfig.canonical_account_name(@account_name) || @account_name
       OK
     end
 
     def output_paths
-      @output_paths ||= begin
-        safe_account = @account_name.gsub(' ', '_')
-        base = "#{safe_account}_#{@date_str}"
-        account_dir = File.join(@output_dir, safe_account)
-        {
-          beancount: File.join(account_dir, "#{base}.beancount"),
-          json: File.join(account_dir, 'json', "#{base}.json"),
-          pdf: File.join(account_dir, 'pdf', "#{base}.pdf")
-        }
-      end
+      @output_paths ||= {
+        beancount: Config.statement_path(@account_name, @date_str, 'beancount'),
+        json: Config.statement_path(@account_name, @date_str, 'json')
+      }
     end
 
     def check_overwrite(json_path, beancount_path)
@@ -146,7 +136,7 @@ module Frijolero
     end
 
     def run_detailer
-      yaml_path = Config.detailer_config_path(@account_name)
+      yaml_path = Config.rules_path(@account_name)
 
       if yaml_path && File.exist?(yaml_path)
         stats = Detailer.new(output_paths[:json], yaml_path).run
@@ -168,21 +158,12 @@ module Frijolero
     end
 
     def merge_into_ledger
-      main_file = Config.beancount_main_file
-      unless main_file
-        UI.puts '{{i}} No main ledger configured (set paths.beancount_main in config)'
-        return
-      end
-
       BeancountMerger.new(files: [output_paths[:beancount]], quiet: true).run
-      UI.puts "Merged into: #{UI.short_path(main_file)}"
+      UI.puts "Merged into: #{UI.short_path(Config.main_file)}"
     end
 
     def finalize(file_id)
       client.delete_file(file_id)
-      FileUtils.mkdir_p(File.dirname(output_paths[:pdf]))
-      FileUtils.mv(@pdf_path, output_paths[:pdf])
-      UI.puts "Moved PDF to: #{UI.short_path(output_paths[:pdf])}"
     end
 
     def measure

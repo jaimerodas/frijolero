@@ -57,7 +57,7 @@ module Frijolero
 
         BeancountMerger.new(
           files: [beancount_path],
-          output: Config.beancount_main_file
+          output: Config.main_file
         ).run
 
         { status: 'ok', output: beancount_path }.to_json

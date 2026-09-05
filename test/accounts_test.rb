@@ -88,14 +88,6 @@ class AccountsTest < Minitest::Test
     end
   end
 
-  def test_raises_when_no_file_specified_and_no_config
-    with_temp_config_dir do
-      assert_raises ArgumentError do
-        Frijolero::Accounts.new
-      end
-    end
-  end
-
   def test_handles_empty_file
     with_temp_dir do |dir|
       empty_file = File.join(dir, 'empty.beancount')

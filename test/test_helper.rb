@@ -18,34 +18,19 @@ module TestHelpers
     Dir.mktmpdir(&block)
   end
 
-  def with_temp_config_dir
+  # Points LEDGER_DIR at a fresh temp dir with config/ inside; restores ENV after.
+  def with_ledger_dir
     Dir.mktmpdir do |dir|
-      old_config_dir = Frijolero::Config::CONFIG_DIR
-
-      # Temporarily override config directory
-      Frijolero::Config.send(:remove_const, :CONFIG_DIR)
-      Frijolero::Config.const_set(:CONFIG_DIR, dir)
-      Frijolero::Config.send(:remove_const, :CONFIG_FILE)
-      Frijolero::Config.const_set(:CONFIG_FILE, File.join(dir, 'config.yaml'))
-      Frijolero::Config.send(:remove_const, :ACCOUNTS_FILE)
-      Frijolero::Config.const_set(:ACCOUNTS_FILE, File.join(dir, 'accounts.yaml'))
-      Frijolero::Config.send(:remove_const, :DETAILERS_DIR)
-      Frijolero::Config.const_set(:DETAILERS_DIR, File.join(dir, 'detailers'))
-
+      old = ENV.to_h.slice('LEDGER_DIR', 'LEDGER_MAIN_FILE')
+      ENV['LEDGER_DIR'] = dir
+      ENV.delete('LEDGER_MAIN_FILE')
+      FileUtils.mkdir_p(File.join(dir, 'config'))
       Frijolero::Config.reload!
-
       yield dir
     ensure
-      # Restore original constants
-      Frijolero::Config.send(:remove_const, :CONFIG_DIR)
-      Frijolero::Config.const_set(:CONFIG_DIR, old_config_dir)
-      Frijolero::Config.send(:remove_const, :CONFIG_FILE)
-      Frijolero::Config.const_set(:CONFIG_FILE, File.join(old_config_dir, 'config.yaml'))
-      Frijolero::Config.send(:remove_const, :ACCOUNTS_FILE)
-      Frijolero::Config.const_set(:ACCOUNTS_FILE, File.join(old_config_dir, 'accounts.yaml'))
-      Frijolero::Config.send(:remove_const, :DETAILERS_DIR)
-      Frijolero::Config.const_set(:DETAILERS_DIR, File.join(old_config_dir, 'detailers'))
-
+      ENV.delete('LEDGER_DIR')
+      ENV.delete('LEDGER_MAIN_FILE')
+      ENV.merge!(old)
       Frijolero::Config.reload!
     end
   end

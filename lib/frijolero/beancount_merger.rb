@@ -1,12 +1,13 @@
 # frozen_string_literal: true
 
 require 'set'
+require 'pathname'
 
 module Frijolero
   class BeancountMerger
     def initialize(files:, output: nil, dry_run: false, quiet: false)
       @files = files
-      @output = output || Config.beancount_main_file
+      @output = output || Config.main_file
       @dry_run = dry_run
       @quiet = quiet
     end
@@ -24,7 +25,7 @@ module Frijolero
     def process_one(file, existing_includes)
       entries = count_entries(file)
       basename = File.basename(file)
-      relative_path = "#{extract_prefix(file)}/#{basename}"
+      relative_path = relative_include_path(file)
 
       if existing_includes.include?(relative_path)
         puts "Skipped (already included): #{basename}" unless @quiet
@@ -53,7 +54,7 @@ module Frijolero
       raise ArgumentError, 'No input files provided' if @files.empty?
       unless @output
         raise ArgumentError,
-              'Output file not specified. Set paths.beancount_main in ~/.frijolero/config.yaml or use -o'
+              'Output file not specified. Set LEDGER_DIR (and optionally LEDGER_MAIN_FILE) or use -o'
       end
 
       @files.each do |file|
@@ -65,13 +66,10 @@ module Frijolero
       File.readlines(file).count { |line| line.match?(/^\d{4}-\d{2}-\d{2}\s+\*/) }
     end
 
-    def extract_prefix(file)
-      parsed = AccountConfig.parse_filename(file)
-      if parsed
-        parsed[0]
-      else
-        File.basename(file, '.*')
-      end
+    def relative_include_path(file)
+      Pathname(File.expand_path(file))
+        .relative_path_from(Pathname(File.dirname(File.expand_path(@output))))
+        .to_s
     end
 
     def read_existing_includes
