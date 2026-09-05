@@ -1,6 +1,6 @@
 {
   "_comment": "Classifies a statement PDF: which account, and which period. The Classifier fills the account enum from accounts.yaml at request time. Model copied from the default extractor.",
-  "model": "gpt-5",
+  "model": "gpt-5.4-mini",
   "format": {
     "type": "json_schema",
     "name": "statement_classification",
