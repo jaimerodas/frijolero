@@ -10,12 +10,16 @@ module Frijolero
       set :public_folder, File.join(__dir__, 'public')
       set :static_cache_control, [:no_cache]
 
-      # Configured at launch by CLI
+      # Set by the review flow
       set :json_file, nil
       set :beancount_account, nil
       set :accounts_list, []
 
       get '/' do
+        '<!doctype html><title>Frijolero</title><h1>Frijolero</h1>'
+      end
+
+      get '/review' do
         transactions = load_transactions
         erb :review, locals: {
           transactions: transactions,
