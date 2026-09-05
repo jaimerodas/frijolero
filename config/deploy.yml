@@ -1,0 +1,47 @@
+service: frijolero
+image: jaimerodas/frijolero
+
+servers:
+  web:
+    hosts:
+      - 146.190.35.4 # maia
+    options:
+      memory: 64m # the plan budgets ~45 MB RSS; an overrun is a visible restart
+
+proxy:
+  ssl: true
+  host: frijolero.pati.to
+  app_port: 9292
+  healthcheck:
+    path: /up
+    interval: 3
+    timeout: 3
+
+registry:
+  server: ghcr.io
+  username: jaimerodas
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+builder:
+  arch: amd64
+
+volumes:
+  - frijolero_data:/data
+
+env:
+  clear:
+    LEDGER_DIR: /data/ledger
+    PUMA_THREADS: "3"
+    B2_ENDPOINT: s3.us-west-004.backblazeb2.com # TODO: confirm the bucket's endpoint before the first deploy
+    B2_BUCKET: frijolero # TODO: confirm the bucket name before the first deploy
+  secret:
+    - OPENAI_API_KEY
+    - APP_PASSWORD
+    - B2_KEY_ID
+    - B2_KEY
+    - GIT_TOKEN
+
+aliases:
+  logs: app logs -f
+  shell: app exec --interactive --reuse bash

@@ -1,0 +1,10 @@
+/.git/
+/.gitignore
+/.bundle
+/.claude/
+/.kamal/
+/docs/
+/test/
+/script/
+/*.gem
+/.DS_Store

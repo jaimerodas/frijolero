@@ -3,3 +3,4 @@
 data
 *.gem
 Gemfile.lock
+.claude/worktrees/
