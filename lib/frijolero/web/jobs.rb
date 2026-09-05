@@ -100,9 +100,10 @@ module Frijolero
         end
       end
 
+      # A restart empties the in-memory queue, so a queued job is as lost as a running one.
       def recover_running_jobs
         @jobs.each_value do |job|
-          next unless job.running?
+          next unless job.running? || job.status == 'queued'
 
           job.status = 'failed'
           job.error = INTERRUPTED_ERROR

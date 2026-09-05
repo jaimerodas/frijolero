@@ -9,7 +9,7 @@ Version 2 of Frijolero replaced the command-line tool with this web app.
 
 ## Status
 
-Frijolero is under construction. Two parts exist today:
+Frijolero is under construction. These parts exist today:
 
 - The domain code (converters, detailer, and Beancount parser) is unchanged from the CLI.
 - `Config` reads its settings from environment variables.

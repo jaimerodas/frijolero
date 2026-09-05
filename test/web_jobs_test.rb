@@ -92,6 +92,16 @@ class WebJobsTest < Minitest::Test
     assert_equal 'failed', lines.last['status']
   end
 
+  def test_boot_recovery_marks_queued_jobs_failed
+    path = log_path
+    File.write(path, "#{JSON.generate({ id: 'q1', label: 'BBVA 2508', status: 'queued' })}\n")
+
+    jobs = Frijolero::Web::Jobs.new(log_path: path)
+
+    assert_equal 'failed', jobs.find('q1').status
+    assert_equal 'interrumpido por un reinicio', jobs.find('q1').error
+  end
+
   def test_all_returns_newest_first
     jobs = Frijolero::Web::Jobs.new(log_path: log_path)
     first = jobs.push(label: 'first', &noop)
