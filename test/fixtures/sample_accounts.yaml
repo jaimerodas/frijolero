@@ -1,6 +1,7 @@
 Amex:
   beancount_account: "Liabilities:Amex"
   openai_prompt_type: default
+  description: "Amex credit card, MXN"
 BBVA:
   beancount_account: "Assets:BBVA"
   openai_prompt_type: bbva

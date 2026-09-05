@@ -63,6 +63,14 @@ class AccountConfigTest < Minitest::Test
     end
   end
 
+  def test_descriptions_fall_back_to_key
+    with_accounts_config do
+      descriptions = Frijolero::AccountConfig.descriptions
+      assert_equal 'Amex credit card, MXN', descriptions['Amex']
+      assert_equal 'BBVA', descriptions['BBVA']
+    end
+  end
+
   private
 
   def with_accounts_config

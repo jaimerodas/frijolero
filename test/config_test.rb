@@ -156,6 +156,15 @@ class ConfigTest < Minitest::Test
     end
   end
 
+  def test_classify_template_is_valid_and_consistent
+    templates_dir = File.expand_path('../lib/frijolero/templates/prompts', __dir__)
+    spec = Frijolero::PromptSpec.load('classify', templates_dir)
+
+    assert_equal ['unknown'], spec['format']['schema']['properties']['account']['enum']
+    assert_equal 'statement_classification', spec['format']['name']
+    assert_includes spec['format']['schema']['required'], 'period_end'
+  end
+
   private
 
   def copy_prompt_fixtures

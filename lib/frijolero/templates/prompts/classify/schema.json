@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["account", "period_start", "period_end"],
+  "properties": {
+    "account": {
+      "type": "string",
+      "enum": ["unknown"],
+      "description": "The account key this statement belongs to, or unknown."
+    },
+    "period_start": {
+      "type": "string",
+      "description": "First day of the statement period as printed on the statement, YYYY-MM-DD."
+    },
+    "period_end": {
+      "type": "string",
+      "description": "Last day of the statement period as printed on the statement, YYYY-MM-DD. This is the closing date, not the payment due date."
+    }
+  }
+}

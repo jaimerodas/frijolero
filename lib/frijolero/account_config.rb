@@ -40,6 +40,12 @@ module Frijolero
       def available_accounts
         accounts.keys
       end
+
+      # {key => description} for the classifier. Falls back to the key itself
+      # so an account without a description still appears in the list.
+      def descriptions
+        accounts.to_h { |key, config| [key, config['description'] || key] }
+      end
     end
   end
 end
