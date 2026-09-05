@@ -189,3 +189,6 @@ module Frijolero
     end
   end
 end
+
+require_relative 'statements'
+require_relative 'editors'
