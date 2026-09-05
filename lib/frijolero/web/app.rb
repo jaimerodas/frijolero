@@ -2,6 +2,7 @@
 
 require 'sinatra/base'
 require 'json'
+require_relative 'jobs'
 
 module Frijolero
   module Web

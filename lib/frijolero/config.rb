@@ -47,6 +47,18 @@ module Frijolero
         @accounts = nil
       end
 
+      def data_dir
+        File.dirname(ledger_dir)
+      end
+
+      def jobs_file
+        File.join(data_dir, 'jobs.jsonl')
+      end
+
+      def incoming_dir
+        File.join(data_dir, 'incoming')
+      end
+
       def openai_api_key
         ENV.fetch('OPENAI_API_KEY', nil)
       end

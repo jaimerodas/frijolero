@@ -63,6 +63,24 @@ class ConfigTest < Minitest::Test
     end
   end
 
+  def test_data_dir_is_parent_of_ledger_dir
+    with_ledger_dir do |dir|
+      assert_equal File.dirname(dir), Frijolero::Config.data_dir
+    end
+  end
+
+  def test_jobs_file_lives_under_data_dir
+    with_ledger_dir do |dir|
+      assert_equal File.join(File.dirname(dir), 'jobs.jsonl'), Frijolero::Config.jobs_file
+    end
+  end
+
+  def test_incoming_dir_lives_under_data_dir
+    with_ledger_dir do |dir|
+      assert_equal File.join(File.dirname(dir), 'incoming'), Frijolero::Config.incoming_dir
+    end
+  end
+
   def test_openai_api_key_reads_env
     with_ledger_dir do
       old = ENV.fetch('OPENAI_API_KEY', nil)
