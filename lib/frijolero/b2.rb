@@ -62,9 +62,12 @@ module Frijolero
       @region = region || endpoint.split('.')[1]
     end
 
+    # Credentials never contain whitespace, but a password manager field can: a stray
+    # space in B2_KEY once produced "Signature validation failed" and, for large
+    # bodies, "IncompleteBody" from B2. Strip it here rather than debug it again.
     def self.from_env
       new(endpoint: ENV.fetch('B2_ENDPOINT'), bucket: ENV.fetch('B2_BUCKET'),
-          key_id: ENV.fetch('B2_KEY_ID'), key: ENV.fetch('B2_KEY'))
+          key_id: ENV.fetch('B2_KEY_ID').gsub(/\s/, ''), key: ENV.fetch('B2_KEY').gsub(/\s/, ''))
     end
 
     # PUT the local file at `path` under `key`, signed with header authentication.

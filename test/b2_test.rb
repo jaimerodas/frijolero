@@ -178,6 +178,20 @@ class B2Test < Minitest::Test
     assert_same response, result
   end
 
+  def test_from_env_strips_whitespace_from_credentials
+    env = { 'B2_ENDPOINT' => 's3.us-west-000.backblazeb2.com', 'B2_BUCKET' => 'b',
+            'B2_KEY_ID' => ' 000abc ', 'B2_KEY' => "K000 abc\n" }
+    old = env.keys.to_h { |k| [k, ENV.fetch(k, nil)] }
+    env.each { |k, v| ENV[k] = v }
+
+    b2 = Frijolero::B2.from_env
+
+    assert_equal '000abc', b2.instance_variable_get(:@key_id)
+    assert_equal 'K000abc', b2.instance_variable_get(:@key)
+  ensure
+    old.each { |k, v| v.nil? ? ENV.delete(k) : ENV[k] = v }
+  end
+
   private
 
   def make_response(klass, code, body)

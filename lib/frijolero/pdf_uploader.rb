@@ -32,26 +32,25 @@ module Frijolero
 
     # Execute the plan: upload each PDF, print results, return Result with uploaded and skipped.
     def run
-      uploaded = []
       pairs = plan
       skipped = @unresolved.dup
       skipped.each { |reason| @out.puts "skip #{reason}" }
-
-      pairs.each do |local_path, b2_key|
-        full_path = File.join(@source, local_path)
-        begin
-          @b2.put(b2_key, full_path)
-          uploaded << b2_key
-          @out.puts "ok  #{b2_key}"
-        rescue B2::Error => e
-          skipped << "#{local_path}: #{e.message}"
-        end
-      end
-
+      uploaded = pairs.filter_map { |local_path, b2_key| upload_one(local_path, b2_key, skipped) }
       Result.new(uploaded: uploaded, skipped: skipped)
     end
 
     private
+
+    # Returns the key on success; records the failure and returns nil otherwise.
+    def upload_one(local_path, b2_key, skipped)
+      @b2.put(b2_key, File.join(@source, local_path))
+      @out.puts "ok  #{b2_key}"
+      b2_key
+    rescue B2::Error => e
+      skipped << "#{local_path}: #{e.message}"
+      @out.puts "skip #{local_path}: #{e.message.lines.first.strip}"
+      nil
+    end
 
     def normalize(name)
       name.tr('_', ' ').downcase
