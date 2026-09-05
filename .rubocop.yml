@@ -31,7 +31,6 @@ Naming/VariableNumber:
 #   run_pipeline            Statement
 #   execute                 OpenAIClient::Transport
 #   process_one             BeancountMerger
-#   load_metadata           Statement (parse + lookup + status return)
 #   raise_error_for         OpenAIClient::Transport (case on HTTP status)
 #   upload_file             OpenAIClient
 #   extract_transactions    OpenAIClient
@@ -46,7 +45,6 @@ Metrics/MethodLength:
     - run_pipeline
     - execute
     - process_one
-    - load_metadata
     - raise_error_for
     - upload_file
     - extract_transactions
@@ -56,9 +54,14 @@ Metrics/MethodLength:
 # AccountTargets is a named bag of destination accounts (counterpart, interest,
 # tax, dividend, gains, fees, withholding). Keyword arguments are the point of
 # the class; collapsing them into a hash would lose the named defaults.
+#
+# Statement#initialize takes the six things a job knows about one PDF (account,
+# period, file id, overwrite, dry run); they are optional keywords with defaults,
+# and an options hash would only hide them.
 Metrics/ParameterLists:
   Exclude:
     - 'lib/frijolero/converters/account_targets.rb'
+    - 'lib/frijolero/statement.rb'
 
 # UI.confirm is the public name callers already use (a yes/no answer without
 # a terminal to ask); renaming it to confirm? would ripple through every caller.

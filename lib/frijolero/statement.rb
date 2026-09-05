@@ -4,6 +4,9 @@ require 'json'
 require 'fileutils'
 
 module Frijolero
+  # One PDF's lifecycle: resolve metadata, extract, save, detail, convert, merge, clean up.
+  # The caller (a background job) usually already knows the account, the period and the
+  # OpenAI file id; the filename is only the fallback.
   class Statement
     UNPARSEABLE = :unparseable
     NO_ACCOUNT_CONFIG = :no_account_config
@@ -13,9 +16,13 @@ module Frijolero
 
     DRY_RUN = :dry_run
 
-    def initialize(pdf_path, client:, dry_run: false)
+    def initialize(pdf_path, client:, account: nil, period: nil, file_id: nil, overwrite: false, dry_run: false)
       @pdf_path = pdf_path
       @client = client
+      @account_name = account
+      @date_str = period
+      @file_id = file_id
+      @overwrite = overwrite
       @dry_run = dry_run
       @filename = File.basename(pdf_path)
     end
@@ -42,25 +49,24 @@ module Frijolero
         return DRY_RUN
       end
 
-      ok = check_overwrite(output_paths[:json], output_paths[:beancount])
-      ok ? run_pipeline : OVERWRITE_DECLINED
+      return OVERWRITE_DECLINED if blocked_by_existing?
+
+      run_pipeline
     end
 
     def load_metadata
-      parsed = AccountConfig.parse_filename(@pdf_path)
-      unless parsed
+      @account_name, @date_str = AccountConfig.parse_filename(@pdf_path) unless @account_name && @date_str
+
+      unless @account_name && @date_str
         UI.puts "{{x}} #{@filename}: Could not parse filename format"
         return UNPARSEABLE
       end
 
-      @account_name, @date_str = parsed
       @account_config = AccountConfig.find_config(@account_name)
-      unless @account_config
-        UI.puts "{{x}} #{@filename}: No account configuration found for '#{@account_name}'"
-        return NO_ACCOUNT_CONFIG
-      end
+      return OK if @account_config
 
-      OK
+      UI.puts "{{x}} #{@filename}: No account configuration found for '#{@account_name}'"
+      NO_ACCOUNT_CONFIG
     end
 
     def output_paths
@@ -70,14 +76,17 @@ module Frijolero
       }
     end
 
-    def check_overwrite(json_path, beancount_path)
-      existing = [json_path, beancount_path].select { |p| File.exist?(p) }
-      return true if existing.empty?
+    # There is no terminal to ask, so the caller decides with overwrite:.
+    def blocked_by_existing?
+      return false if @overwrite
 
-      UI.puts '{{!}} Existing files will be overwritten:'
-      show_existing_json_info(json_path) if File.exist?(json_path)
-      show_existing_beancount_info(beancount_path) if File.exist?(beancount_path)
-      UI.confirm('Overwrite existing files?', default: false)
+      json, beancount = output_paths.values_at(:json, :beancount)
+      return false unless File.exist?(json) || File.exist?(beancount)
+
+      UI.puts '{{!}} Existing files, not overwriting:'
+      show_existing_json_info(json) if File.exist?(json)
+      show_existing_beancount_info(beancount) if File.exist?(beancount)
+      true
     end
 
     def show_existing_json_info(json_path)
@@ -91,14 +100,15 @@ module Frijolero
     end
 
     def run_pipeline
-      file_id = upload_pdf
+      file_id = @file_id || upload_pdf
       transactions = extract_transactions(file_id)
       pipeline = Pipeline.for(@account_config)
 
       UI.puts pipeline.summary(transactions)
       save_json(transactions)
       run_detailer if pipeline.runs_detailer?
-      convert_and_merge(pipeline) if UI.confirm("Convert to Beancount (#{pipeline.beancount_account})?")
+      convert_to_beancount(pipeline)
+      merge_into_ledger
       finalize(file_id)
       OK
     rescue *OpenAIErrorReporter::HANDLED => e
@@ -146,11 +156,6 @@ module Frijolero
       end
     end
 
-    def convert_and_merge(pipeline)
-      convert_to_beancount(pipeline)
-      merge_into_ledger if UI.confirm('Merge into ledger?')
-    end
-
     def convert_to_beancount(pipeline)
       FileUtils.mkdir_p(File.dirname(output_paths[:beancount]))
       pipeline.convert(json_path: output_paths[:json], output: output_paths[:beancount])
@@ -162,6 +167,8 @@ module Frijolero
       UI.puts "Merged into: #{UI.short_path(Config.main_file)}"
     end
 
+    # The job ends here, so the uploaded PDF goes away here too, whether we uploaded it
+    # or the caller did.
     def finalize(file_id)
       client.delete_file(file_id)
     end
