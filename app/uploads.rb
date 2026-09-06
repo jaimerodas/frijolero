@@ -39,13 +39,21 @@ module Frijolero
     # survives, which is what lets Classifier's filename shortcut fire.
     def save_upload
       file = params[:pdf]
-      halt 422, 'Sube un PDF' unless file && file[:filename].to_s.match?(/\.pdf\z/i)
+      name = upload_name(file)
+      halt 422, 'Sube un PDF' unless name.match?(/\.pdf\z/i)
 
       dir = File.join(Config.incoming_dir, SecureRandom.hex(8))
       FileUtils.mkdir_p(dir)
-      dest = File.join(dir, file[:filename])
+      dest = File.join(dir, name)
       FileUtils.cp(file[:tempfile].path, dest)
       dest
+    end
+
+    # Rack leaves a plain multipart filename as BINARY; browsers send it as UTF-8.
+    def upload_name(file)
+      return '' unless file.is_a?(Hash)
+
+      file[:filename].to_s.dup.force_encoding(Encoding::UTF_8).scrub
     end
 
     def validate_confirm!

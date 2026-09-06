@@ -184,6 +184,15 @@ class UploadsTest < Minitest::Test
     assert(Dir.glob(File.join(Frijolero::Config.incoming_dir, '*', '*')).any?)
   end
 
+  def test_a_filename_with_accents_renders_the_confirm_page
+    @client.classification = { 'account' => 'BBVA', 'period_start' => '2026-07-24', 'period_end' => '2026-08-23' }
+
+    post '/upload', pdf: pdf_upload('estado.pdf', name: 'Estado de cuenta – agosto.pdf')
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, 'Estado de cuenta – agosto.pdf'
+  end
+
   def test_unknown_filename_classifies_via_openai
     @client.classification = { 'account' => 'BBVA', 'period_start' => '2026-07-24', 'period_end' => '2026-08-23' }
 
