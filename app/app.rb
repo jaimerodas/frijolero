@@ -26,6 +26,13 @@ module Frijolero
         erb :_head, layout: false, locals: { title: title, refresh: refresh }
       end
 
+      MONTHS = %w[enero febrero marzo abril mayo junio julio agosto septiembre octubre noviembre diciembre].freeze
+
+      # 'YYMM' → 'agosto 2026'. URLs and file names keep YYMM.
+      def period_name(period)
+        "#{MONTHS[period[2, 2].to_i - 1]} 20#{period[0, 2]}"
+      end
+
       # Only the Default pipeline has rules: links, editor and the detail action.
       def rules?(account)
         Pipeline.for(Config.accounts[account]).runs_detailer?

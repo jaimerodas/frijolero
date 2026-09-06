@@ -17,7 +17,7 @@
       <th>Cuenta</th>
       <th>Corte</th>
       <% periods.each do |period| %>
-        <th><%= h.(period) %></th>
+        <th><%= h.(period_name(period)) %></th>
       <% end %>
     </tr>
     <% dashboard.rows.each do |row| %>

@@ -175,7 +175,7 @@ class AccountsTest < Minitest::Test
 
     assert_equal 200, last_response.status
     assert_equal ['frijolero/accounts/BBVA TDC/'], @b2.prefixes
-    assert_operator last_response.body.index('2508'), :<, last_response.body.index('2507')
+    assert_operator last_response.body.index('agosto 2025'), :<, last_response.body.index('julio 2025')
     assert_includes last_response.body, '/statements/BBVA%20TDC/2508/pdf'
     assert_includes last_response.body, '/statements/BBVA%20TDC/2507/pdf'
     assert_includes last_response.body, '/statements/BBVA%20TDC/2508"'

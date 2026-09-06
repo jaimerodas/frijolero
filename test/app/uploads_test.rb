@@ -132,7 +132,7 @@ class UploadsTest < Minitest::Test
     assert_equal 200, last_response.status
     assert_includes last_response.body, 'AMEX'
     assert_includes last_response.body, 'BBVA'
-    Frijolero::Dashboard.new.periods.each { |period| assert_includes last_response.body, period }
+    Frijolero::Dashboard.new.periods.each { |period| assert_includes last_response.body, app.new!.period_name(period) }
   end
 
   def test_dashboard_shows_the_cutoff_day_of_each_account

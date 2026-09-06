@@ -114,6 +114,8 @@ class DashboardTest < Minitest::Test
       assert_includes html, 'falta'
       assert_includes html, 'recibido'
       assert_includes html, '/statements/BBVA%20TDC/2608'
+      assert_includes html, '<th>agosto 2026</th>'
+      assert_includes html, '<th>septiembre 2026</th>'
       assert_includes html, '&lt;x&gt;'
     end
   end
