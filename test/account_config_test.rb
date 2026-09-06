@@ -1,11 +1,36 @@
 # frozen_string_literal: true
 
 require 'test_helper'
+require 'date'
 
 class AccountConfigTest < Minitest::Test
   include TestHelpers
 
   def teardown; end
+
+  def test_record_cutoff_writes_the_day_once_and_keeps_the_rest_of_the_file
+    with_ledger_dir do |dir|
+      path = File.join(dir, 'config', 'accounts.yaml')
+      File.write(path, "# top\nAMEX:\n  beancount_account: \"Liabilities:Amex\"\n# tail\nBBVA:\n  cutoff_day: 22\n")
+
+      Frijolero::AccountConfig.record_cutoff('AMEX', Date.new(2026, 9, 3))
+      Frijolero::AccountConfig.record_cutoff('BBVA', Date.new(2026, 8, 23))
+
+      expected = "# top\nAMEX:\n  beancount_account: \"Liabilities:Amex\"\n  cutoff_day: 3\n" \
+                 "# tail\nBBVA:\n  cutoff_day: 22\n"
+      assert_equal expected, File.read(path)
+    end
+  end
+
+  def test_record_cutoff_stores_31_for_the_last_day_of_the_month
+    with_ledger_dir do |dir|
+      File.write(File.join(dir, 'config', 'accounts.yaml'), "CETES:\n  beancount_account: \"Assets:Cetes\"\n")
+
+      Frijolero::AccountConfig.record_cutoff('CETES', Date.new(2026, 2, 28))
+
+      assert_equal 31, Frijolero::Config.accounts['CETES']['cutoff_day']
+    end
+  end
 
   def test_parse_filename_with_space_separator
     result = Frijolero::AccountConfig.parse_filename('Amex 2501.pdf')

@@ -4,6 +4,7 @@ require 'sinatra/base'
 require 'json'
 require 'securerandom'
 require 'fileutils'
+require 'date'
 require_relative 'jobs'
 require_relative 'dashboard'
 require_relative 'ledger_repo'
@@ -52,8 +53,11 @@ module Frijolero
 
       post '/upload/confirm' do
         account, period, pdf_path, file_id, overwrite = validate_confirm!
+        period_end = iso_date(params[:period_end])
         job = enqueue_statement(account: account, period: period, pdf_path: pdf_path,
-                                file_id: file_id, overwrite: overwrite)
+                                file_id: file_id, overwrite: overwrite) do
+          AccountConfig.record_cutoff(account, period_end) if period_end
+        end
         redirect "/jobs/#{job.id}", 303
       end
 
@@ -175,17 +179,25 @@ module Frijolero
         value.to_s.strip.empty? ? nil : value
       end
 
+      # The printed period end is optional: the filename shortcut has none.
+      def iso_date(value)
+        Date.iso8601(value.to_s)
+      rescue Date::Error
+        nil
+      end
+
       # The collaborators are read here rather than inside the block: the block runs on
       # the worker thread, long after this request is gone.
-      def enqueue_statement(account:, period:, pdf_path:, file_id:, overwrite:)
+      def enqueue_statement(account:, period:, pdf_path:, file_id:, overwrite:, &after)
         statement = Statement.new(pdf_path, client: self.class.client, b2: self.class.b2, account: account,
                                             period: period, file_id: file_id, overwrite: overwrite)
-        run_job("#{account} #{period}", statement, File.dirname(pdf_path))
+        run_job("#{account} #{period}", statement, File.dirname(pdf_path), &after)
       end
 
       # Pull before the work and push after it. The volume holds a clone, so a job that
       # writes without pulling first turns the next push into a conflict to untangle by
-      # hand; a job that fails leaves the upload where it is, for a retry.
+      # hand; a job that fails leaves the upload where it is, for a retry. The block
+      # runs after a good statement and rides on the same commit.
       def run_job(label, statement, upload_dir)
         repo = self.class.repo
         self.class.jobs.push(label: label) do
@@ -193,6 +205,7 @@ module Frijolero
           status = statement.process
           raise "Statement terminó con #{status}" unless status == Statement::OK
 
+          yield if block_given?
           repo.commit_and_push(label)
           FileUtils.rm_rf(upload_dir)
         end

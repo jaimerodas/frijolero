@@ -95,6 +95,7 @@ class WebUploadTest < Minitest::Test
         beancount_account: "Liabilities:Amex"
       BBVA:
         beancount_account: "Assets:BBVA"
+        cutoff_day: 31
     YAML
     FileUtils.mkdir_p(File.join(@dir, 'config', 'prompts'))
     FileUtils.cp_r(fixture_path('prompts/default'), File.join(@dir, 'config', 'prompts', 'default'))
@@ -138,6 +139,22 @@ class WebUploadTest < Minitest::Test
     Frijolero::Web::Dashboard.new.periods.each { |period| assert_includes last_response.body, period }
   end
 
+  def test_dashboard_shows_the_cutoff_day_of_each_account
+    get '/'
+
+    assert_includes last_response.body, 'fin de mes'
+  end
+
+  def test_the_job_records_the_cutoff_day_from_the_confirmed_period_end
+    token = upload_and_extract_token('AMEX 2508.pdf')
+    post '/upload/confirm', account: 'AMEX', period: '2508', token: token, overwrite: '0', period_end: '2025-08-03'
+
+    Frijolero::Web::App.jobs.work_one
+
+    assert_equal 3, Frijolero::Config.accounts['AMEX']['cutoff_day']
+    assert_equal 31, Frijolero::Config.accounts['BBVA']['cutoff_day']
+  end
+
   def test_dashboard_links_to_jobs_accounts_and_rules
     get '/'
 
@@ -171,6 +188,7 @@ class WebUploadTest < Minitest::Test
     assert_includes last_response.body, 'value="2608"'
     assert_includes last_response.body, '2026-07-24 a 2026-08-23'
     assert_match(/name="file_id" value="file-1"/, last_response.body)
+    assert_match(/name="period_end" value="2026-08-23"/, last_response.body)
   end
 
   def test_unknown_account_selects_nothing_but_keeps_the_period

@@ -7,7 +7,7 @@ module Frijolero
     # Which statements exist for the previous and the current month, per account.
     # Computed on each request from the filesystem; nothing is stored.
     class Dashboard
-      Row = Struct.new(:account, :statuses, keyword_init: true)
+      Row = Struct.new(:account, :statuses, :cutoff_day, keyword_init: true)
 
       def initialize(today: Date.today, failed: [])
         @today = today
@@ -19,9 +19,9 @@ module Frijolero
       end
 
       def rows
-        AccountConfig.active.keys.map do |account|
+        AccountConfig.active.map do |account, config|
           statuses = periods.to_h { |period| [period, status_for(account, period)] }
-          Row.new(account: account, statuses: statuses)
+          Row.new(account: account, statuses: statuses, cutoff_day: config['cutoff_day'])
         end
       end
 

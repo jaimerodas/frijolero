@@ -17,6 +17,7 @@ class WebDashboardTest < Minitest::Test
     File.write(File.join(dir, 'config', 'accounts.yaml'), <<~YAML)
       AMEX:
         beancount_account: "Liabilities:Amex"
+        cutoff_day: 3
       BBVA TDC:
         beancount_account: "Liabilities:BBVA"
       Old Card:
@@ -32,6 +33,16 @@ class WebDashboardTest < Minitest::Test
       accounts = Frijolero::Web::Dashboard.new(today: Date.new(2026, 9, 5)).rows.map(&:account)
 
       assert_equal ['AMEX', 'BBVA TDC'], accounts
+    end
+  end
+
+  def test_rows_carry_the_cutoff_day_when_configured
+    with_ledger_dir do |dir|
+      write_accounts(dir)
+
+      rows = Frijolero::Web::Dashboard.new(today: Date.new(2026, 9, 5)).rows
+
+      assert_equal [3, nil], rows.map(&:cutoff_day)
     end
   end
 

@@ -44,7 +44,7 @@ Layout of the ledger repo (`LEDGER_DIR`). `Config` derives each path from it:
 transactions.beancount        # LEDGER_MAIN_FILE; inline txns + `include "accounts/AMEX/AMEX 2508.beancount"`
 moneys.beancount              # what fava opens; includes transactions, account_opens, balances, prices
 account_opens.beancount       # opens for every non-commodity account
-config/accounts.yaml          # account key → beancount_account, openai_prompt_type, converter_type, description, closed
+config/accounts.yaml          # account key → beancount_account, openai_prompt_type, converter_type, description, closed, cutoff_day
 config/rules/<Key>.yaml       # detailer rules, one file per account key (spaces kept: "BBVA TDC.yaml")
 config/prompts/<type>/        # spec.json + instructions.txt + schema.json, read on every call
 accounts/<Key>/<Key> YYMM.beancount   # + the .json next to it. Period = the month that holds most of the statement's days
@@ -79,7 +79,7 @@ kamal app exec --reuse 'bundle exec ruby -Ilib -e "require %q(frijolero); requir
 
 `App` holds the routes. `app.rb` has the dashboard, upload, confirm, jobs and the PDF redirect. `statements.rb`, `editors.rb` and `accounts.rb` reopen the class for the statement page, the rules editor and the Cuentas section. The class has four class-level collaborators with `attr_writer`s, so tests can swap in fakes: `jobs`, `client` (OpenAI), `b2` and `repo`. The app builds each one on first use.
 
-Views are standalone ERB pages in Spanish with inline CSS. There is no layout. `Dashboard` computes received, missing, pending or failed for each active account, for the previous and the current month, on each request. The `/review` routes, `views/review.erb`, `public/app.js` and `Accounts` are dead code from the CLI era.
+Views are standalone ERB pages in Spanish with inline CSS. There is no layout. `Dashboard` computes received, missing, pending or failed for each active account, for the previous and the current month, on each request. Its Corte column shows `cutoff_day` from `accounts.yaml`, the day of the month on which that account's statements close, with 31 for the last day. The job fills it in the first time a confirmed upload carries a printed period end, and never overwrites it, so a hand edit in `/accounts/<Key>/config` wins. The `/review` routes, `views/review.erb`, `public/app.js` and `Accounts` are dead code from the CLI era.
 
 ### Cuentas (`web/accounts.rb`)
 
