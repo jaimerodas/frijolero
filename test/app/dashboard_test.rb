@@ -40,17 +40,53 @@ class DashboardTest < Minitest::Test
     end
   end
 
-  def test_periods_returns_previous_and_current_month
-    with_ledger_dir do
+  def test_periods_end_at_the_previous_month_before_any_cutoff
+    with_ledger_dir do |dir|
+      write_accounts(dir)
       dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5))
-      assert_equal %w[2608 2609], dashboard.periods
+      assert_equal %w[2607 2608], dashboard.periods
     end
   end
 
-  def test_periods_handles_january_edge_case
+  def test_periods_include_the_current_month_once_an_account_closes_in_it
+    with_ledger_dir do |dir|
+      File.write(File.join(dir, 'config', 'accounts.yaml'), <<~YAML)
+        AMEX:
+          beancount_account: "Liabilities:Amex"
+          cutoff_day: 3
+        Nu:
+          beancount_account: "Liabilities:Nu"
+          cutoff_day: 23
+      YAML
+
+      before = Frijolero::Dashboard.new(today: Date.new(2026, 9, 22))
+      after = Frijolero::Dashboard.new(today: Date.new(2026, 9, 23))
+
+      assert_equal %w[2607 2608], before.periods
+      assert_equal %w[2608 2609], after.periods
+      statuses = after.rows.to_h { |row| [row.account, row.statuses['2609']] }
+      assert_equal({ 'AMEX' => :pending, 'Nu' => :missing }, statuses)
+    end
+  end
+
+  def test_periods_handle_the_january_edge_case
     with_ledger_dir do
       dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 1, 15))
-      assert_equal %w[2512 2601], dashboard.periods
+      assert_equal %w[2511 2512], dashboard.periods
+    end
+  end
+
+  def test_a_cutoff_past_the_end_of_february_closes_on_its_last_day
+    with_ledger_dir do |dir|
+      File.write(File.join(dir, 'config', 'accounts.yaml'), <<~YAML)
+        AMEX:
+          beancount_account: "Liabilities:Amex"
+          cutoff_day: 30
+      YAML
+
+      dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 3, 1))
+
+      assert_equal %w[2601 2602], dashboard.periods
     end
   end
 
@@ -62,7 +98,7 @@ class DashboardTest < Minitest::Test
     end
   end
 
-  def test_status_received_missing_and_pending
+  def test_status_received_and_missing
     with_ledger_dir do |dir|
       write_accounts(dir)
       path = Frijolero::Config.statement_path('BBVA TDC', '2608', 'beancount')
@@ -74,7 +110,6 @@ class DashboardTest < Minitest::Test
 
       assert_equal :received, rows['BBVA TDC']['2608']
       assert_equal :missing, rows['AMEX']['2608']
-      assert_equal :pending, rows['AMEX']['2609']
     end
   end
 
@@ -114,8 +149,8 @@ class DashboardTest < Minitest::Test
       assert_includes html, 'falta'
       assert_includes html, 'recibido'
       assert_includes html, '/statements/BBVA%20TDC/2608'
+      assert_includes html, '<th>julio 2026</th>'
       assert_includes html, '<th>agosto 2026</th>'
-      assert_includes html, '<th>septiembre 2026</th>'
       assert_includes html, '&lt;x&gt;'
     end
   end
