@@ -17,7 +17,6 @@ is still pending.
 - A dashboard shows, per account, if the previous month and the current month are received, missing, pending, or failed.
 - A statement page shows the transactions, the FIXME count, the Beancount preview, and a signed PDF download.
 - Editors for the rules files and for `accounts.yaml`, with validation. "Make a rule" prefills a rule from a FIXME row.
-- Two one-time scripts build the ledger repo from the old layout and upload the old PDFs to B2.
 
 See `docs/webapp-plan.md` for the plan and the decisions behind it.
 
@@ -174,20 +173,6 @@ To build and run the image on your machine:
 docker build -t frijolero .
 docker run --rm -p 9292:9292 -e APP_PASSWORD=x -e LEDGER_DIR=/data/ledger frijolero
 ```
-
-## One-time migration
-
-Two scripts move an installation from the old layout (`~/Documents/Beancount`
-and `~/.frijolero`) to the new one. Both read the old layout and never change it.
-
-```bash
-script/build_ledger_repo                    # builds ~/Developer/beancount-ledger
-script/upload_pdfs_to_b2 --dry-run          # shows which PDF goes to which key
-B2_ENDPOINT=... B2_BUCKET=... B2_KEY_ID=... B2_KEY=... script/upload_pdfs_to_b2
-```
-
-Each script prints a `skip` line for every file it does not understand and
-exits with 1 in that case, so read the output before you delete anything.
 
 ## Development
 

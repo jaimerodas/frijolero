@@ -51,7 +51,7 @@ On the volume, outside the repo: `/data/jobs.jsonl` is the append-only job log. 
 
 In B2, in a bucket shared with other apps: `frijolero/accounts/<Key>/<Key> YYMM.pdf`. `Config.pdf_key` is the only formula for that key, and `Config.pdf_prefix` is the account's directory.
 
-The old world is frozen. `~/Documents/Beancount` and `~/.frijolero` are the pre-2.0 layout. `script/build_ledger_repo` and `script/upload_pdfs_to_b2` migrated them on 2026-09-05. Both scripts are idempotent and never write to their source. They are only necessary again if that migration is done again. They predate the period rule: the old AMEX and AMEX Aeromexico names use the closing month, so a rerun would bring those names back.
+The old world is frozen. `~/Documents/Beancount` and `~/.frijolero` are the pre-2.0 layout. Two scripts migrated them to the ledger repo and to B2 on 2026-09-05, and were deleted afterwards (`git log -- script/build_ledger_repo`).
 
 A change to rules, accounts, prompts or model names is a commit in the ledger repo, not a deploy. The app reads those files on each request and each job. The volume gets the change at the next job's pull, or at once with this command:
 
