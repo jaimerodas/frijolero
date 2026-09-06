@@ -1,0 +1,48 @@
+<%
+  h = ->(s) { Rack::Utils.escape_html(s.to_s) }
+  v = ->(name) { h.(values[name]) }
+%>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%= head('Nueva cuenta') %>
+</head>
+<body>
+  <%= topbar %>
+  <main>
+    <h1>Nueva cuenta</h1>
+    <% if error %>
+      <p class="error" role="alert"><%= h.(error) %></p>
+    <% end %>
+    <form method="post" action="/accounts/new">
+      <label for="key">Clave</label>
+      <input type="text" id="key" name="key" value="<%= v.('key') %>" required autofocus>
+      <p class="note">El nombre del archivo: <code>Clave YYMM.pdf</code></p>
+
+      <label for="description">Descripción</label>
+      <input type="text" id="description" name="description" value="<%= v.('description') %>" size="40">
+      <p class="note">Lo que lee el clasificador para reconocer el estado de cuenta</p>
+
+      <label for="beancount_account">Cuenta Beancount</label>
+      <input type="text" id="beancount_account" name="beancount_account" value="<%= v.('beancount_account') %>"
+             pattern="(Assets|Liabilities|Equity|Income|Expenses)(:[A-Z][A-Za-z0-9-]*)+" placeholder="Assets:Banco" required>
+
+      <label for="openai_prompt_type">Tipo de prompt</label>
+      <select id="openai_prompt_type" name="openai_prompt_type">
+        <% prompt_types.each do |type| %>
+          <option value="<%= h.(type) %>"<%= ' selected' if type == values['openai_prompt_type'] %>><%= h.(type) %></option>
+        <% end %>
+      </select>
+
+      <label for="cutoff_day">Día de corte</label>
+      <input type="number" id="cutoff_day" name="cutoff_day" value="<%= v.('cutoff_day') %>" min="1" max="31">
+      <p class="note">Opcional. El primer estado de cuenta lo llena solo. 31 es el último día del mes.</p>
+
+      <label for="opened_on">Fecha de apertura</label>
+      <input type="date" id="opened_on" name="opened_on" value="<%= v.('opened_on') %>" required>
+
+      <p class="actions"><button type="submit" class="primary">Crear</button> <a class="button" href="/accounts">Cancelar</a></p>
+    </form>
+  </main>
+</body>
+</html>

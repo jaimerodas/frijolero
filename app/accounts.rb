@@ -23,6 +23,27 @@ module Frijolero
       render_editor(status: 422, **yaml_locals(content: content, error: e.message))
     end
 
+    # A form for one Default-pipeline account. The other pipelines need extra
+    # accounts and stay on the whole-file editor.
+    get '/accounts/new' do
+      values = { 'openai_prompt_type' => 'default', 'opened_on' => Date.today.iso8601 }
+      erb :account_new, locals: { values: values, prompt_types: NewAccount.prompt_types, error: nil }
+    end
+
+    post '/accounts/new' do
+      values = NewAccount::FIELDS.to_h { |f| [f, params[f].to_s.strip] }
+      key, entry, opened_on = NewAccount.parse!(values)
+
+      yaml = NewAccount.append_block(File.read(Config.accounts_file), key, entry)
+      File.write(Config.accounts_file, yaml)
+      NewAccount.add_open_line(Config.account_opens_file, opened_on, entry['beancount_account'])
+      commit_config("cuenta #{key}")
+      redirect '/upload', 303
+    rescue NewAccount::Invalid => e
+      status 422
+      erb :account_new, locals: { values: values, prompt_types: NewAccount.prompt_types, error: e.message }
+    end
+
     get '/accounts/:key' do
       key = params[:key]
       halt 404, 'Cuenta desconocida' unless Config.accounts.key?(key)

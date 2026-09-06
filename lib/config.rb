@@ -21,6 +21,10 @@ module Frijolero
         File.join(config_dir, 'accounts.yaml')
       end
 
+      def account_opens_file
+        File.join(ledger_dir, 'account_opens.beancount')
+      end
+
       def rules_dir
         File.join(config_dir, 'rules')
       end

@@ -335,7 +335,122 @@ class AccountsTest < Minitest::Test
     assert_equal 404, last_response.status
   end
 
+  # --- New account form ---
+
+  def test_new_account_form_lists_the_prompt_types_except_classify
+    make_prompt_types('default', 'bbva', 'classify')
+
+    get '/accounts/new'
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, '<option value="bbva">'
+    assert_includes last_response.body, '<option value="default" selected>'
+    refute_includes last_response.body, '<option value="classify">'
+  end
+
+  def test_accounts_list_links_to_the_new_account_form
+    get '/accounts'
+
+    assert_includes last_response.body, '/accounts/new'
+  end
+
+  def test_creating_an_account_appends_the_block_the_open_line_and_commits
+    post '/accounts/new', new_account_params
+
+    assert_equal 303, last_response.status
+    assert_equal 'http://example.org/upload', last_response.headers['Location']
+
+    yaml = File.read(File.join(@dir, 'config', 'accounts.yaml'))
+    assert_includes yaml, '# kept for the classifier'
+    assert_equal 'Assets:HSBC', Frijolero::Config.accounts['HSBC']['beancount_account']
+    assert_equal 'Cuenta HSBC', Frijolero::Config.accounts['HSBC']['description']
+    assert_equal 'default', Frijolero::Config.accounts['HSBC']['openai_prompt_type']
+    assert_equal 15, Frijolero::Config.accounts['HSBC']['cutoff_day']
+    assert_equal "2026-09-01 open Assets:HSBC\n", File.read(File.join(@dir, 'account_opens.beancount'))
+    assert_equal ['cuenta HSBC'], @repo.messages
+  end
+
+  def test_creating_an_account_keeps_an_existing_open_line
+    File.write(File.join(@dir, 'account_opens.beancount'), "2024-01-01 open Assets:BBVA\n2025-01-01 open Assets:HSBC\n")
+
+    post '/accounts/new', new_account_params
+
+    assert_equal 303, last_response.status
+    assert_equal "2024-01-01 open Assets:BBVA\n2025-01-01 open Assets:HSBC\n",
+                 File.read(File.join(@dir, 'account_opens.beancount'))
+  end
+
+  def test_creating_an_account_appends_the_open_line_after_a_file_without_a_final_newline
+    File.write(File.join(@dir, 'account_opens.beancount'), '2024-01-01 open Assets:BBVA')
+
+    post '/accounts/new', new_account_params
+
+    assert_equal "2024-01-01 open Assets:BBVA\n2026-09-01 open Assets:HSBC\n",
+                 File.read(File.join(@dir, 'account_opens.beancount'))
+  end
+
+  def test_creating_an_account_without_cutoff_day_leaves_it_out
+    post '/accounts/new', new_account_params(cutoff_day: '')
+
+    assert_equal 303, last_response.status
+    refute Frijolero::Config.accounts['HSBC'].key?('cutoff_day')
+  end
+
+  def test_creating_an_account_with_an_existing_key_is_rejected
+    post '/accounts/new', new_account_params(key: 'AMEX')
+
+    assert_rejected 'AMEX ya existe'
+  end
+
+  def test_creating_an_account_whose_key_ends_in_a_period_is_rejected
+    post '/accounts/new', new_account_params(key: 'HSBC 2026')
+
+    assert_rejected 'La clave no puede terminar en cuatro dígitos'
+  end
+
+  def test_creating_an_account_with_a_bad_beancount_account_is_rejected
+    post '/accounts/new', new_account_params(beancount_account: 'hsbc')
+
+    assert_rejected 'Cuenta Beancount inválida'
+  end
+
+  def test_creating_an_account_with_a_bad_cutoff_day_is_rejected
+    post '/accounts/new', new_account_params(cutoff_day: '32')
+
+    assert_rejected 'El día de corte va de 1 a 31'
+  end
+
+  def test_creating_an_account_with_a_bad_date_is_rejected
+    post '/accounts/new', new_account_params(opened_on: 'ayer')
+
+    assert_rejected 'Fecha de apertura inválida'
+  end
+
+  def test_creating_an_account_with_an_unknown_prompt_type_is_rejected
+    post '/accounts/new', new_account_params(openai_prompt_type: 'plata')
+
+    assert_rejected 'Tipo de prompt desconocido'
+  end
+
   private
+
+  def make_prompt_types(*types)
+    types.each { |type| FileUtils.mkdir_p(File.join(@dir, 'config', 'prompts', type)) }
+  end
+
+  def new_account_params(**overrides)
+    make_prompt_types('default', 'bbva')
+    { key: 'HSBC', description: 'Cuenta HSBC', beancount_account: 'Assets:HSBC', openai_prompt_type: 'default',
+      cutoff_day: '15', opened_on: '2026-09-01' }.merge(overrides)
+  end
+
+  def assert_rejected(message)
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, message
+    refute Frijolero::Config.accounts.key?('HSBC')
+    refute File.exist?(File.join(@dir, 'account_opens.beancount'))
+    assert_empty @repo.messages
+  end
 
   def restore_env(key, previous_value)
     if previous_value.nil?
