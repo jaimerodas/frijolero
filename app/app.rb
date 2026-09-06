@@ -38,6 +38,19 @@ module Frijolero
         "#{MONTHS[period[2, 2].to_i - 1]} 20#{period[0, 2]}"
       end
 
+      # -1234.5 → '-1,234.50', 5276.79 → '+5,276.79'. Display only.
+      def money(amount)
+        return '' if amount.nil?
+
+        digits = format('%.2f', amount.abs).sub(/\d+/) { |n| n.reverse.scan(/\d{1,3}/).join(',').reverse }
+        "#{amount.negative? ? '-' : '+'}#{digits}"
+      end
+
+      # Merchant first, the rest second: BBVA appends '; Fecha de cargo: …', AMEX appends ' RFC… /REF…'.
+      def split_description(description)
+        description.to_s.split(/; | (?=RFC[A-Z0-9]{6,})/, 2)
+      end
+
       # Only the Default pipeline has rules: links, editor and the detail action.
       def rules?(account)
         Pipeline.for(Config.accounts[account]).runs_detailer?
