@@ -5,8 +5,8 @@ require 'json'
 module Frijolero
   module Converters
     class Base
-      def self.convert(**kwargs)
-        new(**kwargs).convert
+      def self.convert(**)
+        new(**).convert
       end
 
       def initialize(input:, account:, output: nil)

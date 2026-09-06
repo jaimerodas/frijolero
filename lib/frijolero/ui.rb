@@ -77,8 +77,8 @@ module Frijolero
         ": #{parts.join(', ')}"
       end
 
-      def format_summary_part(label, transactions, &block)
-        total = transactions.sum(&block)
+      def format_summary_part(label, transactions, &)
+        total = transactions.sum(&)
         "#{transactions.size} #{label} (#{format_number(total)})"
       end
     end

@@ -47,8 +47,8 @@ module Frijolero
         SWEEP => :skip_sweep
       }.freeze
 
-      def initialize(targets: AccountTargets.new, **kwargs)
-        super(**kwargs)
+      def initialize(targets: AccountTargets.new, **)
+        super(**)
         @targets = targets
       end
 

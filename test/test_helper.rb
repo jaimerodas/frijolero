@@ -14,8 +14,8 @@ module TestHelpers
     File.join(FIXTURES_DIR, name)
   end
 
-  def with_temp_dir(&block)
-    Dir.mktmpdir(&block)
+  def with_temp_dir(&)
+    Dir.mktmpdir(&)
   end
 
   # Points LEDGER_DIR at a fresh temp dir with config/ inside; restores ENV after.

@@ -14,8 +14,8 @@ module Frijolero
 
       DEFAULT_GAINS_ACCOUNT = AccountTargets::DEFAULT_GAINS
 
-      def initialize(targets: AccountTargets.new, **kwargs)
-        super(**kwargs)
+      def initialize(targets: AccountTargets.new, **)
+        super(**)
         @targets = targets
       end
 

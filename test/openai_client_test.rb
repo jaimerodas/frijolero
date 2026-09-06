@@ -34,8 +34,8 @@ class OpenAIClientTest < Minitest::Test
     resp
   end
 
-  def with_http(result, &block)
-    Net::HTTP.stub(:new, FakeHttp.new(result), &block)
+  def with_http(result, &)
+    Net::HTTP.stub(:new, FakeHttp.new(result), &)
   end
 
   def test_authentication_error_on_401

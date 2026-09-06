@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require 'set'
-require 'pathname'
-
 module Frijolero
   class BeancountMerger
     def initialize(files:, output: nil, dry_run: false, quiet: false)

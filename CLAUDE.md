@@ -12,7 +12,7 @@ The flow: you upload a PDF. The app finds the account and the period, and you co
 
 - Escribe los mensajes de commit en español, simples y concisos.
 - Work happens on local `main`. The user pushes when they decide to. Do not open a PR for each change.
-- The pre-commit hook (`prove_it`) runs the full suite and rubocop inside `git commit`. Read "Git hooks" before you write code that shells out to git.
+- There are no git hooks. Run the tests and rubocop yourself before each commit. Read "Git subprocesses" before you write code that shells out to git.
 
 ## Commands
 
@@ -123,13 +123,13 @@ Three behaviours are deliberate. `High-Yield Cash Sweep` rows are skipped, becau
 
 ### Infrastructure classes
 
-`OpenAIClient` has a nested `Transport` and typed errors. `extract_transactions(file_id, spec)` runs any prompt spec on a file, with `background: true` and a 2 s poll. The classifier uses it too. `B2` is a hand-rolled SigV4 client over `Net::HTTP`, with path-style URLs. `list(prefix)` reads one page of ListObjectsV2 and parses the XML with a regex. `uri_encode` is the only place that turns a space into `%20`. The tests replay two official AWS vectors. `LedgerRepo` runs git as a subprocess (see "Git hooks"). `UI` writes plain lines to `UI.sink`, and `confirm` returns `auto_accept?`. `PromptSpec` assembles `spec.json`, `instructions.txt` and `schema.json`. The templates live in `lib/frijolero/templates/prompts/{default,plata,classify}`. The ledger repo holds the live copies, and `bbva`, `cetes` and `fintual` exist only there.
+`OpenAIClient` has a nested `Transport` and typed errors. `extract_transactions(file_id, spec)` runs any prompt spec on a file, with `background: true` and a 2 s poll. The classifier uses it too. `B2` is a hand-rolled SigV4 client over `Net::HTTP`, with path-style URLs. `list(prefix)` reads one page of ListObjectsV2 and parses the XML with a regex. `uri_encode` is the only place that turns a space into `%20`. The tests replay two official AWS vectors. `LedgerRepo` runs git as a subprocess (see "Git subprocesses"). `UI` writes plain lines to `UI.sink`, and `confirm` returns `auto_accept?`. `PromptSpec` assembles `spec.json`, `instructions.txt` and `schema.json`. The templates live in `lib/frijolero/templates/prompts/{default,plata,classify}`. The ledger repo holds the live copies, and `bbva`, `cetes` and `fintual` exist only there.
 
-## Git hooks: how a unit test can destroy data
+## Git subprocesses: how a unit test can destroy data
 
-`.git/hooks/pre-commit` runs the suite inside `git commit`. Git exports `GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` to hook children. Those variables override `chdir:`. A test that ran git "in a tmpdir" once committed an empty tree to `main` of this repo and pushed it.
+Git exports `GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` to the children of a hook. Those variables override `chdir:`. When this repo still had a pre-commit hook that ran the suite, a test that ran git "in a tmpdir" committed an empty tree to `main` of this repo and pushed it. The hooks are gone, but the same thing happens whenever those variables are set in the environment.
 
-The rules: each git subprocess, in lib and in tests, gets an env hash that sets every `ENV` key that matches `/\AGIT_/` to nil. `LedgerRepo#git` does this. `test/web_ledger_repo_test.rb` has the regression test. Before you commit new code that touches git, run `GIT_DIR=$(pwd)/.git GIT_WORK_TREE=$(pwd) bundle exec rake test` once. Then make sure that `git log -1` did not move.
+The rule: each git subprocess, in lib and in tests, gets an env hash that sets every `ENV` key that matches `/\AGIT_/` to nil. `LedgerRepo#git` does this. `test/web_ledger_repo_test.rb` has the regression test. Before you commit new code that touches git, run `GIT_DIR=$(pwd)/.git GIT_WORK_TREE=$(pwd) bundle exec rake test` once. Then make sure that `git log -1` did not move.
 
 ## Operations
 

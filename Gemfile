@@ -4,7 +4,9 @@ source 'https://rubygems.org'
 
 ruby file: '.ruby-version'
 
-gemspec
+gem 'bigdecimal', '~> 3.1'
+gem 'puma', '~> 8.0'
+gem 'sinatra', '~> 4.0'
 
 group :development, :test do
   gem 'minitest', '~> 6.0'

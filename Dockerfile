@@ -24,8 +24,7 @@ RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y build-essential && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
-COPY Gemfile Gemfile.lock frijolero.gemspec .ruby-version ./
-COPY lib/frijolero/version.rb lib/frijolero/version.rb
+COPY Gemfile Gemfile.lock .ruby-version ./
 RUN bundle install && \
     rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache
 

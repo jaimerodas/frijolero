@@ -1,6 +1,4 @@
 .nova
 .DS_Store
 data
-*.gem
-Gemfile.lock
 .claude/worktrees/

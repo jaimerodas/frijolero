@@ -7,8 +7,8 @@ module Frijolero
     class Beancount < Base
       DEFAULT_EXPENSE_ACCOUNT = 'Expenses:FIXME'
 
-      def initialize(expense_account: DEFAULT_EXPENSE_ACCOUNT, **kwargs)
-        super(**kwargs)
+      def initialize(expense_account: DEFAULT_EXPENSE_ACCOUNT, **)
+        super(**)
         @expense_account = expense_account
       end
 
