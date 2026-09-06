@@ -1,183 +1,172 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code in this repository.
 
-## Overview
+## What this is
 
-Frijolero is a Ruby web app that processes bank and credit card statement PDFs. OpenAI extracts the transactions from each PDF, and rules enrich them. The app converts the result to Beancount accounting format and adds it to a ledger.
+Frijolero is a Ruby 4.0 web app. It runs Sinatra on Puma, in one process, with no database. It turns bank, card and brokerage statement PDFs into Beancount.
+
+The flow: you upload a PDF. The app finds the account and the period, and you confirm. A background job extracts the transactions with OpenAI, applies YAML rules, writes a `.beancount` file, includes it in the ledger, and commits and pushes. The ledger is a git repo. The PDFs live in Backblaze B2. Version 2.0.0 replaced the CLI. The design record is `docs/webapp-plan.md`.
 
 ## Commits
 
-- Escribe los mensajes de commit en español
-- Mantenlos simples y concisos
+- Escribe los mensajes de commit en español, simples y concisos.
+- Work happens on local `main`. The user pushes when they decide to. Do not open a PR for each change.
+- The pre-commit hook (`prove_it`) runs the full suite and rubocop inside `git commit`. Read "Git hooks" before you write code that shells out to git.
 
 ## Commands
 
 ```bash
-# Run tests + rubocop (also wired into script/test and script/test_fast)
-bundle exec rake test
-bundle exec rubocop
+bundle exec rake test && bundle exec rubocop      # both must pass before a commit
 
-# Run the app locally
-LEDGER_DIR=... APP_PASSWORD=... OPENAI_API_KEY=... bundle exec puma -C config/puma.rb config.ru
+# Run locally against a ledger checkout
+LEDGER_DIR=~/Developer/beancount-ledger APP_PASSWORD=x OPENAI_API_KEY=... \
+  B2_ENDPOINT=... B2_BUCKET=... B2_KEY_ID=... B2_KEY=... \
+  bundle exec puma -C config/puma.rb config.ru      # http://localhost:9292
 
-# Image and deploy (Kamal 2; secrets come from the shell, see .kamal/secrets)
-docker build -t frijolero .
-kamal deploy
-
-# Build gem
-gem build frijolero.gemspec
+kamal deploy                                       # for code changes; needs 1Password unlocked (see Operations)
+kamal app exec --reuse '<cmd>'                     # run a command in the production container
 ```
 
-## Architecture
+## Where things live
 
-**Gem structure:** All code lives under `lib/frijolero/` within the `Frijolero` module.
+The ledger repo is `git@github.com:jaimerodas/beancount-ledger.git` (private). It has three copies:
 
-**File layout:** `LEDGER_DIR` is a git repo. `Config` derives every other path from it and from `LEDGER_MAIN_FILE`:
+| Copy | Path | Who writes |
+|---|---|---|
+| Laptop | `~/Developer/beancount-ledger` (SSH remote) | The user, with hand edits in fava. The fish function `moneys` pulls, runs fava, and commits and pushes on Ctrl-C. It pulls with rebase before each push. |
+| Droplet volume | `/data/ledger` in the container (HTTPS remote, `GIT_TOKEN` header) | The app. Each job pulls with rebase first and commits and pushes last. The editors commit on save. |
+| GitHub | origin | Nobody directly. |
+
+Layout of the ledger repo (`LEDGER_DIR`). `Config` derives each path from it:
 
 ```
-ledger_dir/                     # LEDGER_DIR
-  transactions.beancount        # LEDGER_MAIN_FILE (default name); includes each account file
-  config/
-    accounts.yaml
-    rules/
-      Amex.yaml
-    prompts/
-      default/
-        spec.json
-        instructions.txt
-        schema.json
-  accounts/
-    Amex/
-      Amex 2501.beancount       # canonical, included by the main file
-      Amex 2501.json
+transactions.beancount        # LEDGER_MAIN_FILE; inline txns + `include "accounts/AMEX/AMEX 2508.beancount"`
+moneys.beancount              # what fava opens; includes transactions, account_opens, balances, prices
+account_opens.beancount       # opens for every non-commodity account
+config/accounts.yaml          # account key → beancount_account, openai_prompt_type, converter_type, description, closed
+config/rules/<Key>.yaml       # detailer rules, one file per account key (spaces kept: "BBVA TDC.yaml")
+config/prompts/<type>/        # spec.json + instructions.txt + schema.json, read on every call
+accounts/<Key>/<Key> YYMM.beancount   # + the .json next to it. Period = the month the statement closes
 ```
 
-There is no `config.yaml` file. Every setting comes from an environment variable. A statement file name is an account key, one space, and a period as `YYMM`. The period is the month the statement closes, not the month you upload it.
+On the volume, outside the repo: `/data/jobs.jsonl` is the append-only job log. `/data/incoming/<hex>/<original>.pdf` holds one directory per upload. The app removes that directory only when its job succeeds.
 
-**Processing pipeline:**
-1. `Statement` owns one PDF's lifecycle: resolve account and period → check overwrite → upload (or reuse `file_id:`) → **save the PDF to B2** → extract → **`pipeline.validate!`** → delete the local PDF → save JSON → detail → convert → merge → delete the OpenAI file. The order is the point: B2 has the PDF before the paid extraction, and the local copy survives every failure, so a failed job leaves a retry on disk. The caller passes `account:`, `period:`, `file_id:`, `overwrite:` and an optional `b2:`; without `b2:` the PDF is neither uploaded nor deleted. The filename is only the fallback for account and period. There are no prompts: convert and merge always run.
-1a. `Classifier` decides account and period for a PDF. A parseable known filename answers with no OpenAI call. Otherwise it uploads once, runs the `classify` prompt with the account enum and the account list filled from `accounts.yaml`, checks that the dates are plausible, and derives `YYMM` from `period_end`. Anything doubtful becomes `unknown`, and the person confirms before the paid extraction.
-2. `OpenAIErrorReporter` is the error-handling policy table — maps each `OpenAIClient::Error` subclass to `{recoverable:, report:}` and is invoked from `Statement#run_pipeline`'s single rescue clause.
-3. `Pipeline.for(account_config)` returns a strategy (`Pipeline::Default`, `CetesDirecto`, `Fintual`, or `Plata`) that knows how to summarize the extracted data, whether to run the detailer, and which underlying converter to call. Adding a new bank statement type means adding one strategy class plus one converter — no edits to `Statement`. Each strategy also owns `validate!(data)`, which raises `Pipeline::InvalidData` naming the missing table or field (`transactions[3] lacks amount`); `Statement` calls it before it deletes the local PDF, so a bad extraction never costs the source document.
-4. `Detailer` enriches transactions using YAML rules (only for `Default` pipeline). The matching itself lives in `Detailer::Rules` — a pure engine over the YAML that knows nothing about JSON — so `BeancountDetailer` can reuse it to re-run the rules against an already-converted `.beancount` file. That closes the loop where you notice a missing rule while cleaning up `Expenses:FIXME` rows in fava: add the rule, re-run the detailer on the `.beancount`, no need to go back to the JSON and redo the conversion and merge. `BeancountDetailer` only ever rewrites transactions still posting to `Expenses:FIXME`, which both protects hand edits and makes the run idempotent. It edits surgically via `Beancount::Transaction` (header line + the one FIXME posting), so hand-added metadata, comments and extra postings survive verbatim. Known limitation, inherited from `Beancount::Parser::TRANSACTION_RE` (which matches only the `*` flag): a transaction flagged `!` is invisible to the detailer — it is neither detailed nor counted in `remaining`, so the summary under-reports if you flag a row `!` in fava while leaving it on `Expenses:FIXME`.
-5. `Converters::Beancount` / `Converters::CetesDirecto` / `Converters::Fintual` / `Converters::Plata` convert enriched JSON to Beancount format (invoked by the pipeline strategy). All four inherit from `Converters::Base` (output path resolution, `convert`/`run_to(io)` template). `Converters::AccountTargets` is the value object that bundles `counterpart`/`interest`/`tax`/`dividend`/`gains`/`fees`/`withholding`/`opening` so converters take three keyword args instead of ten. `Converters::Amounts` is the shared number mixin — all parsing goes through `BigDecimal`, because Float turns an exact reconciliation into a residue like `-5.55e-17` that renders in scientific notation and that Beancount's parser rejects.
+In B2, in a bucket shared with other apps: `frijolero/accounts/<Key>/<Key> YYMM.pdf`. `Config.pdf_key` is the only formula for that key.
 
-**The Plata converter reads Alpaca brokerage statements, not the advisor's.** `Plata Investments` is a US brokerage account custodied at Alpaca and held through a Mexican advisor. The advisor also issues its own Spanish summary statement; that document is incomplete (dividends reported net of withholding, no transfer detail, corporate actions invisible) and the converter was rewritten in 0.10.0 to read the Alpaca statement instead. Do not point this pipeline back at the advisor PDF. The Alpaca statement reconciles exactly — every Cash Summary line is reproducible from the four detail tables to the cent — and that property is what the converter and its tests are built on.
+The old world is frozen. `~/Documents/Beancount` and `~/.frijolero` are the pre-2.0 layout. `script/build_ledger_repo` and `script/upload_pdfs_to_b2` migrated them on 2026-09-05. Both scripts are idempotent and never write to their source. They are only necessary again if that migration is done again.
 
-Its structure: `Plata::Entry` flattens the statement's four detail tables (Transaction, Income, Fees, Deposit & Withdrawals) into one date-ordered stream. The sort is *stable on printed position*, which matters twice — a dividend booked, reversed and rebooked on one date must keep that order, and the rows of one corporate action must stay adjacent so the converter can group them. `Plata::CorporateAction` handles `Stock Split` and `Stock SpinOff`: they conserve cost basis, but Alpaca's printed per-share price on the new side is rounded (NFLX 5 @ 480.46 = 2402.30 becomes 50 @ 48.05, which multiplies back to 2402.50), so the *removed* total is authoritative and additions are allocated against it, the largest absorbing the residue. The sign of `quantity` — never the description text — separates removals from additions, because a spinoff's target row carries neither the word ADD nor REMOVE.
+A change to rules, accounts, prompts or model names is a commit in the ledger repo, not a deploy. The app reads those files on each request and each job. The volume gets the change at the next job's pull, or at once with this command:
 
-Three Plata behaviours are deliberate and easy to "fix" wrongly: `High-Yield Cash Sweep` rows are skipped (they move cash between the brokerage and the FDIC partner banks, are absent from the Cash Summary, and emitting them double-counts); `Journal Entry(Cash)` rows are booked to `Expenses:FIXME` flagged `*` so `BeancountDetailer` can resolve them from a rules file, because their counterpart is genuinely not in the statement; and a closing `balance` assertion is emitted for cash *and every holding*, which is what replaced the old `UnitReconciler` share-count guesswork. A position exited mid-month drops out of the Holdings table, so it cannot be asserted to zero — that is the one gap the assertions do not cover.
+```bash
+kamal app exec --reuse 'bundle exec ruby -e "require %q(frijolero); require %q(frijolero/web/ledger_repo); Frijolero::Web::LedgerRepo.new(dir: ENV.fetch(%q(LEDGER_DIR))).pull"'
+```
 
-**Commodity accounts are opened and closed by the converter, not by hand.** `Plata::Positions` recovers each symbol's opening count as `closing - moved` — the statement never states it, but it reports the closing count and every movement that produced it. A symbol whose opening count is zero gets an `open ... "FIFO"` dated at period start; one whose closing count is zero gets a `close` dated with the balance assertions; a symbol bought and sold inside one month gets both. A symbol is only considered if it has share movements this period, which is what stops a dividend for a position exited months ago (it carries no quantity) from reading as an exit. A split must not trip this: it removes the whole position and adds it back under the same symbol, so opening and closing are both non-zero.
-
-Consequences worth knowing: **only commodity accounts are managed this way** — Cash, income, expense and equity accounts outlive any one statement and stay in the ledger's `account_opens` file — and declaring a Plata commodity account in both places is a duplicate-open error. The real limitation is re-entry: beancount refuses to reopen a closed account, so a position exited in one month and repurchased in a later one produces a colliding `close`/`open` pair across two files. It fails loudly at `bean-check` (`Account ... is already open` plus `Posting to inactive account`) and the fix is to delete the earlier `close` and the later `open`. No converter can detect it, because a converter only ever sees one month.
-
-**Beancount booking methods:** the investment converters emit `{}` reductions on sales, which are ambiguous under Beancount's default STRICT booking once a commodity has more than one lot. Commodity accounts must therefore be opened with FIFO — `2025-01-01 open Assets:Investments:Plata:AAPL AAPL "FIFO"`. `"AVERAGE"` is not a substitute: real Beancount rejects it outright (`AVERAGE method is not supported`) and rustledger silently zeroes the position on any reduction. Note that a `booking: "AVERAGE"` line indented under an `open` is *metadata*, silently ignored — the method belongs on the open line itself.
-6. `BeancountMerger` appends an `include` line to the main ledger, pointing at the canonical converter output — no file copy. The path in the `include` line is relative to the main file's directory.
-7. `OpenAIClient` handles PDF upload/extraction via OpenAI API. HTTP transport, auth, and error mapping live in nested `OpenAIClient::Transport`; the outer class is a thin domain layer over it. Errors surface as typed exceptions: `AuthenticationError`, `InsufficientQuotaError`, `RateLimitError`, `APIError`, `NetworkError`.
-8. `UI` writes plain lines to `UI.sink` (`$stdout` by default). The web app can point `UI.sink` at a job log. `confirm` has no terminal to ask, so it always returns `UI.auto_accept?`.
-9. `Accounts` parses a beancount file for account names (autocomplete support in the browser review UI).
-10. `Web::App` is the Rack/Sinatra app. `config.ru` mounts `GET /up` without auth (kamal-proxy health check) and everything else behind `Rack::Auth::Basic` with `APP_PASSWORD`, and starts the job worker at boot. `config/puma.rb` runs single mode with `PUMA_THREADS`. Routes live in three files that reopen the class: `app.rb` (dashboard, upload, confirm, jobs, PDF redirect), `web/statements.rb` (statement page, re-run rules) and `web/editors.rb` (rules and accounts editors). The class holds four lazily built collaborators with `attr_writer`s so tests can swap fakes: `jobs`, `client` (OpenAI), `b2`, `repo`. Views are standalone ERB pages in Spanish with inline CSS; there is no layout.
-11. `Web::Jobs` is one `Queue`, one worker `Thread` and an append-only `jobs.jsonl` (one line per state change). The job body runs with `UI.sink` pointed at the job's output and `UI.auto_accept = true`. At boot, jobs left `running` or `queued` are marked `failed`. There are no retries.
-12. `Web::Dashboard` computes, on each request, whether each account's statement exists for the previous and the current month (`received`, `missing`, `pending`, `failed`). Nothing is stored. Data paths: `Config.data_dir` is the parent of `LEDGER_DIR`; `jobs.jsonl` and `incoming/` live there.
-13. `Web::LedgerRepo` runs `git pull --rebase` and `git add -A && commit && push` as shell commands. **Every git subprocess scrubs the `GIT_*` environment.** The pre-commit hook runs the test suite inside `git commit`, git exports `GIT_DIR`/`GIT_WORK_TREE` to hook children, and those override `chdir:` — without the scrub, a test that "commits in a tmpdir" commits to this repo (it happened once, and pushed). `GIT_TOKEN` travels as an `http.extraheader` `-c` flag per invocation and is never written to disk. A rejected push raises and leaves the local commit.
-14. `B2` is a hand-rolled SigV4 client over `Net::HTTP` (no aws-sdk, for memory). Path-style URLs, header auth for `put`, query auth for `presigned_url` (10 minutes). Keys live under `frijolero/` (the bucket is shared) and contain spaces (`frijolero/accounts/AMEX/AMEX 2508.pdf`), and the canonical URI must encode them as `%20` in both the signature and the emitted URL; `uri_encode` is the single place that does it, and the tests replay two official AWS vectors. `Config.pdf_key` is the one formula for the key.
-15. One-time scripts, both idempotent and read-only on their source: `LedgerBuilder` (`script/build_ledger_repo`) turns `~/Documents/Beancount` + `~/.frijolero` into the ledger repo layout (renames `Account_YYMM` → `Account YYMM`, resolves keys case-insensitively, rewrites `include` lines, `detailers/` → `rules/`, drops `config.yaml`, adds the `classify` prompt). `PdfUploader` (`script/upload_pdfs_to_b2`) sends the old PDFs to B2 under the new keys. Both report every file they do not understand as `skip` and exit 1.
-
-**Key files:**
-- `lib/frijolero.rb` - main require file
-- `lib/frijolero/config.rb` - reads `LEDGER_DIR`, `LEDGER_MAIN_FILE`, `OPENAI_API_KEY`, `OPENAI_POLL_TIMEOUT` and derives every path in the ledger repo. `openai_prompt_spec` delegates to `PromptSpec`
-- `lib/frijolero/prompt_spec.rb` - assembles the inline OpenAI request spec from a `config/prompts/<type>/` folder (spec.json + instructions.txt + schema.json)
-- `lib/frijolero/account_config.rb` - filename parsing and account lookup. `find_config` is an exact key lookup into `config/accounts.yaml`. `parse_filename` needs a single space before the period
-- `lib/frijolero/accounts.rb` - beancount account extraction and search
-- `lib/frijolero/pipeline.rb` - per-account-type strategies (summary, detailer toggle, converter dispatch)
-- `lib/frijolero/statement.rb` - one PDF's lifecycle: parse filename → check overwrite → upload → extract → save JSON → detail → convert → merge → finalize
-- `lib/frijolero/openai_client.rb` - OpenAI client + nested `Transport` + typed exception hierarchy
-- `lib/frijolero/openai_error_reporter.rb` - error → `{recoverable, report}` policy table
-- `lib/frijolero/converters/{base,amounts,account_targets,beancount,cetes_directo,fintual,plata}.rb` - JSON-to-beancount converters and shared scaffolding
-- `lib/frijolero/converters/plata/{entry,corporate_action,positions}.rb` - the Alpaca statement's row stream, its split/spinoff basis allocation, and the commodity accounts it opens and closes
-- `lib/frijolero/detailer.rb` + `lib/frijolero/detailer/rules.rb` - JSON enrichment + the shared YAML matching engine
-- `lib/frijolero/beancount_detailer.rb` - re-runs detailer rules against a converted `.beancount` (FIXME-only, idempotent)
-- `lib/frijolero/beancount_merger.rb` - appends an `include` line to the main ledger file
-- `lib/frijolero/beancount/{parser,quoting,header,transaction}.rb` - parses a `.beancount` file into typed blocks, escapes string literals, builds the `DATE FLAG "payee" "narration"` line, and gives a surgically-editable view of a parsed transaction block (used by `BeancountDetailer`)
-- `lib/frijolero/ui.rb` - writes plain lines to `UI.sink`
-- `lib/frijolero/classifier.rb` - account and period for a PDF (filename shortcut, else one OpenAI call with the `classify` prompt)
-- `lib/frijolero/b2.rb` - SigV4 `put` and `presigned_url` over `Net::HTTP`
-- `lib/frijolero/ledger_builder.rb`, `lib/frijolero/pdf_uploader.rb` + `script/build_ledger_repo`, `script/upload_pdfs_to_b2` - the one-time migration scripts
-- `lib/frijolero/web/app.rb` - the Rack/Sinatra app: collaborators, dashboard, upload/confirm, jobs, PDF redirect
-- `lib/frijolero/web/statements.rb` - statement page and `POST .../detail` (reopens `App`)
-- `lib/frijolero/web/editors.rb` - rules and accounts editors (reopens `App`)
-- `lib/frijolero/web/jobs.rb` - queue, worker thread, `jobs.jsonl`
-- `lib/frijolero/web/ledger_repo.rb` - `git pull` / `commit_and_push` with the `GIT_*` scrub
-- `lib/frijolero/web/dashboard.rb` - received/missing/pending per account and month
-- `lib/frijolero/web/views/*.erb`, `lib/frijolero/web/public/{app.js,style.css}` - browser UI (standalone pages, no layout)
-- `lib/frijolero/templates/prompts/{default,plata,classify}/` - version-controlled prompt templates. Copy a folder into a ledger repo's `config/prompts/` to start a new one. `classify` is the classifier's prompt; its account enum is a placeholder that `Classifier` fills at request time
-- `config.ru` - Rack entry point
-- `config/puma.rb` - Puma server config
-
-**Configuration:** every setting lives in `config/` inside the ledger repo, or in an environment variable. There is no `~/.frijolero/` directory.
-
-- `config/accounts.yaml` - maps an account key to its Beancount account, `openai_prompt_type`, and optional `converter_type`. The key is also the folder name under `accounts/` and the prefix of every file name for that account. An optional `description` names the account for the classifier. `closed: true` hides the account from the dashboard and the classifier (`AccountConfig.active`) while `find_config` keeps resolving it for history.
-- `config/rules/{account_key}.yaml` - transaction matching rules per account
-- `config/prompts/{type}/` - inline OpenAI extraction prompt per type: `spec.json` (model + `text.format` metadata), `instructions.txt` (system instructions), `schema.json` (strict JSON schema). `Config.openai_prompt_spec(type)` reads the folder and assembles the request body — sent inline on every `/responses` call (no stored `pmpt_...` IDs). The `default` and `plata` prompts are version-controlled at `lib/frijolero/templates/prompts/`. The `plata` prompt (`alpaca_statement_v1`) mirrors the Alpaca statement 1:1 and copies `entry_type` **verbatim** rather than mapping it to an enum — classification belongs in `Converters::Plata` where it is testable, and an unrecognised type must reach the converter so it can emit a visible FIXME instead of vanishing.
+## Environment variables
 
 | Variable | Purpose |
 |---|---|
-| `LEDGER_DIR` | Path to the clone of the ledger repo. Required. |
-| `LEDGER_MAIN_FILE` | Name of the main Beancount file, relative to `LEDGER_DIR`. Default: `transactions.beancount`. |
-| `OPENAI_API_KEY` | Key for the OpenAI extraction calls. Required. |
-| `OPENAI_POLL_TIMEOUT` | Seconds to poll a background extraction before it times out. Default: 900. |
-| `APP_PASSWORD` | The one password for HTTP basic auth. Required. |
-| `PUMA_THREADS` | Thread pool size for the Puma server. |
-| `B2_ENDPOINT`, `B2_BUCKET`, `B2_KEY_ID`, `B2_KEY` | The S3-compatible endpoint, bucket and key pair of Backblaze B2, where the PDFs live. Required. |
-| `GIT_TOKEN` | GitHub fine-grained token with push access to the ledger repo. Sent as an HTTP header per git call; never written to disk. |
+| `LEDGER_DIR`, `LEDGER_MAIN_FILE` | The ledger clone, and the main file name (default `transactions.beancount`). `Config.data_dir` is the parent of `LEDGER_DIR`. |
+| `OPENAI_API_KEY`, `OPENAI_POLL_TIMEOUT` | Extraction and classification. The poll timeout default is 900 s. |
+| `APP_PASSWORD` | The only credential. `Rack::Auth::Basic` ignores the username. `GET /up` is outside auth. |
+| `B2_ENDPOINT`, `B2_BUCKET`, `B2_KEY_ID`, `B2_KEY` | S3-compatible B2. `B2.from_env` removes whitespace from the keys. A 1Password field once had a stray space. The symptom was `Signature validation failed`, or `400 IncompleteBody` for large bodies. |
+| `GIT_TOKEN` | A GitHub fine-grained token with Contents read/write on the ledger repo. It travels as an HTTP header on each git call. It is never written to disk. |
+| `PUMA_THREADS` | Thread pool size (3 in production). |
 
-**Tests:** Minitest, run with `bundle exec rake test`. Fixtures in `test/fixtures/`. `with_ledger_dir` is the test helper that points `LEDGER_DIR` at a temp dir. Web tests use `rack-test` against `Web::App` directly and swap the class-level collaborators for fakes; `test/web_app_test.rb` alone loads `config.ru` to cover the auth wiring. Any test that shells out to git must scrub `GIT_*` from the subprocess environment (see item 13) and should be run once as `GIT_DIR=$(pwd)/.git GIT_WORK_TREE=$(pwd) bundle exec rake test` to prove it cannot touch this repo.
+## Architecture
 
-**Transaction JSON format:**
+### Request side (`lib/frijolero/web/`)
+
+`App` holds the routes. `app.rb` has the dashboard, upload, confirm, jobs and the PDF redirect. `statements.rb` and `editors.rb` reopen the class for the statement page and for the rules and accounts editors. The class has four class-level collaborators with `attr_writer`s, so tests can swap in fakes: `jobs`, `client` (OpenAI), `b2` and `repo`. The app builds each one on first use.
+
+Views are standalone ERB pages in Spanish with inline CSS. There is no layout. `Dashboard` computes received, missing, pending or failed for each active account, for the previous and the current month, on each request. The `/review` routes, `views/review.erb`, `public/app.js` and `Accounts` are dead code from the CLI era.
+
+### Upload flow
+
+`POST /upload` saves the PDF under `incoming/` and runs `Classifier` in the request. If the file name parses as `<Key> YYMM.pdf`, the classifier answers without OpenAI. If not, it makes one OpenAI call with the `classify` prompt. It fills the account enum from `AccountConfig.descriptions`, makes sure that the dates are plausible, and derives `YYMM` from `period_end`. A doubtful result becomes `unknown`. The page then shows the result, and the person confirms. `POST /upload/confirm` validates the form and pushes a job.
+
+### Job
+
+`Jobs` is one `Queue`, one worker `Thread` and `jobs.jsonl`. At boot it marks jobs left in `running` or `queued` as `failed`. There are no retries. The job body is: `repo.pull`, then `Statement#process`, then `repo.commit_and_push("<Key> YYMM")`, then remove the upload directory. The body runs with `UI.sink` pointed at the job output and `UI.auto_accept = true`.
+
+### `Statement`
+
+`Statement` owns one PDF. The steps, in order: resolve account and period (arguments first, file name as fallback). Refuse if the outputs exist and `overwrite` is false. Upload to OpenAI, or reuse `file_id`. **Put the PDF in B2.** Extract. **Run `pipeline.validate!`.** Delete the local PDF. Save the JSON. Detail (Default pipeline only, and only if a rules file exists). Convert. Merge. Delete the OpenAI file.
+
+The order protects the PDF. B2 has it before the paid step. The local copy survives each failure. Errors go through `OpenAIErrorReporter`, a policy table with one entry per `OpenAIClient::Error` subclass, and the result is `ERROR`. The job then fails with that status in its message.
+
+### `Pipeline`
+
+`Pipeline.for(account_config)` selects `Default`, `CetesDirecto`, `Fintual` or `Plata` from `converter_type`. A strategy gives the summary line, tells if the detailer runs, owns `validate!`, and calls its converter. `validate!` raises `Pipeline::InvalidData` and names the missing table or field. Only `Default` rows have `date`, `description` and `amount`. The statement page shows a table for those rows. For the other pipelines it shows only the summary and the Beancount preview. A new statement type is one strategy plus one converter.
+
+### Rules loop
+
+`Detailer::Rules` is the pure matcher: `start_with`, `include`, an optional `when.amount`, and arrays with a fallback. `Detailer` applies it to the JSON. `BeancountDetailer` applies it again to an existing `.beancount` file. It touches only transactions that still post to `Expenses:FIXME`, so it is idempotent and hand edits are safe. Transactions with the `!` flag are invisible to it. `POST /statements/:k/:yymm/detail` runs it and commits only if something changed.
+
+The rules editor validates with `YAML.safe_load` and a probe call to `matches_for`. "Hacer regla" prefills a `start_with` entry with `YAML.dump`. That dump drops comments and reorders keys. This is accepted, but it is visible on a 600-line file.
+
+### Converters
+
+`Converters::Beancount`, `CetesDirecto`, `Fintual` and `Plata` inherit from `Base` and share `AccountTargets` and `Amounts`. All amounts go through `BigDecimal`. A Float residue such as `-5.55e-17` breaks Beancount. `BeancountMerger` appends an `include` line relative to the directory of the main file.
+
+### Plata reads Alpaca statements, never the advisor PDF
+
+`Plata::Entry` flattens the four tables of the statement into one stream. The sort is stable on printed order, because reversals and the rows of one corporate action must stay adjacent. `Plata::CorporateAction` handles splits and spinoffs. They conserve cost basis. The removed total is authoritative, because Alpaca rounds the price on the added side. The sign of `quantity` separates removals from additions.
+
+Three behaviours are deliberate. `High-Yield Cash Sweep` rows are skipped, because they double-count. `Journal Entry(Cash)` rows go to `Expenses:FIXME` for the rules loop. A closing `balance` is asserted for cash and for each holding. A position exited mid-month is the one gap.
+
+`Plata::Positions` opens commodity accounts with `"FIFO"` at the period start and closes them from `closing - moved`. Only commodity accounts are managed this way. Never declare them in `account_opens` too. A re-entry after a close in a later month collides at `bean-check`. The fix is to delete the earlier `close` and the later `open`. Commodity accounts must be `"FIFO"`. Beancount rejects `"AVERAGE"`, and `booking:` as indented metadata is ignored. The `plata` prompt copies `entry_type` verbatim, so an unknown type reaches the converter as a visible FIXME.
+
+### Infrastructure classes
+
+`OpenAIClient` has a nested `Transport` and typed errors. `extract_transactions(file_id, spec)` runs any prompt spec on a file, with `background: true` and a 2 s poll. The classifier uses it too. `B2` is a hand-rolled SigV4 client over `Net::HTTP`, with path-style URLs. `uri_encode` is the only place that turns a space into `%20`. The tests replay two official AWS vectors. `LedgerRepo` runs git as a subprocess (see "Git hooks"). `UI` writes plain lines to `UI.sink`, and `confirm` returns `auto_accept?`. `PromptSpec` assembles `spec.json`, `instructions.txt` and `schema.json`. The templates live in `lib/frijolero/templates/prompts/{default,plata,classify}`. The ledger repo holds the live copies, and `bbva`, `cetes` and `fintual` exist only there.
+
+## Git hooks: how a unit test can destroy data
+
+`.git/hooks/pre-commit` runs the suite inside `git commit`. Git exports `GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` to hook children. Those variables override `chdir:`. A test that ran git "in a tmpdir" once committed an empty tree to `main` of this repo and pushed it.
+
+The rules: each git subprocess, in lib and in tests, gets an env hash that sets every `ENV` key that matches `/\AGIT_/` to nil. `LedgerRepo#git` does this. `test/web_ledger_repo_test.rb` has the regression test. Before you commit new code that touches git, run `GIT_DIR=$(pwd)/.git GIT_WORK_TREE=$(pwd) bundle exec rake test` once. Then make sure that `git log -1` did not move.
+
+## Operations
+
+- **Deploy.** Kamal 2 with `config/deploy.yml`. The droplet `maia` is 146.190.35.4. The image is ghcr.io `jaimerodas/frijolero`, built for amd64 on the laptop. The volume is `frijolero_data:/data`. The memory cap is 64 MiB. The host is `https://frijolero.pati.to`.
+- **Secrets.** `.kamal/secrets` fetches each secret from the 1Password item `Developer/Frijolero` with `kamal secrets fetch --adapter 1password`. Write one command per line, because the Kamal parser has no line continuations. The fields are `kamal_registry_password`, `openai_api_key`, `app_password`, `b2_key_id`, `b2_application_key` and `git_token`. The non-secret `b2_bucket` and `b2_endpoint` are copied into `deploy.yml`.
+- **From the shell of Claude,** `kamal` and `ssh maia` work only while the 1Password app is unlocked. The `op` prompt and the SSH agent both go through it. If they fail with `promptError` or "communication with agent failed", ask the user to run the command with the `!` prefix. A failed deploy can leave a lock. `kamal lock release` removes it.
+- **Measured.** Idle production memory is 35 to 42 MiB of cgroup memory, or 46 to 52 MB of RSS. A deploy takes about 40 s.
+- **Dockerfile.** `ruby:4.0.6-slim`, two stages, user `app`, with `git` installed for `LedgerRepo`. `Gemfile.lock` pins Bundler to 4.0.16, the version in the image.
+- **Failed job.** The job page shows the captured output. The PDF stays in `/data/incoming/<hex>/`. There is no retry from disk. The person uploads again. Stale directories accumulate, and nothing removes them yet.
+
+## Tests
+
+Minitest and rack-test, about 450 tests, about 5 s. `with_ledger_dir` points `LEDGER_DIR` at a temporary directory with `config/`. Web tests call `Web::App` directly and swap the collaborators for fakes. Only `test/web_app_test.rb` loads `config.ru`, for the auth wiring. Set `RACK_ENV=test` before `sinatra/base` loads, or host authorization returns 403 in tests. No test touches the network. `Config.accounts` is read on each call and never memoized. The first deploy cached `{}` because it booted before the volume had a ledger.
+
+## Known rough edges
+
+1. `POST /upload` blocks on the classifier: background mode plus a 2 s first poll. Two options: a synchronous Responses call with `reasoning.effort: minimal`, or a classify job with a page that refreshes. The model is `gpt-5.4-mini`, set in `config/prompts/classify/spec.json` of the ledger.
+2. One worker thread. A second upload waits behind an extraction.
+3. "Hacer regla" rewrites the whole rules file and drops comments.
+4. A `closed: true` account keeps its pages, but the dashboard does not show its history.
+5. Dead CLI-era code in `web/` (the review UI) and `Accounts`.
+
+## Data formats
+
+Transaction JSON for the Default pipeline. The other pipelines have their own schemas in `config/prompts/<type>/schema.json`:
 ```json
-{
-  "transactions": [
-    {
-      "date": "2024-01-15",
-      "description": "AMAZON WEB SERVICES",
-      "amount": -50.00,
-      "currency": "MXN",
-      "payee": "optional",
-      "narration": "optional",
-      "expense_account": "optional"
-    }
-  ]
-}
+{ "transactions": [ { "date": "2024-01-15", "description": "AMAZON WEB SERVICES", "amount": -50.00,
+                      "currency": "MXN", "payee": "optional", "narration": "optional", "expense_account": "optional" } ] }
 ```
 
-**Detailer YAML structure:**
+Rules YAML:
 ```yaml
-start_with:
-  # Simple rule — matches description prefix
-  PATTERN:
-    payee: "Name"
-    narration: "Description"
-    account: "Expenses:Category"
-
-  # Conditional rule — also requires exact amount match
-  PATTERN:
-    when:
-      amount: -149
+start_with:                 # description starts with PATTERN
+  PATTERN: { payee: "Name", narration: "Text", account: "Expenses:Category" }
+  PATTERN2:                 # with a condition: exact amount
+    when: { amount: -149 }
     payee: "Name"
     account: "Expenses:Category"
-
-  # Array of rules — first matching `when` wins, entry without `when` is fallback
-  PATTERN:
-    - when:
-        amount: -15000
-      payee: "Landlord"
-      account: "Expenses:Rent"
-    - payee: "Transfer"
-      account: "Expenses:Misc"
-
-include:
-  PATTERN:
-    # same fields and formats as start_with
+  PATTERN3:                 # list: first matching `when` wins; the entry without `when` is the fallback
+    - { when: { amount: -15000 }, payee: "Landlord", account: "Expenses:Rent" }
+    - { payee: "Transfer", account: "Expenses:Misc" }
+include:                    # description contains PATTERN; same entry shapes
+  PATTERN: { account: "Expenses:Food" }
 ```
