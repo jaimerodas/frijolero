@@ -28,8 +28,8 @@
           <td><%= h.(config['beancount_account']) %></td>
           <td>
             <a href="/accounts/<%= path %>">estados</a> ·
-            <a href="/accounts/<%= path %>/config">config</a> ·
-            <a href="/rules/<%= path %>">reglas</a>
+            <a href="/accounts/<%= path %>/config">config</a>
+            <% if rules?(key) %>· <a href="/rules/<%= path %>">reglas</a><% end %>
           </td>
         </tr>
       <% end %>

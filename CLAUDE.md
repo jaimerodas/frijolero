@@ -98,7 +98,7 @@ The order protects the PDF. B2 has it before the paid step. The local copy survi
 
 ### `Pipeline`
 
-`Pipeline.for(account_config)` selects `Default`, `CetesDirecto`, `Fintual` or `Plata` from `converter_type`. A strategy gives the summary line, tells if the detailer runs, owns `validate!`, and calls its converter. `validate!` raises `Pipeline::InvalidData` and names the missing table or field. Only `Default` rows have `date`, `description` and `amount`. The statement page shows a table for those rows. For the other pipelines it shows only the summary and the Beancount preview. A new statement type is one strategy plus one converter.
+`Pipeline.for(account_config)` selects `Default`, `CetesDirecto`, `Fintual` or `Plata` from `converter_type`. A strategy gives the summary line, tells if the detailer runs (`runs_detailer?`), owns `validate!`, and calls its converter. Only `Default` has rules. For the other pipelines the rules links, the rules editor and the detail button are gone, and `/rules/<Key>` is a 404. `validate!` raises `Pipeline::InvalidData` and names the missing table or field. Only `Default` rows have `date`, `description` and `amount`. The statement page shows a table for those rows. For the other pipelines it shows only the summary and the Beancount preview. A new statement type is one strategy plus one converter.
 
 ### Rules loop
 
@@ -114,7 +114,7 @@ The rules editor validates with `YAML.safe_load` and a probe call to `matches_fo
 
 `Plata::Entry` flattens the four tables of the statement into one stream. The sort is stable on printed order, because reversals and the rows of one corporate action must stay adjacent. `Plata::CorporateAction` handles splits and spinoffs. They conserve cost basis. The removed total is authoritative, because Alpaca rounds the price on the added side. The sign of `quantity` separates removals from additions.
 
-Three behaviours are deliberate. `High-Yield Cash Sweep` rows are skipped, because they double-count. `Journal Entry(Cash)` rows go to `Expenses:FIXME` for the rules loop. A closing `balance` is asserted for cash and for each holding. A position exited mid-month is the one gap.
+Three behaviours are deliberate. `High-Yield Cash Sweep` rows are skipped, because they double-count. `Journal Entry(Cash)` rows go to `Expenses:FIXME` for a hand edit, because their descriptions are UUIDs that no rule would match twice. A closing `balance` is asserted for cash and for each holding. A position exited mid-month is the one gap.
 
 `Plata::Positions` opens commodity accounts with `"FIFO"` at the period start and closes them from `closing - moved`. Only commodity accounts are managed this way. Never declare them in `account_opens` too. A re-entry after a close in a later month collides at `bean-check`. The fix is to delete the earlier `close` and the later `open`. Commodity accounts must be `"FIFO"`. Beancount rejects `"AVERAGE"`, and `booking:` as indented metadata is ignored. The `plata` prompt copies `entry_type` verbatim, so an unknown type reaches the converter as a visible FIXME.
 

@@ -11,14 +11,14 @@ module Frijolero
       class EditorError < StandardError; end
 
       get '/rules/:account' do
-        halt 404, 'Cuenta desconocida' unless Config.accounts.key?(params[:account])
+        rules_account!
         path = Config.rules_path(params[:account])
         content = File.exist?(path) ? File.read(path) : "start_with: {}\ninclude: {}\n"
         render_editor(**rules_locals(params[:account], content: content, notice: saved_notice))
       end
 
       post '/rules/:account' do
-        halt 404, 'Cuenta desconocida' unless Config.accounts.key?(params[:account])
+        rules_account!
         content = params[:content].to_s
         data = parse_yaml_hash!(content)
         Detailer::Rules.new(data).matches_for(description: 'probe', amount: 0)
@@ -29,7 +29,7 @@ module Frijolero
       end
 
       post '/rules/:account/from' do
-        halt 404, 'Cuenta desconocida' unless Config.accounts.key?(params[:account])
+        rules_account!
         path = Config.rules_path(params[:account])
         content = File.exist?(path) ? File.read(path) : ''
         description = params[:description].to_s.strip
@@ -44,6 +44,11 @@ module Frijolero
       end
 
       helpers do
+        def rules_account!
+          halt 404, 'Cuenta desconocida' unless Config.accounts.key?(params[:account])
+          halt 404, 'Esta cuenta no usa reglas' unless rules?(params[:account])
+        end
+
         # Every editor save ends the same way: the ledger repo commits and pushes.
         def commit_config(message)
           self.class.repo.commit_and_push(message)

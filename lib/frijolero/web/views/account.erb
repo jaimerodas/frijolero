@@ -15,7 +15,7 @@
   <nav>
     <a href="/accounts">Volver</a>
     <a href="/accounts/<%= key_path %>/config">config</a>
-    <a href="/rules/<%= key_path %>">reglas</a>
+    <% if rules?(key) %><a href="/rules/<%= key_path %>">reglas</a><% end %>
   </nav>
 
   <% if error %>

@@ -257,9 +257,8 @@ module Frijolero
       end
 
       # The counterpart of a journal entry is not knowable from the statement — the
-      # description is either an opaque UUID or free text. Expenses:FIXME with a `*`
-      # flag is exactly what `frijolero detail` rewrites from a rules file, so these
-      # are left for that pass rather than guessed at here.
+      # description is either an opaque UUID or free text, so no rule would match it
+      # twice. It is left as Expenses:FIXME for a hand edit in fava.
       def write_journal_entry(group)
         entry = group.first
         write_header(entry, "Journal Entry: #{entry.description}")

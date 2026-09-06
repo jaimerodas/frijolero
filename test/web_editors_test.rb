@@ -34,6 +34,9 @@ class WebEditorsTest < Minitest::Test
         beancount_account: "Liabilities:Amex"
       BBVA TDC:
         beancount_account: "Assets:BBVA"
+      CETES:
+        beancount_account: "Assets:CETES"
+        converter_type: cetes_directo
     YAML
 
     @repo = FakeRepo.new
@@ -143,6 +146,17 @@ class WebEditorsTest < Minitest::Test
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, 'Falta la descripción'
+  end
+
+  def test_rules_editor_404s_for_an_account_without_rules
+    get '/rules/CETES'
+    assert_equal 404, last_response.status
+
+    post '/rules/CETES', content: "start_with: {}\n"
+    assert_equal 404, last_response.status
+
+    post '/rules/CETES/from', description: 'x', amount: '1'
+    assert_equal 404, last_response.status
   end
 
   def test_unknown_account_rules_editor_404s

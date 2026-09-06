@@ -29,6 +29,11 @@ module Frijolero
         def head(title = 'Frijolero', refresh: nil)
           erb :_head, layout: false, locals: { title: title, refresh: refresh }
         end
+
+        # Only the Default pipeline has rules: links, editor and the detail action.
+        def rules?(account)
+          Pipeline.for(Config.accounts[account]).runs_detailer?
+        end
       end
 
       get '/' do

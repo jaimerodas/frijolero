@@ -110,6 +110,16 @@ class WebStatementsTest < Minitest::Test
     assert_equal 200, last_response.status
     assert_includes last_response.body, 'movements'
     refute_includes last_response.body, '<table'
+    refute_includes last_response.body, 'Volver a correr las reglas'
+  end
+
+  def test_post_detail_on_an_account_without_rules_is_404
+    write_statement('CETES', '2508', json: { 'movements' => [] }, beancount: '')
+    write_rules('CETES', 'start_with: {}')
+
+    post '/statements/CETES/2508/detail'
+
+    assert_equal 404, last_response.status
   end
 
   def test_missing_beancount_file_is_404

@@ -26,9 +26,11 @@
     <span class="status <%= fixme_status %>"><%= fixme_count %> por clasificar</span>
   </p>
 
-  <form method="post" action="/statements/<%= account_path %>/<%= h.(period) %>/detail">
-    <button type="submit">Volver a correr las reglas</button>
-  </form>
+  <% if rules?(account) %>
+    <form method="post" action="/statements/<%= account_path %>/<%= h.(period) %>/detail">
+      <button type="submit">Volver a correr las reglas</button>
+    </form>
+  <% end %>
 
   <% if transactions.is_a?(Array) %>
     <div class="table-wrap">

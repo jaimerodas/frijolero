@@ -61,6 +61,9 @@ class WebAccountsTest < Minitest::Test
       Openbank:
         closed: true
         beancount_account: "Assets:Openbank"
+      CETES:
+        beancount_account: "Assets:CETES"
+        converter_type: cetes_directo
     YAML
 
     @repo = FakeRepo.new
@@ -109,6 +112,14 @@ class WebAccountsTest < Minitest::Test
     assert_includes last_response.body, '/accounts/BBVA%20TDC'
     assert_includes last_response.body, '/accounts/BBVA%20TDC/config'
     assert_includes last_response.body, '/rules/BBVA%20TDC'
+  end
+
+  def test_accounts_without_rules_get_no_rules_link
+    get '/accounts'
+    refute_includes last_response.body, '/rules/CETES'
+
+    get '/accounts/CETES'
+    refute_includes last_response.body, '/rules/CETES'
   end
 
   def test_accounts_list_links_to_the_full_yaml_editor
@@ -238,6 +249,9 @@ class WebAccountsTest < Minitest::Test
       Openbank:
         closed: true
         beancount_account: "Assets:Openbank"
+      CETES:
+        beancount_account: "Assets:CETES"
+        converter_type: cetes_directo
     YAML
     assert_equal expected, File.read(Frijolero::Config.accounts_file)
     assert_equal ['accounts BBVA TDC'], @repo.messages

@@ -96,6 +96,9 @@ class WebUploadTest < Minitest::Test
       BBVA:
         beancount_account: "Assets:BBVA"
         cutoff_day: 31
+      CETES:
+        beancount_account: "Assets:CETES"
+        converter_type: cetes_directo
     YAML
     FileUtils.mkdir_p(File.join(@dir, 'config', 'prompts'))
     FileUtils.cp_r(fixture_path('prompts/default'), File.join(@dir, 'config', 'prompts', 'default'))
@@ -169,6 +172,7 @@ class WebUploadTest < Minitest::Test
     assert_includes last_response.body, 'href="/jobs"'
     assert_includes last_response.body, 'href="/accounts"'
     assert_includes last_response.body, 'href="/rules/AMEX"'
+    refute_includes last_response.body, 'href="/rules/CETES"'
   end
 
   def test_upload_form_has_pdf_field

@@ -44,6 +44,7 @@ module Frijolero
         halt 404, 'Periodo inválido' unless period.match?(/\A\d{4}\z/)
         beancount = statement_paths(account, period)[:beancount]
         halt 404, 'No existe ese estado de cuenta' unless File.exist?(beancount)
+        halt 404, 'Esta cuenta no usa reglas' unless rules?(account)
         rules = Config.rules_path(account)
         halt 422, 'No hay reglas para esta cuenta' unless File.exist?(rules)
 
