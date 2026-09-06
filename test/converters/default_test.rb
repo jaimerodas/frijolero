@@ -2,14 +2,14 @@
 
 require 'test_helper'
 
-class BeancountConverterTest < Minitest::Test
+class DefaultConverterTest < Minitest::Test
   include TestHelpers
 
   def test_converts_transactions_to_beancount
     with_temp_dir do |dir|
       output_path = File.join(dir, 'output.beancount')
 
-      Frijolero::Converters::Beancount.convert(
+      Frijolero::Converters::Default.convert(
         input: fixture_path('sample_transactions.json'),
         account: 'Liabilities:Amex',
         output: output_path
@@ -28,7 +28,7 @@ class BeancountConverterTest < Minitest::Test
     with_temp_dir do |dir|
       output_path = File.join(dir, 'output.beancount')
 
-      Frijolero::Converters::Beancount.convert(
+      Frijolero::Converters::Default.convert(
         input: fixture_path('sample_transactions.json'),
         account: 'Liabilities:Amex',
         output: output_path,
@@ -58,7 +58,7 @@ class BeancountConverterTest < Minitest::Test
       File.write(json_path, JSON.generate(json_content))
 
       output_path = File.join(dir, 'output.beancount')
-      Frijolero::Converters::Beancount.convert(
+      Frijolero::Converters::Default.convert(
         input: json_path,
         account: 'Liabilities:Amex',
         output: output_path
@@ -89,7 +89,7 @@ class BeancountConverterTest < Minitest::Test
       File.write(json_path, JSON.generate(json_content))
 
       output_path = File.join(dir, 'output.beancount')
-      Frijolero::Converters::Beancount.convert(
+      Frijolero::Converters::Default.convert(
         input: json_path,
         account: 'Liabilities:Amex',
         output: output_path
@@ -103,13 +103,13 @@ class BeancountConverterTest < Minitest::Test
 
   def test_raises_without_input
     assert_raises ArgumentError do
-      Frijolero::Converters::Beancount.convert(input: nil, account: 'Test')
+      Frijolero::Converters::Default.convert(input: nil, account: 'Test')
     end
   end
 
   def test_raises_without_account
     assert_raises ArgumentError do
-      Frijolero::Converters::Beancount.convert(input: 'test.json', account: nil)
+      Frijolero::Converters::Default.convert(input: 'test.json', account: nil)
     end
   end
 
@@ -120,7 +120,7 @@ class BeancountConverterTest < Minitest::Test
       json_path = File.join(json_dir, 'Amex_2501.json')
       FileUtils.cp(fixture_path('sample_transactions.json'), json_path)
 
-      Frijolero::Converters::Beancount.convert(input: json_path, account: 'Liabilities:Amex')
+      Frijolero::Converters::Default.convert(input: json_path, account: 'Liabilities:Amex')
 
       expected = File.join(dir, 'Amex', 'Amex_2501.beancount')
       assert File.exist?(expected), "expected #{expected} to exist"

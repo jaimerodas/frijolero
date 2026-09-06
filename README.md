@@ -134,7 +134,7 @@ folder holds three files:
 - `schema.json` gives the strict JSON schema for the extracted transactions.
 
 The `default`, `plata`, and `classify` folders ship as templates at
-`lib/frijolero/templates/prompts/`. Copy one to start a new prompt type.
+`templates/prompts/`. Copy one to start a new prompt type.
 `classify` is the prompt that reads the account and the period of an uploaded
 PDF; the app fills its account list from `accounts.yaml` on each call.
 

@@ -418,10 +418,8 @@ module Frijolero
         @out.puts "  #{account}  #{money(amount)} #{@currency}"
       end
 
-      # `Beancount` alone would resolve to Converters::Beancount, the default
-      # converter class, rather than the string-literal helpers.
       def write_header(entry, narration, flag: '*')
-        quoted = ::Frijolero::Beancount::Quoting.escape(narration)
+        quoted = Beancount::Quoting.escape(narration)
         @out.puts %(#{entry.date} #{flag} "#{PAYEE}" "#{quoted}")
       end
     end

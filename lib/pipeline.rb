@@ -53,7 +53,7 @@ module Frijolero
     end
 
     class Default < Base
-      # Converters::Beancount fetches date and amount, so it raises without them, and
+      # Converters::Default fetches date and amount, so it raises without them, and
       # falls back to a blank description — but a row with no description is a bad
       # read rather than a valid transaction, so it counts as required too.
       REQUIRED = %w[date description amount].freeze
@@ -75,7 +75,7 @@ module Frijolero
       def convert(json_path:, output: nil, account: beancount_account, expense_account: nil, **)
         kwargs = { input: json_path, account: account, output: output }
         kwargs[:expense_account] = expense_account if expense_account
-        Converters::Beancount.convert(**kwargs)
+        Converters::Default.convert(**kwargs)
       end
     end
 

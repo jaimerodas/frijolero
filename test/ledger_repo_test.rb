@@ -113,7 +113,7 @@ class LedgerRepoTest < Minitest::Test
   end
 
   # Scrubs every GIT_* env var before shelling out, because a git hook exports
-  # them to child processes and they override chdir:. See lib/frijolero/ledger_repo.rb.
+  # them to child processes and they override chdir:. See lib/ledger_repo.rb.
   def run_git(dir, *args)
     env = ENV.keys.grep(/\AGIT_/).to_h { |k| [k, nil] }
     stdout, stderr, status = Open3.capture3(env, 'git', *args, chdir: dir)

@@ -4,7 +4,7 @@ module Frijolero
   module Beancount
     # Beancount string literals: `"..."` with backslash escapes.
     #
-    # Converters::Beancount does not escape what it writes, so a description
+    # Converters::Default does not escape what it writes, so a description
     # containing a quote is already malformed on disk; `Header.parse` rejects
     # those rather than guessing. Everything written back from here is escaped.
     module Quoting

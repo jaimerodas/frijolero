@@ -23,7 +23,7 @@ Naming/VariableNumber:
 # default but where further extraction would weaken cohesion.
 #
 # Multi-line output builders (the structure of the output is the method):
-#   format_transaction      Converters::Beancount
+#   format_transaction      Converters::Default
 #   transaction_summary     UI
 #   handle_sell             Converters::Fintual
 #
@@ -60,8 +60,8 @@ Metrics/MethodLength:
 # and an options hash would only hide them.
 Metrics/ParameterLists:
   Exclude:
-    - 'lib/frijolero/converters/account_targets.rb'
-    - 'lib/frijolero/statement.rb'
+    - 'lib/converters/account_targets.rb'
+    - 'lib/statement.rb'
 
 # `b2` is what the class (Frijolero::B2) and the collaborator are called everywhere
 # else, so it is the name the keyword argument has to have. The rest of the list is
@@ -74,7 +74,7 @@ Naming/MethodParameterName:
 # a terminal to ask); renaming it to confirm? would ripple through every caller.
 Naming/PredicateMethod:
   Exclude:
-    - 'lib/frijolero/ui.rb'
+    - 'lib/ui.rb'
 
 Metrics/AbcSize:
   Exclude: ['test/**/*']
@@ -95,7 +95,7 @@ Metrics/AbcSize:
 # handler method, plus shared helpers. ~102 lines; splitting per-handler
 # files would be more navigation than understanding.
 #
-# Converters::Plata is the largest class in the gem: 41 methods over ~380 lines
+# Converters::Plata is the largest class in the app: 41 methods over ~380 lines
 # of file. Measured, not estimated. It is one job (convert an Alpaca statement)
 # expressed as many small writers -- every method passes Metrics/MethodLength,
 # AbcSize and CyclomaticComplexity on its own.
@@ -117,8 +117,8 @@ Metrics/AbcSize:
 Metrics/ClassLength:
   Exclude:
     - 'test/**/*'
-    - 'lib/frijolero/statement.rb'
-    - 'lib/frijolero/converters/fintual.rb'
-    - 'lib/frijolero/converters/plata.rb'
+    - 'lib/statement.rb'
+    - 'lib/converters/fintual.rb'
+    - 'lib/converters/plata.rb'
     # Web::App: routes are a table; each handler is a few lines.
     - 'app/app.rb'

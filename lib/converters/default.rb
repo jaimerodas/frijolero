@@ -4,7 +4,7 @@ require 'date'
 
 module Frijolero
   module Converters
-    class Beancount < Base
+    class Default < Base
       DEFAULT_EXPENSE_ACCOUNT = 'Expenses:FIXME'
 
       def initialize(expense_account: DEFAULT_EXPENSE_ACCOUNT, **)

@@ -11,7 +11,7 @@ require 'fileutils'
 require 'tmpdir'
 module TestHelpers
   FIXTURES_DIR = File.expand_path('fixtures', __dir__)
-  TEMPLATES_DIR = File.expand_path('../lib/frijolero/templates', __dir__)
+  TEMPLATES_DIR = File.expand_path('../templates', __dir__)
 
   def fixture_path(name)
     File.join(FIXTURES_DIR, name)

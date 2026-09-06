@@ -108,7 +108,7 @@ The rules editor validates with `YAML.safe_load` and a probe call to `matches_fo
 
 ### Converters
 
-`Converters::Beancount`, `CetesDirecto`, `Fintual` and `Plata` inherit from `Base` and share `AccountTargets` and `Amounts`. All amounts go through `BigDecimal`. A Float residue such as `-5.55e-17` breaks Beancount. `BeancountMerger` appends an `include` line relative to the directory of the main file.
+`Converters::Default`, `CetesDirecto`, `Fintual` and `Plata` inherit from `Base` and share `AccountTargets` and `Amounts`. All amounts go through `BigDecimal`. A Float residue such as `-5.55e-17` breaks Beancount. `BeancountMerger` appends an `include` line relative to the directory of the main file.
 
 ### Plata reads Alpaca statements, never the advisor PDF
 
@@ -120,7 +120,7 @@ Three behaviours are deliberate. `High-Yield Cash Sweep` rows are skipped, becau
 
 ### Infrastructure classes
 
-`OpenAIClient` has a nested `Transport` and typed errors. `extract_transactions(file_id, spec)` runs any prompt spec on a file, with `background: true` and a 2 s poll. The classifier uses it too. `B2` is a hand-rolled SigV4 client over `Net::HTTP`, with path-style URLs. `list(prefix)` reads one page of ListObjectsV2 and parses the XML with a regex. `uri_encode` is the only place that turns a space into `%20`. The tests replay two official AWS vectors. `LedgerRepo` runs git as a subprocess (see "Git subprocesses"). `UI` writes plain lines to `UI.sink`, and `confirm` returns `auto_accept?`. `PromptSpec` assembles `spec.json`, `instructions.txt` and `schema.json`. The templates live in `lib/frijolero/templates/prompts/{default,plata,classify}`. The ledger repo holds the live copies, and `bbva`, `cetes` and `fintual` exist only there.
+`OpenAIClient` has a nested `Transport` and typed errors. `extract_transactions(file_id, spec)` runs any prompt spec on a file, with `background: true` and a 2 s poll. The classifier uses it too. `B2` is a hand-rolled SigV4 client over `Net::HTTP`, with path-style URLs. `list(prefix)` reads one page of ListObjectsV2 and parses the XML with a regex. `uri_encode` is the only place that turns a space into `%20`. The tests replay two official AWS vectors. `LedgerRepo` runs git as a subprocess (see "Git subprocesses"). `UI` writes plain lines to `UI.sink`, and `confirm` returns `auto_accept?`. `PromptSpec` assembles `spec.json`, `instructions.txt` and `schema.json`. The templates live in `templates/prompts/{default,plata,classify}`. The ledger repo holds the live copies, and `bbva`, `cetes` and `fintual` exist only there.
 
 ## Git subprocesses
 

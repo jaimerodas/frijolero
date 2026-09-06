@@ -10,7 +10,7 @@ module Frijolero
   # makes the run idempotent: a transaction detailed on one pass no longer posts
   # to FIXME, so the next pass skips it and the file comes out byte-identical.
   class BeancountDetailer
-    def initialize(file, config_path, expense_account: Converters::Beancount::DEFAULT_EXPENSE_ACCOUNT)
+    def initialize(file, config_path, expense_account: Converters::Default::DEFAULT_EXPENSE_ACCOUNT)
       @file = file
       @config_path = config_path
       @expense_account = expense_account

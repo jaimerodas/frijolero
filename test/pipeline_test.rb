@@ -140,7 +140,7 @@ class PipelineTest < Minitest::Test
 
   def test_default_convert_delegates_to_beancount_converter
     captured = nil
-    Frijolero::Converters::Beancount.stub(:convert, ->(**kwargs) { captured = kwargs }) do
+    Frijolero::Converters::Default.stub(:convert, ->(**kwargs) { captured = kwargs }) do
       pipeline = Frijolero::Pipeline::Default.new('beancount_account' => 'Liabilities:Amex')
       pipeline.convert(json_path: '/in.json', output: '/out.beancount')
     end
@@ -207,7 +207,7 @@ class PipelineTest < Minitest::Test
 
   def test_default_convert_accepts_account_override
     captured = nil
-    Frijolero::Converters::Beancount.stub(:convert, ->(**kwargs) { captured = kwargs }) do
+    Frijolero::Converters::Default.stub(:convert, ->(**kwargs) { captured = kwargs }) do
       pipeline = Frijolero::Pipeline::Default.new('beancount_account' => 'Liabilities:Amex')
       pipeline.convert(json_path: '/in.json', output: '/out.beancount', account: 'Override:Account')
     end
@@ -216,7 +216,7 @@ class PipelineTest < Minitest::Test
 
   def test_default_convert_passes_expense_account_when_set
     captured = nil
-    Frijolero::Converters::Beancount.stub(:convert, ->(**kwargs) { captured = kwargs }) do
+    Frijolero::Converters::Default.stub(:convert, ->(**kwargs) { captured = kwargs }) do
       pipeline = Frijolero::Pipeline::Default.new('beancount_account' => 'Liabilities:Amex')
       pipeline.convert(json_path: '/in.json', output: '/out.beancount', expense_account: 'Expenses:Custom')
     end
@@ -225,7 +225,7 @@ class PipelineTest < Minitest::Test
 
   def test_default_convert_omits_expense_account_when_nil
     captured = nil
-    Frijolero::Converters::Beancount.stub(:convert, ->(**kwargs) { captured = kwargs }) do
+    Frijolero::Converters::Default.stub(:convert, ->(**kwargs) { captured = kwargs }) do
       pipeline = Frijolero::Pipeline::Default.new('beancount_account' => 'Liabilities:Amex')
       pipeline.convert(json_path: '/in.json', output: '/out.beancount')
     end

@@ -186,7 +186,7 @@ class BeancountTransactionTest < Minitest::Test
   end
 
   def test_apply_output_matches_what_the_json_converter_would_have_produced
-    # No trailing blank line here: Converters::Beancount does not emit one, so
+    # No trailing blank line here: Converters::Default does not emit one, so
     # this compares the rendering alone.
     tx = transaction_for(<<~BEANCOUNT)
       2026-01-16 * "HIPER LUMEN DEL VALLE | Tarjeta adicional ****8549"
@@ -261,7 +261,7 @@ class BeancountTransactionTest < Minitest::Test
       input = File.join(dir, 'in.json')
       output = File.join(dir, 'out.beancount')
       File.write(input, JSON.generate('transactions' => [transaction]))
-      Frijolero::Converters::Beancount.convert(input: input, account: 'Liabilities:BBVA', output: output)
+      Frijolero::Converters::Default.convert(input: input, account: 'Liabilities:BBVA', output: output)
       return File.read(output)
     end
   end
