@@ -34,6 +34,10 @@
       <% rows.each do |row| %>
         <tr>
           <td><%= h.(period_name(row[:period])) %></td>
+          <% if row[:missing] %>
+          <td colspan="3">—</td>
+          <td><a class="status missing" href="/upload">falta</a></td>
+          <% else %>
           <td><%= h.(row[:uploaded_at].strftime('%Y-%m-%d')) %></td>
           <td><%= h.(fmt_size.(row[:size])) %></td>
           <td><a href="/statements/<%= key_path %>/<%= row[:period] %>/pdf">PDF</a></td>
@@ -44,6 +48,7 @@
               sin procesar
             <% end %>
           </td>
+          <% end %>
         </tr>
       <% end %>
     </table>

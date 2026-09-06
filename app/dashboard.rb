@@ -29,18 +29,22 @@ module Frijolero
       end
     end
 
-    private
-
-    # A day inside the period of the newest statement that has closed by today, for an
+    # A day inside the period of the newest statement that has closed by `today`, for an
     # account that closes on `day` of each month (nil or 31 for the last day). A statement
     # closing on C holds mostly the month of C - 15, the same rule Classifier uses.
-    def last_closed(day)
-      closing = [@today, @today.prev_month].map { |m| closing_in(m, day || 31) }.find { |c| c <= @today }
+    def self.last_closed(day, today: Date.today)
+      closing = [today, today.prev_month].map { |m| closing_in(m, day || 31) }.find { |c| c <= today }
       closing - 15
     end
 
-    def closing_in(month, day)
+    def self.closing_in(month, day)
       Date.new(month.year, month.month, [day, Date.new(month.year, month.month, -1).day].min)
+    end
+
+    private
+
+    def last_closed(day)
+      self.class.last_closed(day, today: @today)
     end
 
     def status_for(account, period, closed)

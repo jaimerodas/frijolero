@@ -183,6 +183,50 @@ class AccountsTest < Minitest::Test
     assert_includes last_response.body, 'sin procesar'
   end
 
+  def test_account_page_fills_missing_periods_up_to_the_last_closed_one
+    @b2.entries = [
+      { key: 'frijolero/accounts/AMEX/AMEX 2604.pdf', size: 120_000, last_modified: Time.new(2026, 5, 1) },
+      { key: 'frijolero/accounts/AMEX/AMEX 2606.pdf', size: 130_000, last_modified: Time.new(2026, 7, 1) }
+    ]
+
+    Date.stub(:today, Date.new(2026, 9, 6)) { get '/accounts/AMEX' }
+
+    body = last_response.body
+    assert_equal 200, last_response.status
+    months = Frijolero::App::MONTHS.join('|')
+    expected = ['agosto 2026', 'julio 2026', 'junio 2026', 'mayo 2026', 'abril 2026']
+    assert_equal expected, body.scan(/(?:#{months}) 20\d\d/)
+    assert_equal 3, body.scan('falta').size
+    assert_includes body, 'href="/upload"'
+    refute_includes body, 'septiembre 2026'
+    refute_includes body, 'marzo 2026'
+  end
+
+  def test_account_page_keeps_a_pdf_newer_than_the_last_closed_period
+    @b2.entries = [{ key: 'frijolero/accounts/AMEX/AMEX 2609.pdf', size: 1, last_modified: Time.new(2026, 9, 5) }]
+
+    Date.stub(:today, Date.new(2026, 9, 6)) { get '/accounts/AMEX' }
+
+    assert_includes last_response.body, 'septiembre 2026'
+    refute_includes last_response.body, 'falta'
+  end
+
+  def test_account_page_missing_periods_respect_the_cutoff_day
+    File.write(File.join(@dir, 'config', 'accounts.yaml'), <<~YAML)
+      AMEX:
+        beancount_account: "Liabilities:Amex"
+        cutoff_day: 10
+    YAML
+    @b2.entries = [{ key: 'frijolero/accounts/AMEX/AMEX 2605.pdf', size: 1, last_modified: Time.new(2026, 6, 1) }]
+
+    # Closed on Aug 10, so the newest statement is July's; August has not closed yet.
+    Date.stub(:today, Date.new(2026, 9, 6)) { get '/accounts/AMEX' }
+
+    assert_includes last_response.body, 'julio 2026'
+    assert_includes last_response.body, 'junio 2026'
+    refute_includes last_response.body, 'agosto 2026'
+  end
+
   def test_account_page_with_no_pdfs
     @b2.entries = []
 

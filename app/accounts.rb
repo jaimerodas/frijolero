@@ -71,18 +71,30 @@ module Frijolero
         { title: "Config de #{key}", action: action, back: "/accounts/#{Rack::Utils.escape_path(key)}" }.merge(extra)
       end
 
+      # The PDFs in B2, plus a `missing` row for each period between the oldest PDF and
+      # the newest one that has closed, so the gaps are visible.
       def account_pdf_rows(key)
-        rows = self.class.b2.list(Config.pdf_prefix(key)).filter_map { |entry| account_pdf_row(key, entry) }
-        rows.sort_by { |row| row[:period] }.reverse
+        by_period = self.class.b2.list(Config.pdf_prefix(key)).filter_map { |entry| account_pdf_row(key, entry) }.to_h
+        periods = by_period.keys | expected_periods(key, by_period.keys.min)
+        periods.sort.reverse.map { |period| by_period[period] || { period: period, missing: true } }
       end
 
+      # Every 'YYMM' from `first` to the newest period the account has closed. None without a first PDF.
+      def expected_periods(key, first)
+        return [] unless first
+
+        last = Dashboard.last_closed(Config.accounts[key]['cutoff_day'])
+        (Date.strptime(first, '%y%m')..last).map { |d| d.strftime('%y%m') }.uniq
+      end
+
+      # ['YYMM', row] for a PDF of this account, nil for anything else under the prefix.
       def account_pdf_row(key, entry)
         parsed = AccountConfig.parse_filename(entry[:key])
         return unless parsed && parsed[0] == key
 
         period = parsed[1]
-        { period: period, size: entry[:size], uploaded_at: entry[:last_modified],
-          processed: File.exist?(Config.statement_path(key, period, 'beancount')) }
+        [period, { period: period, size: entry[:size], uploaded_at: entry[:last_modified],
+                   processed: File.exist?(Config.statement_path(key, period, 'beancount')) }]
       end
     end
   end
