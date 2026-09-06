@@ -20,13 +20,13 @@ module Frijolero
       def repo = @repo ||= LedgerRepo.new(dir: Config.ledger_dir)
     end
 
+    MONTHS = %w[enero febrero marzo abril mayo junio julio agosto septiembre octubre noviembre diciembre].freeze
+
     helpers do
       # The <head> every page shares. `refresh` adds a meta refresh in seconds.
       def head(title = 'Frijolero', refresh: nil)
         erb :_head, layout: false, locals: { title: title, refresh: refresh }
       end
-
-      MONTHS = %w[enero febrero marzo abril mayo junio julio agosto septiembre octubre noviembre diciembre].freeze
 
       # 'YYMM' → 'agosto 2026'. URLs and file names keep YYMM.
       def period_name(period)
