@@ -12,7 +12,7 @@ The flow: you upload a PDF. The app finds the account and the period, and you co
 
 - Escribe los mensajes de commit en español, simples y concisos.
 - Work happens on local `main`. The user pushes when they decide to. Do not open a PR for each change.
-- There are no git hooks. Run the tests and rubocop yourself before each commit. Read "Git subprocesses" before you write code that shells out to git.
+- Read "Git subprocesses" before you write code that shells out to git.
 
 ## Commands
 
