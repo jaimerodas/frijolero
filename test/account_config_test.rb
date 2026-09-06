@@ -61,6 +61,22 @@ class AccountConfigTest < Minitest::Test
     end
   end
 
+  def test_closed_accounts_are_excluded_from_active_and_descriptions_but_still_found
+    with_ledger_dir do |dir|
+      File.write(File.join(dir, 'config', 'accounts.yaml'), <<~YAML)
+        AMEX:
+          beancount_account: "Liabilities:Amex"
+        Old Card:
+          beancount_account: "Liabilities:OldCard"
+          closed: true
+      YAML
+
+      assert_equal ['AMEX'], Frijolero::AccountConfig.active.keys
+      assert_equal ['AMEX'], Frijolero::AccountConfig.descriptions.keys
+      assert_equal 'Liabilities:OldCard', Frijolero::AccountConfig.find_config('Old Card')['beancount_account']
+    end
+  end
+
   def test_descriptions_fall_back_to_key
     with_accounts_config do
       descriptions = Frijolero::AccountConfig.descriptions

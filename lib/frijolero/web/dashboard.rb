@@ -19,7 +19,7 @@ module Frijolero
       end
 
       def rows
-        Config.accounts.keys.map do |account|
+        AccountConfig.active.keys.map do |account|
           statuses = periods.to_h { |period| [period, status_for(account, period)] }
           Row.new(account: account, statuses: statuses)
         end

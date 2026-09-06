@@ -39,8 +39,15 @@ module Frijolero
 
       # {key => description} for the classifier. Falls back to the key itself
       # so an account without a description still appears in the list.
+      # Accounts that still receive statements. A closed account keeps its key so
+      # its history (pages, rules, PDFs) still resolves, but it leaves the
+      # dashboard and the classifier's choices.
+      def active
+        accounts.reject { |_key, config| config['closed'] }
+      end
+
       def descriptions
-        accounts.to_h { |key, config| [key, config['description'] || key] }
+        active.to_h { |key, config| [key, config['description'] || key] }
       end
     end
   end

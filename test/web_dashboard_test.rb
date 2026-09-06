@@ -19,7 +19,20 @@ class WebDashboardTest < Minitest::Test
         beancount_account: "Liabilities:Amex"
       BBVA TDC:
         beancount_account: "Liabilities:BBVA"
+      Old Card:
+        beancount_account: "Liabilities:OldCard"
+        closed: true
     YAML
+  end
+
+  def test_closed_accounts_are_not_listed
+    with_ledger_dir do |dir|
+      write_accounts(dir)
+
+      accounts = Frijolero::Web::Dashboard.new(today: Date.new(2026, 9, 5)).rows.map(&:account)
+
+      assert_equal ['AMEX', 'BBVA TDC'], accounts
+    end
   end
 
   def test_periods_returns_previous_and_current_month

@@ -66,7 +66,9 @@ month you upload it.
 
 This file maps an account key to a Beancount account. The key is also the
 folder name under `accounts/` and the prefix of every file name for that
-account. `description` gives the app a hint for classification.
+account. `description` gives the app a hint for classification. `closed: true`
+removes an account from the dashboard and from the classifier, and keeps its
+history reachable.
 
 ```yaml
 Amex:
@@ -78,6 +80,11 @@ BBVA:
   beancount_account: "Assets:BBVA"
   openai_prompt_type: bbva
   description: "BBVA checking account (cuenta de débito), MXN"
+
+Old Card:
+  beancount_account: "Liabilities:OldCard"
+  openai_prompt_type: default
+  closed: true
 ```
 
 ### config/rules/\<Account\>.yaml
