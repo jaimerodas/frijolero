@@ -114,5 +114,5 @@ Metrics/ClassLength:
     - 'lib/statement.rb'
     - 'lib/converters/fintual.rb'
     - 'lib/converters/plata.rb'
-    # Web::App: routes are a table; each handler is a few lines.
+    # App: routes are a table; each handler is a few lines.
     - 'app/app.rb'

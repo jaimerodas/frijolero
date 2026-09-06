@@ -17,7 +17,7 @@ The flow: you upload a PDF. The app finds the account and the period, and you co
 ## Commands
 
 ```bash
-bundle exec rake test && bundle exec rubocop      # both must pass before a commit
+bundle exec rake test && bundle exec rubocop      # both must pass before a commit (bin/test runs both)
 
 bin/dev                                            # local app on http://localhost:3000, password x; reads .env (see .env.example)
 
@@ -26,6 +26,19 @@ kamal app exec --reuse '<cmd>'                     # run a command in the produc
 ```
 
 ## Where things live
+
+This repo:
+
+```
+config.ru        boots app/app.rb
+app/             the Sinatra process: App and its route files, Dashboard, Jobs, views/
+public/          style.css
+lib/             the pipeline, no Sinatra: frijolero.rb is the manifest that requires the rest
+templates/       prompts/{classify,default,plata}, seeds for a new ledger; only tests read them
+bin/             dev, test, test_fast
+config/          deploy.yml, puma.rb
+test/            mirrors app/ and lib/; fixtures/ holds sample statements and test prompts
+```
 
 The ledger repo is `git@github.com:jaimerodas/beancount-ledger.git` (private). It has three copies:
 
@@ -51,7 +64,7 @@ On the volume, outside the repo: `/data/jobs.jsonl` is the append-only job log. 
 
 In B2, in a bucket shared with other apps: `frijolero/accounts/<Key>/<Key> YYMM.pdf`. `Config.pdf_key` is the only formula for that key, and `Config.pdf_prefix` is the account's directory.
 
-The old world is frozen. `~/Documents/Beancount` and `~/.frijolero` are the pre-2.0 layout. Two scripts migrated them to the ledger repo and to B2 on 2026-09-05, and were deleted afterwards (`git log -- script/build_ledger_repo`).
+The old world is frozen. `~/Documents/Beancount` and `~/.frijolero` are the pre-2.0 layout. Two scripts migrated them to the ledger repo and to B2 on 2026-09-05, and were deleted afterwards (`git log --diff-filter=D -- script`).
 
 A change to rules, accounts, prompts or model names is a commit in the ledger repo, not a deploy. The app reads those files on each request and each job. The volume gets the change at the next job's pull, or at once with this command:
 
@@ -124,7 +137,7 @@ Three behaviours are deliberate. `High-Yield Cash Sweep` rows are skipped, becau
 
 ## Git subprocesses
 
-`GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` override `chdir:`. If they are set, a test that runs git "in a tmpdir" commits to this repo instead. It happened once. Each git subprocess, in lib and in tests, gets an env hash that sets every `ENV` key that matches `/\AGIT_/` to nil. `LedgerRepo#git` does this, and `test/web_ledger_repo_test.rb` has the regression test. Before you commit new code that touches git, run `GIT_DIR=$(pwd)/.git GIT_WORK_TREE=$(pwd) bundle exec rake test` once and make sure that `git log -1` did not move.
+`GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` override `chdir:`. If they are set, a test that runs git "in a tmpdir" commits to this repo instead. It happened once. Each git subprocess, in lib and in tests, gets an env hash that sets every `ENV` key that matches `/\AGIT_/` to nil. `LedgerRepo#git` does this, and `test/ledger_repo_test.rb` has the regression test. Before you commit new code that touches git, run `GIT_DIR=$(pwd)/.git GIT_WORK_TREE=$(pwd) bundle exec rake test` once and make sure that `git log -1` did not move.
 
 ## Operations
 
@@ -137,7 +150,7 @@ Three behaviours are deliberate. `High-Yield Cash Sweep` rows are skipped, becau
 
 ## Tests
 
-Minitest and rack-test, about 475 tests, about 5 s. `with_ledger_dir` points `LEDGER_DIR` at a temporary directory with `config/`. Web tests call `App` directly and swap the collaborators for fakes. Only `test/app/app_test.rb` loads `config.ru`, for the auth wiring. `test_helper.rb` sets `RACK_ENV=test` before it loads the app; Sinatra fixes its environment when `sinatra/base` loads, and any other value makes host authorization return 403 in tests. No test touches the network. `Config.accounts` is read on each call and never memoized. The first deploy cached `{}` because it booted before the volume had a ledger.
+Minitest and rack-test, about 445 tests, about 5 s. `test/` mirrors `app/` and `lib/`. `with_ledger_dir` points `LEDGER_DIR` at a temporary directory with `config/`. Web tests call `App` directly and swap the collaborators for fakes. Only `test/app/app_test.rb` loads `config.ru`, for the auth wiring. `test_helper.rb` sets `RACK_ENV=test` before it loads the app; Sinatra fixes its environment when `sinatra/base` loads, and any other value makes host authorization return 403 in tests. No test touches the network. `Config.accounts` is read on each call and never memoized. The first deploy cached `{}` because it booted before the volume had a ledger.
 
 ## Known rough edges
 

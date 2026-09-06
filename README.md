@@ -177,8 +177,7 @@ docker run --rm -p 9292:9292 -e APP_PASSWORD=x -e LEDGER_DIR=/data/ledger frijol
 ## Development
 
 ```bash
-bundle exec rake test
-bundle exec rubocop
+bin/test        # rake test and rubocop
 ```
 
 The Ruby version comes from `.ruby-version` (4.0.6).
