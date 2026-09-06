@@ -36,7 +36,8 @@ code { font-family: var(--mono); font-size: 0.9375em; }
   margin-right: auto;
   font-weight: 700;
   font-size: 1.25rem;
-  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
   color: var(--red);
   text-decoration: none;
 }
