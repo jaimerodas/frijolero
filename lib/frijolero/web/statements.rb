@@ -23,12 +23,15 @@ module Frijolero
 
         data = File.exist?(paths[:json]) ? JSON.parse(File.read(paths[:json])) : nil
         beancount = File.read(paths[:beancount])
+        pipeline = Pipeline.for(Config.accounts[account])
 
         erb :statement, locals: {
           account: account,
           period: period,
-          summary: data && Pipeline.for(Config.accounts[account]).summary(data),
-          transactions: data&.dig('transactions'),
+          summary: data && pipeline.summary(data),
+          # Only the Default pipeline's rows have date/description/amount; an
+          # investment statement (Fintual, Plata, CETES) shows summary and preview only.
+          transactions: pipeline.runs_detailer? ? data&.dig('transactions') : nil,
           fixme_count: beancount.scan(/^\s+Expenses:FIXME\b/).size,
           beancount: beancount,
           notice: params[:detailed] && "#{params[:detailed]} detalladas, #{params[:remaining]} pendientes"

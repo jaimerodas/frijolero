@@ -60,7 +60,7 @@
           <tr>
             <td><%= h.(tx['date']) %></td>
             <td><%= h.(tx['description']) %></td>
-            <td class="amount"><%= h.(format('%.2f', tx['amount'])) %> <%= h.(tx['currency']) %></td>
+            <td class="amount"><%= h.(tx['amount'].nil? ? '' : format('%.2f', tx['amount'])) %> <%= h.(tx['currency']) %></td>
             <td><%= h.(tx['payee']) %></td>
             <td><%= h.(tx['narration']) %></td>
             <td><%= h.(expense_account) %></td>

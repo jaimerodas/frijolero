@@ -257,6 +257,30 @@ class WebStatementsTest < Minitest::Test
     assert_includes last_response.body, '1 detalladas, 1 pendientes'
   end
 
+  def test_fintual_statement_shows_summary_without_the_table
+    write_accounts_yaml(extra: "Fintual:\n  beancount_account: \"Assets:Fintual\"\n  converter_type: fintual\n")
+    write_statement('Fintual', '2608',
+                    json: { 'transactions' => [{ 'trade_date' => '2026-08-04', 'transaction_type' => 'buy',
+                                                 'reported_amount' => 1500.0, 'description' => 'Compra' }] },
+                    beancount: "2026-08-04 * \"Compra\"\n  Assets:Fintual  1 FUND {1500.00 MXN}\n  Assets:BBVA\n")
+
+    get '/statements/Fintual/2608'
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, 'Found 1 transactions'
+    refute_includes last_response.body, '<th>Fecha</th>'
+  end
+
+  def test_default_row_without_amount_does_not_crash
+    write_statement('AMEX', '2508',
+                    json: { 'transactions' => [{ 'date' => '2025-08-03', 'description' => 'X', 'amount' => nil }] },
+                    beancount: "2025-08-03 * \"X\"\n  Liabilities:Amex  -1.00 MXN\n  Expenses:FIXME\n")
+
+    get '/statements/AMEX/2508'
+
+    assert_equal 200, last_response.status
+  end
+
   private
 
   def write_accounts_yaml(extra: '')
