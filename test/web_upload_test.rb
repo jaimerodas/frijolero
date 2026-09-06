@@ -155,6 +155,14 @@ class WebUploadTest < Minitest::Test
     assert_equal 31, Frijolero::Config.accounts['BBVA']['cutoff_day']
   end
 
+  def test_dashboard_renders_the_shared_head
+    get '/'
+
+    assert_includes last_response.body, '<title>Frijolero</title>'
+    assert_includes last_response.body, 'fonts.googleapis.com/css2'
+    assert_equal 1, last_response.body.scan('<meta charset').size
+  end
+
   def test_dashboard_links_to_jobs_accounts_and_rules
     get '/'
 

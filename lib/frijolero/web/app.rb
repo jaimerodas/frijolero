@@ -30,6 +30,13 @@ module Frijolero
         def repo = @repo ||= LedgerRepo.new(dir: Config.ledger_dir)
       end
 
+      helpers do
+        # The <head> every page shares. `refresh` adds a meta refresh in seconds.
+        def head(title = 'Frijolero', refresh: nil)
+          erb :_head, layout: false, locals: { title: title, refresh: refresh }
+        end
+      end
+
       get '/' do
         failed = self.class.jobs.all.select { |j| j.status == 'failed' }.map(&:label)
         erb :dashboard, locals: { dashboard: Dashboard.new(failed: failed) }

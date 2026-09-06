@@ -97,6 +97,12 @@ class WebAccountsTest < Minitest::Test
     assert_equal 1, last_response.body.scan('>Openbank<').size
   end
 
+  def test_account_page_titles_and_escapes_the_key
+    get '/accounts/BBVA%20TDC'
+
+    assert_includes last_response.body, '<title>BBVA TDC</title>'
+  end
+
   def test_accounts_list_escapes_links_for_a_key_with_a_space
     get '/accounts'
 

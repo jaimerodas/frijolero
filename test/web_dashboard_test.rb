@@ -2,16 +2,22 @@
 
 require 'test_helper'
 require 'frijolero/web/dashboard'
-require 'erb'
 require 'fileutils'
 require 'rack/utils'
 
 class WebDashboardTest < Minitest::Test
   include TestHelpers
 
-  VIEW_PATH = File.expand_path('../lib/frijolero/web/views/dashboard.erb', __dir__)
+  def setup
+    @previous_rack_env = ENV.fetch('RACK_ENV', nil)
+    ENV['RACK_ENV'] = 'test'
+    # See the comment in web_app_test.rb: this must load after RACK_ENV is set.
+    require 'frijolero/web/app'
+  end
 
-  def teardown; end
+  def teardown
+    @previous_rack_env ? ENV['RACK_ENV'] = @previous_rack_env : ENV.delete('RACK_ENV')
+  end
 
   def write_accounts(dir)
     File.write(File.join(dir, 'config', 'accounts.yaml'), <<~YAML)
@@ -115,7 +121,7 @@ class WebDashboardTest < Minitest::Test
       File.write(path, '')
 
       dashboard = Frijolero::Web::Dashboard.new(today: Date.new(2026, 9, 5))
-      html = ERB.new(File.read(VIEW_PATH)).result_with_hash(dashboard: dashboard)
+      html = Frijolero::Web::App.new!.erb(:dashboard, locals: { dashboard: dashboard })
 
       assert_includes html, 'falta'
       assert_includes html, 'recibido'
