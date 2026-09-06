@@ -28,6 +28,11 @@ module Frijolero
         erb :_head, layout: false, locals: { title: title, refresh: refresh }
       end
 
+      # The header every page shares: wordmark and the three sections.
+      def topbar
+        erb :_topbar, layout: false
+      end
+
       # 'YYMM' → 'agosto 2026'. URLs and file names keep YYMM.
       def period_name(period)
         "#{MONTHS[period[2, 2].to_i - 1]} 20#{period[0, 2]}"

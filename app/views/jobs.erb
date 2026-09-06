@@ -7,23 +7,31 @@
   <%= head %>
 </head>
 <body>
-  <h1>Jobs</h1>
-  <table>
-    <tr>
-      <th>Etiqueta</th>
-      <th>Estado</th>
-      <th>Inicio</th>
-      <th>Fin</th>
-    </tr>
-    <% jobs.each do |job| %>
-      <tr>
-        <td><a href="/jobs/<%= h.(job.id) %>"><%= h.(job.label) %></a></td>
-        <td><%= h.(job.status) %></td>
-        <td><%= h.(job.started_at) %></td>
-        <td><%= h.(job.finished_at) %></td>
-      </tr>
-    <% end %>
-  </table>
-  <p><a href="/">Regresar</a></p>
+  <%= topbar %>
+  <main>
+    <h1>Jobs</h1>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Etiqueta</th>
+            <th>Estado</th>
+            <th>Inicio</th>
+            <th>Fin</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% jobs.each do |job| %>
+            <tr>
+              <td><a href="/jobs/<%= h.(job.id) %>"><code><%= h.(job.label) %></code></a></td>
+              <td><span class="status <%= h.(job.status) %>"><%= h.(job.status) %></span></td>
+              <td class="date"><%= h.(job.started_at) %></td>
+              <td class="date"><%= h.(job.finished_at) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </main>
 </body>
 </html>

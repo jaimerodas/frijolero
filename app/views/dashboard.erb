@@ -10,34 +10,41 @@
   <%= head %>
 </head>
 <body>
-  <h1>Frijolero</h1>
-  <p><a href="/upload">Subir estado de cuenta</a> · <a href="/jobs">Jobs</a> · <a href="/accounts">Cuentas</a></p>
-  <table>
-    <tr>
-      <th>Cuenta</th>
-      <th>Corte</th>
-      <% periods.each do |period| %>
-        <th><%= h.(period_name(period)) %></th>
-      <% end %>
-    </tr>
-    <% dashboard.rows.each do |row| %>
-      <tr>
-        <td><a href="/accounts/<%= Rack::Utils.escape_path(row.account) %>"><%= h.(row.account) %></a><% if rules?(row.account) %> <a class="rules" href="/rules/<%= Rack::Utils.escape_path(row.account) %>" title="Reglas de <%= h.(row.account) %>">reglas</a><% end %></td>
-        <td class="cutoff"><%= h.(cutoff.(row.cutoff_day)) %></td>
-        <% periods.each do |period| %>
-          <% status = row.statuses[period] %>
-          <td>
-            <span class="status <%= status %>">
-              <% if status == :received %>
-                <a href="/statements/<%= Rack::Utils.escape_path(row.account) %>/<%= period %>"><%= labels[status] %></a>
-              <% else %>
-                <%= labels[status] %>
+  <%= topbar %>
+  <main>
+    <h1>Últimos periodos</h1>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Cuenta</th>
+            <th>Corte</th>
+            <% periods.each do |period| %>
+              <th><%= h.(period_name(period)) %></th>
+            <% end %>
+          </tr>
+        </thead>
+        <tbody>
+          <% dashboard.rows.each do |row| %>
+            <% path = Rack::Utils.escape_path(row.account) %>
+            <tr>
+              <td><a href="/accounts/<%= path %>"><code><%= h.(row.account) %></code></a><% if rules?(row.account) %> <a class="rules" href="/rules/<%= path %>" title="Reglas de <%= h.(row.account) %>">reglas</a><% end %></td>
+              <td class="cutoff"><%= h.(cutoff.(row.cutoff_day)) %></td>
+              <% periods.each do |period| %>
+                <% status = row.statuses[period] %>
+                <td>
+                  <% if status == :received %>
+                    <a class="status received" href="/statements/<%= path %>/<%= period %>"><%= labels[status] %></a>
+                  <% else %>
+                    <span class="status <%= status %>"><%= labels[status] %></span>
+                  <% end %>
+                </td>
               <% end %>
-            </span>
-          </td>
-        <% end %>
-      </tr>
-    <% end %>
-  </table>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </main>
 </body>
 </html>

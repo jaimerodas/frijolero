@@ -54,14 +54,14 @@ module Frijolero
       end
 
       def render_editor(status: 200, **locals)
-        defaults = { notice: nil, error: nil, back: '/' }
+        defaults = { notice: nil, error: nil }
         self.status(status)
         erb :editor, locals: defaults.merge(locals)
       end
 
       def rules_locals(account, **extra)
         action = "/rules/#{Rack::Utils.escape_path(account)}"
-        { title: "Reglas de #{account}", action: action, back: '/' }.merge(extra)
+        { title: "Reglas de #{account}", action: action }.merge(extra)
       end
 
       def rule_added_notice(description)

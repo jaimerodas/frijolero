@@ -8,34 +8,40 @@
   <%= head('Cuentas') %>
 </head>
 <body>
-  <h1>Cuentas</h1>
-  <nav>
-    <a href="/">Volver</a>
-  </nav>
+  <%= topbar %>
+  <main>
+    <h1>Cuentas</h1>
 
-  <% sections.each do |title, accounts| %>
-    <h2><%= title %></h2>
-    <table>
-      <tr>
-        <th>Cuenta</th>
-        <th>Beancount</th>
-        <th></th>
-      </tr>
-      <% accounts.each do |key, config| %>
-        <% path = Rack::Utils.escape_path(key) %>
-        <tr>
-          <td><%= h.(key) %></td>
-          <td><%= h.(config['beancount_account']) %></td>
-          <td>
-            <a href="/accounts/<%= path %>">estados</a> ·
-            <a href="/accounts/<%= path %>/config">config</a>
-            <% if rules?(key) %>· <a href="/rules/<%= path %>">reglas</a><% end %>
-          </td>
-        </tr>
-      <% end %>
-    </table>
-  <% end %>
+    <% sections.each do |title, accounts| %>
+      <h2><%= title %></h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cuenta</th>
+              <th>Beancount</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% accounts.each do |key, config| %>
+              <% path = Rack::Utils.escape_path(key) %>
+              <tr>
+                <td><a href="/accounts/<%= path %>"><code><%= h.(key) %></code></a></td>
+                <td><code><%= h.(config['beancount_account']) %></code></td>
+                <td>
+                  <a class="button" href="/accounts/<%= path %>">Estados</a>
+                  <a class="button" href="/accounts/<%= path %>/config">Configuración</a>
+                  <% if rules?(key) %><a class="button" href="/rules/<%= path %>">Reglas</a><% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
 
-  <p><a href="/accounts/yaml">Editar archivo completo</a></p>
+    <p><a href="/accounts/yaml">Editar el archivo completo</a></p>
+  </main>
 </body>
 </html>

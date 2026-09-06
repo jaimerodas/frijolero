@@ -7,38 +7,39 @@
   <%= head %>
 </head>
 <body>
-  <h1><%= h.(filename) %></h1>
+  <%= topbar %>
+  <main>
+    <h1><%= h.(filename) %></h1>
+    <% if result.period_start && result.period_end %>
+      <p class="meta">Periodo impreso: <%= h.(result.period_start) %> a <%= h.(result.period_end) %></p>
+    <% end %>
 
-  <% if result.period_start && result.period_end %>
-    <p>Periodo impreso: <%= h.(result.period_start) %> a <%= h.(result.period_end) %></p>
-  <% end %>
+    <form method="post" action="/upload/confirm">
+      <label for="account">Cuenta</label>
+      <select id="account" name="account" required>
+        <option value=""></option>
+        <% accounts.each do |account| %>
+          <option value="<%= h.(account) %>" <%= 'selected' if !result.unknown? && account == result.account %>>
+            <%= h.(account) %>
+          </option>
+        <% end %>
+      </select>
 
-  <form method="post" action="/upload/confirm">
-    <label for="account">Cuenta</label>
-    <select id="account" name="account" required>
-      <option value=""></option>
-      <% accounts.each do |account| %>
-        <option value="<%= h.(account) %>" <%= 'selected' if !result.unknown? && account == result.account %>>
-          <%= h.(account) %>
-        </option>
-      <% end %>
-    </select>
+      <label for="period">Periodo (YYMM)</label>
+      <input type="text" id="period" name="period" pattern="\d{4}" required value="<%= h.(result.period) %>">
 
-    <label for="period">Periodo (YYMM)</label>
-    <input type="text" id="period" name="period" pattern="\d{4}" required value="<%= h.(result.period) %>">
+      <input type="hidden" name="token" value="<%= h.(token) %>">
+      <input type="hidden" name="file_id" value="<%= h.(result.file_id) %>">
+      <input type="hidden" name="period_end" value="<%= h.(result.period_end) %>">
+      <input type="hidden" name="overwrite" value="<%= h.(overwrite) %>">
 
-    <input type="hidden" name="token" value="<%= h.(token) %>">
-    <input type="hidden" name="file_id" value="<%= h.(result.file_id) %>">
-    <input type="hidden" name="period_end" value="<%= h.(result.period_end) %>">
-    <input type="hidden" name="overwrite" value="<%= h.(overwrite) %>">
+      <p class="note">Revisa antes de procesar: la extracción cuesta dinero.</p>
 
-    <p class="note">Revisa antes de procesar: la extracción cuesta dinero.</p>
-
-    <p>
-      <button type="submit">Procesar</button>
-      <button type="submit" formaction="/upload/backup">Solo guardar PDF</button>
-    </p>
-  </form>
-  <p><a href="/upload">Regresar</a></p>
+      <p class="actions">
+        <button type="submit" class="primary">Procesar</button>
+        <button type="submit" formaction="/upload/backup">Solo guardar PDF</button>
+      </p>
+    </form>
+  </main>
 </body>
 </html>

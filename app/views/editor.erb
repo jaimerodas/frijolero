@@ -7,20 +7,20 @@
   <%= head(title) %>
 </head>
 <body>
-  <h1><%= h.(title) %></h1>
-  <nav>
-    <a href="<%= h.(back) %>">Volver</a>
-    <a href="/accounts">Cuentas</a>
-  </nav>
-  <% if notice %>
-    <p class="notice"><%= h.(notice) %></p>
-  <% end %>
-  <% if error %>
-    <p class="error" role="alert"><%= h.(error) %></p>
-  <% end %>
-  <form method="post" action="<%= h.(action) %>">
-    <textarea name="content" rows="30" spellcheck="false" style="width:100%;font-family:ui-monospace,monospace"><%= h.(content) %></textarea>
-    <p><button type="submit">Guardar</button></p>
-  </form>
+  <%= topbar %>
+  <main>
+    <h1><%= h.(title) %></h1>
+    <% if notice %>
+      <p class="notice"><%= h.(notice) %></p>
+    <% end %>
+    <% if error %>
+      <p class="error" role="alert"><%= h.(error) %></p>
+    <% end %>
+    <form method="post" action="<%= h.(action) %>">
+      <label for="content">Contenido</label>
+      <textarea id="content" name="content" rows="30" spellcheck="false"><%= h.(content) %></textarea>
+      <p class="actions"><button type="submit" class="primary">Guardar</button></p>
+    </form>
+  </main>
 </body>
 </html>

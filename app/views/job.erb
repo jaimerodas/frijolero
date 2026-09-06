@@ -8,19 +8,20 @@
   <%= head(refresh: job.done? ? nil : 3) %>
 </head>
 <body>
-  <h1><%= h.(job.label) %></h1>
-  <p>Estado: <%= h.(job.status) %></p>
+  <%= topbar %>
+  <main>
+    <h1><%= h.(job.label) %></h1>
+    <p class="meta"><span class="status <%= h.(job.status) %>"><%= h.(job.status) %></span></p>
 
-  <% if job.error %>
-    <p class="error"><%= h.(job.error) %></p>
-  <% end %>
+    <% if job.error %>
+      <p class="error" role="alert"><%= h.(job.error) %></p>
+    <% end %>
 
-  <% if job.status == 'ok' %>
-    <p><a href="/statements/<%= Rack::Utils.escape_path(account) %>/<%= h.(period) %>">Ver estado de cuenta</a></p>
-  <% end %>
+    <% if job.status == 'ok' %>
+      <p class="actions"><a class="button" href="/statements/<%= Rack::Utils.escape_path(account) %>/<%= h.(period) %>">Ver estado de cuenta</a></p>
+    <% end %>
 
-  <pre><%= h.(job.output) %></pre>
-
-  <p><a href="/jobs">Jobs</a> · <a href="/">Regresar</a></p>
+    <pre><%= h.(job.output) %></pre>
+  </main>
 </body>
 </html>

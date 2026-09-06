@@ -2,7 +2,7 @@
   h = ->(s) { Rack::Utils.escape_html(s.to_s) }
   key_path = Rack::Utils.escape_path(key)
   fmt_size = lambda do |bytes|
-    bytes < 1_000_000 ? "#{bytes / 1000} KB" : format('%.1f MB', bytes / 1_000_000.0)
+    bytes < 1_000_000 ? "#{bytes / 1000}\u00a0KB" : format('%.1f\u00a0MB', bytes / 1_000_000.0)
   end
 %>
 <!DOCTYPE html>
@@ -11,47 +11,53 @@
   <%= head(key) %>
 </head>
 <body>
-  <h1><%= h.(key) %></h1>
-  <nav>
-    <a href="/accounts">Volver</a>
-    <a href="/accounts/<%= key_path %>/config">config</a>
-    <% if rules?(key) %><a href="/rules/<%= key_path %>">reglas</a><% end %>
-  </nav>
+  <%= topbar %>
+  <main>
+    <h1><%= h.(key) %></h1>
+    <p class="actions">
+      <a class="button" href="/accounts/<%= key_path %>/config">Configuración</a>
+      <% if rules?(key) %><a class="button" href="/rules/<%= key_path %>">Reglas</a><% end %>
+    </p>
 
-  <% if error %>
-    <p class="error" role="alert"><%= h.(error) %></p>
-  <% elsif rows.empty? %>
-    <p>No hay PDFs en B2</p>
-  <% else %>
-    <table>
-      <tr>
-        <th>Periodo</th>
-        <th>Subido</th>
-        <th>Tamaño</th>
-        <th>PDF</th>
-        <th>Estado</th>
-      </tr>
-      <% rows.each do |row| %>
-        <tr>
-          <td><%= h.(period_name(row[:period])) %></td>
-          <% if row[:missing] %>
-          <td colspan="3">—</td>
-          <td><a class="status missing" href="/upload">falta</a></td>
-          <% else %>
-          <td><%= h.(row[:uploaded_at].strftime('%Y-%m-%d')) %></td>
-          <td><%= h.(fmt_size.(row[:size])) %></td>
-          <td><a href="/statements/<%= key_path %>/<%= row[:period] %>/pdf">PDF</a></td>
-          <td>
-            <% if row[:processed] %>
-              <a href="/statements/<%= key_path %>/<%= row[:period] %>">ver</a>
-            <% else %>
-              sin procesar
+    <% if error %>
+      <p class="error" role="alert"><%= h.(error) %></p>
+    <% elsif rows.empty? %>
+      <p>No hay PDFs en B2. <a href="/upload">Sube el primero.</a></p>
+    <% else %>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Periodo</th>
+              <th>Tamaño</th>
+              <th>PDF</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.each do |row| %>
+              <tr>
+                <td><%= h.(period_name(row[:period])) %></td>
+                <% if row[:missing] %>
+                <td colspan="2"></td>
+                <td><a class="status missing" href="/upload">falta</a></td>
+                <% else %>
+                <td><%= h.(fmt_size.(row[:size])) %></td>
+                <td><a class="button" href="/statements/<%= key_path %>/<%= row[:period] %>/pdf">Descargar</a></td>
+                <td>
+                  <% if row[:processed] %>
+                    <a class="button" href="/statements/<%= key_path %>/<%= row[:period] %>">Ver</a>
+                  <% else %>
+                    <span class="note">sin procesar</span>
+                  <% end %>
+                </td>
+                <% end %>
+              </tr>
             <% end %>
-          </td>
-          <% end %>
-        </tr>
-      <% end %>
-    </table>
-  <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  </main>
 </body>
 </html>
