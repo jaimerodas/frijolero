@@ -5,7 +5,7 @@ require 'rack/test'
 require 'fileutils'
 require 'json'
 
-class WebStatementsTest < Minitest::Test
+class StatementsTest < Minitest::Test
   include Rack::Test::Methods
   include TestHelpers
 
@@ -22,10 +22,6 @@ class WebStatementsTest < Minitest::Test
   end
 
   def setup
-    @previous_rack_env = ENV.fetch('RACK_ENV', nil)
-    ENV['RACK_ENV'] = 'test'
-    require 'frijolero/web/app'
-
     @dir = Dir.mktmpdir
     @previous_ledger_dir = ENV.fetch('LEDGER_DIR', nil)
     ENV['LEDGER_DIR'] = @dir
@@ -34,18 +30,17 @@ class WebStatementsTest < Minitest::Test
     File.write(File.join(@dir, 'transactions.beancount'), '')
 
     @fake_repo = FakeRepo.new
-    Frijolero::Web::App.repo = @fake_repo
+    Frijolero::App.repo = @fake_repo
   end
 
   def teardown
-    restore_env('RACK_ENV', @previous_rack_env)
     restore_env('LEDGER_DIR', @previous_ledger_dir)
-    Frijolero::Web::App.repo = nil
+    Frijolero::App.repo = nil
     FileUtils.remove_entry(@dir)
   end
 
   def app
-    Frijolero::Web::App
+    Frijolero::App
   end
 
   def test_statement_page_shows_summary_transactions_and_fixme_count

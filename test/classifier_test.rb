@@ -38,7 +38,7 @@ class ClassifierTest < Minitest::Test
         beancount_account: "Assets:BBVA"
     YAML
     FileUtils.mkdir_p(File.join(dir, 'config', 'prompts'))
-    FileUtils.cp_r(File.expand_path('../lib/frijolero/templates/prompts/classify', __dir__),
+    FileUtils.cp_r(template_path('prompts/classify'),
                    File.join(dir, 'config', 'prompts', 'classify'))
   end
 

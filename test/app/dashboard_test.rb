@@ -1,23 +1,11 @@
 # frozen_string_literal: true
 
 require 'test_helper'
-require 'frijolero/web/dashboard'
 require 'fileutils'
 require 'rack/utils'
 
-class WebDashboardTest < Minitest::Test
+class DashboardTest < Minitest::Test
   include TestHelpers
-
-  def setup
-    @previous_rack_env = ENV.fetch('RACK_ENV', nil)
-    ENV['RACK_ENV'] = 'test'
-    # See the comment in web_app_test.rb: this must load after RACK_ENV is set.
-    require 'frijolero/web/app'
-  end
-
-  def teardown
-    @previous_rack_env ? ENV['RACK_ENV'] = @previous_rack_env : ENV.delete('RACK_ENV')
-  end
 
   def write_accounts(dir)
     File.write(File.join(dir, 'config', 'accounts.yaml'), <<~YAML)
@@ -36,7 +24,7 @@ class WebDashboardTest < Minitest::Test
     with_ledger_dir do |dir|
       write_accounts(dir)
 
-      accounts = Frijolero::Web::Dashboard.new(today: Date.new(2026, 9, 5)).rows.map(&:account)
+      accounts = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5)).rows.map(&:account)
 
       assert_equal ['AMEX', 'BBVA TDC'], accounts
     end
@@ -46,7 +34,7 @@ class WebDashboardTest < Minitest::Test
     with_ledger_dir do |dir|
       write_accounts(dir)
 
-      rows = Frijolero::Web::Dashboard.new(today: Date.new(2026, 9, 5)).rows
+      rows = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5)).rows
 
       assert_equal [3, nil], rows.map(&:cutoff_day)
     end
@@ -54,14 +42,14 @@ class WebDashboardTest < Minitest::Test
 
   def test_periods_returns_previous_and_current_month
     with_ledger_dir do
-      dashboard = Frijolero::Web::Dashboard.new(today: Date.new(2026, 9, 5))
+      dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5))
       assert_equal %w[2608 2609], dashboard.periods
     end
   end
 
   def test_periods_handles_january_edge_case
     with_ledger_dir do
-      dashboard = Frijolero::Web::Dashboard.new(today: Date.new(2026, 1, 15))
+      dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 1, 15))
       assert_equal %w[2512 2601], dashboard.periods
     end
   end
@@ -69,7 +57,7 @@ class WebDashboardTest < Minitest::Test
   def test_rows_follow_accounts_yaml_order_and_cover_both_accounts
     with_ledger_dir do |dir|
       write_accounts(dir)
-      dashboard = Frijolero::Web::Dashboard.new(today: Date.new(2026, 9, 5))
+      dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5))
       assert_equal ['AMEX', 'BBVA TDC'], dashboard.rows.map(&:account)
     end
   end
@@ -81,7 +69,7 @@ class WebDashboardTest < Minitest::Test
       FileUtils.mkdir_p(File.dirname(path))
       File.write(path, '')
 
-      dashboard = Frijolero::Web::Dashboard.new(today: Date.new(2026, 9, 5))
+      dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5))
       rows = dashboard.rows.to_h { |r| [r.account, r.statuses] }
 
       assert_equal :received, rows['BBVA TDC']['2608']
@@ -97,7 +85,7 @@ class WebDashboardTest < Minitest::Test
       FileUtils.mkdir_p(File.dirname(path))
       File.write(path, '')
 
-      dashboard = Frijolero::Web::Dashboard.new(today: Date.new(2026, 9, 5), failed: ['AMEX 2608', 'BBVA TDC 2608'])
+      dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5), failed: ['AMEX 2608', 'BBVA TDC 2608'])
       rows = dashboard.rows.to_h { |r| [r.account, r.statuses] }
 
       assert_equal :failed, rows['AMEX']['2608']
@@ -120,8 +108,8 @@ class WebDashboardTest < Minitest::Test
       FileUtils.mkdir_p(File.dirname(path))
       File.write(path, '')
 
-      dashboard = Frijolero::Web::Dashboard.new(today: Date.new(2026, 9, 5))
-      html = Frijolero::Web::App.new!.erb(:dashboard, locals: { dashboard: dashboard })
+      dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5))
+      html = Frijolero::App.new!.erb(:dashboard, locals: { dashboard: dashboard })
 
       assert_includes html, 'falta'
       assert_includes html, 'recibido'

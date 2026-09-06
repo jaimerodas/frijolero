@@ -4,7 +4,7 @@ require 'test_helper'
 require 'rack/test'
 require 'fileutils'
 
-class WebAccountsTest < Minitest::Test
+class AccountsTest < Minitest::Test
   include Rack::Test::Methods
   include TestHelpers
 
@@ -38,10 +38,6 @@ class WebAccountsTest < Minitest::Test
   end
 
   def setup
-    @previous_rack_env = ENV.fetch('RACK_ENV', nil)
-    ENV['RACK_ENV'] = 'test'
-    require 'frijolero/web/app'
-
     @dir = Dir.mktmpdir
     @previous_ledger_dir = ENV.fetch('LEDGER_DIR', nil)
     ENV['LEDGER_DIR'] = @dir
@@ -68,20 +64,19 @@ class WebAccountsTest < Minitest::Test
 
     @repo = FakeRepo.new
     @b2 = FakeB2.new
-    Frijolero::Web::App.repo = @repo
-    Frijolero::Web::App.b2 = @b2
+    Frijolero::App.repo = @repo
+    Frijolero::App.b2 = @b2
   end
 
   def teardown
-    restore_env('RACK_ENV', @previous_rack_env)
     restore_env('LEDGER_DIR', @previous_ledger_dir)
-    Frijolero::Web::App.repo = nil
-    Frijolero::Web::App.b2 = nil
+    Frijolero::App.repo = nil
+    Frijolero::App.b2 = nil
     FileUtils.remove_entry(@dir)
   end
 
   def app
-    Frijolero::Web::App
+    Frijolero::App
   end
 
   def test_accounts_list_shows_open_before_closed

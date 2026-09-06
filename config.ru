@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
-require_relative 'lib/frijolero'
-require_relative 'lib/frijolero/web/app'
+require_relative 'app/app'
 
-Frijolero::Web::App.jobs
+Frijolero::App.jobs
 
 password = ENV.fetch('APP_PASSWORD')
 
@@ -15,5 +14,5 @@ map '/' do
   use Rack::Auth::Basic, 'Frijolero' do |_user, given|
     Rack::Utils.secure_compare(given, password)
   end
-  run Frijolero::Web::App
+  run Frijolero::App
 end

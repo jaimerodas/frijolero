@@ -4,7 +4,7 @@ require 'test_helper'
 require 'rack/test'
 require 'fileutils'
 
-class WebEditorsTest < Minitest::Test
+class EditorsTest < Minitest::Test
   include Rack::Test::Methods
   include TestHelpers
 
@@ -21,10 +21,6 @@ class WebEditorsTest < Minitest::Test
   end
 
   def setup
-    @previous_rack_env = ENV.fetch('RACK_ENV', nil)
-    ENV['RACK_ENV'] = 'test'
-    require 'frijolero/web/app'
-
     @dir = Dir.mktmpdir
     @previous_ledger_dir = ENV.fetch('LEDGER_DIR', nil)
     ENV['LEDGER_DIR'] = @dir
@@ -40,18 +36,17 @@ class WebEditorsTest < Minitest::Test
     YAML
 
     @repo = FakeRepo.new
-    Frijolero::Web::App.repo = @repo
+    Frijolero::App.repo = @repo
   end
 
   def teardown
-    restore_env('RACK_ENV', @previous_rack_env)
     restore_env('LEDGER_DIR', @previous_ledger_dir)
-    Frijolero::Web::App.repo = nil
+    Frijolero::App.repo = nil
     FileUtils.remove_entry(@dir)
   end
 
   def app
-    Frijolero::Web::App
+    Frijolero::App
   end
 
   def test_rules_editor_shows_a_default_template_when_no_file_exists

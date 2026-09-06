@@ -121,4 +121,4 @@ Metrics/ClassLength:
     - 'lib/frijolero/converters/fintual.rb'
     - 'lib/frijolero/converters/plata.rb'
     # Web::App: routes are a table; each handler is a few lines.
-    - 'lib/frijolero/web/app.rb'
+    - 'app/app.rb'

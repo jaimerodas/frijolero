@@ -25,6 +25,7 @@ require_relative 'frijolero/beancount/header'
 require_relative 'frijolero/beancount/transaction'
 require_relative 'frijolero/beancount_detailer'
 require_relative 'frijolero/statement'
+require_relative 'frijolero/ledger_repo'
 
 module Frijolero
 end

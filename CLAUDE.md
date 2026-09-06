@@ -56,7 +56,7 @@ The old world is frozen. `~/Documents/Beancount` and `~/.frijolero` are the pre-
 A change to rules, accounts, prompts or model names is a commit in the ledger repo, not a deploy. The app reads those files on each request and each job. The volume gets the change at the next job's pull, or at once with this command:
 
 ```bash
-kamal app exec --reuse 'bundle exec ruby -Ilib -e "require %q(frijolero); require %q(frijolero/web/ledger_repo); Frijolero::Web::LedgerRepo.new(dir: ENV.fetch(%q(LEDGER_DIR))).pull"'
+kamal app exec --reuse 'bundle exec ruby -Ilib -e "require %q(frijolero); Frijolero::LedgerRepo.new(dir: ENV.fetch(%q(LEDGER_DIR))).pull"'
 ```
 
 ## Environment variables
@@ -72,13 +72,13 @@ kamal app exec --reuse 'bundle exec ruby -Ilib -e "require %q(frijolero); requir
 
 ## Architecture
 
-### Request side (`lib/frijolero/web/`)
+### Request side (`app/`)
 
-`App` holds the routes. `app.rb` has the dashboard, upload, confirm, jobs and the PDF redirect. `statements.rb`, `editors.rb` and `accounts.rb` reopen the class for the statement page, the rules editor and the Cuentas section. The class has four class-level collaborators with `attr_writer`s, so tests can swap in fakes: `jobs`, `client` (OpenAI), `b2` and `repo`. The app builds each one on first use.
+`App` holds the routes. `app.rb` has the settings, the collaborators, the dashboard and the jobs pages. `uploads.rb`, `statements.rb`, `editors.rb` and `accounts.rb` reopen the class for the upload flow, the statement page (with the PDF redirect), the rules editor and the Cuentas section. `app/` is the only place that requires Sinatra; `lib/` is the pipeline. The class has four class-level collaborators with `attr_writer`s, so tests can swap in fakes: `jobs`, `client` (OpenAI), `b2` and `repo`. The app builds each one on first use.
 
-Views are standalone ERB pages in Spanish. There is no layout. Each page renders `views/_head.erb` through the `head` helper, which takes the title and an optional refresh, and the CSS is `public/style.css`. `Dashboard` computes received, missing, pending or failed for each active account, for the previous and the current month, on each request. Its Corte column shows `cutoff_day` from `accounts.yaml`, the day of the month on which that account's statements close, with 31 for the last day. The job fills it in the first time a confirmed upload carries a printed period end, and never overwrites it, so a hand edit in `/accounts/<Key>/config` wins.
+Views are standalone ERB pages in Spanish. There is no layout. Each page renders `app/views/_head.erb` through the `head` helper, which takes the title and an optional refresh, and the CSS is `public/style.css`. `Dashboard` computes received, missing, pending or failed for each active account, for the previous and the current month, on each request. Its Corte column shows `cutoff_day` from `accounts.yaml`, the day of the month on which that account's statements close, with 31 for the last day. The job fills it in the first time a confirmed upload carries a printed period end, and never overwrites it, so a hand edit in `/accounts/<Key>/config` wins.
 
-### Cuentas (`web/accounts.rb`)
+### Cuentas (`app/accounts.rb`)
 
 `GET /accounts` lists the accounts from `accounts.yaml`, open ones first, closed ones last. Each has three links. `/accounts/<Key>` asks B2 for the PDFs under `Config.pdf_prefix` and shows period, upload date, size, a download link, and a link to the statement page when the `.beancount` exists. A B2 failure renders the page with the error and status 502. `/accounts/<Key>/config` edits only that account's block of `accounts.yaml`. `AccountBlock` cuts the block by line range, from `Key:` to the next column-0 line, so the comments in the rest of the file survive. The save validates the block, splices it, validates the whole file, and commits `accounts <Key>`. The key of the block cannot change. `/accounts/yaml` is the old whole-file editor, kept for adding an account. The route for `yaml` is defined before `/accounts/:key` on purpose.
 
@@ -137,7 +137,7 @@ Three behaviours are deliberate. `High-Yield Cash Sweep` rows are skipped, becau
 
 ## Tests
 
-Minitest and rack-test, about 475 tests, about 5 s. `with_ledger_dir` points `LEDGER_DIR` at a temporary directory with `config/`. Web tests call `Web::App` directly and swap the collaborators for fakes. Only `test/web_app_test.rb` loads `config.ru`, for the auth wiring. Set `RACK_ENV=test` before `sinatra/base` loads, or host authorization returns 403 in tests. No test touches the network. `Config.accounts` is read on each call and never memoized. The first deploy cached `{}` because it booted before the volume had a ledger.
+Minitest and rack-test, about 475 tests, about 5 s. `with_ledger_dir` points `LEDGER_DIR` at a temporary directory with `config/`. Web tests call `App` directly and swap the collaborators for fakes. Only `test/app/app_test.rb` loads `config.ru`, for the auth wiring. `test_helper.rb` sets `RACK_ENV=test` before it loads the app; Sinatra fixes its environment when `sinatra/base` loads, and any other value makes host authorization return 403 in tests. No test touches the network. `Config.accounts` is read on each call and never memoized. The first deploy cached `{}` because it booted before the volume had a ledger.
 
 ## Known rough edges
 

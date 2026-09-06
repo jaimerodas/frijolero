@@ -5,7 +5,7 @@ require 'rack/test'
 require 'fileutils'
 require 'stringio'
 
-class WebUploadTest < Minitest::Test
+class UploadsTest < Minitest::Test
   include Rack::Test::Methods
   include TestHelpers
 
@@ -70,7 +70,7 @@ class WebUploadTest < Minitest::Test
 
     def pull
       @order << :pull
-      raise Frijolero::Web::LedgerRepo::Error, @pull_error if @pull_error
+      raise Frijolero::LedgerRepo::Error, @pull_error if @pull_error
     end
 
     # The real LedgerRepo answers whether it pushed anything; the job ignores it.
@@ -81,11 +81,6 @@ class WebUploadTest < Minitest::Test
   end
 
   def setup
-    @previous_rack_env = ENV.fetch('RACK_ENV', nil)
-    ENV['RACK_ENV'] = 'test'
-    # See the comment in web_app_test.rb: this must load after RACK_ENV is set.
-    require 'frijolero/web/app'
-
     @dir = Dir.mktmpdir
     @previous_ledger_dir = ENV.fetch('LEDGER_DIR', nil)
     ENV['LEDGER_DIR'] = @dir
@@ -102,35 +97,34 @@ class WebUploadTest < Minitest::Test
     YAML
     FileUtils.mkdir_p(File.join(@dir, 'config', 'prompts'))
     FileUtils.cp_r(fixture_path('prompts/default'), File.join(@dir, 'config', 'prompts', 'default'))
-    FileUtils.cp_r(File.expand_path('../lib/frijolero/templates/prompts/classify', __dir__),
+    FileUtils.cp_r(template_path('prompts/classify'),
                    File.join(@dir, 'config', 'prompts', 'classify'))
     File.write(File.join(@dir, 'transactions.beancount'), '')
 
-    Frijolero::Web::App.jobs = Frijolero::Web::Jobs.new(log_path: File.join(@dir, 'jobs.jsonl'))
+    Frijolero::App.jobs = Frijolero::Jobs.new(log_path: File.join(@dir, 'jobs.jsonl'))
     @client = FakeClient.new
     @order = []
     @b2 = FakeB2.new(@order)
     @repo = FakeRepo.new(@order)
-    Frijolero::Web::App.client = @client
-    Frijolero::Web::App.b2 = @b2
-    Frijolero::Web::App.repo = @repo
+    Frijolero::App.client = @client
+    Frijolero::App.b2 = @b2
+    Frijolero::App.repo = @repo
     Frijolero::UI.sink = StringIO.new
   end
 
   def teardown
-    restore_env('RACK_ENV', @previous_rack_env)
     restore_env('LEDGER_DIR', @previous_ledger_dir)
-    Frijolero::Web::App.jobs = nil
-    Frijolero::Web::App.client = nil
-    Frijolero::Web::App.b2 = nil
-    Frijolero::Web::App.repo = nil
+    Frijolero::App.jobs = nil
+    Frijolero::App.client = nil
+    Frijolero::App.b2 = nil
+    Frijolero::App.repo = nil
     Frijolero::UI.sink = $stdout
     Frijolero::UI.auto_accept = false
     FileUtils.remove_entry(@dir)
   end
 
   def app
-    Frijolero::Web::App
+    Frijolero::App
   end
 
   def test_dashboard_shows_accounts_and_periods
@@ -139,7 +133,7 @@ class WebUploadTest < Minitest::Test
     assert_equal 200, last_response.status
     assert_includes last_response.body, 'AMEX'
     assert_includes last_response.body, 'BBVA'
-    Frijolero::Web::Dashboard.new.periods.each { |period| assert_includes last_response.body, period }
+    Frijolero::Dashboard.new.periods.each { |period| assert_includes last_response.body, period }
   end
 
   def test_dashboard_shows_the_cutoff_day_of_each_account
@@ -152,7 +146,7 @@ class WebUploadTest < Minitest::Test
     token = upload_and_extract_token('AMEX 2508.pdf')
     post '/upload/confirm', account: 'AMEX', period: '2508', token: token, overwrite: '0', period_end: '2025-08-03'
 
-    Frijolero::Web::App.jobs.work_one
+    Frijolero::App.jobs.work_one
 
     assert_equal 3, Frijolero::Config.accounts['AMEX']['cutoff_day']
     assert_equal 31, Frijolero::Config.accounts['BBVA']['cutoff_day']
@@ -231,10 +225,10 @@ class WebUploadTest < Minitest::Test
 
     assert_equal 303, last_response.status
     job_id = last_response.location[%r{/jobs/(.+)\z}, 1]
-    job = Frijolero::Web::App.jobs.find(job_id)
+    job = Frijolero::App.jobs.find(job_id)
     assert_equal 'AMEX 2508', job.label
 
-    Frijolero::Web::App.jobs.work_one
+    Frijolero::App.jobs.work_one
 
     assert_equal 'ok', job.status
     assert File.exist?(Frijolero::Config.statement_path('AMEX', '2508', 'beancount'))
@@ -248,7 +242,7 @@ class WebUploadTest < Minitest::Test
     token = upload_and_extract_token('AMEX 2508.pdf')
     post '/upload/confirm', account: 'AMEX', period: '2508', token: token, overwrite: '0'
 
-    Frijolero::Web::App.jobs.work_one
+    Frijolero::App.jobs.work_one
 
     assert_equal %i[pull put commit_and_push], @order
     assert_equal ['AMEX 2508'], @repo.messages
@@ -263,9 +257,9 @@ class WebUploadTest < Minitest::Test
     post '/upload/confirm', account: 'AMEX', period: '2508', token: token, overwrite: '0'
     job_id = last_response.location[%r{/jobs/(.+)\z}, 1]
 
-    Frijolero::Web::App.jobs.work_one
+    Frijolero::App.jobs.work_one
 
-    job = Frijolero::Web::App.jobs.find(job_id)
+    job = Frijolero::App.jobs.find(job_id)
     assert_equal 'failed', job.status
     assert_includes job.error, 'offline'
     assert_empty @client.extractions
@@ -279,7 +273,7 @@ class WebUploadTest < Minitest::Test
 
     token = upload_and_extract_token('AMEX 2508.pdf')
     post '/upload/confirm', account: 'AMEX', period: '2508', token: token, overwrite: '0'
-    Frijolero::Web::App.jobs.work_one
+    Frijolero::App.jobs.work_one
 
     refute_includes @order, :commit_and_push
     assert_empty @repo.messages
@@ -316,9 +310,9 @@ class WebUploadTest < Minitest::Test
     post '/upload/confirm', account: 'AMEX', period: '2508', token: token, overwrite: '0'
     job_id = last_response.location[%r{/jobs/(.+)\z}, 1]
 
-    Frijolero::Web::App.jobs.work_one
+    Frijolero::App.jobs.work_one
 
-    job = Frijolero::Web::App.jobs.find(job_id)
+    job = Frijolero::App.jobs.find(job_id)
     assert_equal 'failed', job.status
     assert_includes job.error, 'overwrite_declined'
     assert Dir.exist?(File.join(Frijolero::Config.incoming_dir, token))
@@ -332,7 +326,7 @@ class WebUploadTest < Minitest::Test
     get "/jobs/#{job_id}"
     assert_includes last_response.body, 'http-equiv="refresh"'
 
-    Frijolero::Web::App.jobs.work_one
+    Frijolero::App.jobs.work_one
     get "/jobs/#{job_id}"
     refute_includes last_response.body, 'http-equiv="refresh"'
     assert_includes last_response.body, '/statements/AMEX/2508'
@@ -346,7 +340,7 @@ class WebUploadTest < Minitest::Test
     token = upload_and_extract_token('AMEX 2508.pdf')
     post '/upload/confirm', account: 'AMEX', period: '2508', token: token, overwrite: '0'
     job_id = last_response.location[%r{/jobs/(.+)\z}, 1]
-    Frijolero::Web::App.jobs.work_one
+    Frijolero::App.jobs.work_one
 
     get "/jobs/#{job_id}"
 
@@ -373,7 +367,7 @@ class WebUploadTest < Minitest::Test
 
     assert_equal 302, last_response.status
     assert_equal 'https://b2.example/frijolero/accounts/AMEX/AMEX%202508.pdf?sig=1', last_response.headers['Location']
-    assert_equal ['frijolero/accounts/AMEX/AMEX 2508.pdf'], Frijolero::Web::App.b2.calls
+    assert_equal ['frijolero/accounts/AMEX/AMEX 2508.pdf'], Frijolero::App.b2.calls
   end
 
   def test_pdf_download_with_account_containing_space
@@ -391,21 +385,21 @@ class WebUploadTest < Minitest::Test
     assert_equal 302, last_response.status
     assert_equal 'https://b2.example/frijolero/accounts/BBVA%20TDC/BBVA%20TDC%202508.pdf?sig=1',
                  last_response.headers['Location']
-    assert_equal ['frijolero/accounts/BBVA TDC/BBVA TDC 2508.pdf'], Frijolero::Web::App.b2.calls
+    assert_equal ['frijolero/accounts/BBVA TDC/BBVA TDC 2508.pdf'], Frijolero::App.b2.calls
   end
 
   def test_pdf_download_returns_404_for_unknown_account
     get '/statements/UNKNOWN/2508/pdf'
 
     assert_equal 404, last_response.status
-    assert_empty Frijolero::Web::App.b2.calls
+    assert_empty Frijolero::App.b2.calls
   end
 
   def test_pdf_download_returns_404_for_invalid_period
     get '/statements/AMEX/25-08/pdf'
 
     assert_equal 404, last_response.status
-    assert_empty Frijolero::Web::App.b2.calls
+    assert_empty Frijolero::App.b2.calls
   end
 
   private

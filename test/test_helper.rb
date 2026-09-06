@@ -1,17 +1,24 @@
 # frozen_string_literal: true
 
-$LOAD_PATH.unshift File.expand_path('../lib', __dir__)
-require 'frijolero'
+# Sinatra fixes its environment (and with it host authorization) the first time
+# sinatra/base loads, so this must come before the app.
+ENV['RACK_ENV'] = 'test'
+
+require_relative '../app/app'
 require 'minitest/autorun'
 require 'minitest/mock'
 require 'fileutils'
 require 'tmpdir'
-
 module TestHelpers
   FIXTURES_DIR = File.expand_path('fixtures', __dir__)
+  TEMPLATES_DIR = File.expand_path('../lib/frijolero/templates', __dir__)
 
   def fixture_path(name)
     File.join(FIXTURES_DIR, name)
+  end
+
+  def template_path(name)
+    File.join(TEMPLATES_DIR, name)
   end
 
   def with_temp_dir(&)

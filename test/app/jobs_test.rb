@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
 require 'test_helper'
-require 'frijolero/web/jobs'
 
-class WebJobsTest < Minitest::Test
+class JobsTest < Minitest::Test
   include TestHelpers
 
   def setup
@@ -24,7 +23,7 @@ class WebJobsTest < Minitest::Test
   end
 
   def test_push_returns_queued_job_findable_by_id
-    jobs = Frijolero::Web::Jobs.new(log_path: log_path)
+    jobs = Frijolero::Jobs.new(log_path: log_path)
 
     job = jobs.push(label: 'AMEX 2508', &noop)
 
@@ -35,7 +34,7 @@ class WebJobsTest < Minitest::Test
   end
 
   def test_work_one_runs_body_and_ends_ok
-    jobs = Frijolero::Web::Jobs.new(log_path: log_path)
+    jobs = Frijolero::Jobs.new(log_path: log_path)
     jobs.push(label: 'AMEX 2508', &noop)
 
     job = jobs.work_one
@@ -46,7 +45,7 @@ class WebJobsTest < Minitest::Test
   end
 
   def test_work_one_captures_ui_output_and_auto_accept
-    jobs = Frijolero::Web::Jobs.new(log_path: log_path)
+    jobs = Frijolero::Jobs.new(log_path: log_path)
     jobs.push(label: 'AMEX 2508') { Frijolero::UI.puts 'hola' }
 
     job = jobs.work_one
@@ -56,7 +55,7 @@ class WebJobsTest < Minitest::Test
   end
 
   def test_work_one_marks_failed_body_without_raising
-    jobs = Frijolero::Web::Jobs.new(log_path: log_path)
+    jobs = Frijolero::Jobs.new(log_path: log_path)
     jobs.push(label: 'AMEX 2508') { raise 'boom' }
 
     job = jobs.work_one
@@ -67,7 +66,7 @@ class WebJobsTest < Minitest::Test
 
   def test_log_has_one_line_per_state_change_with_final_output
     path = log_path
-    jobs = Frijolero::Web::Jobs.new(log_path: path)
+    jobs = Frijolero::Jobs.new(log_path: path)
     jobs.push(label: 'AMEX 2508') { Frijolero::UI.puts 'hola' }
     jobs.work_one
 
@@ -82,7 +81,7 @@ class WebJobsTest < Minitest::Test
     path = log_path
     File.write(path, "#{JSON.generate({ id: 'abc123', label: 'AMEX 2508', status: 'running' })}\n")
 
-    jobs = Frijolero::Web::Jobs.new(log_path: path)
+    jobs = Frijolero::Jobs.new(log_path: path)
 
     job = jobs.find('abc123')
     assert_equal 'failed', job.status
@@ -96,14 +95,14 @@ class WebJobsTest < Minitest::Test
     path = log_path
     File.write(path, "#{JSON.generate({ id: 'q1', label: 'BBVA 2508', status: 'queued' })}\n")
 
-    jobs = Frijolero::Web::Jobs.new(log_path: path)
+    jobs = Frijolero::Jobs.new(log_path: path)
 
     assert_equal 'failed', jobs.find('q1').status
     assert_equal 'interrumpido por un reinicio', jobs.find('q1').error
   end
 
   def test_all_returns_newest_first
-    jobs = Frijolero::Web::Jobs.new(log_path: log_path)
+    jobs = Frijolero::Jobs.new(log_path: log_path)
     first = jobs.push(label: 'first', &noop)
     second = jobs.push(label: 'second', &noop)
 
@@ -111,7 +110,7 @@ class WebJobsTest < Minitest::Test
   end
 
   def test_start_processes_pushed_job_in_background
-    jobs = Frijolero::Web::Jobs.new(log_path: log_path)
+    jobs = Frijolero::Jobs.new(log_path: log_path)
     job = jobs.push(label: 'AMEX 2508', &noop)
     thread = jobs.start
 

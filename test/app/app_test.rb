@@ -5,27 +5,15 @@ require 'rack/test'
 require 'rack/builder'
 require 'fileutils'
 
-class WebAppTest < Minitest::Test
+class AppTest < Minitest::Test
   include Rack::Test::Methods
   include TestHelpers
 
-  CONFIG_RU = File.expand_path('../config.ru', __dir__)
+  CONFIG_RU = File.expand_path('../../config.ru', __dir__)
 
   def setup
     @previous_app_password = ENV.fetch('APP_PASSWORD', nil)
-    @previous_rack_env = ENV.fetch('RACK_ENV', nil)
     ENV['APP_PASSWORD'] = 'secret'
-    # Sinatra's default host_authorization only allows localhost/IPs in
-    # development; production (what Puma sets at boot) allows any host,
-    # since kamal-proxy is the one that controls what Host header arrives.
-    # Rack::Test's default Host header ("example.org") needs that here too.
-    ENV['RACK_ENV'] = 'test'
-
-    # Sinatra fixes its `environment` setting (and with it, host authorization)
-    # the first time sinatra/base loads, from RACK_ENV at that moment — so this
-    # require must happen after the line above, not at the top of the file.
-    require 'frijolero/web/app'
-
     @dir = Dir.mktmpdir
     @previous_ledger_dir = ENV.fetch('LEDGER_DIR', nil)
     ENV['LEDGER_DIR'] = @dir
@@ -33,14 +21,13 @@ class WebAppTest < Minitest::Test
 
     # config.ru calls App.jobs at load time; set it first so the ||= keeps this
     # instance (no start, so no worker thread spins up under the tests).
-    Frijolero::Web::App.jobs = Frijolero::Web::Jobs.new(log_path: File.join(@dir, 'jobs.jsonl'))
+    Frijolero::App.jobs = Frijolero::Jobs.new(log_path: File.join(@dir, 'jobs.jsonl'))
   end
 
   def teardown
     restore_env('APP_PASSWORD', @previous_app_password)
-    restore_env('RACK_ENV', @previous_rack_env)
     restore_env('LEDGER_DIR', @previous_ledger_dir)
-    Frijolero::Web::App.jobs = nil
+    Frijolero::App.jobs = nil
     FileUtils.remove_entry(@dir)
   end
 
