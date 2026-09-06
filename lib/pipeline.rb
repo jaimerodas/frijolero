@@ -69,7 +69,7 @@ module Frijolero
 
       def summary(data)
         list = data['transactions'] || []
-        "Found #{list.size} transactions#{UI.transaction_summary(list)}"
+        "Found #{list.size} transactions#{Log.transaction_summary(list)}"
       end
 
       def convert(json_path:, output: nil, account: beancount_account, expense_account: nil, **)

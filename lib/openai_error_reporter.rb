@@ -6,37 +6,37 @@ module Frijolero
       OpenAIClient::InsufficientQuotaError => {
         recoverable: false,
         report: lambda do |e|
-          UI.puts '{{x}} OpenAI rejected the request: out of credits.'
-          UI.puts '    Add credits at https://platform.openai.com/account/billing'
-          UI.puts "    Detail: #{e.message}"
+          Log.puts '{{x}} OpenAI rejected the request: out of credits.'
+          Log.puts '    Add credits at https://platform.openai.com/account/billing'
+          Log.puts "    Detail: #{e.message}"
         end
       },
       OpenAIClient::AuthenticationError => {
         recoverable: false,
         report: lambda do |e|
-          UI.puts '{{x}} OpenAI rejected the API key. Check OPENAI_API_KEY.'
-          UI.puts "    Detail: #{e.message}"
+          Log.puts '{{x}} OpenAI rejected the API key. Check OPENAI_API_KEY.'
+          Log.puts "    Detail: #{e.message}"
         end
       },
       OpenAIClient::RateLimitError => {
         recoverable: true,
         report: lambda do |e|
-          UI.puts '{{x}} OpenAI rate limit hit, try again in a few seconds.'
-          UI.puts "    Detail: #{e.message}"
+          Log.puts '{{x}} OpenAI rate limit hit, try again in a few seconds.'
+          Log.puts "    Detail: #{e.message}"
         end
       },
       OpenAIClient::NetworkError => {
         recoverable: true,
         report: lambda do |e|
-          UI.puts "{{x}} Network error calling OpenAI: #{e.message}"
-          UI.puts '    Check your internet connection.'
+          Log.puts "{{x}} Network error calling OpenAI: #{e.message}"
+          Log.puts '    Check your internet connection.'
         end
       },
       OpenAIClient::APIError => {
         recoverable: true,
         report: lambda do |e|
           status = e.status ? " (HTTP #{e.status})" : ''
-          UI.puts "{{x}} OpenAI returned an error#{status}: #{e.message}"
+          Log.puts "{{x}} OpenAI returned an error#{status}: #{e.message}"
         end
       }
     }.freeze

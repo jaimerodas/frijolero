@@ -243,7 +243,7 @@ class BeancountDetailerTest < Minitest::Test
       amounts = stats[:detailed].map { |t| t['amount'] }
 
       assert_equal [BigDecimal('-800'), BigDecimal('-6')], amounts
-      refute_empty Frijolero::UI.transaction_summary(stats[:detailed])
+      refute_empty Frijolero::Log.transaction_summary(stats[:detailed])
     end
   end
 end

@@ -6,12 +6,11 @@ class JobsTest < Minitest::Test
   include TestHelpers
 
   def setup
-    Frijolero::UI.sink = StringIO.new
+    Frijolero::Log.sink = StringIO.new
   end
 
   def teardown
-    Frijolero::UI.sink = $stdout
-    Frijolero::UI.auto_accept = false
+    Frijolero::Log.sink = $stdout
   end
 
   def log_path
@@ -44,14 +43,13 @@ class JobsTest < Minitest::Test
     assert job.finished_at
   end
 
-  def test_work_one_captures_ui_output_and_auto_accept
+  def test_work_one_captures_log_output
     jobs = Frijolero::Jobs.new(log_path: log_path)
-    jobs.push(label: 'AMEX 2508') { Frijolero::UI.puts 'hola' }
+    jobs.push(label: 'AMEX 2508') { Frijolero::Log.puts 'hola' }
 
     job = jobs.work_one
 
     assert_includes job.output, 'hola'
-    refute Frijolero::UI.auto_accept?
   end
 
   def test_work_one_marks_failed_body_without_raising
@@ -67,7 +65,7 @@ class JobsTest < Minitest::Test
   def test_log_has_one_line_per_state_change_with_final_output
     path = log_path
     jobs = Frijolero::Jobs.new(log_path: path)
-    jobs.push(label: 'AMEX 2508') { Frijolero::UI.puts 'hola' }
+    jobs.push(label: 'AMEX 2508') { Frijolero::Log.puts 'hola' }
     jobs.work_one
 
     lines = File.readlines(path).map { |l| JSON.parse(l) }

@@ -75,7 +75,7 @@ module Frijolero
       end
     end
 
-    # String keys so UI.detailer_stats and UI.transaction_summary work unchanged.
+    # String keys so Log.detailer_stats and Log.transaction_summary work unchanged.
     def summarize(transaction)
       { 'description' => transaction.description, 'amount' => transaction.amount }
     end

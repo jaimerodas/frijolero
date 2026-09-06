@@ -109,7 +109,7 @@ class UploadsTest < Minitest::Test
     Frijolero::App.client = @client
     Frijolero::App.b2 = @b2
     Frijolero::App.repo = @repo
-    Frijolero::UI.sink = StringIO.new
+    Frijolero::Log.sink = StringIO.new
   end
 
   def teardown
@@ -118,8 +118,7 @@ class UploadsTest < Minitest::Test
     Frijolero::App.client = nil
     Frijolero::App.b2 = nil
     Frijolero::App.repo = nil
-    Frijolero::UI.sink = $stdout
-    Frijolero::UI.auto_accept = false
+    Frijolero::Log.sink = $stdout
     FileUtils.remove_entry(@dir)
   end
 

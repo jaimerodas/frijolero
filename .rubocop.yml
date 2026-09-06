@@ -24,7 +24,7 @@ Naming/VariableNumber:
 #
 # Multi-line output builders (the structure of the output is the method):
 #   format_transaction      Converters::Default
-#   transaction_summary     UI
+#   transaction_summary     Log
 #   handle_sell             Converters::Fintual
 #
 # Orchestrators with required rescue/branching at the call site:
@@ -69,12 +69,6 @@ Metrics/ParameterLists:
 # (`io` in particular is the converters' `run_to(io)`).
 Naming/MethodParameterName:
   AllowedNames: [as, at, b2, by, cc, db, id, 'if', 'in', io, ip, of, 'on', os, pp, to]
-
-# UI.confirm is the public name callers already use (a yes/no answer without
-# a terminal to ask); renaming it to confirm? would ripple through every caller.
-Naming/PredicateMethod:
-  Exclude:
-    - 'lib/ui.rb'
 
 Metrics/AbcSize:
   Exclude: ['test/**/*']

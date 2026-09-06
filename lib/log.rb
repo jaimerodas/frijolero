@@ -2,25 +2,13 @@
 
 module Frijolero
   # Plain-line output for the pipeline. The web app points `sink` at a job log.
-  module UI
+  module Log
     GLYPHS = { '{{x}}' => '✗', '{{v}}' => '✓', '{{i}}' => 'ℹ', '{{!}}' => '!', '{{?}}' => '?', '{{*}}' => '*' }.freeze
 
-    # Tiny stand-in for the old gem's spinner object: just tracks its title.
-    Spinner = Struct.new(:title) do
-      def update_title(new_title)
-        self.title = new_title
-      end
-    end
-
-    @auto_accept = false
     @sink = $stdout
 
     class << self
-      attr_accessor :auto_accept, :sink
-
-      def auto_accept?
-        @auto_accept
-      end
+      attr_accessor :sink
 
       def puts(msg = '')
         sink.puts(fmt(msg))
@@ -29,24 +17,6 @@ module Frijolero
       # Replaces the old glyph markup and strips any other {{color:...}} markers.
       def fmt(msg)
         GLYPHS.reduce(msg.to_s) { |s, (k, v)| s.gsub(k, v) }.gsub(/\{\{\w+:(.*?)\}\}/, '\1')
-      end
-
-      # One line with the title, then the block. No nesting, no borders.
-      def frame(title, **)
-        puts "== #{title}"
-        yield
-      end
-
-      # Yields an object with `update_title`; prints the final title when the block ends.
-      def spinner(title)
-        status = Spinner.new(title)
-        yield status
-        puts status.title
-      end
-
-      # There is no terminal to ask; the answer is whatever auto_accept says.
-      def confirm(_question, **)
-        auto_accept?
       end
 
       def short_path(path)

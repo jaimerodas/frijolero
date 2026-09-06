@@ -65,22 +65,19 @@ module Frijolero
     end
 
     def run_body(job, body)
-      with_ui_capture(job) { body.call(job) }
+      with_log_capture(job) { body.call(job) }
       job.status = 'ok'
     rescue StandardError => e
       job.status = 'failed'
       job.error = "#{e.class}: #{e.message}"
     end
 
-    def with_ui_capture(job)
-      old_sink = UI.sink
-      old_auto_accept = UI.auto_accept
-      UI.sink = StringIO.new(job.output)
-      UI.auto_accept = true
+    def with_log_capture(job)
+      old_sink = Log.sink
+      Log.sink = StringIO.new(job.output)
       yield
     ensure
-      UI.sink = old_sink
-      UI.auto_accept = old_auto_accept
+      Log.sink = old_sink
     end
 
     def log(job)

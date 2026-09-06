@@ -59,14 +59,14 @@ class StatementTest < Minitest::Test
 
   def setup
     @sink = StringIO.new
-    Frijolero::UI.sink = @sink
+    Frijolero::Log.sink = @sink
     @order = []
     @client = FakeClient.new(@order)
     @b2 = FakeB2.new(@order)
   end
 
   def teardown
-    Frijolero::UI.sink = $stdout
+    Frijolero::Log.sink = $stdout
   end
 
   # --- helpers -----------------------------------------------------------

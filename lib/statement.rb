@@ -33,21 +33,18 @@ module Frijolero
       status = load_metadata
       return status unless status == OK
 
-      result = nil
-      UI.frame("Processing: #{@filename}") do
-        UI.puts "Account: #{@account_name}"
-        result = process_inside_frame
-      end
-      result
+      Log.puts "== Processing: #{@filename}"
+      Log.puts "Account: #{@account_name}"
+      process_pdf
     end
 
     private
 
     attr_reader :client
 
-    def process_inside_frame
+    def process_pdf
       if @dry_run
-        UI.puts '{{i}} [DRY RUN] Would process this file'
+        Log.puts '{{i}} [DRY RUN] Would process this file'
         return DRY_RUN
       end
 
@@ -60,14 +57,14 @@ module Frijolero
       @account_name, @date_str = AccountConfig.parse_filename(@pdf_path) unless @account_name && @date_str
 
       unless @account_name && @date_str
-        UI.puts "{{x}} #{@filename}: Could not parse filename format"
+        Log.puts "{{x}} #{@filename}: Could not parse filename format"
         return UNPARSEABLE
       end
 
       @account_config = AccountConfig.find_config(@account_name)
       return OK if @account_config
 
-      UI.puts "{{x}} #{@filename}: No account configuration found for '#{@account_name}'"
+      Log.puts "{{x}} #{@filename}: No account configuration found for '#{@account_name}'"
       NO_ACCOUNT_CONFIG
     end
 
@@ -85,7 +82,7 @@ module Frijolero
       json, beancount = output_paths.values_at(:json, :beancount)
       return false unless File.exist?(json) || File.exist?(beancount)
 
-      UI.puts '{{!}} Existing files, not overwriting:'
+      Log.puts '{{!}} Existing files, not overwriting:'
       show_existing_json_info(json) if File.exist?(json)
       show_existing_beancount_info(beancount) if File.exist?(beancount)
       true
@@ -93,12 +90,12 @@ module Frijolero
 
     def show_existing_json_info(json_path)
       mtime = File.mtime(json_path).strftime('%Y-%m-%d %H:%M')
-      UI.puts "  JSON: #{UI.short_path(json_path)} (modified #{mtime})"
+      Log.puts "  JSON: #{Log.short_path(json_path)} (modified #{mtime})"
     end
 
     def show_existing_beancount_info(beancount_path)
       mtime = File.mtime(beancount_path).strftime('%Y-%m-%d %H:%M')
-      UI.puts "  Beancount: #{UI.short_path(beancount_path)} (modified #{mtime})"
+      Log.puts "  Beancount: #{Log.short_path(beancount_path)} (modified #{mtime})"
     end
 
     # The order is the point. B2 has the PDF before we pay for an extraction, and the
@@ -112,7 +109,7 @@ module Frijolero
       pipeline.validate!(transactions)
       discard_local_pdf
 
-      UI.puts pipeline.summary(transactions)
+      Log.puts pipeline.summary(transactions)
       save_json(transactions)
       run_detailer if pipeline.runs_detailer?
       convert_to_beancount(pipeline)
@@ -123,7 +120,7 @@ module Frijolero
       OpenAIErrorReporter.handle(e, client: client, file_id: file_id)
       ERROR
     rescue StandardError => e
-      UI.puts "{{x}} ERROR processing #{@filename}: #{e.message}"
+      Log.puts "{{x}} ERROR processing #{@filename}: #{e.message}"
       OpenAIErrorReporter.cleanup(client, file_id)
       ERROR
     end
@@ -135,39 +132,35 @@ module Frijolero
 
       key = Config.pdf_key(@account_name, @date_str)
       @b2.put(key, @pdf_path)
-      UI.puts "Saved PDF to B2: #{key}"
+      Log.puts "Saved PDF to B2: #{key}"
     end
 
     def discard_local_pdf
       return unless @b2
 
       File.delete(@pdf_path)
-      UI.puts 'Deleted local PDF'
+      Log.puts 'Deleted local PDF'
     end
 
     def upload_pdf
       file_id = nil
-      UI.spinner('Uploading to OpenAI...') do |spinner|
-        elapsed = measure { file_id = client.upload_file(@pdf_path) }
-        spinner.update_title("Uploaded to OpenAI (#{format_elapsed(elapsed)})")
-      end
+      elapsed = measure { file_id = client.upload_file(@pdf_path) }
+      Log.puts "Uploaded to OpenAI (#{format_elapsed(elapsed)})"
       file_id
     end
 
     def extract_transactions(file_id)
       transactions = nil
       spec = Config.openai_prompt_spec(@account_config['openai_prompt_type'] || 'default')
-      UI.spinner('Extracting transactions...') do |spinner|
-        elapsed = measure { transactions = client.extract_transactions(file_id, spec) }
-        spinner.update_title("Extracted transactions (#{format_elapsed(elapsed)})")
-      end
+      elapsed = measure { transactions = client.extract_transactions(file_id, spec) }
+      Log.puts "Extracted transactions (#{format_elapsed(elapsed)})"
       transactions
     end
 
     def save_json(transactions)
       FileUtils.mkdir_p(File.dirname(output_paths[:json]))
       File.write(output_paths[:json], JSON.pretty_generate(transactions))
-      UI.puts "Saved JSON: #{UI.short_path(output_paths[:json])}"
+      Log.puts "Saved JSON: #{Log.short_path(output_paths[:json])}"
     end
 
     def run_detailer
@@ -175,21 +168,21 @@ module Frijolero
 
       if yaml_path && File.exist?(yaml_path)
         stats = Detailer.new(output_paths[:json], yaml_path).run
-        UI.detailer_stats(stats)
+        Log.detailer_stats(stats)
       else
-        UI.puts '{{i}} No detailer config found, skipping enrichment'
+        Log.puts '{{i}} No detailer config found, skipping enrichment'
       end
     end
 
     def convert_to_beancount(pipeline)
       FileUtils.mkdir_p(File.dirname(output_paths[:beancount]))
       pipeline.convert(json_path: output_paths[:json], output: output_paths[:beancount])
-      UI.puts "Saved Beancount: #{UI.short_path(output_paths[:beancount])}"
+      Log.puts "Saved Beancount: #{Log.short_path(output_paths[:beancount])}"
     end
 
     def merge_into_ledger
       BeancountMerger.new(files: [output_paths[:beancount]], quiet: true).run
-      UI.puts "Merged into: #{UI.short_path(Config.main_file)}"
+      Log.puts "Merged into: #{Log.short_path(Config.main_file)}"
     end
 
     # The job ends here, so the uploaded PDF goes away here too, whether we uploaded it
