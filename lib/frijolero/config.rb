@@ -45,8 +45,12 @@ module Frijolero
       # The bucket is shared with other apps, so every key lives under frijolero/.
       B2_PREFIX = 'frijolero'
 
+      def pdf_prefix(account_key)
+        "#{B2_PREFIX}/accounts/#{account_key}/"
+      end
+
       def pdf_key(account_key, period)
-        "#{B2_PREFIX}/accounts/#{account_key}/#{account_key} #{period}.pdf"
+        "#{pdf_prefix(account_key)}#{account_key} #{period}.pdf"
       end
 
       # Read on every call, never cached: a `git pull` or the accounts editor can

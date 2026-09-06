@@ -15,6 +15,10 @@ class B2Test < Minitest::Test
     def host_and_path(key)
       ["examplebucket.#{@endpoint}", "/#{encode_path(key)}"]
     end
+
+    def bucket_host_and_path
+      ["examplebucket.#{@endpoint}", '/']
+    end
   end
 
   # Same shape as the FakeHttp in openai_client_test.rb.
@@ -32,12 +36,19 @@ class B2Test < Minitest::Test
 
   class FakeTransport
     attr_reader :uri, :body, :headers
+    attr_writer :get_response
 
     def put(uri, body, headers)
       @uri = uri
       @body = body
       @headers = headers
       :ok
+    end
+
+    def get(uri, headers)
+      @uri = uri
+      @headers = headers
+      @get_response
     end
   end
 
@@ -153,6 +164,90 @@ class B2Test < Minitest::Test
 
   def test_presigned_url_expires_in_ten_minutes_by_default
     assert_includes b2.presigned_url('x.pdf'), 'X-Amz-Expires=600&'
+  end
+
+  # Vector: "GET Bucket (List Objects) Version 2".
+  def test_list_bucket_signature_matches_aws_docs_vector
+    client = aws_docs_client
+    headers = { 'host' => 'examplebucket.s3.amazonaws.com',
+                'x-amz-content-sha256' => EMPTY_SHA256,
+                'x-amz-date' => '20130524T000000Z' }
+    request = client.send(:canonical_request, 'GET', '/', 'max-keys=2&prefix=J', headers, EMPTY_SHA256)
+    signature = client.send(:signature, client.send(:string_to_sign, '20130524T000000Z', request),
+                            '20130524')
+
+    assert_equal '34b48302e7b5fa45bde8084f4b7868a86f0a534bc59db6670ed5711ef69dc6f7', signature,
+                 "computed canonical request:\n#{request}"
+  end
+
+  def test_list_sends_a_signed_get_with_the_prefix_in_the_query
+    client = b2
+    transport = FakeTransport.new
+    transport.get_response = '<ListBucketResult></ListBucketResult>'
+    client.transport = transport
+
+    client.list('frijolero/accounts/AMEX/')
+
+    assert_equal 'https://s3.us-west-004.backblazeb2.com/my-bucket' \
+                 '?list-type=2&prefix=frijolero%2Faccounts%2FAMEX%2F', transport.uri.to_s
+    assert_equal EMPTY_SHA256, transport.headers['x-amz-content-sha256']
+    assert_equal '20260905T143005Z', transport.headers['x-amz-date']
+    assert_includes transport.headers['authorization'],
+                    'SignedHeaders=host;x-amz-content-sha256;x-amz-date'
+  end
+
+  def test_list_parses_keys_sizes_and_last_modified_from_the_xml
+    body = <<~XML
+      <ListBucketResult>
+        <Contents>
+          <Key>frijolero/accounts/AMEX/AMEX 2508.pdf</Key>
+          <Size>12345</Size>
+          <LastModified>2026-09-05T14:30:05.000Z</LastModified>
+        </Contents>
+        <Contents>
+          <Key>frijolero/accounts/AT&amp;T/AT&amp;T 2508.pdf</Key>
+          <Size>999</Size>
+          <LastModified>2026-08-01T00:00:00.000Z</LastModified>
+        </Contents>
+      </ListBucketResult>
+    XML
+    transport = FakeTransport.new
+    transport.get_response = body
+    client = b2
+    client.transport = transport
+
+    entries = client.list('frijolero/accounts/')
+
+    assert_equal 2, entries.size
+    assert_equal 'frijolero/accounts/AMEX/AMEX 2508.pdf', entries[0][:key]
+    assert_equal 12_345, entries[0][:size]
+    assert_equal Time.iso8601('2026-09-05T14:30:05.000Z'), entries[0][:last_modified]
+    assert_equal 'frijolero/accounts/AT&T/AT&T 2508.pdf', entries[1][:key]
+    assert_equal 999, entries[1][:size]
+  end
+
+  def test_transport_get_returns_the_body_on_success
+    response = make_response(Net::HTTPOK, '200', '<ListBucketResult></ListBucketResult>')
+
+    result = Net::HTTP.stub(:new, FakeHttp.new(response)) do
+      Frijolero::B2::Transport.new.get(URI('https://example.com/b?list-type=2'), {})
+    end
+
+    assert_equal '<ListBucketResult></ListBucketResult>', result
+  end
+
+  def test_transport_get_raises_error_with_status_on_failure
+    response = make_response(Net::HTTPForbidden, '403', '<Error>AccessDenied</Error>')
+
+    error = Net::HTTP.stub(:new, FakeHttp.new(response)) do
+      assert_raises(Frijolero::B2::Error) do
+        Frijolero::B2::Transport.new.get(URI('https://example.com/b?list-type=2'), {})
+      end
+    end
+
+    assert_equal 403, error.status
+    assert_includes error.message, 'AccessDenied'
+    assert_includes error.message, 'B2 GET'
   end
 
   def test_transport_raises_error_with_status_on_failure

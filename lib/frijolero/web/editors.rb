@@ -43,20 +43,6 @@ module Frijolero
         render_editor(**rules_locals(params[:account], content: new_content, notice: rule_added_notice(description)))
       end
 
-      get '/accounts' do
-        content = File.exist?(Config.accounts_file) ? File.read(Config.accounts_file) : ''
-        render_editor(title: 'Cuentas', action: '/accounts', content: content, notice: saved_notice)
-      end
-
-      post '/accounts' do
-        content = params[:content].to_s
-        validate_accounts_yaml!(content)
-        save_config!(Config.accounts_file, content, 'accounts.yaml')
-        redirect '/accounts?saved=1', 303
-      rescue EditorError => e
-        render_editor(status: 422, title: 'Cuentas', action: '/accounts', content: content, error: e.message)
-      end
-
       helpers do
         # Every editor save ends the same way: the ledger repo commits and pushes.
         def commit_config(message)

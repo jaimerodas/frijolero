@@ -5,6 +5,7 @@ require 'uri'
 require 'openssl'
 require 'digest'
 require 'time'
+require 'cgi'
 
 module Frijolero
   # Backblaze B2 through its S3-compatible API, signed with SigV4 by hand.
@@ -25,6 +26,21 @@ module Frijolero
     # RFC 3986 unreserved characters stay literal; everything else is percent-encoded.
     RESERVED = /[^A-Za-z0-9\-_.~]/
 
+    # Regex parsing of the ListBucketResult XML: there is no XML gem in the bundle.
+    # A nested collaborator, same as Transport, keeps this off B2 itself.
+    class ListParser
+      CONTENTS = %r{<Contents>(.*?)</Contents>}m
+
+      def self.parse(body)
+        body.scan(CONTENTS).flatten.map { |xml| entry(xml) }
+      end
+
+      def self.entry(xml)
+        { key: CGI.unescapeHTML(xml[%r{<Key>(.*?)</Key>}m, 1]), size: xml[/<Size>(\d+)</, 1].to_i,
+          last_modified: Time.iso8601(xml[%r{<LastModified>(.*?)</LastModified>}, 1]) }
+      end
+    end
+
     class Transport
       def initialize(read_timeout: 120)
         @read_timeout = read_timeout
@@ -33,14 +49,22 @@ module Frijolero
       def put(uri, body, headers)
         request = Net::HTTP::Put.new(uri, headers)
         request.body = body
-        response = client(uri).request(request)
-        return response if response.is_a?(Net::HTTPSuccess)
+        request_and_raise(request, uri, 'PUT')
+      end
 
-        raise Error.new("B2 PUT #{uri.path} failed (#{response.code}): #{response.body}",
-                        status: response.code.to_i)
+      def get(uri, headers)
+        request_and_raise(Net::HTTP::Get.new(uri, headers), uri, 'GET').body
       end
 
       private
+
+      def request_and_raise(request, uri, verb)
+        response = client(uri).request(request)
+        return response if response.is_a?(Net::HTTPSuccess)
+
+        raise Error.new("B2 #{verb} #{uri.path} failed (#{response.code}): #{response.body}",
+                        status: response.code.to_i)
+      end
 
       def client(uri)
         http = Net::HTTP.new(uri.host, uri.port)
@@ -76,8 +100,18 @@ module Frijolero
       host, uri_path = host_and_path(key)
       headers = { 'content-type' => content_type, 'host' => host,
                   'x-amz-content-sha256' => hex(body), 'x-amz-date' => amz_date }
-      headers['authorization'] = authorization(uri_path, headers)
+      headers['authorization'] = authorization('PUT', uri_path, '', headers)
       transport.put(URI("https://#{host}#{uri_path}"), body, headers)
+    end
+
+    # List objects whose key starts with `prefix`, header-signed.
+    # ponytail: first page only (1000 keys); add ContinuationToken if an account ever passes that
+    def list(prefix)
+      host, bucket_path = bucket_host_and_path
+      query = canonical_query('list-type' => '2', 'prefix' => prefix)
+      headers = { 'host' => host, 'x-amz-content-sha256' => hex(''), 'x-amz-date' => amz_date }
+      headers['authorization'] = authorization('GET', bucket_path, query, headers)
+      ListParser.parse(transport.get(URI("https://#{host}#{bucket_path}?#{query}"), headers))
     end
 
     # A GET URL signed with query parameters, valid for `expires_in` seconds.
@@ -108,6 +142,8 @@ module Frijolero
       [@endpoint, "/#{encode_path("#{@bucket}/#{key}")}"]
     end
 
+    def bucket_host_and_path = [@endpoint, "/#{uri_encode(@bucket)}"]
+
     def presign_params(date, expires_in)
       { 'X-Amz-Algorithm' => ALGORITHM,
         'X-Amz-Credential' => "#{@key_id}/#{scope(date)}",
@@ -116,9 +152,9 @@ module Frijolero
         'X-Amz-SignedHeaders' => 'host' }
     end
 
-    def authorization(uri_path, headers)
+    def authorization(method, uri_path, query, headers)
       date = headers['x-amz-date']
-      request = canonical_request('PUT', uri_path, '', headers, headers['x-amz-content-sha256'])
+      request = canonical_request(method, uri_path, query, headers, headers['x-amz-content-sha256'])
       "#{ALGORITHM} Credential=#{@key_id}/#{scope(date)}, " \
         "SignedHeaders=#{signed_headers(headers)}, " \
         "Signature=#{signature(string_to_sign(date, request), date[0, 8])}"
@@ -129,9 +165,7 @@ module Frijolero
       [method, uri_path, query, canonical_headers, signed_headers(headers), payload_hash].join("\n")
     end
 
-    def signed_headers(headers)
-      headers.keys.sort.join(';')
-    end
+    def signed_headers(headers) = headers.keys.sort.join(';')
 
     def canonical_query(params)
       params.sort.map { |name, value| "#{uri_encode(name)}=#{uri_encode(value)}" }.join('&')
@@ -141,9 +175,7 @@ module Frijolero
       [ALGORITHM, date, scope(date), hex(request)].join("\n")
     end
 
-    def scope(date)
-      "#{date[0, 8]}/#{@region}/#{SERVICE}/aws4_request"
-    end
+    def scope(date) = "#{date[0, 8]}/#{@region}/#{SERVICE}/aws4_request"
 
     def signature(string_to_sign, date)
       key = ["AWS4#{@key}", date, @region, SERVICE, 'aws4_request'].inject do |acc, part|
@@ -156,9 +188,7 @@ module Frijolero
       OpenSSL::HMAC.digest('sha256', key, data)
     end
 
-    def hex(data)
-      Digest::SHA256.hexdigest(data)
-    end
+    def hex(data) = Digest::SHA256.hexdigest(data)
 
     def encode_path(path)
       path.split('/', -1).map { |segment| uri_encode(segment) }.join('/')

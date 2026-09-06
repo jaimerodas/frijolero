@@ -1,0 +1,61 @@
+<%
+  h = ->(s) { Rack::Utils.escape_html(s.to_s) }
+  key_path = Rack::Utils.escape_path(key)
+  fmt_size = lambda do |bytes|
+    bytes < 1_000_000 ? "#{bytes / 1000} KB" : format('%.1f MB', bytes / 1_000_000.0)
+  end
+%>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= h.(key) %></title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 2rem; }
+    nav a { margin-right: 1rem; }
+    table { border-collapse: collapse; }
+    th, td { padding: 0.5rem 1rem; text-align: left; border-bottom: 1px solid #ddd; }
+    .error { color: #b00020; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1><%= h.(key) %></h1>
+  <nav>
+    <a href="/accounts">Volver</a>
+    <a href="/accounts/<%= key_path %>/config">config</a>
+    <a href="/rules/<%= key_path %>">reglas</a>
+  </nav>
+
+  <% if error %>
+    <p class="error" role="alert"><%= h.(error) %></p>
+  <% elsif rows.empty? %>
+    <p>No hay PDFs en B2</p>
+  <% else %>
+    <table>
+      <tr>
+        <th>Periodo</th>
+        <th>Subido</th>
+        <th>Tamaño</th>
+        <th>PDF</th>
+        <th>Estado</th>
+      </tr>
+      <% rows.each do |row| %>
+        <tr>
+          <td><%= h.(row[:period]) %></td>
+          <td><%= h.(row[:uploaded_at].strftime('%Y-%m-%d')) %></td>
+          <td><%= h.(fmt_size.(row[:size])) %></td>
+          <td><a href="/statements/<%= key_path %>/<%= row[:period] %>/pdf">PDF</a></td>
+          <td>
+            <% if row[:processed] %>
+              <a href="/statements/<%= key_path %>/<%= row[:period] %>">ver</a>
+            <% else %>
+              sin procesar
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+    </table>
+  <% end %>
+</body>
+</html>

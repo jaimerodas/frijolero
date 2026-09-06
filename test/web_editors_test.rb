@@ -145,44 +145,6 @@ class WebEditorsTest < Minitest::Test
     assert_includes last_response.body, 'Falta la descripción'
   end
 
-  def test_accounts_editor_shows_the_current_file
-    get '/accounts'
-
-    assert_equal 200, last_response.status
-    assert_includes last_response.body, 'AMEX:'
-  end
-
-  def test_saving_valid_accounts_writes_reloads_and_commits
-    yaml = <<~YAML
-      AMEX:
-        beancount_account: "Liabilities:Amex"
-      HSBC:
-        beancount_account: "Assets:HSBC"
-    YAML
-
-    post '/accounts', content: yaml
-
-    assert_equal 303, last_response.status
-    assert Frijolero::Config.accounts.key?('HSBC')
-    assert_equal ['accounts.yaml'], @repo.messages
-  end
-
-  def test_accounts_missing_beancount_account_is_rejected
-    original = File.read(Frijolero::Config.accounts_file)
-
-    post '/accounts', content: <<~YAML
-      AMEX:
-        beancount_account: "Liabilities:Amex"
-      HSBC:
-        nickname: "sin cuenta"
-    YAML
-
-    assert_equal 422, last_response.status
-    assert_includes last_response.body, 'HSBC'
-    assert_equal original, File.read(Frijolero::Config.accounts_file)
-    assert_empty @repo.messages
-  end
-
   def test_unknown_account_rules_editor_404s
     get '/rules/Nope'
 

@@ -31,7 +31,7 @@
     </tr>
     <% dashboard.rows.each do |row| %>
       <tr>
-        <td><%= h.(row.account) %> <a class="rules" href="/rules/<%= Rack::Utils.escape_path(row.account) %>" title="Reglas de <%= h.(row.account) %>">reglas</a></td>
+        <td><a href="/accounts/<%= Rack::Utils.escape_path(row.account) %>"><%= h.(row.account) %></a> <a class="rules" href="/rules/<%= Rack::Utils.escape_path(row.account) %>" title="Reglas de <%= h.(row.account) %>">reglas</a></td>
         <% periods.each do |period| %>
           <% status = row.statuses[period] %>
           <td>

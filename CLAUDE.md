@@ -52,7 +52,7 @@ accounts/<Key>/<Key> YYMM.beancount   # + the .json next to it. Period = the mon
 
 On the volume, outside the repo: `/data/jobs.jsonl` is the append-only job log. `/data/incoming/<hex>/<original>.pdf` holds one directory per upload. The app removes that directory only when its job succeeds.
 
-In B2, in a bucket shared with other apps: `frijolero/accounts/<Key>/<Key> YYMM.pdf`. `Config.pdf_key` is the only formula for that key.
+In B2, in a bucket shared with other apps: `frijolero/accounts/<Key>/<Key> YYMM.pdf`. `Config.pdf_key` is the only formula for that key, and `Config.pdf_prefix` is the account's directory.
 
 The old world is frozen. `~/Documents/Beancount` and `~/.frijolero` are the pre-2.0 layout. `script/build_ledger_repo` and `script/upload_pdfs_to_b2` migrated them on 2026-09-05. Both scripts are idempotent and never write to their source. They are only necessary again if that migration is done again.
 
@@ -77,9 +77,13 @@ kamal app exec --reuse 'bundle exec ruby -e "require %q(frijolero); require %q(f
 
 ### Request side (`lib/frijolero/web/`)
 
-`App` holds the routes. `app.rb` has the dashboard, upload, confirm, jobs and the PDF redirect. `statements.rb` and `editors.rb` reopen the class for the statement page and for the rules and accounts editors. The class has four class-level collaborators with `attr_writer`s, so tests can swap in fakes: `jobs`, `client` (OpenAI), `b2` and `repo`. The app builds each one on first use.
+`App` holds the routes. `app.rb` has the dashboard, upload, confirm, jobs and the PDF redirect. `statements.rb`, `editors.rb` and `accounts.rb` reopen the class for the statement page, the rules editor and the Cuentas section. The class has four class-level collaborators with `attr_writer`s, so tests can swap in fakes: `jobs`, `client` (OpenAI), `b2` and `repo`. The app builds each one on first use.
 
 Views are standalone ERB pages in Spanish with inline CSS. There is no layout. `Dashboard` computes received, missing, pending or failed for each active account, for the previous and the current month, on each request. The `/review` routes, `views/review.erb`, `public/app.js` and `Accounts` are dead code from the CLI era.
+
+### Cuentas (`web/accounts.rb`)
+
+`GET /accounts` lists the accounts from `accounts.yaml`, open ones first, closed ones last. Each has three links. `/accounts/<Key>` asks B2 for the PDFs under `Config.pdf_prefix` and shows period, upload date, size, a download link, and a link to the statement page when the `.beancount` exists. A B2 failure renders the page with the error and status 502. `/accounts/<Key>/config` edits only that account's block of `accounts.yaml`. `AccountBlock` cuts the block by line range, from `Key:` to the next column-0 line, so the comments in the rest of the file survive. The save validates the block, splices it, validates the whole file, and commits `accounts <Key>`. The key of the block cannot change. `/accounts/yaml` is the old whole-file editor, kept for adding an account. The route for `yaml` is defined before `/accounts/:key` on purpose.
 
 ### Upload flow
 
@@ -119,7 +123,7 @@ Three behaviours are deliberate. `High-Yield Cash Sweep` rows are skipped, becau
 
 ### Infrastructure classes
 
-`OpenAIClient` has a nested `Transport` and typed errors. `extract_transactions(file_id, spec)` runs any prompt spec on a file, with `background: true` and a 2 s poll. The classifier uses it too. `B2` is a hand-rolled SigV4 client over `Net::HTTP`, with path-style URLs. `uri_encode` is the only place that turns a space into `%20`. The tests replay two official AWS vectors. `LedgerRepo` runs git as a subprocess (see "Git hooks"). `UI` writes plain lines to `UI.sink`, and `confirm` returns `auto_accept?`. `PromptSpec` assembles `spec.json`, `instructions.txt` and `schema.json`. The templates live in `lib/frijolero/templates/prompts/{default,plata,classify}`. The ledger repo holds the live copies, and `bbva`, `cetes` and `fintual` exist only there.
+`OpenAIClient` has a nested `Transport` and typed errors. `extract_transactions(file_id, spec)` runs any prompt spec on a file, with `background: true` and a 2 s poll. The classifier uses it too. `B2` is a hand-rolled SigV4 client over `Net::HTTP`, with path-style URLs. `list(prefix)` reads one page of ListObjectsV2 and parses the XML with a regex. `uri_encode` is the only place that turns a space into `%20`. The tests replay two official AWS vectors. `LedgerRepo` runs git as a subprocess (see "Git hooks"). `UI` writes plain lines to `UI.sink`, and `confirm` returns `auto_accept?`. `PromptSpec` assembles `spec.json`, `instructions.txt` and `schema.json`. The templates live in `lib/frijolero/templates/prompts/{default,plata,classify}`. The ledger repo holds the live copies, and `bbva`, `cetes` and `fintual` exist only there.
 
 ## Git hooks: how a unit test can destroy data
 
@@ -138,14 +142,14 @@ The rules: each git subprocess, in lib and in tests, gets an env hash that sets 
 
 ## Tests
 
-Minitest and rack-test, about 450 tests, about 5 s. `with_ledger_dir` points `LEDGER_DIR` at a temporary directory with `config/`. Web tests call `Web::App` directly and swap the collaborators for fakes. Only `test/web_app_test.rb` loads `config.ru`, for the auth wiring. Set `RACK_ENV=test` before `sinatra/base` loads, or host authorization returns 403 in tests. No test touches the network. `Config.accounts` is read on each call and never memoized. The first deploy cached `{}` because it booted before the volume had a ledger.
+Minitest and rack-test, about 475 tests, about 5 s. `with_ledger_dir` points `LEDGER_DIR` at a temporary directory with `config/`. Web tests call `Web::App` directly and swap the collaborators for fakes. Only `test/web_app_test.rb` loads `config.ru`, for the auth wiring. Set `RACK_ENV=test` before `sinatra/base` loads, or host authorization returns 403 in tests. No test touches the network. `Config.accounts` is read on each call and never memoized. The first deploy cached `{}` because it booted before the volume had a ledger.
 
 ## Known rough edges
 
 1. `POST /upload` blocks on the classifier: background mode plus a 2 s first poll. Two options: a synchronous Responses call with `reasoning.effort: minimal`, or a classify job with a page that refreshes. The model is `gpt-5.4-mini`, set in `config/prompts/classify/spec.json` of the ledger.
 2. One worker thread. A second upload waits behind an extraction.
 3. "Hacer regla" rewrites the whole rules file and drops comments.
-4. A `closed: true` account keeps its pages, but the dashboard does not show its history.
+4. A `closed: true` account leaves the dashboard. Its history lives on its page under Cuentas.
 5. Dead CLI-era code in `web/` (the review UI) and `Accounts`.
 
 ## Data formats
