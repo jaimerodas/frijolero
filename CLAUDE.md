@@ -97,7 +97,7 @@ Views are standalone ERB pages in Spanish. There is no layout. Each page renders
 
 ### Upload flow
 
-`POST /upload` saves the PDF under `incoming/` and runs `Classifier` in the request. If the file name parses as `<Key> YYMM.pdf`, the classifier answers without OpenAI. If not, it makes one OpenAI call with the `classify` prompt. It fills the account enum from `AccountConfig.descriptions`, makes sure that the dates are plausible, and derives `YYMM` from the midpoint of `period_start` and `period_end`, so the period is the month that holds most of the statement's days (AMEX Aug 4 to Sep 3 is `2608`). A doubtful result becomes `unknown`. The page then shows the result, and the person confirms. `POST /upload/confirm` validates the form and pushes a job.
+`POST /upload` saves the PDF under `incoming/` and runs `Classifier` in the request. If the file name parses as `<Key> YYMM.pdf`, the classifier answers without OpenAI. If not, it makes one OpenAI call with the `classify` prompt. It fills the account enum from `AccountConfig.descriptions`, makes sure that the dates are plausible, and derives `YYMM` from the midpoint of `period_start` and `period_end`, so the period is the month that holds most of the statement's days (AMEX Aug 4 to Sep 3 is `2608`). A doubtful result becomes `unknown`. The page then shows the result, and the person confirms. `POST /upload/confirm` validates the form and pushes a job. The second button, "Solo guardar PDF", posts to `POST /upload/backup`, which puts the PDF in B2 inside the request and removes the upload. It skips OpenAI, the ledger and the job log. It is for a statement whose `.beancount` already exists.
 
 ### Job
 

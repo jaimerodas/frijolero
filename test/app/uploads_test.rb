@@ -42,6 +42,7 @@ class UploadsTest < Minitest::Test
   # lets a test assert that the PDF reached B2 between the pull and the push.
   class FakeB2
     attr_reader :calls
+    attr_accessor :put_error
 
     def initialize(order = [])
       @order = order
@@ -54,6 +55,8 @@ class UploadsTest < Minitest::Test
     end
 
     def put(key, _path, **)
+      raise Frijolero::B2::Error.new(@put_error, status: 500) if @put_error
+
       @order << :put
       @calls << key
     end
@@ -307,6 +310,47 @@ class UploadsTest < Minitest::Test
     post '/upload/confirm', account: 'AMEX', period: '2508', token: 'a' * 16, overwrite: '0'
 
     assert_equal 422, last_response.status
+  end
+
+  def test_confirm_page_offers_to_save_only_the_pdf
+    upload_and_extract_token('AMEX 2508.pdf')
+
+    assert_includes last_response.body, 'formaction="/upload/backup"'
+  end
+
+  # For a statement whose .beancount already exists: the PDF lands in B2 and nothing else moves.
+  def test_backup_puts_the_pdf_in_b2_without_a_job
+    token = upload_and_extract_token('AMEX 2508.pdf')
+
+    post '/upload/backup', account: 'AMEX', period: '2508', token: token
+
+    assert_equal 303, last_response.status
+    assert_equal '/accounts/AMEX', URI(last_response.location).path
+    assert_equal ['frijolero/accounts/AMEX/AMEX 2508.pdf'], @b2.calls
+    assert_equal [:put], @order
+    assert_empty Frijolero::App.jobs.all
+    assert_empty @client.uploaded
+    refute Dir.exist?(File.join(Frijolero::Config.incoming_dir, token))
+  end
+
+  def test_backup_keeps_the_upload_when_b2_fails
+    token = upload_and_extract_token('AMEX 2508.pdf')
+    @b2.put_error = 'boom'
+
+    post '/upload/backup', account: 'AMEX', period: '2508', token: token
+
+    assert_equal 502, last_response.status
+    assert_includes last_response.body, 'boom'
+    assert Dir.exist?(File.join(Frijolero::Config.incoming_dir, token))
+  end
+
+  def test_backup_rejects_unknown_account
+    token = upload_and_extract_token('AMEX 2508.pdf')
+
+    post '/upload/backup', account: 'HSBC', period: '2508', token: token
+
+    assert_equal 422, last_response.status
+    assert_empty @b2.calls
   end
 
   def test_failed_statement_keeps_the_upload_for_a_retry

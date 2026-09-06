@@ -33,6 +33,18 @@ module Frijolero
       redirect "/jobs/#{job.id}", 303
     end
 
+    # Only the PDF, for a statement whose .beancount already exists. No OpenAI, no ledger,
+    # no job: the put takes seconds, so it runs in the request.
+    post '/upload/backup' do
+      account, period = validate_account_and_period!
+      pdf_path = validate_token!(params[:token])
+      self.class.b2.put(Config.pdf_key(account, period), pdf_path)
+      FileUtils.rm_rf(File.dirname(pdf_path))
+      redirect "/accounts/#{Rack::Utils.escape_path(account)}", 303
+    rescue B2::Error => e
+      halt 502, "No se pudo guardar el PDF en B2: #{Rack::Utils.escape_html(e.message)}"
+    end
+
     private
 
     # One directory per upload (named by a random token) so the original filename
