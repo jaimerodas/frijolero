@@ -59,7 +59,7 @@ The old world is frozen. `~/Documents/Beancount` and `~/.frijolero` are the pre-
 A change to rules, accounts, prompts or model names is a commit in the ledger repo, not a deploy. The app reads those files on each request and each job. The volume gets the change at the next job's pull, or at once with this command:
 
 ```bash
-kamal app exec --reuse 'bundle exec ruby -e "require %q(frijolero); require %q(frijolero/web/ledger_repo); Frijolero::Web::LedgerRepo.new(dir: ENV.fetch(%q(LEDGER_DIR))).pull"'
+kamal app exec --reuse 'bundle exec ruby -Ilib -e "require %q(frijolero); require %q(frijolero/web/ledger_repo); Frijolero::Web::LedgerRepo.new(dir: ENV.fetch(%q(LEDGER_DIR))).pull"'
 ```
 
 ## Environment variables
