@@ -1,0 +1,24 @@
+#!/bin/sh
+# Runs the app on the laptop. Reads .env if it exists (KEY=VALUE lines, see
+# .env.example). The ledger checkout is reached through tmp/dev/ledger, so the
+# job log and the upload directory land in tmp/dev instead of next to the repo.
+set -e
+cd "$(dirname "$0")/.."
+
+if [ -f .env ]; then
+  set -a
+  . ./.env
+  set +a
+fi
+
+: "${LEDGER_REPO:=$HOME/Developer/beancount-ledger}"
+mkdir -p tmp/dev
+ln -sfn "$LEDGER_REPO" tmp/dev/ledger
+
+export LEDGER_DIR="$PWD/tmp/dev/ledger"
+export APP_PASSWORD="${APP_PASSWORD:-x}"
+export PORT="${PORT:-3000}"
+export RACK_ENV="${RACK_ENV:-development}"
+
+echo "frijolero on http://localhost:$PORT (password: $APP_PASSWORD, ledger: $LEDGER_REPO)"
+exec bundle exec puma -C config/puma.rb config.ru

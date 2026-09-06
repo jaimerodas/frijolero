@@ -2,3 +2,5 @@
 .DS_Store
 data
 .claude/worktrees/
+.env
+tmp/

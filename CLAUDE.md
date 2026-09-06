@@ -19,10 +19,7 @@ The flow: you upload a PDF. The app finds the account and the period, and you co
 ```bash
 bundle exec rake test && bundle exec rubocop      # both must pass before a commit
 
-# Run locally against a ledger checkout
-LEDGER_DIR=~/Developer/beancount-ledger APP_PASSWORD=x OPENAI_API_KEY=... \
-  B2_ENDPOINT=... B2_BUCKET=... B2_KEY_ID=... B2_KEY=... \
-  bundle exec puma -C config/puma.rb config.ru      # http://localhost:9292
+bin/dev                                            # local app on http://localhost:3000, password x; reads .env (see .env.example)
 
 kamal deploy                                       # for code changes; needs 1Password unlocked (see Operations)
 kamal app exec --reuse '<cmd>'                     # run a command in the production container
