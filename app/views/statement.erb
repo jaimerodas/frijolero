@@ -31,41 +31,52 @@
     </div>
 
     <% if transactions.is_a?(Array) %>
-      <ol class="ledger">
-        <% transactions.each do |tx| %>
-          <% account_name = tx['expense_account'].to_s.strip %>
-          <% unclassified = account_name.empty? || account_name == 'Expenses:FIXME' %>
-          <% merchant, tail = split_description(tx['description']) %>
-          <li>
-            <time datetime="<%= h.(tx['date']) %>"><%= h.(tx['date']) %></time>
-            <div class="entry">
-              <div><%= h.(merchant) %></div>
-              <% if tail %><div class="tail"><%= h.(tail) %></div><% end %>
-              <div class="posting">
-                <% if tx['payee'] %><span><%= h.(tx['payee']) %></span><% end %>
-                <% if tx['narration'] %><span class="note"><%= h.(tx['narration']) %></span><% end %>
-                <% if unclassified %>
-                  <span class="status missing">sin clasificar</span>
-                  <form method="post" action="/rules/<%= account_path %>/from">
-                    <input type="hidden" name="description" value="<%= h.(tx['description']) %>">
-                    <input type="hidden" name="amount" value="<%= h.(tx['amount']) %>">
-                    <button type="submit">Hacer regla</button>
-                  </form>
-                <% else %>
-                  <code><%= h.(account_name) %></code>
-                <% end %>
-              </div>
-            </div>
-            <data value="<%= h.(tx['amount']) %>"><%= money(tx['amount']) %> <%= h.(tx['currency']) %></data>
-          </li>
-        <% end %>
-      </ol>
-    <% end %>
-
-    <details>
-      <summary>Beancount</summary>
+      <div class="tabs">
+        <div class="tablist">
+          <input type="radio" name="view" id="view-entries" class="visually-hidden" checked>
+          <label for="view-entries">Movimientos</label>
+          <input type="radio" name="view" id="view-beancount" class="visually-hidden">
+          <label for="view-beancount">Beancount</label>
+        </div>
+        <section id="entries">
+          <ol class="ledger">
+            <% transactions.each do |tx| %>
+              <% account_name = tx['expense_account'].to_s.strip %>
+              <% unclassified = account_name.empty? || account_name == 'Expenses:FIXME' %>
+              <% merchant, tail = split_description(tx['description']) %>
+              <li>
+                <time datetime="<%= h.(tx['date']) %>"><%= h.(tx['date']) %></time>
+                <div class="entry">
+                  <div><%= h.(merchant) %></div>
+                  <% if tail %><div class="tail"><%= h.(tail) %></div><% end %>
+                  <div class="posting">
+                    <% if tx['payee'] %><span><%= h.(tx['payee']) %></span><% end %>
+                    <% if tx['narration'] %><span class="note"><%= h.(tx['narration']) %></span><% end %>
+                    <% if unclassified %>
+                      <span class="status missing">sin clasificar</span>
+                      <form method="post" action="/rules/<%= account_path %>/from">
+                        <input type="hidden" name="description" value="<%= h.(tx['description']) %>">
+                        <input type="hidden" name="amount" value="<%= h.(tx['amount']) %>">
+                        <button type="submit">Hacer regla</button>
+                      </form>
+                    <% else %>
+                      <code><%= h.(account_name) %></code>
+                    <% end %>
+                  </div>
+                </div>
+                <data class="<%= tx['amount'].to_f.negative? ? 'debit' : 'credit' %>" value="<%= h.(tx['amount']) %>"><%= money(tx['amount']) %> <%= h.(tx['currency']) %></data>
+              </li>
+            <% end %>
+          </ol>
+        </section>
+        <section id="beancount">
+          <pre><%= h.(beancount) %></pre>
+        </section>
+      </div>
+    <% else %>
+      <h2>Beancount</h2>
       <pre><%= h.(beancount) %></pre>
-    </details>
+    <% end %>
   </main>
 </body>
 </html>

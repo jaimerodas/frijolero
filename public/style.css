@@ -7,6 +7,8 @@
   --red: #fc3d21;
   --blue: light-dark(#0b3d91, #7aa2ff);
   --on-blue: light-dark(#ffffff, #000000);
+  --credit: light-dark(#1a7f37, #3fb950);
+  --debit: light-dark(#b3410f, #ff8a5b);
   --sans: "Public Sans", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
 }
@@ -92,7 +94,7 @@ td .button, td button { min-height: 2rem; padding-inline: 0.625rem; font-size: 0
 a.rules { font-size: 0.875rem; margin-left: 0.5rem; color: var(--muted); }
 
 /* Statement: one entry per transaction. Date, body, amount; on phones the body drops below. */
-.ledger { list-style: none; margin: 1rem 0 2rem; padding: 0; border-top: 1px solid var(--ink); }
+.ledger { list-style: none; margin: 0 0 2rem; padding: 0; }
 .ledger li {
   display: grid;
   grid-template-columns: 6.5rem 1fr auto;
@@ -102,10 +104,20 @@ a.rules { font-size: 0.875rem; margin-left: 0.5rem; color: var(--muted); }
 }
 .ledger time, .ledger data { font-family: var(--mono); font-size: 0.9375rem; white-space: nowrap; }
 .ledger data { text-align: right; font-variant-numeric: tabular-nums; }
+.ledger data.credit { color: var(--credit); }
+.ledger data.debit { color: var(--debit); }
 .ledger .entry { min-width: 0; overflow-wrap: anywhere; }
 .ledger .tail { color: var(--muted); font-size: 0.875rem; }
 .ledger .posting { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1rem; margin-top: 0.25rem; }
 .ledger .posting button { min-height: 2rem; padding-inline: 0.625rem; font-size: 0.875rem; }
+
+/* Tabs: two radios, no script. The checked one shows its section. */
+.tablist { display: flex; gap: 1.5rem; margin-top: 1.5rem; border-bottom: 1px solid var(--ink); }
+.tablist label { display: inline-flex; align-items: center; min-height: 2.75rem; color: var(--muted); cursor: pointer; }
+.tablist input:checked + label { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px var(--ink); }
+.tablist input:focus-visible + label { outline: 2px solid var(--ink); outline-offset: -2px; }
+.tabs:has(#view-entries:checked) #beancount, .tabs:has(#view-beancount:checked) #entries { display: none; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 
 /* Forms */
 label { display: block; margin: 1.25rem 0 0.375rem; font-weight: 600; }
