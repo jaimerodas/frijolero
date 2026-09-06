@@ -37,14 +37,14 @@
           <tbody>
             <% rows.each do |row| %>
               <tr>
-                <td><%= h.(period_name(row[:period])) %></td>
+                <th scope="row"><%= h.(period_name(row[:period])) %></th>
                 <% if row[:missing] %>
                 <td colspan="2"></td>
-                <td><a class="status missing" href="/upload">falta</a></td>
+                <td data-label="Estado"><a class="status missing" href="/upload">falta</a></td>
                 <% else %>
-                <td><%= h.(fmt_size.(row[:size])) %></td>
-                <td><a class="button" href="/statements/<%= key_path %>/<%= row[:period] %>/pdf">Descargar</a></td>
-                <td>
+                <td data-label="Tamaño"><%= h.(fmt_size.(row[:size])) %></td>
+                <td data-label="PDF"><a class="button" href="/statements/<%= key_path %>/<%= row[:period] %>/pdf">Descargar</a></td>
+                <td data-label="Estado">
                   <% if row[:processed] %>
                     <a class="button" href="/statements/<%= key_path %>/<%= row[:period] %>">Ver</a>
                   <% else %>

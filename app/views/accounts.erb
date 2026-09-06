@@ -27,8 +27,8 @@
             <% accounts.each do |key, config| %>
               <% path = Rack::Utils.escape_path(key) %>
               <tr>
-                <td><a href="/accounts/<%= path %>"><code><%= h.(key) %></code></a></td>
-                <td><code><%= h.(config['beancount_account']) %></code></td>
+                <th scope="row"><a href="/accounts/<%= path %>"><%= h.(key) %></a></th>
+                <td data-label="Beancount"><code><%= h.(config['beancount_account']) %></code></td>
                 <td>
                   <a class="button" href="/accounts/<%= path %>">Estados</a>
                   <a class="button" href="/accounts/<%= path %>/config">Configuración</a>

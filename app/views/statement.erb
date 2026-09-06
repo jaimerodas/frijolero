@@ -48,21 +48,19 @@
             <% transactions.each do |tx| %>
               <% expense_account = tx['expense_account'] %>
               <tr>
-                <td class="date"><%= h.(tx['date']) %></td>
-                <td><%= h.(tx['description']) %></td>
-                <td class="amount"><%= h.(tx['amount'].nil? ? '' : format('%.2f', tx['amount'])) %> <%= h.(tx['currency']) %></td>
-                <td><%= h.(tx['payee']) %></td>
-                <td><%= h.(tx['narration']) %></td>
-                <td><code><%= h.(expense_account) %></code></td>
-                <td>
-                  <% if expense_account.to_s.strip.empty? || expense_account == 'Expenses:FIXME' %>
+                <td class="date" data-label="Fecha"><%= h.(tx['date']) %></td>
+                <td data-label="Descripción"><%= h.(tx['description']) %></td>
+                <td class="amount" data-label="Monto"><%= h.(tx['amount'].nil? ? '' : format('%.2f', tx['amount'])) %> <%= h.(tx['currency']) %></td>
+                <td data-label="Payee"><%= h.(tx['payee']) %></td>
+                <td data-label="Narración"><%= h.(tx['narration']) %></td>
+                <td data-label="Cuenta"><% unless expense_account.to_s.empty? %><code><%= h.(expense_account) %></code><% end %></td>
+                <td><% if expense_account.to_s.strip.empty? || expense_account == 'Expenses:FIXME' %>
                     <form method="post" action="/rules/<%= account_path %>/from">
                       <input type="hidden" name="description" value="<%= h.(tx['description']) %>">
                       <input type="hidden" name="amount" value="<%= h.(tx['amount']) %>">
                       <button type="submit">Hacer regla</button>
                     </form>
-                  <% end %>
-                </td>
+                  <% end %></td>
               </tr>
             <% end %>
           </tbody>

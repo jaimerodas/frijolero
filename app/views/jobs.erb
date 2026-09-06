@@ -23,10 +23,10 @@
         <tbody>
           <% jobs.each do |job| %>
             <tr>
-              <td><a href="/jobs/<%= h.(job.id) %>"><code><%= h.(job.label) %></code></a></td>
-              <td><span class="status <%= h.(job.status) %>"><%= h.(job.status) %></span></td>
-              <td class="date"><%= h.(job.started_at) %></td>
-              <td class="date"><%= h.(job.finished_at) %></td>
+              <th scope="row"><a href="/jobs/<%= h.(job.id) %>"><%= h.(job.label) %></a></th>
+              <td data-label="Estado"><span class="status <%= h.(job.status) %>"><%= h.(job.status) %></span></td>
+              <td class="date" data-label="Inicio"><%= h.(job.started_at) %></td>
+              <td class="date" data-label="Fin"><%= h.(job.finished_at) %></td>
             </tr>
           <% end %>
         </tbody>
