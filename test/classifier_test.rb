@@ -77,14 +77,14 @@ class ClassifierTest < Minitest::Test
     end
   end
 
-  def test_period_derives_from_period_end_across_months
-    with_ledger_dir do |dir|
-      setup_accounts(dir)
-      client = FakeClient.new({ 'account' => 'AMEX', 'period_start' => '2026-04-23', 'period_end' => '2026-05-22' })
-      result = Frijolero::Classifier.new(client: client, today: TODAY).classify('Foo.pdf')
-
-      assert_equal '2605', result.period
-    end
+  def test_period_is_the_month_that_holds_most_of_the_days
+    { %w[2026-08-04 2026-09-03] => '2608', # AMEX closes on the 3rd
+      %w[2026-08-02 2026-09-01] => '2608', # BBVA TDC closes on the 1st
+      %w[2026-06-10 2026-07-09] => '2606', # Plata closes on the 9th
+      %w[2026-04-23 2026-05-22] => '2605', # BBVA closes on the 22nd
+      %w[2026-03-07 2026-05-06] => '2604', # a 61-day closing statement
+      %w[2026-02-15 2026-03-14] => '2602' } # a tie goes to the start month
+      .each { |(start, finish), period| assert_equal period, classify_period(start, finish), "#{start}..#{finish}" }
   end
 
   def test_result_carries_file_id_and_period_dates
@@ -118,7 +118,7 @@ class ClassifierTest < Minitest::Test
       result = Frijolero::Classifier.new(client: client, today: TODAY).classify('Foo.pdf')
 
       assert_equal 'AMEX', result.account
-      assert_equal '2609', result.period
+      assert_equal '2608', result.period
     end
   end
 
@@ -151,6 +151,14 @@ class ClassifierTest < Minitest::Test
   end
 
   private
+
+  def classify_period(start, finish)
+    with_ledger_dir do |dir|
+      setup_accounts(dir)
+      client = FakeClient.new({ 'account' => 'AMEX', 'period_start' => start, 'period_end' => finish })
+      Frijolero::Classifier.new(client: client, today: TODAY).classify('Foo.pdf').period
+    end
+  end
 
   def assert_unknown_period(response)
     with_ledger_dir do |dir|

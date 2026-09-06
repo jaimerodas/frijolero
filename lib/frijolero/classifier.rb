@@ -50,17 +50,26 @@ module Frijolero
     def validate(data)
       account = data['account']
       account = UNKNOWN unless AccountConfig.descriptions.key?(account)
-      return [UNKNOWN, nil] unless plausible?(data)
+      start, finish = dates(data)
+      return [UNKNOWN, nil] unless plausible?(start, finish)
 
-      [account, Date.iso8601(data['period_end']).strftime('%y%m')]
+      [account, period(start, finish)]
     end
 
-    def plausible?(data)
-      start = Date.iso8601(data['period_start'])
-      finish = Date.iso8601(data['period_end'])
-      finish > start && finish <= @today && finish >= (@today << 24)
+    def dates(data)
+      [Date.iso8601(data['period_start']), Date.iso8601(data['period_end'])]
     rescue ArgumentError, TypeError
-      false
+      nil
+    end
+
+    def plausible?(start, finish)
+      start && finish > start && finish <= @today && finish >= (@today << 24)
+    end
+
+    # The month that holds most of the statement's days, so an AMEX cycle of Aug 4
+    # to Sep 3 is 2608. The midpoint lands in that month; a tie goes to the start.
+    def period(start, finish)
+      (start + ((finish - start) / 2).floor).strftime('%y%m')
     end
   end
 end

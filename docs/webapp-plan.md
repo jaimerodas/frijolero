@@ -255,15 +255,19 @@ plus `unknown`. `period_start` and `period_end` are the printed dates of the
 statement period, as `YYYY-MM-DD`. The enum comes from `accounts.yaml` at
 request time, so the model cannot invent an account.
 
-The period of a statement is the month in which it closes. A statement that
-runs from April 23 to May 22 is `2605`. So is the AMEX statement that runs
-from April 2 to May 3, even though most of its days are in April. This is
-the label that the bank prints on the statement, and the rule that the
-current file names already follow, for every account. The app derives `YYMM` from
-`period_end` in code. The model reads a date that is printed on the
-statement, and does no calendar reasoning of its own. The confirmation page
-shows both dates next to the result, so a wrong read is visible: "BBVA,
-2026-04-23 to 2026-05-22, period 2605. Correct?"
+The period of a statement is the month that holds most of its days. A
+statement that runs from April 23 to May 22 is `2605`. The AMEX statement
+that runs from August 4 to September 3 is `2608`, not `2609`, even though it
+closes in September. The app takes the midpoint of `period_start` and
+`period_end` in code and uses its month. A tie goes to the start month. The
+model reads two dates that are printed on the statement, and does no
+calendar reasoning of its own. The confirmation page shows both dates next
+to the result, so a wrong read is visible: "BBVA, 2026-04-23 to 2026-05-22,
+period 2605. Correct?"
+
+This rule replaced "the month in which the statement closes" on 2026-09-06.
+BBVA TDC and Plata already used it by hand. The AMEX and AMEX Aeromexico
+files were renamed one month back on that day.
 
 If a bank changes its closing day, two statements can close in the same
 month. Then the second upload finds an existing file, and the `overwrite`

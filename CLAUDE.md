@@ -47,14 +47,14 @@ account_opens.beancount       # opens for every non-commodity account
 config/accounts.yaml          # account key → beancount_account, openai_prompt_type, converter_type, description, closed
 config/rules/<Key>.yaml       # detailer rules, one file per account key (spaces kept: "BBVA TDC.yaml")
 config/prompts/<type>/        # spec.json + instructions.txt + schema.json, read on every call
-accounts/<Key>/<Key> YYMM.beancount   # + the .json next to it. Period = the month the statement closes
+accounts/<Key>/<Key> YYMM.beancount   # + the .json next to it. Period = the month that holds most of the statement's days
 ```
 
 On the volume, outside the repo: `/data/jobs.jsonl` is the append-only job log. `/data/incoming/<hex>/<original>.pdf` holds one directory per upload. The app removes that directory only when its job succeeds.
 
 In B2, in a bucket shared with other apps: `frijolero/accounts/<Key>/<Key> YYMM.pdf`. `Config.pdf_key` is the only formula for that key, and `Config.pdf_prefix` is the account's directory.
 
-The old world is frozen. `~/Documents/Beancount` and `~/.frijolero` are the pre-2.0 layout. `script/build_ledger_repo` and `script/upload_pdfs_to_b2` migrated them on 2026-09-05. Both scripts are idempotent and never write to their source. They are only necessary again if that migration is done again.
+The old world is frozen. `~/Documents/Beancount` and `~/.frijolero` are the pre-2.0 layout. `script/build_ledger_repo` and `script/upload_pdfs_to_b2` migrated them on 2026-09-05. Both scripts are idempotent and never write to their source. They are only necessary again if that migration is done again. They predate the period rule: the old AMEX and AMEX Aeromexico names use the closing month, so a rerun would bring those names back.
 
 A change to rules, accounts, prompts or model names is a commit in the ledger repo, not a deploy. The app reads those files on each request and each job. The volume gets the change at the next job's pull, or at once with this command:
 
@@ -87,7 +87,7 @@ Views are standalone ERB pages in Spanish with inline CSS. There is no layout. `
 
 ### Upload flow
 
-`POST /upload` saves the PDF under `incoming/` and runs `Classifier` in the request. If the file name parses as `<Key> YYMM.pdf`, the classifier answers without OpenAI. If not, it makes one OpenAI call with the `classify` prompt. It fills the account enum from `AccountConfig.descriptions`, makes sure that the dates are plausible, and derives `YYMM` from `period_end`. A doubtful result becomes `unknown`. The page then shows the result, and the person confirms. `POST /upload/confirm` validates the form and pushes a job.
+`POST /upload` saves the PDF under `incoming/` and runs `Classifier` in the request. If the file name parses as `<Key> YYMM.pdf`, the classifier answers without OpenAI. If not, it makes one OpenAI call with the `classify` prompt. It fills the account enum from `AccountConfig.descriptions`, makes sure that the dates are plausible, and derives `YYMM` from the midpoint of `period_start` and `period_end`, so the period is the month that holds most of the statement's days (AMEX Aug 4 to Sep 3 is `2608`). A doubtful result becomes `unknown`. The page then shows the result, and the person confirms. `POST /upload/confirm` validates the form and pushes a job.
 
 ### Job
 
