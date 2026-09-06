@@ -76,7 +76,7 @@ kamal app exec --reuse 'bundle exec ruby -Ilib -e "require %q(frijolero); requir
 
 `App` holds the routes. `app.rb` has the dashboard, upload, confirm, jobs and the PDF redirect. `statements.rb`, `editors.rb` and `accounts.rb` reopen the class for the statement page, the rules editor and the Cuentas section. The class has four class-level collaborators with `attr_writer`s, so tests can swap in fakes: `jobs`, `client` (OpenAI), `b2` and `repo`. The app builds each one on first use.
 
-Views are standalone ERB pages in Spanish with inline CSS. There is no layout. `Dashboard` computes received, missing, pending or failed for each active account, for the previous and the current month, on each request. Its Corte column shows `cutoff_day` from `accounts.yaml`, the day of the month on which that account's statements close, with 31 for the last day. The job fills it in the first time a confirmed upload carries a printed period end, and never overwrites it, so a hand edit in `/accounts/<Key>/config` wins. The `/review` routes, `views/review.erb`, `public/app.js` and `Accounts` are dead code from the CLI era.
+Views are standalone ERB pages in Spanish. There is no layout. Each page renders `views/_head.erb` through the `head` helper, which takes the title and an optional refresh, and the CSS is `public/style.css`. `Dashboard` computes received, missing, pending or failed for each active account, for the previous and the current month, on each request. Its Corte column shows `cutoff_day` from `accounts.yaml`, the day of the month on which that account's statements close, with 31 for the last day. The job fills it in the first time a confirmed upload carries a printed period end, and never overwrites it, so a hand edit in `/accounts/<Key>/config` wins.
 
 ### Cuentas (`web/accounts.rb`)
 
@@ -145,7 +145,6 @@ Minitest and rack-test, about 475 tests, about 5 s. `with_ledger_dir` points `LE
 2. One worker thread. A second upload waits behind an extraction.
 3. "Hacer regla" rewrites the whole rules file and drops comments.
 4. A `closed: true` account leaves the dashboard. Its history lives on its page under Cuentas.
-5. Dead CLI-era code in `web/` (the review UI) and `Accounts`.
 
 ## Data formats
 
