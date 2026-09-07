@@ -3,7 +3,43 @@
 module Frijolero
   # Statement page and its actions. Reopens App to keep app.rb a table of contents.
   class App
+    # Matched on escaped text: a string is `&quot;…&quot;`, and a comment needs a space or a line start before
+    # the `;` because entities end in one. The order matters: a string swallows what it holds.
+    BEANCOUNT_TOKEN = /
+      (?<head>^\d{4}-\d{2}-\d{2}\ \S+)
+      | (?<comment>(?<!\S);.*)
+      | (?<string>&quot;.*?&quot;)
+      | (?<account>(?:Assets|Liabilities|Equity|Income|Expenses)(?::[\w-]+)+)
+      | (?<amount>-?\d[\d,]*(?:\.\d+)?\ [A-Z][A-Z0-9._-]*)
+    /x
+
     helpers do
+      # Beancount text → HTML with a span per date, flag, account and amount. Display only.
+      # A line that matches nothing is just escaped text, so a hand edit never breaks the page.
+      def beancount_html(text)
+        Rack::Utils.escape_html(text).gsub(BEANCOUNT_TOKEN) do
+          m = Regexp.last_match
+          kind = m.names.find { |n| m[n] }
+          kind == 'head' ? beancount_head(m[:head]) : beancount_span(kind, m[0])
+        end
+      end
+
+      def beancount_head(head)
+        date, flag = head.split(' ', 2)
+        %(<span class="bc-date">#{date}</span> <span class="bc-flag#{' bc-warn' if flag == '!'}">#{flag}</span>)
+      end
+
+      # Strings are matched so that an account or a `;` inside a narration stays plain.
+      def beancount_span(kind, text)
+        klass = case kind
+                when 'string' then return text
+                when 'account' then text.start_with?('Expenses:FIXME') ? 'bc-account bc-fixme' : 'bc-account'
+                when 'amount' then text.start_with?('-') ? 'debit' : 'credit'
+                else "bc-#{kind}"
+                end
+        %(<span class="#{klass}">#{text}</span>)
+      end
+
       # The two files a processed statement leaves in the ledger.
       def statement_paths(account, period)
         { json: Config.statement_path(account, period, 'json'),

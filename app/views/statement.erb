@@ -70,12 +70,12 @@
           </ol>
         </section>
         <section id="beancount">
-          <pre><%= h.(beancount) %></pre>
+          <pre><%= beancount_html(beancount) %></pre>
         </section>
       </div>
     <% else %>
       <h2>Beancount</h2>
-      <pre><%= h.(beancount) %></pre>
+      <pre><%= beancount_html(beancount) %></pre>
     <% end %>
   </main>
 </body>

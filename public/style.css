@@ -169,6 +169,12 @@ pre {
   overflow-x: auto;
   white-space: pre-wrap;
 }
+.bc-date, .bc-comment { color: var(--muted); }
+.bc-flag { font-weight: 600; }
+.bc-warn, pre .debit { color: var(--debit); }
+pre .credit { color: var(--credit); }
+.bc-account { color: var(--blue); }
+.bc-fixme { color: var(--red); font-weight: 600; }
 details { margin-block: 1.5rem; }
 summary { cursor: pointer; font-weight: 600; }
 

@@ -66,7 +66,8 @@ class StatementsTest < Minitest::Test
     assert_includes last_response.body, 'action="/statements/AMEX/2508/detail"'
     assert_includes last_response.body, 'Volver a correr las reglas'
     assert_includes last_response.body, 'href="/statements/AMEX/2508/pdf"'
-    assert_includes last_response.body, 'Expenses:FIXME 100 MXN'
+    assert_includes last_response.body,
+                    '<span class="bc-account bc-fixme">Expenses:FIXME</span> <span class="credit">100 MXN</span>'
   end
 
   def test_fixme_count_comes_from_the_beancount_file
