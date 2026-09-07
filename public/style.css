@@ -109,6 +109,7 @@ a.rules { font-size: 0.875rem; margin-left: 0.5rem; color: var(--muted); }
 .ledger data.debit { color: var(--debit); }
 .ledger .entry { min-width: 0; overflow-wrap: anywhere; }
 .ledger .tail { color: var(--muted); font-size: 0.875rem; }
+.ledger .posting code { color: var(--blue); }
 .ledger .posting { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1rem; margin-top: 0.25rem; }
 .ledger .posting button { min-height: 2rem; padding-inline: 0.625rem; font-size: 0.875rem; }
 
