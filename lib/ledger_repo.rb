@@ -13,16 +13,24 @@ module Frijolero
       @token = token
     end
 
+    # A conflict would leave the clone mid-rebase and wedge every later job, so
+    # abort and raise instead. The commit stays local, to untangle by hand.
     def pull
       git('pull', '--rebase')
+    rescue Error
+      abort_rebase
+      raise
     end
 
+    # Pulls again between commit and push: the laptop may have pushed since the
+    # job's first pull, and the editors never pull at all.
     # rubocop:disable Naming/PredicateMethod -- name is part of the package's public API
     def commit_and_push(message)
       git('add', '-A')
       return false unless staged_changes?
 
       git('commit', '-m', message)
+      pull
       git('push')
       true
     end
@@ -37,6 +45,12 @@ module Frijolero
       raise Error, "git #{args.first}: #{stderr.strip}" unless status.success?
 
       stdout
+    end
+
+    def abort_rebase
+      git('rebase', '--abort')
+    rescue Error
+      nil # nothing in progress: the failure was the fetch, not the rebase
     end
 
     def staged_changes?

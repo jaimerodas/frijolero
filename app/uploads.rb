@@ -109,10 +109,9 @@ module Frijolero
       run_job("#{account} #{period}", statement, File.dirname(pdf_path), &after)
     end
 
-    # Pull before the work and push after it. The volume holds a clone, so a job that
-    # writes without pulling first turns the next push into a conflict to untangle by
-    # hand; a job that fails leaves the upload where it is, for a retry. The block
-    # runs after a good statement and rides on the same commit.
+    # Pull before the work and push after it, so the statement is written on top of
+    # the latest ledger; a job that fails leaves the upload where it is, for a retry.
+    # The block runs after a good statement and rides on the same commit.
     def run_job(label, statement, upload_dir)
       repo = self.class.repo
       self.class.jobs.push(label: label) do

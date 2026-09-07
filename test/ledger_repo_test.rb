@@ -70,7 +70,21 @@ class LedgerRepoTest < Minitest::Test
     assert_includes error.message, 'git pull'
   end
 
-  def test_commit_and_push_raises_on_rejected_push
+  def test_commit_and_push_rebases_on_remote_commit_before_pushing
+    File.write(File.join(@seed, 'README'), "cambio del seed\n")
+    run_git(@seed, 'add', 'README')
+    seed_commit('seed cambia README')
+    run_git(@seed, 'push', 'origin', 'HEAD:main')
+
+    File.write(File.join(@work, 'rules.yaml'), "start_with: {}\n")
+    repo = Frijolero::LedgerRepo.new(dir: @work, token: nil)
+
+    assert repo.commit_and_push('work agrega rules')
+    assert_equal "work agrega rules\nseed cambia README", run_git(@origin, 'log', '-2', '--format=%s').strip
+    assert_equal "cambio del seed\n", File.read(File.join(@work, 'README'))
+  end
+
+  def test_commit_and_push_aborts_rebase_on_conflict
     File.write(File.join(@seed, 'README'), "cambio del seed\n")
     run_git(@seed, 'add', 'README')
     seed_commit('seed cambia README')
@@ -79,8 +93,11 @@ class LedgerRepoTest < Minitest::Test
     File.write(File.join(@work, 'README'), "cambio del work\n")
     repo = Frijolero::LedgerRepo.new(dir: @work, token: nil)
 
-    assert_raises(Frijolero::LedgerRepo::Error) { repo.commit_and_push('work cambia README') }
+    error = assert_raises(Frijolero::LedgerRepo::Error) { repo.commit_and_push('work cambia README') }
+    assert_includes error.message, 'git pull'
     assert_equal 'work cambia README', run_git(@work, 'log', '-1', '--format=%s').strip
+    assert_empty run_git(@work, 'status', '--porcelain')
+    refute File.exist?(File.join(@work, '.git', 'rebase-merge'))
   end
 
   def test_commit_and_push_with_token_against_path_remote

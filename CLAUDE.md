@@ -45,7 +45,7 @@ The ledger repo is `git@github.com:jaimerodas/beancount-ledger.git` (private). I
 | Copy | Path | Who writes |
 |---|---|---|
 | Laptop | `~/Developer/beancount-ledger` (SSH remote) | The user, with hand edits in fava. The fish function `moneys` pulls, runs fava, and commits and pushes on Ctrl-C. It pulls with rebase before each push. |
-| Droplet volume | `/data/ledger` in the container (HTTPS remote, `GIT_TOKEN` header) | The app. Each job pulls with rebase first and commits and pushes last. The editors commit on save. |
+| Droplet volume | `/data/ledger` in the container (HTTPS remote, `GIT_TOKEN` header) | The app. Each job pulls with rebase first and commits and pushes last. The editors commit on save. `commit_and_push` pulls with rebase again between the commit and the push, because the laptop may have pushed in the meantime. A conflict aborts the rebase and raises, and the commit stays local. |
 | GitHub | origin | Nobody directly. |
 
 Layout of the ledger repo (`LEDGER_DIR`). `Config` derives each path from it:
