@@ -68,7 +68,8 @@ h2 { font-size: 1.125rem; font-weight: 600; margin: 2.5rem 0 0.75rem; padding-bo
    recibido / ok ●   pendiente / queued ○   running ◐   falta ▲   falló ■ */
 .status { --glyph: "○"; color: var(--muted); white-space: nowrap; }
 .status::before { content: var(--glyph) / ""; margin-right: 0.35em; font-size: 0.75em; }
-.status.received, .status.ok { --glyph: "●"; color: var(--ink); }
+.status.received, .status.ok { --glyph: "●"; color: var(--credit); }
+.status.pending { color: var(--debit); }
 .status.running { --glyph: "◐"; color: var(--ink); }
 .status.missing { --glyph: "▲"; color: var(--red); }
 .status.failed { --glyph: "■"; color: var(--red); font-weight: 600; }
