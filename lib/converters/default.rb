@@ -5,6 +5,8 @@ require 'date'
 module Frijolero
   module Converters
     class Default < Base
+      include Amounts
+
       DEFAULT_EXPENSE_ACCOUNT = 'Expenses:FIXME'
 
       def initialize(expense_account: DEFAULT_EXPENSE_ACCOUNT, **)
@@ -28,7 +30,7 @@ module Frijolero
 
         lines = [header_line(date, transaction['payee'], narration_provided || description)]
         lines << %(  source_desc: "#{description}") if narration_provided
-        lines << "  #{@account}  #{format('%.2f', amount)} #{currency}"
+        lines << "  #{@account}  #{money(amount)} #{currency}"
         lines << "  #{expense}"
         lines << ''
         lines.join("\n")

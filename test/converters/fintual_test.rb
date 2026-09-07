@@ -10,7 +10,7 @@ class FintualConverterTest < Minitest::Test
       content = read_output(convert_fixture(dir))
 
       assert_includes content, '2026-03-17 * "Fintual" "Nos depositaste"'
-      assert_includes content, 'Assets:Fintual:Cash  20000.00 MXN'
+      assert_includes content, 'Assets:Fintual:Cash  20,000.00 MXN'
       assert_includes content, 'Assets:BBVA'
     end
   end
@@ -29,8 +29,8 @@ class FintualConverterTest < Minitest::Test
       content = read_output(convert_fixture(dir))
 
       assert_includes content, '2026-03-18 * "Fintual" "Compra PORTMAN-E10F"'
-      assert_includes content, 'Assets:Fintual:PORTMAN_E10F  11681 PORTMAN_E10F {1.335438 MXN}'
-      assert_includes content, 'Assets:Fintual:Cash  -15599.25 MXN'
+      assert_includes content, 'Assets:Fintual:PORTMAN_E10F  11,681 PORTMAN_E10F {1.335438 MXN}'
+      assert_includes content, 'Assets:Fintual:Cash  -15,599.25 MXN'
     end
   end
 
@@ -39,8 +39,8 @@ class FintualConverterTest < Minitest::Test
       content = read_output(convert_fixture(dir))
 
       assert_includes content, '2026-03-19 * "Fintual" "Venta STERGOB-C1"'
-      assert_includes content, 'Assets:Fintual:STERGOB_C1  -5949 STERGOB_C1 {} @ 3.361871 MXN'
-      assert_includes content, 'Assets:Fintual:Cash  19999.77 MXN'
+      assert_includes content, 'Assets:Fintual:STERGOB_C1  -5,949 STERGOB_C1 {} @ 3.361871 MXN'
+      assert_includes content, 'Assets:Fintual:Cash  19,999.77 MXN'
       assert_includes content, 'Income:Gains:Fintual'
     end
   end

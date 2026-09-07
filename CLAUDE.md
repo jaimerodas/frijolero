@@ -121,7 +121,7 @@ The rules editor validates with `YAML.safe_load` and a probe call to `matches_fo
 
 ### Converters
 
-`Converters::Default`, `CetesDirecto`, `Fintual` and `Plata` inherit from `Base` and share `AccountTargets` and `Amounts`. All amounts go through `BigDecimal`. A Float residue such as `-5.55e-17` breaks Beancount. `BeancountMerger` appends an `include` line relative to the directory of the main file.
+`Converters::Default`, `CetesDirecto`, `Fintual` and `Plata` inherit from `Base` and share `AccountTargets` and `Amounts`. All amounts go through `BigDecimal`. A Float residue such as `-5.55e-17` breaks Beancount. `Amounts#money` and `Amounts#number` write thousands with commas (`-15,596.89 MXN`, `11,042 PORTMAN-E10F`). Beancount reads them, `bean-check` was run on a sample to confirm, and `Beancount::Transaction` strips them when it parses an amount back. `BeancountMerger` appends an `include` line relative to the directory of the main file.
 
 ### Plata reads Alpaca statements, never the advisor PDF
 

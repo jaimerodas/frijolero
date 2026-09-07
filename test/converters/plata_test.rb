@@ -26,9 +26,9 @@ class PlataConverterTest < Minitest::Test
   def test_sell_credits_cash_net_of_commission_and_books_gains
     block = transaction_block(convert, '2025-11-25 * "Plata" "Sell NFLX"')
 
-    assert_includes block, 'Assets:Investments:Plata:NFLX  -20 NFLX {} @@ 2133.20 USD'
+    assert_includes block, 'Assets:Investments:Plata:NFLX  -20 NFLX {} @@ 2,133.20 USD'
     assert_includes block, 'Expenses:Fees:Plata  3.83 USD'
-    assert_includes block, 'Assets:Investments:Plata:Cash  2129.37 USD'
+    assert_includes block, 'Assets:Investments:Plata:Cash  2,129.37 USD'
     assert_includes block, 'Income:Gains:Plata'
   end
 
@@ -47,7 +47,7 @@ class PlataConverterTest < Minitest::Test
     block = transaction_block(convert, '2025-11-17 * "Plata" "Stock Split NFLX"')
 
     assert_includes block, 'Assets:Investments:Plata:NFLX  -5 NFLX {}'
-    assert_includes block, 'Assets:Investments:Plata:NFLX  50 NFLX {{2402.30 USD}}'
+    assert_includes block, 'Assets:Investments:Plata:NFLX  50 NFLX {{2,402.30 USD}}'
     refute_includes block, '2402.50'
   end
 
@@ -70,7 +70,7 @@ class PlataConverterTest < Minitest::Test
     block = transaction_block(convert, '2025-11-20 * "Plata" "Stock SpinOff SPGI -> MBGL"')
 
     assert_includes block, 'Assets:Investments:Plata:SPGI  -5 SPGI {}'
-    assert_includes block, 'Assets:Investments:Plata:SPGI  5 SPGI {{1622.35 USD}}'
+    assert_includes block, 'Assets:Investments:Plata:SPGI  5 SPGI {{1,622.35 USD}}'
     assert_includes block, 'Assets:Investments:Plata:MBGL  5 MBGL {{87.85 USD}}'
   end
 
@@ -279,8 +279,8 @@ class PlataConverterTest < Minitest::Test
   # emitted cash postings ever stop summing to the statement's own movement in
   # cash, something has been dropped, doubled, or mis-signed.
   def test_emitted_cash_postings_sum_to_the_statements_cash_movement
-    postings = convert.scan(/^ {2}Assets:Investments:Plata:Cash {2}(-?[\d.]+) USD$/).flatten
-    total = postings.sum { |amount| BigDecimal(amount) }
+    postings = convert.scan(/^ {2}Assets:Investments:Plata:Cash {2}(-?[\d,.]+) USD$/).flatten
+    total = postings.sum { |amount| BigDecimal(amount.delete(',')) }
 
     assert_equal BigDecimal('3046.97'), total
     assert_equal BigDecimal('3860.93'), BigDecimal('813.96') + total
@@ -371,7 +371,7 @@ class PlataConverterTest < Minitest::Test
   end
 
   def test_header_restates_the_cash_summary_for_auditing
-    assert_includes convert, '; Cash: 813.96 + 113.04 - 7.75 + 2952.71 + -11.03 = 3860.93'
+    assert_includes convert, '; Cash: 813.96 + 113.04 - 7.75 + 2,952.71 + -11.03 = 3,860.93'
   end
 
   def test_header_records_realized_gain_loss

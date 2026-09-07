@@ -5,6 +5,8 @@ require 'date'
 module Frijolero
   module Converters
     class CetesDirecto < Base
+      include Amounts
+
       MOVEMENT_HANDLERS = {
         'cash_in' => :handle_cash_in,
         'cash_out' => :handle_cash_out,
@@ -75,7 +77,7 @@ module Frijolero
       def write_simple_movement(mov, amount, narration, target)
         date = mov['settlement_date'] || mov['trade_date']
         @out.puts %(#{date} * "CETESDirecto" "#{narration}")
-        @out.puts "  #{@account}  #{format('%.2f', amount)} MXN"
+        @out.puts "  #{@account}  #{money(amount)} MXN"
         @out.puts "  #{target}"
         @out.puts
       end
@@ -94,7 +96,7 @@ module Frijolero
         return if unrealized.abs < 0.005
 
         @out.puts %(#{@period_end} * "CETESDirecto" "Plusvalía del periodo")
-        @out.puts "  #{@account}  #{format('%.2f', unrealized)} MXN"
+        @out.puts "  #{@account}  #{money(unrealized)} MXN"
         @out.puts "  #{@targets.gains}"
         @out.puts
       end
@@ -103,7 +105,7 @@ module Frijolero
         return unless @period_end
 
         assertion_date = (Date.parse(@period_end) + 1).strftime('%Y-%m-%d')
-        @out.puts "#{assertion_date} balance #{@account}  #{format('%.2f', @closing_total)} MXN"
+        @out.puts "#{assertion_date} balance #{@account}  #{money(@closing_total)} MXN"
       end
     end
   end

@@ -3,6 +3,8 @@
 module Frijolero
   module Converters
     class Fintual < Base
+      include Amounts
+
       TRANSACTION_HANDLERS = {
         'deposit' => :handle_deposit,
         'withdrawal' => :handle_withdrawal,
@@ -57,26 +59,26 @@ module Frijolero
 
       def handle_buy(transaction)
         commodity = transaction['commodity']
-        units = format_units(transaction['units'])
+        units = number(transaction['units'])
         cash_amount = transaction['reported_amount'].to_f
         narration = build_fund_narration(transaction['description'] || 'Compra', transaction['fund_code_raw'])
 
         write_header(transaction['trade_date'], narration)
         @out.puts "  #{@account}:#{commodity}  #{units} #{commodity} {#{transaction['price_per_unit']} #{@currency}}"
-        @out.puts "  #{@account}:Cash  #{format('%.2f', -cash_amount)} #{@currency}"
+        @out.puts "  #{@account}:Cash  #{money(-cash_amount)} #{@currency}"
         @out.puts
       end
 
       def handle_sell(transaction)
         commodity = transaction['commodity']
-        units = format_units(transaction['units'])
+        units = number(transaction['units'])
         price = transaction['price_per_unit']
         cash_amount = transaction['reported_amount'].to_f
         narration = build_fund_narration(transaction['description'] || 'Venta', transaction['fund_code_raw'])
 
         write_header(transaction['trade_date'], narration)
         @out.puts "  #{@account}:#{commodity}  -#{units} #{commodity} {} @ #{price} #{@currency}"
-        @out.puts "  #{@account}:Cash  #{format('%.2f', cash_amount)} #{@currency}"
+        @out.puts "  #{@account}:Cash  #{money(cash_amount)} #{@currency}"
         @out.puts "  #{@targets.gains}"
         @out.puts
       end
@@ -95,7 +97,7 @@ module Frijolero
 
       def write_cash_movement(transaction, amount, narration, target)
         write_header(transaction['trade_date'], narration)
-        @out.puts "  #{@account}:Cash  #{format('%.2f', amount)} #{@currency}"
+        @out.puts "  #{@account}:Cash  #{money(amount)} #{@currency}"
         @out.puts "  #{target}"
         @out.puts
       end
@@ -113,14 +115,6 @@ module Frijolero
 
           @out.puts "#{date} price #{commodity}  #{price} #{@currency}"
         end
-      end
-
-      def format_units(units_str)
-        return units_str if units_str.nil?
-
-        cleaned = units_str.to_s.delete(',')
-        value = cleaned.to_f
-        value == value.to_i ? value.to_i.to_s : cleaned
       end
 
       def build_fund_narration(description, fund_code)

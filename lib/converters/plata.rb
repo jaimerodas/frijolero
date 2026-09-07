@@ -356,7 +356,7 @@ module Frijolero
         closing = @cash_summary['ending_value'] || @cash_holding['market_value']
         return if closing.nil?
 
-        @out.puts "#{assertion_date} balance #{cash_account}  #{grouped(closing)} #{@currency}"
+        @out.puts "#{assertion_date} balance #{cash_account}  #{money(closing)} #{@currency}"
       end
 
       def assertion_date

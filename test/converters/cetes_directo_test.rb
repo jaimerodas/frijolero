@@ -33,7 +33,7 @@ class CetesDirectoConverterTest < Minitest::Test
       content = read_output(output)
 
       assert_includes content, '2026-02-10 * "CETESDirecto" "Retiro"'
-      assert_includes content, 'Assets:Investments:CETESDirecto  -10000.00 MXN'
+      assert_includes content, 'Assets:Investments:CETESDirecto  -10,000.00 MXN'
       assert_includes content, 'Assets:BBVA'
     end
   end
@@ -44,7 +44,7 @@ class CetesDirectoConverterTest < Minitest::Test
       content = read_output(output)
 
       assert_includes content, '2026-02-15 * "CETESDirecto" "Depósito"'
-      assert_includes content, 'Assets:Investments:CETESDirecto  5000.00 MXN'
+      assert_includes content, 'Assets:Investments:CETESDirecto  5,000.00 MXN'
       assert_includes content, 'Assets:BBVA'
     end
   end
@@ -70,7 +70,7 @@ class CetesDirectoConverterTest < Minitest::Test
       # expected = 100000.50 + 5500 - 10075 = 95425.50
       # unrealized = 91200.10 - 95425.50 = -4225.40
       assert_includes content, '2026-02-28 * "CETESDirecto" "Plusvalía del periodo"'
-      assert_includes content, 'Assets:Investments:CETESDirecto  -4225.40 MXN'
+      assert_includes content, 'Assets:Investments:CETESDirecto  -4,225.40 MXN'
       assert_includes content, 'Income:Gains:CetesDirecto'
     end
   end
@@ -80,7 +80,7 @@ class CetesDirectoConverterTest < Minitest::Test
       output = convert_fixture(dir)
       content = read_output(output)
 
-      assert_includes content, '2026-03-01 balance Assets:Investments:CETESDirecto  91200.10 MXN'
+      assert_includes content, '2026-03-01 balance Assets:Investments:CETESDirecto  91,200.10 MXN'
     end
   end
 
@@ -99,7 +99,7 @@ class CetesDirectoConverterTest < Minitest::Test
     ).run_to(io)
 
     assert_includes io.string, '2026-02-15 * "CETESDirecto" "Depósito"'
-    assert_includes io.string, '2026-03-01 balance Assets:Investments:CETESDirecto  91200.10 MXN'
+    assert_includes io.string, '2026-03-01 balance Assets:Investments:CETESDirecto  91,200.10 MXN'
   end
 
   def test_raises_without_input

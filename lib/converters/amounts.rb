@@ -20,21 +20,19 @@ module Frijolero
         BigDecimal(0)
       end
 
+      # 1234567.8 → "1,234,567.80". Beancount reads the commas.
       def money(value)
-        format('%.2f', to_d(value))
+        group(format('%.2f', to_d(value)))
       end
 
       # Share counts, rendered without a trailing ".0" and never in exponent form.
       def number(value)
         decimal = to_d(value)
-        decimal.frac.zero? ? decimal.to_i.to_s : decimal.to_s('F')
+        group(decimal.frac.zero? ? decimal.to_i.to_s : decimal.to_s('F'))
       end
 
-      # Thousands-separated, matching the style used elsewhere in the ledger.
-      def grouped(value)
-        whole, fraction = money(value).split('.')
-        sign = whole.delete_prefix!('-') ? '-' : ''
-        "#{sign}#{whole.reverse.scan(/\d{1,3}/).join(',').reverse}.#{fraction}"
+      def group(text)
+        text.sub(/\d+/) { |whole| whole.reverse.scan(/\d{1,3}/).join(',').reverse }
       end
     end
   end

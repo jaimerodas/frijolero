@@ -27,7 +27,7 @@ class HelpersTest < Minitest::Test
       ; nota <b>
       2026-08-04 * "Amazon" "AMAZON COM"
         source_desc: "AMAZON COM"
-        Liabilities:AMEX  -1234.50 MXN
+        Liabilities:AMEX  -1,234.50 MXN
         Expenses:FIXME
       2026-08-31 balance Liabilities:AMEX  -5000.00 MXN
     BEAN
@@ -35,7 +35,7 @@ class HelpersTest < Minitest::Test
     assert_includes html, '<span class="bc-date">2026-08-04</span> <span class="bc-flag">*</span> ' \
                           '&quot;Amazon&quot; &quot;AMAZON COM&quot;'
     assert_includes html, '  source_desc: &quot;AMAZON COM&quot;'
-    assert_includes html, '  <span class="bc-account">Liabilities:AMEX</span>  <span class="debit">-1234.50 MXN</span>'
+    assert_includes html, '  <span class="bc-account">Liabilities:AMEX</span>  <span class="debit">-1,234.50 MXN</span>'
     assert_includes html, '  <span class="bc-account bc-fixme">Expenses:FIXME</span>'
     assert_includes html, '<span class="bc-date">2026-08-31</span> <span class="bc-flag">balance</span> ' \
                           '<span class="bc-account">Liabilities:AMEX</span>  <span class="debit">-5000.00 MXN</span>'
