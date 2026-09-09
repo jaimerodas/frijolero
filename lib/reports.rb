@@ -17,16 +17,18 @@ module Frijolero
     module_function
 
     # Income and Expenses postings in [from, to]: {account => {currency => BigDecimal}}.
-    def income(from, to)
-      query("SELECT account, SUM(position) AS total WHERE date >= #{from.iso8601} AND date <= #{to.iso8601} " \
+    # With `mxn`, every posting is restated at the closing rate of the period.
+    def income(from, to, mxn: true)
+      total = mxn ? in_mxn(to) : 'SUM(position)'
+      query("SELECT account, #{total} AS total WHERE date >= #{from.iso8601} AND date <= #{to.iso8601} " \
             "AND account ~ '^(Income|Expenses)' GROUP BY account")
     end
 
     # Assets, Liabilities and Equity at market value on `at`. Income and Expenses
     # up to that day fold, negated, into one equity row, so the sheet carries its earnings.
-    def balance(at)
-      rows = query("SELECT account, VALUE(SUM(position), #{at.iso8601}) AS total " \
-                   "WHERE date <= #{at.iso8601} GROUP BY account")
+    def balance(at, mxn: true)
+      total = mxn ? in_mxn(at) : "VALUE(SUM(position), #{at.iso8601})"
+      rows = query("SELECT account, #{total} AS total WHERE date <= #{at.iso8601} GROUP BY account")
       sheet, earned = rows.partition { |account, _| account.start_with?('Assets', 'Liabilities', 'Equity') }
       earnings = Hash.new(BigDecimal('0'))
       earned.each { |(_, amounts)| amounts.each { |currency, number| earnings[currency] -= number } }
@@ -37,6 +39,12 @@ module Frijolero
     def first_date
       row = JSON.parse(run('SELECT MIN(date) AS first')).fetch('rows').first
       Date.iso8601(row.is_a?(Hash) ? row['first'] : row.first)
+    end
+
+    # Market value in MXN at the latest price on or before `date`, stocks via USD.
+    # A commodity with no price stays as it is, so it shows in its own column.
+    def in_mxn(date)
+      "SUM(CONVERT(position, 'MXN', #{date.iso8601}))"
     end
 
     def query(bql)

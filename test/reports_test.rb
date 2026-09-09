@@ -58,8 +58,20 @@ class ReportsTest < Minitest::Test
       {}
     }) { Reports.income(Date.new(2026, 1, 1), Date.new(2026, 9, 9)) }
 
+    assert_includes seen, "SUM(CONVERT(position, 'MXN', 2026-09-09)) AS total"
     assert_includes seen, 'date >= 2026-01-01 AND date <= 2026-09-09'
     assert_includes seen, "account ~ '^(Income|Expenses)'"
+  end
+
+  def test_income_keeps_the_original_currencies_when_asked
+    seen = nil
+    Reports.stub(:query, lambda { |bql|
+      seen = bql
+      {}
+    }) { Reports.income(Date.new(2026, 1, 1), Date.new(2026, 9, 9), mxn: false) }
+
+    assert_includes seen, 'SUM(position) AS total'
+    refute_includes seen, 'CONVERT'
   end
 
   def test_balance_values_on_the_date_and_folds_earnings_into_equity
@@ -72,13 +84,24 @@ class ReportsTest < Minitest::Test
     sheet = Reports.stub(:query, lambda { |bql|
       seen = bql
       rows
-    }) { Reports.balance(Date.new(2024, 4, 30)) }
+    }) { Reports.balance(Date.new(2024, 4, 30), mxn: false) }
 
     assert_includes seen, 'VALUE(SUM(position), 2024-04-30)'
     assert_includes seen, 'date <= 2024-04-30'
     assert_equal({ 'MXN' => BigDecimal('1100') }, sheet['Assets:Bank'])
     assert_equal({ 'MXN' => BigDecimal('400'), 'USD' => BigDecimal('-3') }, sheet[Reports::EARNINGS])
     refute sheet.key?('Income:Salary')
+  end
+
+  def test_balance_converts_to_mxn_at_the_date
+    seen = nil
+    Reports.stub(:query, lambda { |bql|
+      seen = bql
+      {}
+    }) { Reports.balance(Date.new(2024, 4, 30)) }
+
+    assert_includes seen, "SUM(CONVERT(position, 'MXN', 2024-04-30)) AS total"
+    assert_includes seen, 'date <= 2024-04-30'
   end
 
   def test_tree_adds_parents_with_subtotals_in_tree_order
@@ -110,15 +133,34 @@ class ReportsTest < Minitest::Test
 
     with_ledger_dir do |dir|
       FileUtils.cp(fixture_path('report/ledger.beancount'), File.join(dir, 'moneys.beancount'))
-      income = Reports.income(Date.new(2024, 1, 1), Date.new(2024, 12, 31))
-      sheet = Reports.balance(Date.new(2024, 4, 30))
+      income = Reports.income(Date.new(2024, 1, 1), Date.new(2024, 12, 31), mxn: false)
+      sheet = Reports.balance(Date.new(2024, 4, 30), mxn: false)
 
       assert_equal Date.new(2024, 1, 1), Reports.first_date
       assert_equal BigDecimal('-100'), income['Income:Gains']['MXN']
       assert_equal BigDecimal('-500'), income['Income:Salary']['MXN']
+      assert_equal({ 'USD' => BigDecimal('-20') }, income['Income:Dollars'])
       assert_equal BigDecimal('750'), sheet['Assets:Stock']['MXN']
       assert_equal BigDecimal('1100'), sheet['Assets:Bank']['MXN']
+      assert_equal({ 'USD' => BigDecimal('20') }, sheet['Assets:Dollars'])
       assert_equal BigDecimal('500'), sheet[Reports::EARNINGS]['MXN']
+    end
+  end
+
+  # USD at the closing rate of the period (the latest price on or before it),
+  # the priced stock at market, and the ticker with no price left as it is.
+  def test_rledger_converts_to_mxn_at_the_closing_rate
+    skip 'rledger not installed' unless system(Frijolero::Config.rledger, '--version', out: File::NULL, err: File::NULL)
+
+    with_ledger_dir do |dir|
+      FileUtils.cp(fixture_path('report/ledger.beancount'), File.join(dir, 'moneys.beancount'))
+      income = Reports.income(Date.new(2024, 1, 1), Date.new(2024, 6, 30))
+      sheet = Reports.balance(Date.new(2024, 4, 30))
+
+      assert_equal({ 'MXN' => BigDecimal('-360') }, income['Income:Dollars'])
+      assert_equal({ 'MXN' => BigDecimal('340') }, sheet['Assets:Dollars'])
+      assert_equal({ 'MXN' => BigDecimal('750') }, sheet['Assets:Stock'])
+      assert_equal({ 'NOPRICE' => BigDecimal('3') }, sheet['Assets:Unpriced'])
     end
   end
 end

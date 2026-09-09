@@ -17,22 +17,27 @@
 <div class="toolbar">
   <nav class="tabs" aria-label="Reportes">
     <% { '/reports/income' => 'Estado de resultados', '/reports/balance' => 'Balance general' }.each do |href, label| %>
-      <a href="<%= href %>?period=<%= h.(period.param) %>"<% if path == href %> aria-current="page"<% end %>><%= label %></a>
+      <a href="<%= href %>?<%= h.(report_query(period)) %>"<% if path == href %> aria-current="page"<% end %>><%= label %></a>
     <% end %>
   </nav>
   <nav class="tabs" aria-label="Resolución">
     <% Frijolero::Period::RESOLUTIONS.each do |resolution, label| %>
-      <a href="<%= h.(path) %>?period=<%= h.(period.at(resolution, first: first, today: today).param) %>"<% if period.resolution == resolution %> aria-current="true"<% end %>><%= label %></a>
+      <a href="<%= h.(path) %>?<%= h.(report_query(period.at(resolution, first: first, today: today))) %>"<% if period.resolution == resolution %> aria-current="true"<% end %>><%= label %></a>
     <% end %>
   </nav>
+  <nav class="tabs" aria-label="Moneda">
+    <a href="<%= h.(path) %>?period=<%= h.(period.param) %>"<% if mxn? %> aria-current="true"<% end %>>MXN</a>
+    <a href="<%= h.(path) %>?period=<%= h.(period.param) %>&amp;mxn=0"<% unless mxn? %> aria-current="true"<% end %>>Por moneda</a>
+  </nav>
   <form method="get" action="<%= h.(path) %>" class="period">
-    <% if prev_period %><a href="<%= h.(path) %>?period=<%= h.(prev_period.param) %>" aria-label="Anterior">&lsaquo;</a><% else %><span aria-hidden="true">&lsaquo;</span><% end %>
+    <% if prev_period %><a href="<%= h.(path) %>?<%= h.(report_query(prev_period)) %>" aria-label="Anterior">&lsaquo;</a><% else %><span aria-hidden="true">&lsaquo;</span><% end %>
+    <% unless mxn? %><input type="hidden" name="mxn" value="0"><% end %>
     <select name="period" aria-label="Periodo">
       <% period.siblings(first: first, today: today).each do |option| %>
         <option value="<%= h.(option.param) %>"<% if option.param == period.param %> selected<% end %>><%= h.(option.label) %></option>
       <% end %>
     </select>
-    <% if next_period %><a href="<%= h.(path) %>?period=<%= h.(next_period.param) %>" aria-label="Siguiente">&rsaquo;</a><% else %><span aria-hidden="true">&rsaquo;</span><% end %>
+    <% if next_period %><a href="<%= h.(path) %>?<%= h.(report_query(next_period)) %>" aria-label="Siguiente">&rsaquo;</a><% else %><span aria-hidden="true">&rsaquo;</span><% end %>
     <% if covered %><span class="note"><%= path.end_with?('balance') ? "al #{h.(today.iso8601)}" : "#{h.(period.from.iso8601)} a #{h.(today.iso8601)}" %></span><% end %>
   </form>
 </div>

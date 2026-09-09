@@ -19,8 +19,8 @@ class ReportsPageTest < Minitest::Test
       Date.new(2024, 12, 1)
     end
 
-    def income(from, to)
-      @calls << [:income, from, to]
+    def income(from, to, mxn: true)
+      @calls << [:income, from, to, mxn]
       raise Frijolero::Reports::Error, error if error
 
       { 'Income:Salary' => { 'MXN' => BigDecimal('-1500') },
@@ -28,8 +28,8 @@ class ReportsPageTest < Minitest::Test
         'Expenses:Fees' => { 'USD' => BigDecimal('3') } }
     end
 
-    def balance(at)
-      @calls << [:balance, at]
+    def balance(at, mxn: true)
+      @calls << [:balance, at, mxn]
       raise Frijolero::Reports::Error, error if error
 
       { 'Assets:Bank' => { 'MXN' => BigDecimal('1100') },
@@ -83,14 +83,14 @@ class ReportsPageTest < Minitest::Test
     get '/reports/income'
 
     today = Date.today
-    assert_equal [[:income, Date.new(today.year, 1, 1), Date.new(today.year, 12, 31)]], @reports.calls
+    assert_equal [[:income, Date.new(today.year, 1, 1), Date.new(today.year, 12, 31), true]], @reports.calls
     assert_includes last_response.body, %(<h1>Estado de resultados <span class="note">#{today.year}</span></h1>)
   end
 
   def test_income_takes_the_period_from_the_query
     get '/reports/income', period: '2025-T2'
 
-    assert_equal [[:income, Date.new(2025, 4, 1), Date.new(2025, 6, 30)]], @reports.calls
+    assert_equal [[:income, Date.new(2025, 4, 1), Date.new(2025, 6, 30), true]], @reports.calls
     assert_includes last_response.body, '<option value="2025-T2" selected>T2 2025</option>'
   end
 
@@ -114,11 +114,33 @@ class ReportsPageTest < Minitest::Test
     assert_includes body, '<option value="2024-12">diciembre 2024</option>'
   end
 
+  def test_reports_convert_to_mxn_by_default_and_show_the_toggle
+    get '/reports/income', period: '2025-05'
+    body = last_response.body
+
+    assert_includes body, '<a href="/reports/income?period=2025-05" aria-current="true">MXN</a>'
+    assert_includes body, '<a href="/reports/income?period=2025-05&amp;mxn=0">Por moneda</a>'
+    refute_includes body, 'name="mxn"'
+  end
+
+  def test_mxn_0_keeps_the_original_currencies_and_carries_through_the_toolbar
+    get '/reports/balance', period: '2025-05', mxn: '0'
+    body = last_response.body
+
+    assert_equal [[:balance, Date.new(2025, 5, 31), false]], @reports.calls
+    assert_includes body, '<a href="/reports/balance?period=2025-05&amp;mxn=0" aria-current="true">Por moneda</a>'
+    assert_includes body, '<a href="/reports/balance?period=2025-05">MXN</a>'
+    assert_includes body, '<a href="/reports/income?period=2025-05&amp;mxn=0">Estado de resultados</a>'
+    assert_includes body, '<a href="/reports/balance?period=2025-T2&amp;mxn=0">Trimestre</a>'
+    assert_includes body, '<a href="/reports/balance?period=2025-04&amp;mxn=0" aria-label="Anterior">'
+    assert_includes body, '<input type="hidden" name="mxn" value="0">'
+  end
+
   def test_toolbar_greys_the_arrow_past_the_ledger_bounds
     get '/reports/income', period: 'all'
 
     refute_includes last_response.body, 'aria-label="Anterior"'
-    assert_equal [[:income, Date.new(2024, 12, 1), Date.today]], @reports.calls
+    assert_equal [[:income, Date.new(2024, 12, 1), Date.today, true]], @reports.calls
   end
 
   def test_income_shows_income_as_positive_and_the_net
@@ -148,7 +170,7 @@ class ReportsPageTest < Minitest::Test
     get '/reports/balance'
     body = last_response.body
 
-    assert_equal [[:balance, Date.today]], @reports.calls
+    assert_equal [[:balance, Date.today, true]], @reports.calls
     assert_includes body, '<title>Balance general</title>'
     assert_includes body, "al #{Date.today.iso8601}"
     assert_match %r{Card</th>\s*<td class="amount" data-label="MXN">250.00</td>}, body
@@ -159,7 +181,7 @@ class ReportsPageTest < Minitest::Test
   def test_balance_is_a_snapshot_at_the_end_of_a_closed_period
     get '/reports/balance', period: '2025-T2'
 
-    assert_equal [[:balance, Date.new(2025, 6, 30)]], @reports.calls
+    assert_equal [[:balance, Date.new(2025, 6, 30), true]], @reports.calls
     refute_includes last_response.body, 'al 2025'
   end
 

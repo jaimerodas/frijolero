@@ -2,6 +2,9 @@ option "operating_currency" "MXN"
 
 2024-01-01 open Assets:Bank MXN
 2024-01-01 open Assets:Stock "FIFO"
+2024-01-01 open Assets:Dollars USD
+2024-01-01 open Assets:Unpriced
+2024-01-01 open Income:Dollars
 2024-01-01 open Equity:Opening-Balances
 2024-01-01 open Income:Salary
 2024-01-01 open Income:Gains
@@ -32,4 +35,14 @@ option "operating_currency" "MXN"
   Assets:Bank  200.00 MXN
   Income:Gains
 
+2024-04-15 * "Dólares"
+  Assets:Dollars  20.00 USD
+  Income:Dollars
+
+2024-04-20 * "Sin precio"
+  Assets:Unpriced  3 NOPRICE
+  Equity:Opening-Balances  -3 NOPRICE
+
 2024-04-30 price ACME 50.00 MXN
+2024-04-30 price USD 17.00 MXN
+2024-06-30 price USD 18.00 MXN

@@ -37,6 +37,15 @@ module Frijolero
         { period: report_period(today, today), first: today, today: today, error: e.message }.merge(report_sections([]))
       end
 
+      # Everything in MXN unless `?mxn=0`. The toolbar links carry the choice.
+      def mxn?
+        params[:mxn] != '0'
+      end
+
+      def report_query(period)
+        mxn? ? "period=#{period.param}" : "period=#{period.param}&mxn=0"
+      end
+
       def report_period(first, today)
         Period.parse(params[:period], first: first, today: today) || Period.of(today, :year)
       end
@@ -61,12 +70,14 @@ module Frijolero
     end
 
     get '/reports/income' do
-      erb :report_income, locals: report_locals { |period| self.class.reports.income(period.from, period.to) }
+      rows = report_locals { |period| self.class.reports.income(period.from, period.to, mxn: mxn?) }
+      erb :report_income, locals: rows
     end
 
     # A snapshot at the end of the period, or today while it is still running.
     get '/reports/balance' do
-      erb :report_balance, locals: report_locals { |period| self.class.reports.balance([period.to, Date.today].min) }
+      rows = report_locals { |period| self.class.reports.balance([period.to, Date.today].min, mxn: mxn?) }
+      erb :report_balance, locals: rows
     end
   end
 end
