@@ -1,5 +1,19 @@
+<%
+  h = ->(s) { Rack::Utils.escape_html(s.to_s) }
+  head = ledger_head
+%>
 <nav class="actions" aria-label="Reportes">
   <% { '/reports/income' => 'Estado de resultados', '/reports/balance' => 'Balance general' }.each do |href, label| %>
     <a class="button" href="<%= href %>"<% if request.path_info == href %> aria-current="page"<% end %>><%= label %></a>
   <% end %>
 </nav>
+<form method="post" action="/ledger/pull" class="ledger-head">
+  <input type="hidden" name="back" value="<%= h.(request.path_info) %>">
+  <% if head %><span class="note">Ledger al <time><%= h.(head[:date]) %></time>: <%= h.(head[:subject]) %></span><% end %>
+  <button type="submit">Actualizar ledger</button>
+</form>
+<% if params[:pull] == 'ok' %>
+  <p class="notice">Ledger actualizado.</p>
+<% elsif params[:pull] %>
+  <p class="error" role="alert"><%= h.(params[:pull]) %></p>
+<% end %>

@@ -22,6 +22,12 @@ module Frijolero
       raise
     end
 
+    # The last commit of the clone, so a page can say how fresh the ledger is.
+    def head
+      date, subject = git('log', '-1', '--format=%cs%n%s').lines(chomp: true)
+      { date: date, subject: subject }
+    end
+
     # Pulls again between commit and push: the laptop may have pushed since the
     # job's first pull, and the editors never pull at all.
     # rubocop:disable Naming/PredicateMethod -- name is part of the package's public API

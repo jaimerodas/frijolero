@@ -41,6 +41,16 @@ class LedgerRepoTest < Minitest::Test
     assert_equal 'Frijolero', run_git(@origin, 'log', '-1', '--format=%an').strip
   end
 
+  def test_head_gives_the_date_and_subject_of_the_last_commit
+    repo = Frijolero::LedgerRepo.new(dir: @work, token: nil)
+
+    assert_equal({ date: Date.today.iso8601, subject: 'mensaje inicial' }, repo.head)
+  end
+
+  def test_head_raises_outside_a_repo
+    assert_raises(Frijolero::LedgerRepo::Error) { Frijolero::LedgerRepo.new(dir: @tmp, token: nil).head }
+  end
+
   def test_commit_and_push_returns_false_when_nothing_staged
     repo = Frijolero::LedgerRepo.new(dir: @work, token: nil)
     before = run_git(@origin, 'log', '-1', '--format=%H').strip

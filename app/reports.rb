@@ -11,6 +11,17 @@ module Frijolero
         amount.zero? ? '' : money(amount).delete_prefix('+')
       end
 
+      # The pull button returns to the report it sits on. Nothing else is honoured.
+      def report_back
+        params[:back] if %w[/reports/income /reports/balance].include?(params[:back])
+      end
+
+      def ledger_head
+        self.class.repo.head
+      rescue LedgerRepo::Error
+        nil
+      end
+
       def report_date(value)
         Date.iso8601(value.to_s)
       rescue Date::Error
@@ -31,6 +42,15 @@ module Frijolero
 
     get '/reports' do
       redirect '/reports/income'
+    end
+
+    # Production reads the droplet's clone, which only pulls at the start of a
+    # job. This brings in what the laptop pushed. A conflict aborts and shows.
+    post '/ledger/pull' do
+      self.class.repo.pull
+      redirect "#{report_back || '/reports/income'}?pull=ok", 303
+    rescue LedgerRepo::Error => e
+      redirect "#{report_back || '/reports/income'}?pull=#{Rack::Utils.escape(e.message)}", 303
     end
 
     get '/reports/income' do

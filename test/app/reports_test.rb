@@ -35,13 +35,33 @@ class ReportsPageTest < Minitest::Test
     end
   end
 
+  class FakeRepo
+    attr_accessor :pulls, :error
+
+    def initialize
+      @pulls = 0
+    end
+
+    def head
+      { date: '2026-09-09', subject: 'Payee American Express' }
+    end
+
+    def pull
+      @pulls += 1
+      raise Frijolero::LedgerRepo::Error, error if error
+    end
+  end
+
   def setup
     @reports = FakeReports.new
+    @repo = FakeRepo.new
     Frijolero::App.reports = @reports
+    Frijolero::App.repo = @repo
   end
 
   def teardown
     Frijolero::App.reports = nil
+    Frijolero::App.repo = nil
   end
 
   def app
@@ -116,6 +136,37 @@ class ReportsPageTest < Minitest::Test
 
     assert_equal 502, last_response.status
     assert_includes last_response.body, '<p class="error" role="alert">error: file not found</p>'
+  end
+
+  def test_report_shows_the_ledger_head_and_a_pull_button
+    get '/reports/balance'
+    body = last_response.body
+
+    assert_includes body, 'Ledger al <time>2026-09-09</time>: Payee American Express'
+    assert_includes body, '<form method="post" action="/ledger/pull"'
+    assert_includes body, '<input type="hidden" name="back" value="/reports/balance">'
+  end
+
+  def test_pull_returns_to_the_report_with_a_notice
+    post '/ledger/pull', back: '/reports/balance'
+
+    assert_equal 1, @repo.pulls
+    assert_equal '/reports/balance?pull=ok', URI(last_response.location).request_uri
+
+    get '/reports/balance', pull: 'ok'
+
+    assert_includes last_response.body, '<p class="notice">Ledger actualizado.</p>'
+  end
+
+  def test_pull_failure_shows_the_git_error
+    @repo.error = 'git pull: CONFLICT'
+    post '/ledger/pull', back: '/evil'
+
+    assert_equal '/reports/income?pull=git+pull%3A+CONFLICT', URI(last_response.location).request_uri
+
+    get '/reports/income', pull: 'git pull: CONFLICT'
+
+    assert_includes last_response.body, '<p class="error" role="alert">git pull: CONFLICT</p>'
   end
 
   def test_topbar_marks_reportes_current
