@@ -24,6 +24,7 @@ body {
 a { color: var(--blue); text-underline-offset: 0.15em; }
 code { font-family: var(--mono); font-size: 0.9375em; }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+[hidden] { display: none !important; }
 
 /* Header: the wordmark is the one red mark on the page */
 .topbar {
@@ -236,8 +237,25 @@ summary { cursor: pointer; font-weight: 600; }
   td:empty { display: none; }
   td.amount { text-align: left; }
   td .button, td button { margin-top: 0.25rem; }
+  /* Navigation centered: brand, sections, report names, each toolbar row. Data stays left. */
+  .topbar, .title, .toolbar { justify-content: center; }
+  .topbar .brand { flex-basis: 100%; justify-content: center; margin-right: 0; }
   .toolbar { gap: 0 1.5rem; }
+  .toolbar .tabs, .toolbar .period { flex-basis: 100%; justify-content: center; }
   .toolbar .currency, .ledger-head { margin-left: 0; }
+  .title .reports { flex: 1 0 100%; flex-wrap: nowrap; gap: 0; }
+  .title .reports h1, .title .reports a { flex: 1 1 0; justify-content: center; align-items: center; padding: 0.5rem; text-align: center; }
+  .ledger-head { order: -1; }
+  /* Report rows: the name on the left, each amount with its currency on the right, one line each. */
+  .report tr { display: grid; grid-template-columns: 1fr auto; column-gap: 1rem; align-items: baseline; }
+  .report th[scope="row"] { grid-area: 1 / 1; font-weight: 400; }
+  .report tr.total th[scope="row"] { font-weight: 600; }
+  .report td.amount { display: block; grid-column: 2; text-align: right; }
+  .report td.amount:empty { display: none; }
+  .report td[data-label]::before { content: none; }
+  .report td.amount::after { content: " " attr(data-label); }
+  .report tfoot tr { border-top: 1px solid var(--ink); }
+  .report tfoot th, .report tfoot td { border-top: 0; }
   .ledger li { grid-template-columns: 1fr auto; }
   .ledger data { grid-area: 1 / 2; }
   .ledger .entry { grid-column: 1 / -1; }
