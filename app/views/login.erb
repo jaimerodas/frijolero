@@ -3,19 +3,19 @@
 <head>
   <%= erb :_head, layout: false, locals: { title: 'Entrar', refresh: nil } %>
 </head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="/">Frijolero</a>
-  </header>
-  <main class="login">
-    <h1>Entrar</h1>
+<body class="login">
+  <main>
+    <h1 class="wordmark">Frijolero</h1>
+    <p class="tagline">Mis finanzas personales.</p>
     <% if error %>
       <p class="error" role="alert">Contraseña incorrecta.</p>
     <% end %>
     <form method="post" action="/login">
       <label for="password">Contraseña</label>
-      <input id="password" type="password" name="password" autocomplete="current-password" autofocus required>
-      <p class="actions"><button type="submit" class="primary">Entrar</button></p>
+      <div class="row">
+        <input id="password" type="password" name="password" autocomplete="current-password" autofocus required>
+        <button type="submit" class="primary">Entrar</button>
+      </div>
     </form>
   </main>
 </body>
