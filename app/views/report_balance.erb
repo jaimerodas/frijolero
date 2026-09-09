@@ -13,7 +13,7 @@
 <body>
   <%= topbar %>
   <main>
-    <%= erb :_report_toolbar, layout: false, locals: { title: 'Balance general', period: period, first: first, today: today } %>
+    <%= erb :_report_toolbar, layout: false, locals: { period: period, first: first, today: today } %>
 
     <% if error %>
       <p class="error" role="alert"><%= h.(error) %></p>

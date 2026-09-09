@@ -127,12 +127,22 @@ a.rules { font-size: 0.875rem; margin-left: 0.5rem; color: var(--muted); }
 .report tr.total th, .report tr.total td { font-weight: 600; }
 .report tfoot th, .report tfoot td { border-top: 1px solid var(--ink); border-bottom: 0; }
 .net { display: flex; flex-wrap: wrap; gap: 1rem 2rem; font-family: var(--mono); font-size: 1.125rem; font-weight: 500; }
-h1 .note { font-weight: 400; margin-left: 0.5rem; }
 
-/* Report toolbar: one rule above and below, text controls at the topbar's height. */
+/* Report title: the two report names as one heading pair, the current one heavy and
+   the other a light link at the same size. Under it, one row: time on the left, currency on the right. */
+.title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem 2rem; }
+.title .reports { display: flex; flex-wrap: wrap; gap: 0 1.5rem; }
+.title .reports h1, .title .reports a { display: inline-flex; min-height: 2.25rem; font-size: 1.375rem; line-height: 1.2; }
+.title h1 { margin: 0; box-shadow: inset 0 -2px var(--ink); }
+.title .reports a { font-weight: 400; color: var(--muted); text-decoration: none; }
+.title .reports a:hover { color: var(--ink); text-decoration: underline; }
+.ledger-head { display: flex; gap: 0.75rem; margin: 0 0 0 auto; font-size: 0.875rem; }
+.ledger-head button { all: unset; cursor: pointer; color: var(--blue); }
+.ledger-head button:hover { text-decoration: underline; }
+.ledger-head button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .toolbar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 0 2rem;
-  margin-block: 1rem 0; border-block: 1px solid var(--rule);
+  border-block: 1px solid var(--rule);
 }
 .toolbar .tabs { display: flex; gap: 1rem; }
 .toolbar .tabs a { display: inline-flex; align-items: center; min-height: 2.75rem; color: var(--muted); text-decoration: none; }
@@ -143,12 +153,7 @@ h1 .note { font-weight: 400; margin-left: 0.5rem; }
 .toolbar .period span[aria-hidden] { color: var(--rule); }
 .toolbar .period select { font-family: var(--mono); font-size: 0.9375rem; padding-block: 0.375rem; }
 .toolbar .period .note { margin-left: 0.5rem; font-family: var(--mono); font-size: 0.875rem; white-space: nowrap; }
-.title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem 2rem; }
-.title h1 { margin: 0; }
-.ledger-head { display: flex; gap: 0.75rem; margin: 0 0 0 auto; font-size: 0.875rem; }
-.ledger-head button { all: unset; cursor: pointer; color: var(--blue); }
-.ledger-head button:hover { text-decoration: underline; }
-.ledger-head button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.toolbar .currency { margin-left: auto; }
 
 /* Tabs: two radios, no script. The checked one shows its section. */
 .tablist { display: flex; gap: 1.5rem; margin-top: 1.5rem; border-bottom: 1px solid var(--ink); }
@@ -232,7 +237,7 @@ summary { cursor: pointer; font-weight: 600; }
   td.amount { text-align: left; }
   td .button, td button { margin-top: 0.25rem; }
   .toolbar { gap: 0 1.5rem; }
-  .ledger-head { margin-left: 0; }
+  .toolbar .currency, .ledger-head { margin-left: 0; }
   .ledger li { grid-template-columns: 1fr auto; }
   .ledger data { grid-area: 1 / 2; }
   .ledger .entry { grid-column: 1 / -1; }

@@ -7,27 +7,22 @@
   covered = period.resolution == :all || period.to > today
 %>
 <div class="title">
-  <h1><%= h.(title) %> <span class="note"><%= h.(period.label) %></span></h1>
+  <nav class="reports" aria-label="Reportes">
+    <% { '/reports/income' => 'Estado de resultados', '/reports/balance' => 'Balance general' }.each do |href, label| %>
+      <% if path == href %><h1><%= label %></h1><% else %><a href="<%= href %>?<%= h.(report_query(period)) %>"><%= label %></a><% end %>
+    <% end %>
+  </nav>
   <form method="post" action="/ledger/pull" class="ledger-head">
     <input type="hidden" name="back" value="<%= h.(path) %>">
-    <% if head %><span class="note" title="<%= h.(head[:subject]) %>">Ledger al <%= h.(head[:date]) %></span><% end %>
+    <% if head %><span class="note" title="<%= h.(head[:subject]) %>">Datos actualizados al <%= h.(head[:date]) %></span><% end %>
     <button type="submit">Actualizar</button>
   </form>
 </div>
 <div class="toolbar">
-  <nav class="tabs" aria-label="Reportes">
-    <% { '/reports/income' => 'Estado de resultados', '/reports/balance' => 'Balance general' }.each do |href, label| %>
-      <a href="<%= href %>?<%= h.(report_query(period)) %>"<% if path == href %> aria-current="page"<% end %>><%= label %></a>
-    <% end %>
-  </nav>
   <nav class="tabs" aria-label="Resolución">
     <% Frijolero::Period::RESOLUTIONS.each do |resolution, label| %>
       <a href="<%= h.(path) %>?<%= h.(report_query(period.at(resolution, first: first, today: today))) %>"<% if period.resolution == resolution %> aria-current="true"<% end %>><%= label %></a>
     <% end %>
-  </nav>
-  <nav class="tabs" aria-label="Moneda">
-    <a href="<%= h.(path) %>?period=<%= h.(period.param) %>"<% if mxn? %> aria-current="true"<% end %>>MXN</a>
-    <a href="<%= h.(path) %>?period=<%= h.(period.param) %>&amp;mxn=0"<% unless mxn? %> aria-current="true"<% end %>>Por moneda</a>
   </nav>
   <form method="get" action="<%= h.(path) %>" class="period">
     <% if prev_period %><a href="<%= h.(path) %>?<%= h.(report_query(prev_period)) %>" aria-label="Anterior">&lsaquo;</a><% else %><span aria-hidden="true">&lsaquo;</span><% end %>
@@ -38,8 +33,12 @@
       <% end %>
     </select>
     <% if next_period %><a href="<%= h.(path) %>?<%= h.(report_query(next_period)) %>" aria-label="Siguiente">&rsaquo;</a><% else %><span aria-hidden="true">&rsaquo;</span><% end %>
-    <% if covered %><span class="note"><%= path.end_with?('balance') ? "al #{h.(today.iso8601)}" : "#{h.(period.from.iso8601)} a #{h.(today.iso8601)}" %></span><% end %>
+    <% if covered %><span class="note">al <%= h.(today.iso8601) %></span><% end %>
   </form>
+  <nav class="tabs currency" aria-label="Moneda">
+    <a href="<%= h.(path) %>?period=<%= h.(period.param) %>"<% if mxn? %> aria-current="true"<% end %>>MXN</a>
+    <a href="<%= h.(path) %>?period=<%= h.(period.param) %>&amp;mxn=0"<% unless mxn? %> aria-current="true"<% end %>>Por moneda</a>
+  </nav>
 </div>
 <% if params[:pull] == 'ok' %>
   <p class="notice">Ledger actualizado.</p>

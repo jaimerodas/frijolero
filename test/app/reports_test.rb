@@ -84,7 +84,8 @@ class ReportsPageTest < Minitest::Test
 
     today = Date.today
     assert_equal [[:income, Date.new(today.year, 1, 1), Date.new(today.year, 12, 31), true]], @reports.calls
-    assert_includes last_response.body, %(<h1>Estado de resultados <span class="note">#{today.year}</span></h1>)
+    assert_includes last_response.body, '<h1>Estado de resultados</h1>'
+    assert_includes last_response.body, %(<a href="/reports/balance?period=#{today.year}">Balance general</a>)
   end
 
   def test_income_takes_the_period_from_the_query
@@ -197,7 +198,7 @@ class ReportsPageTest < Minitest::Test
     get '/reports/balance'
     body = last_response.body
 
-    assert_includes body, '<span class="note" title="Payee American Express">Ledger al 2026-09-09</span>'
+    assert_includes body, '<span class="note" title="Payee American Express">Datos actualizados al 2026-09-09</span>'
     assert_includes body, '<form method="post" action="/ledger/pull"'
     assert_includes body, '<input type="hidden" name="back" value="/reports/balance">'
   end
@@ -228,7 +229,5 @@ class ReportsPageTest < Minitest::Test
     get '/reports/income'
 
     assert_includes last_response.body, '<a href="/reports" aria-current="page">Reportes</a>'
-    assert_includes last_response.body,
-                    %(<a href="/reports/income?period=#{Date.today.year}" aria-current="page">Estado de resultados</a>)
   end
 end
