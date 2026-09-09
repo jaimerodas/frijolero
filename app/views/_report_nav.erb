@@ -1,0 +1,5 @@
+<nav class="actions" aria-label="Reportes">
+  <% { '/reports/income' => 'Estado de resultados', '/reports/balance' => 'Balance general' }.each do |href, label| %>
+    <a class="button" href="<%= href %>"<% if request.path_info == href %> aria-current="page"<% end %>><%= label %></a>
+  <% end %>
+</nav>

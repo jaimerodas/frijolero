@@ -25,6 +25,15 @@ module Frijolero
         File.join(ledger_dir, 'account_opens.beancount')
       end
 
+      # The fava entry point: options, opens, balances and prices. Reports load it.
+      def report_file
+        File.join(ledger_dir, 'moneys.beancount')
+      end
+
+      def rledger
+        ENV.fetch('RLEDGER', 'rledger')
+      end
+
       def rules_dir
         File.join(config_dir, 'rules')
       end

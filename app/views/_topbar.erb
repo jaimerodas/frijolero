@@ -1,7 +1,7 @@
 <header class="topbar">
   <a class="brand" href="/">Frijolero</a>
   <nav aria-label="Secciones">
-    <% { '/upload' => 'Subir', '/jobs' => 'Jobs', '/accounts' => 'Cuentas' }.each do |href, label| %>
+    <% { '/upload' => 'Subir', '/jobs' => 'Jobs', '/accounts' => 'Cuentas', '/reports' => 'Reportes' }.each do |href, label| %>
       <a href="<%= href %>"<% if request&.path_info.to_s.start_with?(href) %> aria-current="page"<% end %>><%= label %></a>
     <% end %>
   </nav>

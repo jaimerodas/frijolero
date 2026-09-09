@@ -1,0 +1,34 @@
+<%
+  h = ->(s) { Rack::Utils.escape_html(s.to_s) }
+  net = currencies.to_h do |currency|
+    [currency, %w[Assets Liabilities].sum { |root| sections.fetch(root, []).first&.dig(:amounts, currency) || 0 }]
+  end
+%>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%= head('Balance general') %>
+</head>
+<body>
+  <%= topbar %>
+  <main>
+    <h1>Balance general</h1>
+    <%= erb :_report_nav, layout: false %>
+
+    <form method="get" action="/reports/balance" class="range">
+      <label for="at">Al día<input type="date" id="at" name="at" value="<%= at.iso8601 %>"></label>
+      <button type="submit" class="primary">Ver</button>
+    </form>
+
+    <% if error %>
+      <p class="error" role="alert"><%= h.(error) %></p>
+    <% else %>
+      <%= erb :_report_table, layout: false, locals: { title: 'Activos', rows: sections.fetch('Assets', []), currencies: currencies, sign: 1 } %>
+      <%= erb :_report_table, layout: false, locals: { title: 'Pasivos', rows: sections.fetch('Liabilities', []), currencies: currencies, sign: -1 } %>
+      <%= erb :_report_table, layout: false, locals: { title: 'Capital', rows: sections.fetch('Equity', []), currencies: currencies, sign: -1 } %>
+      <h2>Patrimonio neto</h2>
+      <p class="net"><% currencies.each do |currency| %><data value="<%= net[currency].to_s('F') %>"><%= figure(net[currency]) %> <%= h.(currency) %></data><% end %></p>
+    <% end %>
+  </main>
+</body>
+</html>

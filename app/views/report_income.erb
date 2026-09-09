@@ -1,0 +1,34 @@
+<%
+  h = ->(s) { Rack::Utils.escape_html(s.to_s) }
+  net = currencies.to_h do |currency|
+    [currency, -%w[Income Expenses].sum { |root| sections.fetch(root, []).first&.dig(:amounts, currency) || 0 }]
+  end
+%>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%= head('Estado de resultados') %>
+</head>
+<body>
+  <%= topbar %>
+  <main>
+    <h1>Estado de resultados</h1>
+    <%= erb :_report_nav, layout: false %>
+
+    <form method="get" action="/reports/income" class="range">
+      <label for="from">Desde<input type="date" id="from" name="from" value="<%= from.iso8601 %>"></label>
+      <label for="to">Hasta<input type="date" id="to" name="to" value="<%= to.iso8601 %>"></label>
+      <button type="submit" class="primary">Ver</button>
+    </form>
+
+    <% if error %>
+      <p class="error" role="alert"><%= h.(error) %></p>
+    <% else %>
+      <%= erb :_report_table, layout: false, locals: { title: 'Ingresos', rows: sections.fetch('Income', []), currencies: currencies, sign: -1 } %>
+      <%= erb :_report_table, layout: false, locals: { title: 'Gastos', rows: sections.fetch('Expenses', []), currencies: currencies, sign: 1 } %>
+      <h2>Utilidad neta</h2>
+      <p class="net"><% currencies.each do |currency| %><data value="<%= net[currency].to_s('F') %>"><%= figure(net[currency]) %> <%= h.(currency) %></data><% end %></p>
+    <% end %>
+  </main>
+</body>
+</html>

@@ -1,0 +1,32 @@
+<%
+  h = ->(s) { Rack::Utils.escape_html(s.to_s) }
+  total = rows.find { |row| row[:depth].zero? }
+%>
+<h2><%= h.(title) %></h2>
+<div class="table-wrap">
+  <table class="report">
+    <thead>
+      <tr>
+        <th>Cuenta</th>
+        <% currencies.each do |currency| %><th class="amount"><%= h.(currency) %></th><% end %>
+      </tr>
+    </thead>
+    <tbody>
+      <% rows.each do |row| %>
+        <% next if row[:depth].zero? %>
+        <tr<% if row[:total] %> class="total"<% end %>>
+          <th scope="row" style="--depth: <%= row[:depth] - 1 %>"><%= h.(row[:name].split(':').last) %></th>
+          <% currencies.each do |currency| %><td class="amount" data-label="<%= h.(currency) %>"><%= figure(row[:amounts][currency] * sign) %></td><% end %>
+        </tr>
+      <% end %>
+    </tbody>
+    <% if total %>
+    <tfoot>
+      <tr class="total">
+        <th scope="row">Total</th>
+        <% currencies.each do |currency| %><td class="amount" data-label="<%= h.(currency) %>"><%= figure(total[:amounts][currency] * sign) %></td><% end %>
+      </tr>
+    </tfoot>
+    <% end %>
+  </table>
+</div>

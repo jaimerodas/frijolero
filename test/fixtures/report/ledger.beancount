@@ -1,0 +1,35 @@
+option "operating_currency" "MXN"
+
+2024-01-01 open Assets:Bank MXN
+2024-01-01 open Assets:Stock "FIFO"
+2024-01-01 open Equity:Opening-Balances
+2024-01-01 open Income:Salary
+2024-01-01 open Income:Gains
+2024-01-01 open Expenses:Food
+
+2024-01-01 * "Saldo inicial"
+  Assets:Bank  1000.00 MXN
+  Equity:Opening-Balances
+
+2024-02-01 * "Nómina"
+  Assets:Bank  500.00 MXN
+  Income:Salary
+
+2024-02-10 * "Tacos"
+  Expenses:Food  100.00 MXN
+  Assets:Bank
+
+2024-03-01 * "Compra"
+  Assets:Stock  10 ACME {20.00 MXN}
+  Assets:Bank  -200.00 MXN
+
+2024-03-15 * "Compra"
+  Assets:Stock  10 ACME {30.00 MXN}
+  Assets:Bank  -300.00 MXN
+
+2024-04-01 * "Venta"
+  Assets:Stock  -5 ACME {} @ 40.00 MXN
+  Assets:Bank  200.00 MXN
+  Income:Gains
+
+2024-04-30 price ACME 50.00 MXN

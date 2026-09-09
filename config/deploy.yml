@@ -6,7 +6,7 @@ servers:
     hosts:
       - 146.190.35.4 # maia
     options:
-      memory: 64m # the plan budgets ~45 MB RSS; an overrun is a visible restart
+      memory: 128m # ~45 MB RSS idle plus a ~21 MB rledger child per report; an overrun is a visible restart
 
 proxy:
   ssl: true

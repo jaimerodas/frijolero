@@ -12,12 +12,13 @@ module Frijolero
     set :static_cache_control, [:no_cache]
 
     class << self
-      attr_writer :jobs, :client, :b2, :repo
+      attr_writer :jobs, :client, :b2, :repo, :reports
 
       def jobs = @jobs ||= Jobs.new(log_path: Config.jobs_file).tap(&:start)
       def client = @client ||= OpenAIClient.new
       def b2 = @b2 ||= B2.from_env
       def repo = @repo ||= LedgerRepo.new(dir: Config.ledger_dir)
+      def reports = @reports ||= Reports
     end
 
     MONTHS = %w[enero febrero marzo abril mayo junio julio agosto septiembre octubre noviembre diciembre].freeze
@@ -28,7 +29,7 @@ module Frijolero
         erb :_head, layout: false, locals: { title: title, refresh: refresh }
       end
 
-      # The header every page shares: wordmark and the three sections.
+      # The header every page shares: wordmark and the four sections.
       def topbar
         erb :_topbar, layout: false
       end
@@ -80,3 +81,4 @@ require_relative 'uploads'
 require_relative 'statements'
 require_relative 'editors'
 require_relative 'accounts'
+require_relative 'reports'

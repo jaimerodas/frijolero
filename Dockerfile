@@ -2,6 +2,7 @@
 
 # Production image for Kamal. Ruby version pinned to .ruby-version.
 ARG RUBY_VERSION=4.0.6
+ARG RUSTLEDGER_VERSION=0.24.0
 FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 
 WORKDIR /app
@@ -28,9 +29,17 @@ COPY Gemfile Gemfile.lock .ruby-version ./
 RUN bundle install && \
     rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache
 
+# rustledger: the reports run `rledger query` on the ledger. One static musl binary.
+ARG RUSTLEDGER_VERSION
+ADD --checksum=sha256:4ed3117f96202149277111fe8a9c7e2032f57cbde342a9fbd020f9b4776db744 \
+    https://github.com/rustledger/rustledger/releases/download/v${RUSTLEDGER_VERSION}/rustledger-v${RUSTLEDGER_VERSION}-x86_64-unknown-linux-musl.tar.gz \
+    /tmp/rustledger.tar.gz
+RUN tar -xzf /tmp/rustledger.tar.gz -C /usr/local/bin rledger && rm /tmp/rustledger.tar.gz
+
 FROM base
 
 COPY --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"
+COPY --from=build /usr/local/bin/rledger /usr/local/bin/rledger
 COPY . .
 
 # /data is the Kamal volume: ledger/ (git clone), jobs.jsonl, incoming/.

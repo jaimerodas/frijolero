@@ -1,0 +1,8 @@
+{
+  "columns": ["account", "total"],
+  "row_count": 2,
+  "rows": [
+    ["Assets:BBVA", {"positions": [{"currency": "MXN", "number": "261992.28"}]}],
+    ["Equity:Opening-Balances", {"positions": [{"currency": "MXN", "number": "-1986172.317144"}, {"currency": "USD", "number": "-74655.50"}]}]
+  ]
+}
