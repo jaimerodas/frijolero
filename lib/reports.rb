@@ -36,9 +36,11 @@ module Frijolero
     end
 
     # The earliest transaction, for the `all` period and the period menu.
+    # A ledger with no transactions yet answers with today.
     def first_date
       row = JSON.parse(run('SELECT MIN(date) AS first')).fetch('rows').first
-      Date.iso8601(row.is_a?(Hash) ? row['first'] : row.first)
+      value = row.is_a?(Hash) ? row['first'] : row&.first
+      value.to_s.empty? ? Date.today : Date.iso8601(value)
     end
 
     # Market value in MXN at the latest price on or before `date`, stocks via USD.

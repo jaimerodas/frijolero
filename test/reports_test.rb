@@ -35,6 +35,11 @@ class ReportsTest < Minitest::Test
     with_rledger(%(echo '{"rows": [["2024-12-01"]]}')) { assert_equal Date.new(2024, 12, 1), Reports.first_date }
   end
 
+  def test_first_date_is_today_on_a_ledger_with_no_transactions
+    with_rledger(%(echo '{"rows": [[""]]}')) { assert_equal Date.today, Reports.first_date }
+    with_rledger(%(echo '{"rows": []}')) { assert_equal Date.today, Reports.first_date }
+  end
+
   def test_query_raises_with_stderr_when_rledger_fails
     error = assert_raises(Reports::Error) do
       with_rledger('echo "error: file not found" >&2; exit 1') { Reports.query('SELECT account') }
