@@ -23,9 +23,13 @@
     <% if error %>
       <p class="error" role="alert"><%= h.(error) %></p>
     <% else %>
-      <%= erb :_report_table, layout: false, locals: { title: 'Activos', rows: sections.fetch('Assets', []), currencies: currencies, sign: 1 } %>
-      <%= erb :_report_table, layout: false, locals: { title: 'Pasivos', rows: sections.fetch('Liabilities', []), currencies: currencies, sign: -1 } %>
-      <%= erb :_report_table, layout: false, locals: { title: 'Capital', rows: sections.fetch('Equity', []), currencies: currencies, sign: -1 } %>
+      <div class="columns">
+        <div><%= erb :_report_table, layout: false, locals: { title: 'Activos', rows: sections.fetch('Assets', []), currencies: currencies, sign: 1 } %></div>
+        <div>
+          <%= erb :_report_table, layout: false, locals: { title: 'Pasivos', rows: sections.fetch('Liabilities', []), currencies: currencies, sign: -1 } %>
+          <%= erb :_report_table, layout: false, locals: { title: 'Capital', rows: sections.fetch('Equity', []), currencies: currencies, sign: -1 } %>
+        </div>
+      </div>
       <h2>Patrimonio neto</h2>
       <p class="net"><% currencies.each do |currency| %><data value="<%= net[currency].to_s('F') %>"><%= figure(net[currency]) %> <%= h.(currency) %></data><% end %></p>
     <% end %>

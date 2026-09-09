@@ -113,7 +113,9 @@ a.rules { font-size: 0.875rem; margin-left: 0.5rem; color: var(--muted); }
 .ledger .posting { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1rem; margin-top: 0.25rem; }
 .ledger .posting button { min-height: 2rem; padding-inline: 0.625rem; font-size: 0.875rem; }
 
-/* Reports: an account tree, one column per currency. Parents carry the sum of their subtree. */
+/* Reports: an account tree, one column per currency. Parents carry the sum of their subtree.
+   On a wide screen the sections sit side by side: income and expenses, assets and the rest. */
+@media (min-width: 60rem) { .columns { display: grid; grid-template-columns: 1fr 1fr; column-gap: 3rem; } }
 .report th[scope="row"] { padding-inline-start: calc(var(--depth, 0) * 1.25rem); }
 .report .amount { text-align: right; font-family: var(--mono); font-size: 0.9375rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .report tr.total th, .report tr.total td { font-weight: 600; }
