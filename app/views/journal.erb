@@ -1,0 +1,53 @@
+<%
+  h = ->(s) { Rack::Utils.escape_html(s.to_s) }
+%>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%= head('Diario') %>
+</head>
+<body>
+  <%= topbar %>
+  <main>
+    <%= erb :_report_toolbar, layout: false, locals: { period: period, first: first, today: today } %>
+    <p class="note"><%= account.empty? ? 'Todas las cuentas' : h.(account) %></p>
+
+    <% if error %>
+      <p class="error" role="alert"><%= h.(error) %></p>
+    <% else %>
+      <form method="get" action="/journal">
+        <input type="hidden" name="account" value="<%= h.(account) %>">
+        <input type="hidden" name="period" value="<%= h.(period.param) %>">
+        <% unless mxn? %><input type="hidden" name="mxn" value="0"><% end %>
+        <input type="search" name="q" value="<%= h.(params[:q]) %>" aria-label="Buscar" placeholder="Beneficiario o descripción">
+        <button type="submit">Buscar</button>
+      </form>
+
+      <% if rows.empty? %>
+        <p class="note">Sin movimientos.</p>
+      <% else %>
+        <p class="net"><%= rows.size %> movimientos<% total.each do |currency, amount| %><data value="<%= (amount * sign).to_s('F') %>"><%= figure(amount * sign) %> <%= h.(currency) %></data><% end %></p>
+        <ol class="ledger">
+          <% rows.each do |row| %>
+            <% link = journal_statement_link(row[:file]) %>
+            <% currency, number = row[:amount].first %>
+            <% signed = number * sign %>
+            <li>
+              <time datetime="<%= h.(row[:date].iso8601) %>"><% if link %><a href="<%= link %>"><%= h.(row[:date].iso8601) %></a><% else %><%= h.(row[:date].iso8601) %><% end %></time>
+              <div class="entry">
+                <div><%= h.(row[:payee] || row[:narration]) %><% if row[:flag] == '!' %> <strong>!</strong><% end %></div>
+                <div class="posting">
+                  <% if row[:payee] && !row[:narration].to_s.empty? %><span class="note"><%= h.(row[:narration]) %></span><% end %>
+                  <code><%= h.(row[:account]) %></code>
+                  <% unless row[:others].empty? %><span class="note"><%= h.(row[:others].join(', ')) %></span><% end %>
+                </div>
+              </div>
+              <data<% if signed.negative? %> class="debit"<% end %> value="<%= signed.to_s('F') %>"><%= figure(signed) %> <%= h.(currency) %></data>
+            </li>
+          <% end %>
+        </ol>
+      <% end %>
+    <% end %>
+  </main>
+</body>
+</html>

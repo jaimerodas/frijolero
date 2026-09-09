@@ -19,10 +19,10 @@
       <p class="error" role="alert"><%= h.(error) %></p>
     <% else %>
       <div class="columns">
-        <div><%= erb :_report_table, layout: false, locals: { title: 'Activos', rows: sections.fetch('Assets', []), currencies: currencies, sign: 1 } %></div>
+        <div><%= erb :_report_table, layout: false, locals: { title: 'Activos', rows: sections.fetch('Assets', []), currencies: currencies, sign: 1, period: period } %></div>
         <div>
-          <%= erb :_report_table, layout: false, locals: { title: 'Pasivos', rows: sections.fetch('Liabilities', []), currencies: currencies, sign: -1 } %>
-          <%= erb :_report_table, layout: false, locals: { title: 'Capital', rows: sections.fetch('Equity', []), currencies: currencies, sign: -1 } %>
+          <%= erb :_report_table, layout: false, locals: { title: 'Pasivos', rows: sections.fetch('Liabilities', []), currencies: currencies, sign: -1, period: period } %>
+          <%= erb :_report_table, layout: false, locals: { title: 'Capital', rows: sections.fetch('Equity', []), currencies: currencies, sign: -1, period: period } %>
         </div>
       </div>
       <h2>Patrimonio neto</h2>

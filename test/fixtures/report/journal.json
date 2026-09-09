@@ -1,0 +1,36 @@
+{
+  "columns": ["date", "flag", "payee", "narration", "account", "other_accounts", "filename", "amount"],
+  "row_count": 3,
+  "rows": [
+    {
+      "account": "Expenses:Food:Delivery",
+      "amount": { "cost": null, "units": { "currency": "MXN", "number": "500.58" } },
+      "date": "2026-08-01",
+      "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
+      "flag": "*",
+      "narration": "Uber Eats",
+      "other_accounts": ["Liabilities:Amex-Platinum"],
+      "payee": "Uber"
+    },
+    {
+      "account": "Expenses:Food:Restaurants",
+      "amount": { "cost": null, "units": { "currency": "MXN", "number": "2133.25" } },
+      "date": "2026-08-01",
+      "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
+      "flag": "*",
+      "narration": "Tacos",
+      "other_accounts": ["Liabilities:Amex-Platinum"],
+      "payee": null
+    },
+    {
+      "account": "Expenses:Food:Delivery",
+      "amount": { "cost": null, "units": { "currency": "MXN", "number": "566.72" } },
+      "date": "2026-08-02",
+      "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
+      "flag": "*",
+      "narration": "Uber Eats",
+      "other_accounts": ["Liabilities:Amex-Platinum"],
+      "payee": "Uber"
+    }
+  ]
+}

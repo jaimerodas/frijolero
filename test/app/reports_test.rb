@@ -37,6 +37,20 @@ class ReportsPageTest < Minitest::Test
         'Equity:Opening-Balances' => { 'MXN' => BigDecimal('-1000') },
         Frijolero::Reports::EARNINGS => { 'MXN' => BigDecimal('150') } }
     end
+
+    def journal(prefix, from, to, mxn: true, text: nil)
+      @calls << [:journal, prefix, from, to, mxn, text]
+      raise Frijolero::Reports::Error, error if error
+
+      [
+        { date: Date.new(2026, 7, 5), flag: '*', payee: 'AMAZON', narration: 'compra',
+          account: 'Expenses:Compras', others: ['Liabilities:AMEX'],
+          file: '/data/ledger/accounts/AMEX/AMEX 2607.beancount', amount: { 'MXN' => BigDecimal('-150.00') } },
+        { date: Date.new(2026, 7, 20), flag: '!', payee: nil, narration: 'Nómina',
+          account: 'Income:Salary', others: ['Assets:BBVA'],
+          file: '/data/ledger/transactions.beancount', amount: { 'MXN' => BigDecimal('-30000.00') } }
+      ]
+    end
   end
 
   class FakeRepo
@@ -150,7 +164,8 @@ class ReportsPageTest < Minitest::Test
 
     assert_equal 200, last_response.status
     assert_includes body, '<title>Estado de resultados</title>'
-    assert_match %r{style="--depth: 0">Salary</th>\s*<td class="amount" data-label="MXN">1,500.00</td>}, body
+    assert_includes body, 'style="--depth: 0">Salary</th>'
+    assert_includes body, %(<a href="/journal?account=Income%3ASalary&amp;period=#{Date.today.year}">1,500.00</a>)
     assert_includes body, 'style="--depth: 1">Tacos</th>'
     assert_includes body, '1,399.50 MXN'
     assert_includes body, '-3.00 USD'
@@ -174,7 +189,7 @@ class ReportsPageTest < Minitest::Test
     assert_equal [[:balance, Date.today, true]], @reports.calls
     assert_includes body, '<title>Balance general</title>'
     assert_includes body, "al #{Date.today.iso8601}"
-    assert_match %r{Card</th>\s*<td class="amount" data-label="MXN">250.00</td>}, body
+    assert_includes body, %(<a href="/journal?account=Liabilities%3ACard&amp;period=#{Date.today.year}">250.00</a>)
     assert_match %r{Utilidades-acumuladas</th>\s*<td class="amount" data-label="MXN">-150.00</td>}, body
     assert_includes body, '850.00 MXN'
   end
@@ -229,5 +244,124 @@ class ReportsPageTest < Minitest::Test
     get '/reports/income'
 
     assert_includes last_response.body, '<a href="/reports" aria-current="page">Reportes</a>'
+  end
+
+  def test_journal_is_a_peer_in_the_reports_toolbar_and_is_the_title_on_its_own_page
+    get '/reports/income'
+    assert_match %r{<a href="/journal\?period=\d+">Diario</a>}, last_response.body
+
+    get '/journal'
+    assert_includes last_response.body, '<h1>Diario</h1>'
+  end
+
+  def test_journal_lists_payee_narration_account_other_accounts_and_the_flag
+    get '/journal'
+    body = last_response.body
+
+    assert_includes body, '<div>AMAZON</div>'
+    assert_includes body, '<span class="note">compra</span>'
+    assert_includes body, '<code>Expenses:Compras</code>'
+    assert_includes body, '<span class="note">Liabilities:AMEX</span>'
+    assert_includes body, '<strong>!</strong>'
+  end
+
+  def test_journal_applies_the_report_sign_to_rows_and_the_total
+    get '/journal', account: 'Income:Salary'
+
+    assert_includes last_response.body, '30,000.00 MXN'
+    refute_includes last_response.body, '-30,000.00 MXN'
+  end
+
+  def test_journal_currency_tabs_keep_the_filter
+    get '/journal?account=Expenses:Food&period=2025-05&q=uber'
+
+    body = last_response.body
+    filter = 'account=Expenses%3AFood&amp;q=uber'
+    assert_includes body, %(<a href="/journal?period=2025-05&amp;#{filter}" aria-current="true">MXN</a>)
+    assert_includes body, %(<a href="/journal?period=2025-05&amp;mxn=0&amp;#{filter}">Por moneda</a>)
+  end
+
+  def test_journal_shows_the_movement_count_and_total_per_currency
+    get '/journal'
+
+    assert_includes last_response.body, '2 movimientos'
+    assert_includes last_response.body, '-30,150.00 MXN'
+  end
+
+  def test_journal_toolbar_links_carry_the_account_and_the_search_text
+    get '/journal', account: 'Expenses:Compras', q: 'uber', period: '2026-07'
+    body = last_response.body
+
+    assert_includes body, '<a href="/journal?period=2026&amp;account=Expenses%3ACompras&amp;q=uber">Año</a>'
+    assert_includes body,
+                    '<a href="/journal?period=2026-06&amp;account=Expenses%3ACompras&amp;q=uber" aria-label="Anterior">'
+  end
+
+  def test_journal_date_links_to_the_statement_only_for_a_statement_file
+    get '/journal'
+    body = last_response.body
+
+    assert_includes body, '<time datetime="2026-07-05"><a href="/statements/AMEX/2607">2026-07-05</a></time>'
+    assert_includes body, '<time datetime="2026-07-20">2026-07-20</time>'
+  end
+
+  def test_journal_calls_the_query_with_the_account
+    from = Date.new(Date.today.year, 1, 1)
+    to = Date.new(Date.today.year, 12, 31)
+    get '/journal', account: 'Expenses:Food'
+
+    assert_equal [:journal, 'Expenses:Food', from, to, true, nil], @reports.calls.last
+  end
+
+  def test_journal_calls_the_query_with_the_search_text
+    get '/journal', q: 'uber'
+
+    assert_equal 'uber', @reports.calls.last[5]
+  end
+
+  def test_journal_calls_the_query_with_the_currency_choice
+    get '/journal', mxn: '0'
+
+    assert_equal false, @reports.calls.last[4]
+  end
+
+  def test_an_account_with_a_quote_or_a_space_is_rejected_before_the_query_runs
+    get '/journal', account: "It's"
+    assert_equal 404, last_response.status
+
+    get '/journal', account: 'Expenses Food'
+    assert_equal 404, last_response.status
+
+    assert_empty @reports.calls
+  end
+
+  def test_journal_error_renders_the_message_with_502
+    @reports.error = 'error: rledger salió con 1'
+    get '/journal'
+
+    assert_equal 502, last_response.status
+    assert_includes last_response.body, '<p class="error" role="alert">error: rledger salió con 1</p>'
+  end
+
+  def test_income_amount_cells_link_to_the_journal_and_leave_empty_cells_plain
+    get '/reports/income', period: '2025-05'
+    body = last_response.body
+
+    assert_includes body, '<a href="/journal?account=Expenses%3AFood%3ATacos&amp;period=2025-05">100.50</a>'
+    assert_match %r{Fees</th>\s*<td class="amount" data-label="MXN"></td>}, body
+    assert_includes body, '<a href="/journal?account=Expenses%3AFees&amp;period=2025-05">3.00</a>'
+  end
+
+  def test_income_total_links_to_the_root_account
+    get '/reports/income', period: '2025-05', mxn: '0'
+    body = last_response.body
+
+    assert_includes body, '<a href="/journal?account=Expenses&amp;period=2025-05&amp;mxn=0">100.50</a>'
+  end
+
+  def test_balance_earnings_row_has_no_link
+    get '/reports/balance'
+
+    assert_match %r{Utilidades-acumuladas</th>\s*<td class="amount" data-label="MXN">-150\.00</td>}, last_response.body
   end
 end

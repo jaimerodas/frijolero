@@ -1,6 +1,7 @@
 <%
   h = ->(s) { Rack::Utils.escape_html(s.to_s) }
   total = rows.find { |row| row[:depth].zero? }
+  journal_href = ->(name) { "/journal?account=#{Rack::Utils.escape(name)}&#{report_query(period)}" }
 %>
 <h2><%= h.(title) %></h2>
 <div class="table-wrap">
@@ -16,7 +17,7 @@
         <% next if row[:depth].zero? %>
         <tr data-account="<%= h.(row[:name]) %>" data-depth="<%= row[:depth] %>"<% if row[:total] %> class="total"<% end %><% if row[:depth] > 1 %> hidden<% end %>>
           <th scope="row" style="--depth: <%= row[:depth] - 1 %>"><% if row[:total] %><button type="button" class="fold" aria-expanded="false"><%= h.(row[:name].split(':').last) %></button><% else %><%= h.(row[:name].split(':').last) %><% end %></th>
-          <% currencies.each do |currency| %><td class="amount" data-label="<%= h.(currency) %>"><%= figure(row[:amounts][currency] * sign) %></td><% end %>
+          <% currencies.each do |currency| %><td class="amount" data-label="<%= h.(currency) %>"><% value = figure(row[:amounts][currency] * sign) %><% if value.empty? || row[:name] == Frijolero::Reports::EARNINGS %><%= value %><% else %><a href="<%= h.(journal_href.(row[:name])) %>"><%= value %></a><% end %></td><% end %>
         </tr>
       <% end %>
     </tbody>
@@ -24,7 +25,7 @@
     <tfoot>
       <tr class="total">
         <th scope="row">Total</th>
-        <% currencies.each do |currency| %><td class="amount" data-label="<%= h.(currency) %>"><%= figure(total[:amounts][currency] * sign) %></td><% end %>
+        <% currencies.each do |currency| %><td class="amount" data-label="<%= h.(currency) %>"><% value = figure(total[:amounts][currency] * sign) %><% if value.empty? %><%= value %><% else %><a href="<%= h.(journal_href.(total[:name])) %>"><%= value %></a><% end %></td><% end %>
       </tr>
     </tfoot>
     <% end %>

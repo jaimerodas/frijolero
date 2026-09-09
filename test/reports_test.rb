@@ -109,6 +109,100 @@ class ReportsTest < Minitest::Test
     assert_includes seen, 'date <= 2024-04-30'
   end
 
+  # The BQL that `journal` would run, with the binary stubbed out.
+  def journal_bql(*, **)
+    seen = nil
+    Reports.stub(:run, ->(bql) { seen = bql and '{"rows": []}' }) { Reports.journal(*, **) }
+    seen
+  end
+
+  def test_journal_filters_by_account_prefix_when_given
+    seen = journal_bql('Expenses:Food', Date.new(2026, 8, 1), Date.new(2026, 8, 31))
+
+    assert_includes seen, "account ~ '^Expenses:Food(:|$)'"
+  end
+
+  def test_journal_has_no_account_clause_for_every_account
+    seen = journal_bql('', Date.new(2026, 8, 1), Date.new(2026, 8, 31))
+
+    refute_includes seen, 'account ~'
+  end
+
+  def test_journal_text_clause_is_escaped_when_given
+    seen = journal_bql('', Date.new(2026, 8, 1), Date.new(2026, 8, 31), text: "uber's")
+
+    assert_includes seen, "AND (payee ~ 'uber.s' OR narration ~ 'uber.s')"
+  end
+
+  def test_journal_has_no_text_clause_when_blank
+    seen = journal_bql('', Date.new(2026, 8, 1), Date.new(2026, 8, 31), text: '   ')
+
+    refute_includes seen, 'payee ~'
+  end
+
+  def test_journal_amount_expression_switches_with_mxn
+    seen = journal_bql('', Date.new(2026, 8, 1), Date.new(2026, 8, 31))
+
+    assert_includes seen, "CONVERT(position, 'MXN', 2026-08-31) AS amount"
+
+    seen = journal_bql('', Date.new(2026, 8, 1), Date.new(2026, 8, 31), mxn: false)
+
+    assert_includes seen, 'position AS amount'
+    refute_includes seen, 'CONVERT'
+  end
+
+  def test_journal_parses_the_fixture_rows
+    rows = with_rledger("cat #{fixture_path('report/journal.json')}") do
+      Reports.journal('Expenses:Food', Date.new(2026, 8, 1), Date.new(2026, 8, 3))
+    end
+
+    assert_equal 3, rows.length
+    first, second = rows
+    assert_equal Date.new(2026, 8, 1), first[:date]
+    assert_equal '*', first[:flag]
+    assert_equal 'Uber', first[:payee]
+    assert_equal 'Uber Eats', first[:narration]
+    assert_equal 'Expenses:Food:Delivery', first[:account]
+    assert_equal ['Liabilities:Amex-Platinum'], first[:others]
+    assert_equal '/data/ledger/accounts/AMEX/AMEX 2607.beancount', first[:file]
+    assert_equal({ 'MXN' => BigDecimal('500.58') }, first[:amount])
+    assert_nil second[:payee]
+  end
+
+  def test_journal_parses_array_shaped_rows
+    json = {
+      columns: %w[date flag payee narration account other_accounts filename amount],
+      rows: [['2026-08-01', '*', nil, 'Tacos', 'Expenses:Food:Restaurants', ['Liabilities:Amex-Platinum'],
+              '/data/ledger/accounts/AMEX/AMEX 2607.beancount',
+              { 'units' => { 'currency' => 'MXN', 'number' => '150.00' } }]]
+    }.to_json
+
+    rows = with_rledger("echo '#{json}'") { Reports.journal('', Date.new(2026, 8, 1), Date.new(2026, 8, 3)) }
+
+    assert_equal 1, rows.length
+    assert_equal Date.new(2026, 8, 1), rows.first[:date]
+    assert_nil rows.first[:payee]
+    assert_equal({ 'MXN' => BigDecimal('150.00') }, rows.first[:amount])
+  end
+
+  def test_journal_parses_the_convert_amount_shape
+    json = {
+      columns: %w[date flag payee narration account other_accounts filename amount],
+      rows: [['2026-08-01', '*', 'Uber', 'Uber Eats', 'Expenses:Food:Delivery', ['Liabilities:Amex-Platinum'],
+              '/data/ledger/accounts/AMEX/AMEX 2607.beancount',
+              { 'currency' => 'MXN', 'number' => '500.58' }]]
+    }.to_json
+
+    rows = with_rledger("echo '#{json}'") { Reports.journal('', Date.new(2026, 8, 1), Date.new(2026, 8, 3)) }
+
+    assert_equal({ 'MXN' => BigDecimal('500.58') }, rows.first[:amount])
+  end
+
+  def test_bql_text_escapes_regex_metacharacters_and_quotes
+    assert_equal 'foo\\.bar', Reports.bql_text('foo.bar')
+    assert_equal 'o.brien', Reports.bql_text("o'brien")
+  end
+
   def test_tree_adds_parents_with_subtotals_in_tree_order
     rows = Reports.tree(
       'Expenses:Food:Tacos' => { 'MXN' => BigDecimal('10') },

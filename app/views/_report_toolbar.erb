@@ -8,7 +8,7 @@
 %>
 <div class="title">
   <nav class="reports" aria-label="Reportes">
-    <% { '/reports/income' => 'Estado de resultados', '/reports/balance' => 'Balance general' }.each do |href, label| %>
+    <% { '/reports/income' => 'Estado de resultados', '/reports/balance' => 'Balance general', '/journal' => 'Diario' }.each do |href, label| %>
       <% if path == href %><h1><%= label %></h1><% else %><a href="<%= href %>?<%= h.(report_query(period)) %>"><%= label %></a><% end %>
     <% end %>
   </nav>
@@ -36,8 +36,8 @@
     <% if covered %><span class="note">al <%= h.(today.iso8601) %></span><% end %>
   </form>
   <nav class="tabs currency" aria-label="Moneda">
-    <a href="<%= h.(path) %>?period=<%= h.(period.param) %>"<% if mxn? %> aria-current="true"<% end %>>MXN</a>
-    <a href="<%= h.(path) %>?period=<%= h.(period.param) %>&amp;mxn=0"<% unless mxn? %> aria-current="true"<% end %>>Por moneda</a>
+    <a href="<%= h.(path) %>?<%= h.(report_query(period, mxn: true)) %>"<% if mxn? %> aria-current="true"<% end %>>MXN</a>
+    <a href="<%= h.(path) %>?<%= h.(report_query(period, mxn: false)) %>"<% unless mxn? %> aria-current="true"<% end %>>Por moneda</a>
   </nav>
 </div>
 <% if params[:pull] == 'ok' %>

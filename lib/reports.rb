@@ -35,6 +35,38 @@ module Frijolero
       sheet.to_h.merge(EARNINGS => earnings)
     end
 
+    # One row per matching posting, in query order. `prefix` is pre-validated by
+    # the caller ('' means every account); `text` is escaped through `bql_text`.
+    def journal(prefix, from, to, mxn: true, text: nil)
+      bql = journal_query(prefix, from, to, mxn: mxn, text: text)
+      JSON.parse(run(bql)).fetch('rows').map { |row| journal_row(row) }
+    end
+
+    def journal_query(prefix, from, to, mxn:, text:)
+      amount = mxn ? "CONVERT(position, 'MXN', #{to.iso8601})" : 'position'
+      bql = "SELECT date, flag, payee, narration, account, other_accounts, filename, #{amount} AS amount " \
+            "WHERE date >= #{from.iso8601} AND date <= #{to.iso8601}"
+      bql += " AND account ~ '^#{prefix}(:|$)'" unless prefix.empty?
+      bql += " AND (payee ~ '#{bql_text(text)}' OR narration ~ '#{bql_text(text)}')" if text && !text.strip.empty?
+      bql
+    end
+
+    # A journal row, either shape: {account, ...} or a positional array in column order.
+    def journal_row(row)
+      columns = %w[date flag payee narration account other_accounts filename amount]
+      date, flag, payee, narration, account, others, file, amount_value =
+        row.is_a?(Hash) ? row.values_at(*columns) : row
+      units = amount_value['units'] || amount_value
+      { date: Date.iso8601(date), flag: flag, payee: payee, narration: narration, account: account,
+        others: others, file: file, amount: { units['currency'] => BigDecimal(units['number']) } }
+    end
+
+    # A raw string into a BQL regex literal: escaped, then `'` becomes `.` (a
+    # wildcard), because a BQL string cannot contain an escaped quote.
+    def bql_text(text)
+      Regexp.escape(text).gsub("'", '.')
+    end
+
     # The earliest transaction, for the `all` period and the period menu.
     # A ledger with no transactions yet answers with today.
     def first_date
