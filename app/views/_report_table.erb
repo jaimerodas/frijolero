@@ -14,8 +14,8 @@
     <tbody>
       <% rows.each do |row| %>
         <% next if row[:depth].zero? %>
-        <tr<% if row[:total] %> class="total"<% end %>>
-          <th scope="row" style="--depth: <%= row[:depth] - 1 %>"><%= h.(row[:name].split(':').last) %></th>
+        <tr data-account="<%= h.(row[:name]) %>" data-depth="<%= row[:depth] %>"<% if row[:total] %> class="total"<% end %><% if row[:depth] > 1 %> hidden<% end %>>
+          <th scope="row" style="--depth: <%= row[:depth] - 1 %>"><% if row[:total] %><button type="button" class="fold" aria-expanded="false"><%= h.(row[:name].split(':').last) %></button><% else %><%= h.(row[:name].split(':').last) %><% end %></th>
           <% currencies.each do |currency| %><td class="amount" data-label="<%= h.(currency) %>"><%= figure(row[:amounts][currency] * sign) %></td><% end %>
         </tr>
       <% end %>

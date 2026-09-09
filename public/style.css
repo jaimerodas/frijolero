@@ -116,7 +116,13 @@ a.rules { font-size: 0.875rem; margin-left: 0.5rem; color: var(--muted); }
 /* Reports: an account tree, one column per currency. Parents carry the sum of their subtree.
    On a wide screen the sections sit side by side: income and expenses, assets and the rest. */
 @media (min-width: 60rem) { .columns { display: grid; grid-template-columns: 1fr 1fr; column-gap: 3rem; } }
-.report th[scope="row"] { padding-inline-start: calc(var(--depth, 0) * 1.25rem); }
+.report th[scope="row"] { padding-inline-start: calc(var(--depth, 0) * 1.25rem + 1.1rem); }
+.report tr.total th[scope="row"] { padding-inline-start: calc(var(--depth, 0) * 1.25rem); }
+.report .fold { all: unset; cursor: pointer; }
+.report .fold::before { content: "▸"; display: inline-block; width: 1.1rem; color: var(--muted); }
+.report .fold[aria-expanded="true"]::before { content: "▾"; }
+.report .fold:hover { text-decoration: underline; }
+.report .fold:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .report .amount { text-align: right; font-family: var(--mono); font-size: 0.9375rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .report tr.total th, .report tr.total td { font-weight: 600; }
 .report tfoot th, .report tfoot td { border-top: 1px solid var(--ink); border-bottom: 0; }

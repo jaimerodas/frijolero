@@ -82,10 +82,15 @@ class ReportsPageTest < Minitest::Test
     assert_includes body, '-3.00 USD'
   end
 
-  def test_income_marks_parents_as_totals
+  def test_income_folds_parents_and_hides_the_deeper_rows
     get '/reports/income'
+    body = last_response.body
 
-    assert_match %r{<tr class="total">\s*<th scope="row" style="--depth: 0">Food</th>}, last_response.body
+    assert_includes body, '<tr data-account="Expenses:Food" data-depth="1" class="total">'
+    assert_includes body, '<button type="button" class="fold" aria-expanded="false">Food</button></th>'
+    assert_includes body, '<tr data-account="Expenses:Food:Tacos" data-depth="2" hidden>'
+    assert_includes body, '<tr data-account="Expenses:Fees" data-depth="1">'
+    assert_includes body, '<script src="/reports.js" defer></script>'
   end
 
   def test_balance_defaults_to_today_and_shows_liabilities_positive
