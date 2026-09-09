@@ -5,4 +5,5 @@
       <a href="<%= href %>"<% if request&.path_info.to_s.start_with?(href) %> aria-current="page"<% end %>><%= label %></a>
     <% end %>
   </nav>
+  <form method="post" action="/logout"><button type="submit">Salir</button></form>
 </header>

@@ -19,11 +19,12 @@
 4. Si quieres subir un estado de cuenta, pon `OPENAI_API_KEY` en `.env`.
    Una subida gasta dinero y hace commit al ledger.
 5. Corre `bin/dev`.
-6. Abre http://localhost:3000. La contraseña es `x`, con cualquier usuario.
+6. Abre http://localhost:3000. La página te pide la contraseña en un formulario. La contraseña es `x`.
 
 `bin/dev` lee `.env` y enlaza el ledger en `tmp/dev/ledger`. Así el log de jobs
 y los PDF subidos quedan en `tmp/dev`, y no junto al repo del ledger. La ruta
-`/up` responde sin contraseña.
+`/up`, `/login` y los archivos estáticos (`/style.css`, `/reports.js`) responden
+sin necesidad de la cookie de sesión.
 
 ## Variables de entorno
 
@@ -31,7 +32,7 @@ y los PDF subidos quedan en `tmp/dev`, y no junto al repo del ledger. La ruta
 |---|---|
 | `LEDGER_DIR` | El clon del ledger. Obligatoria. El directorio padre guarda el log de jobs y las subidas. |
 | `LEDGER_MAIN_FILE` | El archivo principal del ledger, relativo a `LEDGER_DIR`. Por defecto, `transactions.beancount`. |
-| `APP_PASSWORD` | La única credencial. HTTP basic auth ignora el usuario. Obligatoria. |
+| `APP_PASSWORD` | La única credencial. Se verifica en el formulario de login y firma la cookie de sesión que dura 30 días. Cambiar la contraseña cierra todas las sesiones en todos los dispositivos. Obligatoria. |
 | `OPENAI_API_KEY` | Para clasificar y extraer. |
 | `OPENAI_POLL_TIMEOUT` | Segundos de espera para una extracción. Por defecto, 900. |
 | `B2_ENDPOINT`, `B2_BUCKET`, `B2_KEY_ID`, `B2_KEY` | Backblaze B2, compatible con S3. Los PDF viven ahí. |

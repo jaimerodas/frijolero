@@ -35,39 +35,75 @@ class AppTest < Minitest::Test
     @app ||= build_app(CONFIG_RU)
   end
 
-  def test_up_without_credentials_is_ok
+  def test_up_without_session_is_ok
     get '/up'
 
     assert_equal 200, last_response.status
     assert_equal 'ok', last_response.body
   end
 
-  def test_root_without_credentials_is_unauthorized
+  def test_root_without_session_redirects_to_login
     get '/'
 
-    assert_equal 401, last_response.status
-    assert last_response.headers['WWW-Authenticate'].start_with?('Basic')
+    assert_equal 302, last_response.status
+    assert last_response.location.end_with?('/login')
   end
 
-  def test_root_with_wrong_password_is_unauthorized
-    basic_authorize 'anyone', 'wrong'
+  def test_login_page_shows_password_field
+    get '/login'
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, 'name="password"'
+  end
+
+  def test_style_without_session_is_ok
+    get '/style.css'
+
+    assert_equal 200, last_response.status
+  end
+
+  def test_login_with_wrong_password_is_unauthorized_and_stays_out
+    post '/login', password: 'wrong'
+
+    assert_equal 401, last_response.status
+    assert_includes last_response.body, 'Contraseña incorrecta'
+
     get '/'
 
-    assert_equal 401, last_response.status
+    assert_equal 302, last_response.status
   end
 
-  def test_root_with_right_password_is_ok
-    basic_authorize 'anyone', 'secret'
+  def test_login_with_right_password_starts_session
+    post '/login', password: 'secret'
+
+    assert_equal 302, last_response.status
+    assert_equal '/', URI(last_response.location).path
+
     get '/'
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, 'Frijolero'
   end
 
-  def test_static_file_without_credentials_is_unauthorized
-    get '/style.css'
+  def test_login_sets_cookie_flags
+    post '/login', password: 'secret'
 
-    assert_equal 401, last_response.status
+    cookie = last_response.headers['set-cookie'].to_s.downcase
+    assert_includes cookie, 'httponly'
+    assert_includes cookie, 'samesite=lax'
+    assert_includes cookie, 'expires'
+  end
+
+  def test_logout_ends_session
+    post '/login', password: 'secret'
+    post '/logout'
+
+    assert_equal 302, last_response.status
+    assert_equal '/login', URI(last_response.location).path
+
+    get '/'
+
+    assert_equal 302, last_response.status
   end
 
   def test_loading_without_app_password_raises
