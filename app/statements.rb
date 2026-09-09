@@ -69,8 +69,16 @@ module Frijolero
         transactions: pipeline.runs_detailer? ? data&.dig('transactions') : nil,
         fixme_count: beancount.scan(/^\s+Expenses:FIXME\b/).size,
         beancount: beancount,
-        notice: params[:detailed] && "#{params[:detailed]} detalladas, #{params[:remaining]} pendientes"
+        notice: statement_notice
       }
+    end
+
+    helpers do
+      def statement_notice
+        return "#{params[:detailed]} detalladas, #{params[:remaining]} pendientes" if params[:detailed]
+
+        'Reglas guardadas. Vuelve a correr las reglas para aplicarlas.' if params[:rules]
+      end
     end
 
     get '/statements/:account/:yymm/pdf' do

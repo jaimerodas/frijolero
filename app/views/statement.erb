@@ -57,6 +57,7 @@
                       <form method="post" action="/rules/<%= account_path %>/from">
                         <input type="hidden" name="description" value="<%= h.(tx['description']) %>">
                         <input type="hidden" name="amount" value="<%= h.(tx['amount']) %>">
+                        <input type="hidden" name="back" value="/statements/<%= account_path %>/<%= h.(period) %>">
                         <button type="submit">Hacer regla</button>
                       </form>
                     <% else %>

@@ -49,6 +49,30 @@ class EditorsTest < Minitest::Test
     Frijolero::App
   end
 
+  def test_hacer_regla_keeps_the_way_back_to_the_statement
+    post '/rules/AMEX/from', description: 'OXXO 123', amount: '-50', back: '/statements/AMEX/2508'
+
+    assert_includes last_response.body, '<a href="/statements/AMEX/2508">Volver al estado de cuenta</a>'
+    assert_includes last_response.body, '<input type="hidden" name="back" value="/statements/AMEX/2508">'
+  end
+
+  def test_saving_from_a_statement_returns_to_it
+    post '/rules/AMEX', content: "start_with: {}\n", back: '/statements/AMEX/2508'
+
+    assert_equal 303, last_response.status
+    assert_equal '/statements/AMEX/2508?rules=1', URI(last_response.location).request_uri
+  end
+
+  def test_back_is_only_honoured_for_a_statement_path
+    post '/rules/AMEX', content: "start_with: {}\n", back: 'https://evil.example/'
+
+    assert_equal '/rules/AMEX?saved=1', URI(last_response.location).request_uri
+
+    get '/rules/AMEX', back: '/accounts'
+
+    refute_includes last_response.body, 'Volver al estado de cuenta'
+  end
+
   def test_rules_editor_shows_a_default_template_when_no_file_exists
     get '/rules/AMEX'
 

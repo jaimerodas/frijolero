@@ -22,7 +22,7 @@ module Frijolero
       data = parse_yaml_hash!(content)
       Detailer::Rules.new(data).matches_for(description: 'probe', amount: 0)
       save_config!(Config.rules_path(params[:account]), content, "rules #{params[:account]}")
-      redirect "/rules/#{Rack::Utils.escape_path(params[:account])}?saved=1", 303
+      redirect back_path ? "#{back_path}?rules=1" : "/rules/#{Rack::Utils.escape_path(params[:account])}?saved=1", 303
     rescue EditorError, Psych::SyntaxError, NoMethodError, TypeError, ArgumentError => e
       render_editor(status: 422, **rules_locals(params[:account], content: content, error: e.message))
     end
@@ -53,8 +53,14 @@ module Frijolero
         self.class.repo.commit_and_push(message)
       end
 
+      # The statement page sends its own path with "Hacer regla", so the editor
+      # can offer the way back and the save can return there. Nothing else is honoured.
+      def back_path
+        params[:back] if params[:back].to_s.match?(%r{\A/statements/[^/?#]+/\d{4}\z})
+      end
+
       def render_editor(status: 200, **locals)
-        defaults = { notice: nil, error: nil }
+        defaults = { notice: nil, error: nil, back: back_path }
         self.status(status)
         erb :editor, locals: defaults.merge(locals)
       end

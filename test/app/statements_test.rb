@@ -152,6 +152,22 @@ class StatementsTest < Minitest::Test
     refute_includes last_response.body, 'Found'
   end
 
+  def test_hacer_regla_sends_the_statement_path_along
+    write_statement('AMEX', '2508',
+                    json: { 'transactions' => [{ 'date' => '2025-08-01', 'description' => 'OXXO', 'amount' => -100 }] },
+                    beancount: "2025-08-01 * \"OXXO\"\n  Expenses:FIXME 100 MXN\n  Liabilities:Amex -100 MXN\n")
+    get '/statements/AMEX/2508'
+
+    assert_includes last_response.body, '<input type="hidden" name="back" value="/statements/AMEX/2508">'
+  end
+
+  def test_notice_after_saving_rules_asks_to_run_them
+    write_statement('AMEX', '2508', json: { 'transactions' => [] }, beancount: '')
+    get '/statements/AMEX/2508', rules: '1'
+
+    assert_includes last_response.body, 'Reglas guardadas. Vuelve a correr las reglas para aplicarlas.'
+  end
+
   def test_notice_shows_the_detail_run_result
     write_statement('AMEX', '2508', json: { 'transactions' => [] }, beancount: '')
 

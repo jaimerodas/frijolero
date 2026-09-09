@@ -118,7 +118,7 @@ The order protects the PDF. B2 has it before the paid step. The local copy survi
 
 `Detailer::Rules` is the pure matcher: `start_with`, `include`, an optional `when.amount`, and arrays with a fallback. `Detailer` applies it to the JSON. `BeancountDetailer` applies it again to an existing `.beancount` file. It touches only transactions that still post to `Expenses:FIXME`, so it is idempotent and hand edits are safe. Transactions with the `!` flag are invisible to it. `POST /statements/:k/:yymm/detail` runs it and commits only if something changed.
 
-The rules editor validates with `YAML.safe_load` and a probe call to `matches_for`. "Hacer regla" prefills a `start_with` entry with `YAML.dump`. That dump drops comments and reorders keys. This is accepted, but it is visible on a 600-line file.
+The rules editor validates with `YAML.safe_load` and a probe call to `matches_for`. "Hacer regla" prefills a `start_with` entry with `YAML.dump`. That dump drops comments and reorders keys. This is accepted, but it is visible on a 600-line file. "Hacer regla" also sends the statement path as `back`. The editor shows it as a "Volver al estado de cuenta" link and keeps it in a hidden field, and the save redirects there with `?rules=1`, which the statement page turns into a notice asking to run the rules again. `back_path` honours only `/statements/<Key>/<YYMM>`.
 
 ### Converters
 

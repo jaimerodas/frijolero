@@ -16,7 +16,9 @@
     <% if error %>
       <p class="error" role="alert"><%= h.(error) %></p>
     <% end %>
+    <% if back %><p><a href="<%= h.(back) %>">Volver al estado de cuenta</a></p><% end %>
     <form method="post" action="<%= h.(action) %>">
+      <% if back %><input type="hidden" name="back" value="<%= h.(back) %>"><% end %>
       <label for="content">Contenido</label>
       <textarea id="content" name="content" rows="30" spellcheck="false"><%= h.(content) %></textarea>
       <p class="actions"><button type="submit" class="primary">Guardar</button></p>
