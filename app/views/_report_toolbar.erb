@@ -1,0 +1,43 @@
+<%
+  h = ->(s) { Rack::Utils.escape_html(s.to_s) }
+  path = request.path_info
+  head = ledger_head
+  prev_period = period.prev(first: first)
+  next_period = period.next(today: today)
+  covered = period.resolution == :all || period.to > today
+%>
+<div class="title">
+  <h1><%= h.(title) %> <span class="note"><%= h.(period.label) %></span></h1>
+  <form method="post" action="/ledger/pull" class="ledger-head">
+    <input type="hidden" name="back" value="<%= h.(path) %>">
+    <% if head %><span class="note" title="<%= h.(head[:subject]) %>">Ledger al <%= h.(head[:date]) %></span><% end %>
+    <button type="submit">Actualizar</button>
+  </form>
+</div>
+<div class="toolbar">
+  <nav class="tabs" aria-label="Reportes">
+    <% { '/reports/income' => 'Estado de resultados', '/reports/balance' => 'Balance general' }.each do |href, label| %>
+      <a href="<%= href %>?period=<%= h.(period.param) %>"<% if path == href %> aria-current="page"<% end %>><%= label %></a>
+    <% end %>
+  </nav>
+  <nav class="tabs" aria-label="Resolución">
+    <% Frijolero::Period::RESOLUTIONS.each do |resolution, label| %>
+      <a href="<%= h.(path) %>?period=<%= h.(period.at(resolution, first: first, today: today).param) %>"<% if period.resolution == resolution %> aria-current="true"<% end %>><%= label %></a>
+    <% end %>
+  </nav>
+  <form method="get" action="<%= h.(path) %>" class="period">
+    <% if prev_period %><a href="<%= h.(path) %>?period=<%= h.(prev_period.param) %>" aria-label="Anterior">&lsaquo;</a><% else %><span aria-hidden="true">&lsaquo;</span><% end %>
+    <select name="period" aria-label="Periodo">
+      <% period.siblings(first: first, today: today).each do |option| %>
+        <option value="<%= h.(option.param) %>"<% if option.param == period.param %> selected<% end %>><%= h.(option.label) %></option>
+      <% end %>
+    </select>
+    <% if next_period %><a href="<%= h.(path) %>?period=<%= h.(next_period.param) %>" aria-label="Siguiente">&rsaquo;</a><% else %><span aria-hidden="true">&rsaquo;</span><% end %>
+    <% if covered %><span class="note"><%= path.end_with?('balance') ? "al #{h.(today.iso8601)}" : "#{h.(period.from.iso8601)} a #{h.(today.iso8601)}" %></span><% end %>
+  </form>
+</div>
+<% if params[:pull] == 'ok' %>
+  <p class="notice">Ledger actualizado.</p>
+<% elsif params[:pull] %>
+  <p class="error" role="alert"><%= h.(params[:pull]) %></p>
+<% end %>

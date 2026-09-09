@@ -21,22 +21,29 @@ module Frijolero
       rescue LedgerRepo::Error
         nil
       end
+    end
 
-      def report_date(value)
-        Date.iso8601(value.to_s)
-      rescue Date::Error
-        nil
-      end
-
-      # Rows grouped by root account, plus the currencies seen. A Reports::Error
-      # renders the same page with the message, like a B2 failure on an account page.
+    helpers do
+      # `?period=` picks the span (see Period); anything else means the current year.
+      # The block gets the period and returns the flat rows. A Reports::Error renders
+      # the same page with the message, like a B2 failure on an account page.
       def report_locals
-        rows = Reports.tree(yield)
-        { sections: rows.group_by { |row| row[:name][/\A[^:]+/] },
-          currencies: rows.flat_map { |row| row[:amounts].keys }.uniq.sort, error: nil }
+        today = Date.today
+        first = self.class.reports.first_date
+        period = report_period(first, today)
+        { period: period, first: first, today: today, error: nil }.merge(report_sections(Reports.tree(yield(period))))
       rescue Reports::Error => e
         status 502
-        { sections: {}, currencies: [], error: e.message }
+        { period: report_period(today, today), first: today, today: today, error: e.message }.merge(report_sections([]))
+      end
+
+      def report_period(first, today)
+        Period.parse(params[:period], first: first, today: today) || Period.of(today, :year)
+      end
+
+      def report_sections(rows)
+        { sections: rows.group_by { |row| row[:name][/\A[^:]+/] },
+          currencies: rows.flat_map { |row| row[:amounts].keys }.uniq.sort }
       end
     end
 
@@ -54,15 +61,12 @@ module Frijolero
     end
 
     get '/reports/income' do
-      today = Date.today
-      from = report_date(params[:from]) || Date.new(today.year, 1, 1)
-      to = report_date(params[:to]) || today
-      erb :report_income, locals: { from: from, to: to }.merge(report_locals { self.class.reports.income(from, to) })
+      erb :report_income, locals: report_locals { |period| self.class.reports.income(period.from, period.to) }
     end
 
+    # A snapshot at the end of the period, or today while it is still running.
     get '/reports/balance' do
-      at = report_date(params[:at]) || Date.today
-      erb :report_balance, locals: { at: at }.merge(report_locals { self.class.reports.balance(at) })
+      erb :report_balance, locals: report_locals { |period| self.class.reports.balance([period.to, Date.today].min) }
     end
   end
 end

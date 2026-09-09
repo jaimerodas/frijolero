@@ -28,6 +28,13 @@ class ReportsTest < Minitest::Test
     assert_equal BigDecimal('-74655.50'), rows['Equity:Opening-Balances']['USD']
   end
 
+  def test_first_date_reads_the_scalar_row_in_either_shape
+    with_rledger(%(echo '{"rows": [{"first": "2024-12-01"}]}')) do
+      assert_equal Date.new(2024, 12, 1), Reports.first_date
+    end
+    with_rledger(%(echo '{"rows": [["2024-12-01"]]}')) { assert_equal Date.new(2024, 12, 1), Reports.first_date }
+  end
+
   def test_query_raises_with_stderr_when_rledger_fails
     error = assert_raises(Reports::Error) do
       with_rledger('echo "error: file not found" >&2; exit 1') { Reports.query('SELECT account') }
@@ -106,6 +113,7 @@ class ReportsTest < Minitest::Test
       income = Reports.income(Date.new(2024, 1, 1), Date.new(2024, 12, 31))
       sheet = Reports.balance(Date.new(2024, 4, 30))
 
+      assert_equal Date.new(2024, 1, 1), Reports.first_date
       assert_equal BigDecimal('-100'), income['Income:Gains']['MXN']
       assert_equal BigDecimal('-500'), income['Income:Salary']['MXN']
       assert_equal BigDecimal('750'), sheet['Assets:Stock']['MXN']

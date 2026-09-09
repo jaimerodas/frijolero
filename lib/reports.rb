@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'bigdecimal'
+require 'date'
 require 'json'
 require 'open3'
 
@@ -30,6 +31,12 @@ module Frijolero
       earnings = Hash.new(BigDecimal('0'))
       earned.each { |(_, amounts)| amounts.each { |currency, number| earnings[currency] -= number } }
       sheet.to_h.merge(EARNINGS => earnings)
+    end
+
+    # The earliest transaction, for the `all` period and the period menu.
+    def first_date
+      row = JSON.parse(run('SELECT MIN(date) AS first')).fetch('rows').first
+      Date.iso8601(row.is_a?(Hash) ? row['first'] : row.first)
     end
 
     def query(bql)

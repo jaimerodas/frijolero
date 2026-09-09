@@ -13,14 +13,7 @@
 <body>
   <%= topbar %>
   <main>
-    <h1>Estado de resultados</h1>
-    <%= erb :_report_nav, layout: false %>
-
-    <form method="get" action="/reports/income" class="range">
-      <label for="from">Desde<input type="date" id="from" name="from" value="<%= from.iso8601 %>"></label>
-      <label for="to">Hasta<input type="date" id="to" name="to" value="<%= to.iso8601 %>"></label>
-      <button type="submit" class="primary">Ver</button>
-    </form>
+    <%= erb :_report_toolbar, layout: false, locals: { title: 'Estado de resultados', period: period, first: first, today: today } %>
 
     <% if error %>
       <p class="error" role="alert"><%= h.(error) %></p>

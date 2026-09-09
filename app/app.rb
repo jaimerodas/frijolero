@@ -21,7 +21,7 @@ module Frijolero
       def reports = @reports ||= Reports
     end
 
-    MONTHS = %w[enero febrero marzo abril mayo junio julio agosto septiembre octubre noviembre diciembre].freeze
+    MONTHS = Period::MONTHS
 
     helpers do
       # The <head> every page shares. `refresh` adds a meta refresh in seconds.

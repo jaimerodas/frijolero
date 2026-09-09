@@ -14,3 +14,8 @@ document.addEventListener('click', (event) => {
     if (!open) other.querySelector('button.fold')?.setAttribute('aria-expanded', 'false');
   }
 });
+
+// The period menu is a GET form with no button: choosing an option is the submit.
+document.addEventListener('change', (event) => {
+  if (event.target.matches('select[name="period"]')) event.target.form.requestSubmit();
+});

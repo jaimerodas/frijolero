@@ -15,6 +15,10 @@ class ReportsPageTest < Minitest::Test
       @calls = []
     end
 
+    def first_date
+      Date.new(2024, 12, 1)
+    end
+
     def income(from, to)
       @calls << [:income, from, to]
       raise Frijolero::Reports::Error, error if error
@@ -75,19 +79,46 @@ class ReportsPageTest < Minitest::Test
     assert_equal '/reports/income', URI(last_response.location).path
   end
 
-  def test_income_defaults_to_the_year_to_date
+  def test_income_defaults_to_the_current_year
     get '/reports/income'
 
     today = Date.today
-    assert_equal [[:income, Date.new(today.year, 1, 1), today]], @reports.calls
+    assert_equal [[:income, Date.new(today.year, 1, 1), Date.new(today.year, 12, 31)]], @reports.calls
+    assert_includes last_response.body, %(<h1>Estado de resultados <span class="note">#{today.year}</span></h1>)
   end
 
-  def test_income_takes_the_range_from_the_query_and_ignores_bad_dates
-    get '/reports/income', from: '2025-03-01', to: '2025-13-40'
+  def test_income_takes_the_period_from_the_query
+    get '/reports/income', period: '2025-T2'
 
-    assert_equal Date.new(2025, 3, 1), @reports.calls.first[1]
-    assert_equal Date.today, @reports.calls.first[2]
-    assert_includes last_response.body, 'value="2025-03-01"'
+    assert_equal [[:income, Date.new(2025, 4, 1), Date.new(2025, 6, 30)]], @reports.calls
+    assert_includes last_response.body, '<option value="2025-T2" selected>T2 2025</option>'
+  end
+
+  def test_a_bad_period_falls_back_to_the_current_year
+    get '/reports/income', period: '2025-13'
+
+    assert_equal Date.new(Date.today.year, 1, 1), @reports.calls.first[1]
+  end
+
+  def test_toolbar_switches_resolution_from_the_same_anchor_and_steps_periods
+    get '/reports/income', period: '2025-05'
+    body = last_response.body
+
+    assert_includes body, '<a href="/reports/income?period=2025-T2">Trimestre</a>'
+    assert_includes body, '<a href="/reports/income?period=2025">Año</a>'
+    assert_includes body, '<a href="/reports/income?period=all">Todo</a>'
+    assert_includes body, '<a href="/reports/income?period=2025-05" aria-current="true">Mes</a>'
+    assert_includes body, '<a href="/reports/income?period=2025-04" aria-label="Anterior">'
+    assert_includes body, '<a href="/reports/income?period=2025-06" aria-label="Siguiente">'
+    assert_includes body, '<a href="/reports/balance?period=2025-05">Balance general</a>'
+    assert_includes body, '<option value="2024-12">diciembre 2024</option>'
+  end
+
+  def test_toolbar_greys_the_arrow_past_the_ledger_bounds
+    get '/reports/income', period: 'all'
+
+    refute_includes last_response.body, 'aria-label="Anterior"'
+    assert_equal [[:income, Date.new(2024, 12, 1), Date.today]], @reports.calls
   end
 
   def test_income_shows_income_as_positive_and_the_net
@@ -119,15 +150,17 @@ class ReportsPageTest < Minitest::Test
 
     assert_equal [[:balance, Date.today]], @reports.calls
     assert_includes body, '<title>Balance general</title>'
+    assert_includes body, "al #{Date.today.iso8601}"
     assert_match %r{Card</th>\s*<td class="amount" data-label="MXN">250.00</td>}, body
     assert_match %r{Utilidades-acumuladas</th>\s*<td class="amount" data-label="MXN">-150.00</td>}, body
     assert_includes body, '850.00 MXN'
   end
 
-  def test_balance_takes_the_date_from_the_query
-    get '/reports/balance', at: '2025-06-30'
+  def test_balance_is_a_snapshot_at_the_end_of_a_closed_period
+    get '/reports/balance', period: '2025-T2'
 
-    assert_equal Date.new(2025, 6, 30), @reports.calls.first[1]
+    assert_equal [[:balance, Date.new(2025, 6, 30)]], @reports.calls
+    refute_includes last_response.body, 'al 2025'
   end
 
   def test_report_error_renders_the_message_with_502
@@ -142,7 +175,7 @@ class ReportsPageTest < Minitest::Test
     get '/reports/balance'
     body = last_response.body
 
-    assert_includes body, 'Ledger al <time>2026-09-09</time>: Payee American Express'
+    assert_includes body, '<span class="note" title="Payee American Express">Ledger al 2026-09-09</span>'
     assert_includes body, '<form method="post" action="/ledger/pull"'
     assert_includes body, '<input type="hidden" name="back" value="/reports/balance">'
   end
@@ -174,6 +207,6 @@ class ReportsPageTest < Minitest::Test
 
     assert_includes last_response.body, '<a href="/reports" aria-current="page">Reportes</a>'
     assert_includes last_response.body,
-                    '<a class="button" href="/reports/income" aria-current="page">Estado de resultados</a>'
+                    %(<a href="/reports/income?period=#{Date.today.year}" aria-current="page">Estado de resultados</a>)
   end
 end
