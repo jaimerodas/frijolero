@@ -1,0 +1,8 @@
+option "title" "Mi ledger"
+option "operating_currency" "MXN"
+option "render_commas" "TRUE"
+
+include "account_opens.beancount"
+include "transactions.beancount"
+include "balances.beancount"
+include "prices.beancount"

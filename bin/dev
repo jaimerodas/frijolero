@@ -11,7 +11,10 @@ if [ -f .env ]; then
   set +a
 fi
 
-: "${LEDGER_REPO:=$HOME/Developer/beancount-ledger}"
+if [ -z "$LEDGER_REPO" ]; then
+  echo "bin/dev: pon LEDGER_REPO en .env (la ruta de tu ledger; bin/new-ledger crea uno)" >&2
+  exit 1
+fi
 mkdir -p tmp/dev
 ln -sfn "$LEDGER_REPO" tmp/dev/ledger
 

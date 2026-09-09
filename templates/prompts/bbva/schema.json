@@ -1,27 +1,27 @@
 {
-  "name": "transactions",
+  "name": "transaction_list",
   "strict": true,
   "schema": {
     "type": "object",
     "properties": {
       "transactions": {
         "type": "array",
-        "description": "A list of financial transactions.",
+        "description": "A list of transactions, each with a date, amount, and full description.",
         "items": {
           "type": "object",
           "properties": {
             "date": {
               "type": "string",
-              "description": "The date of the transaction in YYYY-MM-DD format.",
-              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+              "description": "Date of the transaction in YYYY-MM-DD format.",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
             },
             "amount": {
               "type": "number",
-              "description": "Amount of the transaction, can include decimals."
+              "description": "The transaction amount. Should include decimals."
             },
             "description": {
               "type": "string",
-              "description": "Description of the transaction."
+              "description": "Full description of the transaction, including all available detail and supporting multiple lines as needed."
             }
           },
           "required": ["date", "amount", "description"],

@@ -1,0 +1,3 @@
+# Las cuentas. Una clave por cuenta, la misma del nombre de cada archivo.
+# Frijolero agrega un bloque cuando das de alta una cuenta en /accounts/new.
+# Las llaves de cada bloque están en docs/ledger.md del repo de Frijolero.

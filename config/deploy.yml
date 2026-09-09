@@ -1,3 +1,6 @@
+# The deployment of the author. To deploy your own copy, change: the host under
+# servers.web.hosts, proxy.host, image, registry.username, and B2_ENDPOINT and
+# B2_BUCKET under env.clear. The secrets come from .kamal/secrets.
 service: frijolero
 image: jaimerodas/frijolero
 

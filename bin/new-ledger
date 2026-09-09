@@ -1,0 +1,30 @@
+#!/bin/sh
+# Crea un ledger para Frijolero: los archivos iniciales, los prompts y un
+# primer commit. Después agrega un remoto y haz push. Cada job hace
+# `git pull --rebase`, así que el ledger necesita un remoto.
+#
+# Uso: bin/new-ledger <directorio>
+set -e
+
+dir="$1"
+if [ -z "$dir" ]; then
+  echo "uso: bin/new-ledger <directorio>" >&2
+  exit 1
+fi
+if [ -e "$dir" ]; then
+  echo "$dir ya existe" >&2
+  exit 1
+fi
+
+templates="$(cd "$(dirname "$0")/.." && pwd)/templates"
+mkdir -p "$dir"
+cp -R "$templates/ledger/." "$dir"
+cp -R "$templates/prompts" "$dir/config/prompts"
+
+git -C "$dir" init -q -b main
+git -C "$dir" add -A
+git -C "$dir" -c user.name=Frijolero -c user.email=frijolero@localhost commit -qm "Ledger nuevo"
+
+echo "Ledger creado en $dir. Agrega un remoto y haz push:"
+echo "  git -C \"$dir\" remote add origin <url>"
+echo "  git -C \"$dir\" push -u origin main"

@@ -6,7 +6,7 @@ Guidance for Claude Code in this repository.
 
 Frijolero is a Ruby 4.0 web app. It runs Sinatra on Puma, in one process, with no database. It turns bank, card and brokerage statement PDFs into Beancount.
 
-The flow: you upload a PDF. The app finds the account and the period, and you confirm. A background job extracts the transactions with OpenAI, applies YAML rules, writes a `.beancount` file, includes it in the ledger, and commits and pushes. The ledger is a git repo. The PDFs live in Backblaze B2. Version 2.0.0 replaced the CLI. The design record is `docs/webapp-plan.md`.
+The flow: you upload a PDF. The app finds the account and the period, and you confirm. A background job extracts the transactions with OpenAI, applies YAML rules, writes a `.beancount` file, includes it in the ledger, and commits and pushes. The ledger is a git repo. The PDFs live in Backblaze B2. Version 2.0.0 replaced the CLI. The design record is `docs/webapp-plan.md`. The user docs, in Spanish, are `docs/setup.md`, `docs/ledger.md` and `docs/rules.md`.
 
 ## Commits
 
@@ -34,17 +34,17 @@ config.ru        boots app/app.rb
 app/             the Sinatra process: App and its route files, Dashboard, Jobs, views/
 public/          style.css
 lib/             the pipeline, no Sinatra: frijolero.rb is the manifest that requires the rest
-templates/       prompts/{classify,default,plata}, seeds for a new ledger; only tests read them
-bin/             dev, test, test_fast
+templates/       prompts/ and ledger/, the seeds that bin/new-ledger copies; tests read prompts/classify
+bin/             dev, test, test_fast, new-ledger
 config/          deploy.yml, puma.rb
 test/            mirrors app/ and lib/; fixtures/ holds sample statements and test prompts
 ```
 
-The ledger repo is `git@github.com:jaimerodas/beancount-ledger.git` (private). It has three copies:
+The ledger repo is a private repo on GitHub. `CLAUDE.local.md`, git-ignored, holds its URL, the laptop path, the droplet, the host and the 1Password item. `bin/new-ledger` creates a ledger from `templates/`. The repo has three copies:
 
 | Copy | Path | Who writes |
 |---|---|---|
-| Laptop | `~/Developer/beancount-ledger` (SSH remote) | The user, with hand edits in fava. The fish function `moneys` pulls, runs fava, and commits and pushes on Ctrl-C. It pulls with rebase before each push. |
+| Laptop | The clone on the laptop (SSH remote) | The user, with hand edits in fava. The fish function `moneys` pulls, runs fava, and commits and pushes on Ctrl-C. It pulls with rebase before each push. |
 | Droplet volume | `/data/ledger` in the container (HTTPS remote, `GIT_TOKEN` header) | The app. Each job pulls with rebase first and commits and pushes last. The editors commit on save. `commit_and_push` pulls with rebase again between the commit and the push, because the laptop may have pushed in the meantime. A conflict aborts the rebase and raises, and the commit stays local. |
 | GitHub | origin | Nobody directly. |
 
@@ -63,8 +63,6 @@ accounts/<Key>/<Key> YYMM.beancount   # + the .json next to it. Period = the mon
 On the volume, outside the repo: `/data/jobs.jsonl` is the append-only job log. `/data/incoming/<hex>/<original>.pdf` holds one directory per upload. The app removes that directory only when its job succeeds.
 
 In B2, in a bucket shared with other apps: `frijolero/accounts/<Key>/<Key> YYMM.pdf`. `Config.pdf_key` is the only formula for that key, and `Config.pdf_prefix` is the account's directory.
-
-The old world is frozen. `~/Documents/Beancount` and `~/.frijolero` are the pre-2.0 layout. Two scripts migrated them to the ledger repo and to B2 on 2026-09-05, and were deleted afterwards (`git log --diff-filter=D -- script`).
 
 A change to rules, accounts, prompts or model names is a commit in the ledger repo, not a deploy. The app reads those files on each request and each job. The volume gets the change at the next job's pull, or at once with this command:
 
@@ -148,16 +146,16 @@ The span comes from `?period=`: `all`, `2026`, `2026-T3` or `2026-09`, parsed by
 
 ## Operations
 
-- **Deploy.** Kamal 2 with `config/deploy.yml`. The droplet `maia` is 146.190.35.4. The image is ghcr.io `jaimerodas/frijolero`, built for amd64 on the laptop. The volume is `frijolero_data:/data`. The memory cap is 64 MiB. The host is `https://frijolero.pati.to`.
-- **Secrets.** `.kamal/secrets` fetches each secret from the 1Password item `Developer/Frijolero` with `kamal secrets fetch --adapter 1password`. Write one command per line, because the Kamal parser has no line continuations. The fields are `kamal_registry_password`, `openai_api_key`, `app_password`, `b2_key_id`, `b2_application_key` and `git_token`. The non-secret `b2_bucket` and `b2_endpoint` are copied into `deploy.yml`.
-- **From the shell of Claude,** `kamal` and `ssh maia` work only while the 1Password app is unlocked. The `op` prompt and the SSH agent both go through it. If they fail with `promptError` or "communication with agent failed", ask the user to run the command with the `!` prefix. A failed deploy can leave a lock. `kamal lock release` removes it.
+- **Deploy.** Kamal 2 with `config/deploy.yml`, which holds the droplet, the host, the image and the bucket. The image is built for amd64 on the laptop. The volume is `frijolero_data:/data`. The memory cap is 128 MiB.
+- **Secrets.** `.kamal/secrets` fetches each secret from a 1Password item with `kamal secrets fetch --adapter 1password`. Write one command per line, because the Kamal parser has no line continuations. The fields are `kamal_registry_password`, `openai_api_key`, `app_password`, `b2_key_id`, `b2_application_key` and `git_token`. The non-secret `b2_bucket` and `b2_endpoint` are copied into `deploy.yml`.
+- **From the shell of Claude,** `kamal` and `ssh` to the droplet work only while the 1Password app is unlocked. The `op` prompt and the SSH agent both go through it. If they fail with `promptError` or "communication with agent failed", ask the user to run the command with the `!` prefix. A failed deploy can leave a lock. `kamal lock release` removes it.
 - **Measured.** Idle production memory is 35 to 42 MiB of cgroup memory, or 46 to 52 MB of RSS. A report adds a ~21 MB `rledger` child for ~0.1 s. The cap is 128 MiB. A deploy takes about 40 s.
 - **Dockerfile.** `ruby:4.0.6-slim`, two stages, user `app`, with `git` installed for `LedgerRepo` and the `rledger` binary (downloaded with a pinned checksum in the build stage) for the reports. `Gemfile.lock` pins Bundler to 4.0.16, the version in the image.
 - **Failed job.** The job page shows the captured output. The PDF stays in `/data/incoming/<hex>/`. There is no retry from disk. The person uploads again. Stale directories accumulate, and nothing removes them yet.
 
 ## Tests
 
-Minitest and rack-test, about 445 tests, about 5 s. `test/` mirrors `app/` and `lib/`. `with_ledger_dir` points `LEDGER_DIR` at a temporary directory with `config/`. Web tests call `App` directly and swap the collaborators for fakes. Only `test/app/app_test.rb` loads `config.ru`, for the auth wiring. `test_helper.rb` sets `RACK_ENV=test` before it loads the app; Sinatra fixes its environment when `sinatra/base` loads, and any other value makes host authorization return 403 in tests. No test touches the network. `Config.accounts` is read on each call and never memoized. The first deploy cached `{}` because it booted before the volume had a ledger.
+Minitest and rack-test, about 520 tests, about 5 s. `test/` mirrors `app/` and `lib/`. `with_ledger_dir` points `LEDGER_DIR` at a temporary directory with `config/`. Web tests call `App` directly and swap the collaborators for fakes. Only `test/app/app_test.rb` loads `config.ru`, for the auth wiring. `test_helper.rb` sets `RACK_ENV=test` before it loads the app; Sinatra fixes its environment when `sinatra/base` loads, and any other value makes host authorization return 403 in tests. No test touches the network. `Config.accounts` is read on each call and never memoized. The first deploy cached `{}` because it booted before the volume had a ledger.
 
 ## Known rough edges
 

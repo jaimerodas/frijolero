@@ -1,0 +1,389 @@
+{
+  "name": "cetes_directo_statement",
+  "strict": true,
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "statement_metadata",
+      "opening_state",
+      "closing_state",
+      "period_summary",
+      "opening_holdings",
+      "closing_holdings",
+      "movements",
+      "performance",
+      "raw_checks"
+    ],
+    "properties": {
+      "statement_metadata": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "institution",
+          "account_holder",
+          "rfc",
+          "account_clabe",
+          "period_start",
+          "period_end",
+          "period_days",
+          "currency"
+        ],
+        "properties": {
+          "institution": {
+            "type": ["string", "null"]
+          },
+          "account_holder": {
+            "type": ["string", "null"]
+          },
+          "rfc": {
+            "type": ["string", "null"]
+          },
+          "account_clabe": {
+            "type": ["string", "null"]
+          },
+          "period_start": {
+            "type": ["string", "null"],
+            "description": "ISO date YYYY-MM-DD"
+          },
+          "period_end": {
+            "type": ["string", "null"],
+            "description": "ISO date YYYY-MM-DD"
+          },
+          "period_days": {
+            "type": ["integer", "null"]
+          },
+          "currency": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "opening_state": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["portfolio_total", "cash", "total"],
+        "properties": {
+          "portfolio_total": {
+            "type": ["number", "null"]
+          },
+          "cash": {
+            "type": ["number", "null"]
+          },
+          "total": {
+            "type": ["number", "null"]
+          }
+        }
+      },
+      "closing_state": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["portfolio_total", "cash", "total"],
+        "properties": {
+          "portfolio_total": {
+            "type": ["number", "null"]
+          },
+          "cash": {
+            "type": ["number", "null"]
+          },
+          "total": {
+            "type": ["number", "null"]
+          }
+        }
+      },
+      "period_summary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "income",
+          "expenses",
+          "period_interest",
+          "fiscal_year_interest_accumulated",
+          "period_isr_withheld",
+          "fiscal_year_isr_withheld_accumulated",
+          "guber_early_sale_result_period",
+          "guber_early_sale_result_accumulated",
+          "bonddia_yield",
+          "enerfin_yield"
+        ],
+        "properties": {
+          "income": {
+            "type": ["number", "null"]
+          },
+          "expenses": {
+            "type": ["number", "null"]
+          },
+          "period_interest": {
+            "type": ["number", "null"]
+          },
+          "fiscal_year_interest_accumulated": {
+            "type": ["number", "null"]
+          },
+          "period_isr_withheld": {
+            "type": ["number", "null"]
+          },
+          "fiscal_year_isr_withheld_accumulated": {
+            "type": ["number", "null"]
+          },
+          "guber_early_sale_result_period": {
+            "type": ["number", "null"]
+          },
+          "guber_early_sale_result_accumulated": {
+            "type": ["number", "null"]
+          },
+          "bonddia_yield": {
+            "type": ["number", "null"]
+          },
+          "enerfin_yield": {
+            "type": ["number", "null"]
+          }
+        }
+      },
+      "opening_holdings": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/holding_opening"
+        }
+      },
+      "closing_holdings": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/holding_closing"
+        }
+      },
+      "movements": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/movement"
+        }
+      },
+      "performance": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "period_return_percent",
+          "period_net_return_percent",
+          "monthly_history"
+        ],
+        "properties": {
+          "period_return_percent": {
+            "type": ["number", "null"]
+          },
+          "period_net_return_percent": {
+            "type": ["number", "null"]
+          },
+          "monthly_history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/performance_point"
+            }
+          }
+        }
+      },
+      "raw_checks": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "opening_holdings_total",
+          "closing_holdings_total",
+          "opening_cash_ledger_balance",
+          "closing_cash_ledger_balance"
+        ],
+        "properties": {
+          "opening_holdings_total": {
+            "type": ["number", "null"]
+          },
+          "closing_holdings_total": {
+            "type": ["number", "null"]
+          },
+          "opening_cash_ledger_balance": {
+            "type": ["number", "null"]
+          },
+          "closing_cash_ledger_balance": {
+            "type": ["number", "null"]
+          }
+        }
+      }
+    },
+    "$defs": {
+      "holding_opening": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "issuer",
+          "series",
+          "titles",
+          "market_price",
+          "market_value",
+          "participation_percent",
+          "weighted_price",
+          "days_to_maturity"
+        ],
+        "properties": {
+          "issuer": {
+            "type": ["string", "null"]
+          },
+          "series": {
+            "type": ["string", "null"]
+          },
+          "titles": {
+            "type": ["number", "null"]
+          },
+          "market_price": {
+            "type": ["number", "null"]
+          },
+          "market_value": {
+            "type": ["number", "null"]
+          },
+          "participation_percent": {
+            "type": ["number", "null"]
+          },
+          "weighted_price": {
+            "type": ["number", "null"]
+          },
+          "days_to_maturity": {
+            "type": ["integer", "null"]
+          }
+        }
+      },
+      "holding_closing": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "issuer",
+          "series",
+          "titles",
+          "market_price",
+          "market_value",
+          "participation_percent",
+          "weighted_price",
+          "days_to_maturity",
+          "weighted_rate_percent"
+        ],
+        "properties": {
+          "issuer": {
+            "type": ["string", "null"]
+          },
+          "series": {
+            "type": ["string", "null"]
+          },
+          "titles": {
+            "type": ["number", "null"]
+          },
+          "market_price": {
+            "type": ["number", "null"]
+          },
+          "market_value": {
+            "type": ["number", "null"]
+          },
+          "participation_percent": {
+            "type": ["number", "null"]
+          },
+          "weighted_price": {
+            "type": ["number", "null"]
+          },
+          "days_to_maturity": {
+            "type": ["integer", "null"]
+          },
+          "weighted_rate_percent": {
+            "type": ["number", "null"]
+          }
+        }
+      },
+      "movement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "trade_date",
+          "settlement_date",
+          "folio",
+          "description_code",
+          "movement_type",
+          "raw_description",
+          "issuer",
+          "series",
+          "titles",
+          "price",
+          "term",
+          "rate",
+          "cash_outflow",
+          "cash_inflow",
+          "cash_balance_after"
+        ],
+        "properties": {
+          "trade_date": {
+            "type": ["string", "null"],
+            "description": "ISO date YYYY-MM-DD"
+          },
+          "settlement_date": {
+            "type": ["string", "null"],
+            "description": "ISO date YYYY-MM-DD"
+          },
+          "folio": {
+            "type": ["string", "null"]
+          },
+          "description_code": {
+            "type": ["string", "null"]
+          },
+          "movement_type": {
+            "type": ["string", "null"],
+            "enum": [
+              "interest_payment",
+              "tax_withholding",
+              "fund_buy",
+              "fund_sell",
+              "cash_out",
+              "cash_in",
+              "amortization",
+              "security_buy",
+              "other",
+              null
+            ]
+          },
+          "raw_description": {
+            "type": ["string", "null"]
+          },
+          "issuer": {
+            "type": ["string", "null"]
+          },
+          "series": {
+            "type": ["string", "null"]
+          },
+          "titles": {
+            "type": ["number", "null"]
+          },
+          "price": {
+            "type": ["number", "null"]
+          },
+          "term": {
+            "type": ["integer", "null"]
+          },
+          "rate": {
+            "type": ["number", "null"]
+          },
+          "cash_outflow": {
+            "type": ["number", "null"]
+          },
+          "cash_inflow": {
+            "type": ["number", "null"]
+          },
+          "cash_balance_after": {
+            "type": ["number", "null"]
+          }
+        }
+      },
+      "performance_point": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "net_return_percent"],
+        "properties": {
+          "label": {
+            "type": ["string", "null"]
+          },
+          "net_return_percent": {
+            "type": ["number", "null"]
+          }
+        }
+      }
+    }
+  }
+}

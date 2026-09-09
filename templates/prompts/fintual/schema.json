@@ -1,0 +1,326 @@
+{
+  "name": "fintual_statement_compact_v2",
+  "strict": true,
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "schema_version": {
+        "type": "string"
+      },
+      "provider": {
+        "type": "string"
+      },
+      "account_number": {
+        "type": ["string", "null"]
+      },
+      "statement_period": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "start_date": {
+            "type": ["string", "null"]
+          },
+          "end_date": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["start_date", "end_date"]
+      },
+      "currency": {
+        "type": "string"
+      },
+      "summary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "current_positions_value": {
+            "type": ["string", "null"]
+          },
+          "current_cash": {
+            "type": ["string", "null"]
+          },
+          "current_pending_settlement": {
+            "type": ["string", "null"]
+          },
+          "current_total": {
+            "type": ["string", "null"]
+          },
+          "previous_positions_value": {
+            "type": ["string", "null"]
+          },
+          "previous_cash": {
+            "type": ["string", "null"]
+          },
+          "previous_pending_settlement": {
+            "type": ["string", "null"]
+          },
+          "previous_total": {
+            "type": ["string", "null"]
+          },
+          "total_deposits": {
+            "type": ["string", "null"]
+          },
+          "total_withdrawals": {
+            "type": ["string", "null"]
+          },
+          "total_isr_withheld": {
+            "type": ["string", "null"]
+          },
+          "commissions_charged": {
+            "type": ["string", "null"]
+          },
+          "commission_vat": {
+            "type": ["string", "null"]
+          },
+          "total_commissions": {
+            "type": ["string", "null"]
+          },
+          "cash_deposits": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": [
+          "current_positions_value",
+          "current_cash",
+          "current_pending_settlement",
+          "current_total",
+          "previous_positions_value",
+          "previous_cash",
+          "previous_pending_settlement",
+          "previous_total",
+          "total_deposits",
+          "total_withdrawals",
+          "total_isr_withheld",
+          "commissions_charged",
+          "commission_vat",
+          "total_commissions",
+          "cash_deposits"
+        ]
+      },
+      "holdings_current": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "commodity": {
+              "type": ["string", "null"]
+            },
+            "fund_code_raw": {
+              "type": ["string", "null"]
+            },
+            "units": {
+              "type": ["string", "null"]
+            },
+            "average_cost_per_unit": {
+              "type": ["string", "null"]
+            },
+            "price_date": {
+              "type": ["string", "null"]
+            },
+            "price_per_unit": {
+              "type": ["string", "null"]
+            },
+            "market_value": {
+              "type": ["string", "null"]
+            },
+            "portfolio_percent": {
+              "type": ["string", "null"]
+            }
+          },
+          "required": [
+            "commodity",
+            "fund_code_raw",
+            "units",
+            "average_cost_per_unit",
+            "price_date",
+            "price_per_unit",
+            "market_value",
+            "portfolio_percent"
+          ]
+        }
+      },
+      "holdings_previous": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "commodity": {
+              "type": ["string", "null"]
+            },
+            "fund_code_raw": {
+              "type": ["string", "null"]
+            },
+            "units": {
+              "type": ["string", "null"]
+            },
+            "average_cost_per_unit": {
+              "type": ["string", "null"]
+            },
+            "price_date": {
+              "type": ["string", "null"]
+            },
+            "price_per_unit": {
+              "type": ["string", "null"]
+            },
+            "market_value": {
+              "type": ["string", "null"]
+            },
+            "portfolio_percent": {
+              "type": ["string", "null"]
+            }
+          },
+          "required": [
+            "commodity",
+            "fund_code_raw",
+            "units",
+            "average_cost_per_unit",
+            "price_date",
+            "price_per_unit",
+            "market_value",
+            "portfolio_percent"
+          ]
+        }
+      },
+      "transactions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "trade_date": {
+              "type": ["string", "null"]
+            },
+            "settlement_date": {
+              "type": ["string", "null"]
+            },
+            "transaction_type": {
+              "type": "string",
+              "enum": [
+                "deposit",
+                "withdrawal",
+                "buy",
+                "sell",
+                "dividend",
+                "interest",
+                "fee",
+                "tax",
+                "other"
+              ]
+            },
+            "description": {
+              "type": ["string", "null"]
+            },
+            "detail_raw": {
+              "type": ["string", "null"]
+            },
+            "commodity": {
+              "type": ["string", "null"]
+            },
+            "fund_code_raw": {
+              "type": ["string", "null"]
+            },
+            "units": {
+              "type": ["string", "null"]
+            },
+            "price_per_unit": {
+              "type": ["string", "null"]
+            },
+            "reported_amount": {
+              "type": ["string", "null"]
+            },
+            "commission": {
+              "type": ["string", "null"]
+            },
+            "vat": {
+              "type": ["string", "null"]
+            },
+            "cash_flow_direction": {
+              "type": "string",
+              "enum": ["inflow", "outflow", "neutral", "unknown"]
+            },
+            "net_cash_effect": {
+              "type": ["string", "null"]
+            },
+            "oversubvaluation_percent": {
+              "type": ["string", "null"]
+            }
+          },
+          "required": [
+            "trade_date",
+            "settlement_date",
+            "transaction_type",
+            "description",
+            "detail_raw",
+            "commodity",
+            "fund_code_raw",
+            "units",
+            "price_per_unit",
+            "reported_amount",
+            "commission",
+            "vat",
+            "cash_flow_direction",
+            "net_cash_effect",
+            "oversubvaluation_percent"
+          ]
+        }
+      },
+      "tax_metadata": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "withholding_total": {
+            "type": ["string", "null"]
+          },
+          "withholding_items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "tax_type": {
+                  "type": ["string", "null"]
+                },
+                "taxpayer_rfc": {
+                  "type": ["string", "null"]
+                },
+                "amount": {
+                  "type": ["string", "null"]
+                }
+              },
+              "required": ["tax_type", "taxpayer_rfc", "amount"]
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["withholding_total", "withholding_items", "notes"]
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "schema_version",
+      "provider",
+      "account_number",
+      "statement_period",
+      "currency",
+      "summary",
+      "holdings_current",
+      "holdings_previous",
+      "transactions",
+      "tax_metadata",
+      "warnings"
+    ]
+  }
+}
