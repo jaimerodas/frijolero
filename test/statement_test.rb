@@ -271,4 +271,35 @@ class StatementTest < Minitest::Test
       assert_empty @client.extractions
     end
   end
+
+  # --- multi ------------------------------------------------------------
+
+  # The pipeline shapes the request: a multi account gets its labels as an enum.
+  def test_multi_account_fills_the_enum_and_posts_from_each_section
+    with_configured_ledger do |dir|
+      File.write(File.join(dir, 'config', 'accounts.yaml'), <<~YAML)
+        Plata Banco:
+          beancount_account: "Assets:Plata:Cuenta"
+          openai_prompt_type: multi
+          converter_type: multi
+          accounts:
+            Plata Cuenta: "Assets:Plata:Cuenta"
+            Ahorro Flexible: "Assets:Plata:Ahorro"
+      YAML
+      FileUtils.cp_r(File.expand_path('../templates/prompts/multi', __dir__),
+                     File.join(dir, 'config', 'prompts', 'multi'))
+      @client.payload = { 'transactions' => [
+        { 'date' => '2026-09-10', 'description' => 'Rendimientos', 'amount' => 1733.28, 'account' => 'Ahorro Flexible' }
+      ] }
+      pdf = pdf_in_temp_dir('Plata Banco 2608.pdf')
+
+      assert_equal Frijolero::Statement::OK, Frijolero::Statement.new(pdf, client: @client).process
+
+      spec = @client.extractions.first.last
+      assert_equal ['Plata Cuenta', 'Ahorro Flexible'],
+                   spec.dig('format', 'schema', 'properties', 'transactions', 'items', 'properties', 'account', 'enum')
+      beancount = File.read(File.join(dir, 'accounts', 'Plata Banco', 'Plata Banco 2608.beancount'))
+      assert_includes beancount, 'Assets:Plata:Ahorro  1,733.28 MXN'
+    end
+  end
 end

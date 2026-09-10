@@ -127,3 +127,33 @@ class DefaultConverterTest < Minitest::Test
     end
   end
 end
+
+class DefaultConverterSourcesTest < Minitest::Test
+  include TestHelpers
+
+  # A multi-account statement: each row names the section it came from, and
+  # `sources` maps that name to the account the money moves in.
+  def test_posts_each_row_from_its_own_source_account
+    with_temp_dir do |dir|
+      json_path = File.join(dir, 'test.json')
+      rows = [
+        { 'date' => '2026-08-25', 'description' => 'Cashback', 'amount' => 1.79, 'account' => 'Plata Cuenta' },
+        { 'date' => '2026-09-10', 'description' => 'Rendimientos', 'amount' => 1733.28,
+          'account' => 'Ahorro Flexible' },
+        { 'date' => '2026-09-10', 'description' => 'Sin sección', 'amount' => -1.0 }
+      ]
+      File.write(json_path, JSON.generate('transactions' => rows))
+      output_path = File.join(dir, 'output.beancount')
+
+      Frijolero::Converters::Default.convert(
+        input: json_path, account: 'Assets:Plata:Cuenta', output: output_path,
+        sources: { 'Plata Cuenta' => 'Assets:Plata:Cuenta', 'Ahorro Flexible' => 'Assets:Plata:Ahorro' }
+      )
+
+      content = File.read(output_path)
+      assert_includes content, 'Assets:Plata:Cuenta  1.79 MXN'
+      assert_includes content, 'Assets:Plata:Ahorro  1,733.28 MXN'
+      assert_includes content, 'Assets:Plata:Cuenta  -1.00 MXN'
+    end
+  end
+end

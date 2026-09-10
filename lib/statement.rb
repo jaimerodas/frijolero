@@ -102,10 +102,10 @@ module Frijolero
     # local copy outlives everything that can fail, so a failed job leaves a retry
     # sitting on disk instead of nothing at all.
     def run_pipeline
+      pipeline = Pipeline.for(@account_config)
       file_id = @file_id || upload_pdf
       back_up_pdf
-      transactions = extract_transactions(file_id)
-      pipeline = Pipeline.for(@account_config)
+      transactions = extract_transactions(file_id, pipeline)
       pipeline.validate!(transactions)
       discard_local_pdf
 
@@ -149,9 +149,9 @@ module Frijolero
       file_id
     end
 
-    def extract_transactions(file_id)
+    def extract_transactions(file_id, pipeline)
       transactions = nil
-      spec = Config.openai_prompt_spec(@account_config['openai_prompt_type'] || 'default')
+      spec = pipeline.request_spec(Config.openai_prompt_spec(@account_config['openai_prompt_type'] || 'default'))
       elapsed = measure { transactions = client.extract_transactions(file_id, spec) }
       Log.puts "Extracted transactions (#{format_elapsed(elapsed)})"
       transactions

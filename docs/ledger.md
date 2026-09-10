@@ -81,6 +81,14 @@ Plata:
   converter_type: plata
   dividend_account: "Income:Dividends:Plata"
 
+Plata Banco:
+  beancount_account: "Assets:Plata:Cuenta"
+  openai_prompt_type: multi
+  converter_type: multi
+  accounts:
+    Plata Cuenta: "Assets:Plata:Cuenta"
+    Ahorro Flexible: "Assets:Plata:Ahorro"
+
 Old Card:
   beancount_account: "Liabilities:OldCard"
   openai_prompt_type: default
@@ -91,7 +99,8 @@ Old Card:
 |---|---|
 | `beancount_account` | La cuenta de Beancount donde se registran las transacciones. |
 | `openai_prompt_type` | El directorio de `config/prompts/` que extrae este tipo de estado de cuenta. |
-| `converter_type` | El pipeline: `cetes_directo`, `fintual` o `plata`. Sin esta llave, el pipeline es Default. Solo Default usa reglas. |
+| `converter_type` | El pipeline: `cetes_directo`, `fintual`, `plata` o `multi`. Sin esta llave, el pipeline es Default. Solo Default y Multi usan reglas. |
+| `accounts` | Solo Multi. Un estado de cuenta que cubre varias cuentas del mismo banco, cada una en su sección "Movimientos de <nombre>". Mapea el nombre impreso a la cuenta de Beancount. Cada movimiento se registra desde la cuenta de su sección. Las transferencias entre esas cuentas aparecen dos veces, una por sección: una regla que las mande a una cuenta puente, como `Assets:Plata:Traspasos`, las deja en cero. |
 | `description` | La pista que recibe el clasificador. Si falta, usa la clave. |
 | `cutoff_day` | El día del mes en que cierra el estado de cuenta. Sin esta llave, el último día del mes. El job lo llena la primera vez que ve un periodo impreso, y nunca lo sobreescribe. |
 | `closed` | Con `true`, la cuenta sale del dashboard y del clasificador. Su historial sigue en Cuentas. |
@@ -132,8 +141,8 @@ El directorio `classify` es el prompt que lee la cuenta y el periodo de un PDF
 subido. La app llena su lista de cuentas desde `accounts.yaml` en cada
 llamada.
 
-`templates/prompts/` de este repo tiene los seis: `classify`, `default`,
-`bbva`, `cetes`, `fintual` y `plata`. `bin/new-ledger` los copia. El ledger
+`templates/prompts/` de este repo tiene los siete: `classify`, `default`,
+`bbva`, `cetes`, `fintual`, `multi` y `plata`. `bin/new-ledger` los copia. El ledger
 tiene la copia viva. Un cambio en un prompt es un commit en el ledger.
 
 ## Las cuentas de Plata

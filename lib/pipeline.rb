@@ -32,6 +32,11 @@ module Frijolero
         raise InvalidData, 'the response is not a JSON object' unless data.is_a?(Hash)
       end
 
+      # The extraction request, as loaded from config/prompts. A strategy may shape it.
+      def request_spec(spec)
+        spec
+      end
+
       private
 
       # Every strategy's check is the same shape: a top-level array of row hashes,
@@ -76,6 +81,37 @@ module Frijolero
         kwargs = { input: json_path, account: account, output: output }
         kwargs[:expense_account] = expense_account if expense_account
         Converters::Default.convert(**kwargs)
+      end
+    end
+
+    # One PDF that covers several accounts of the same bank, each in its own
+    # "Movimientos de <name>" section. `accounts` in accounts.yaml maps the printed
+    # name to a Beancount account; the model only ever sees the names, as an enum,
+    # and each row posts from the account its section names.
+    class Multi < Default
+      def accounts
+        @account_config['accounts'] || {}
+      end
+
+      def request_spec(spec)
+        spec = Marshal.load(Marshal.dump(spec))
+        spec['format']['schema']['properties']['transactions']['items']['properties']['account']['enum'] = accounts.keys
+        spec
+      end
+
+      def validate!(data)
+        super
+        validate_rows!(data, 'transactions', ['account'])
+        data['transactions'].each_with_index do |row, index|
+          next if accounts.key?(row['account'])
+
+          raise InvalidData,
+                "transactions[#{index}] account '#{row['account']}' is not in accounts: #{accounts.keys.join(', ')}"
+        end
+      end
+
+      def convert(json_path:, output: nil, account: beancount_account, **)
+        Converters::Default.convert(input: json_path, account: account, output: output, sources: accounts)
       end
     end
 
@@ -176,6 +212,7 @@ module Frijolero
     TYPES = {
       'cetes_directo' => CetesDirecto,
       'fintual' => Fintual,
+      'multi' => Multi,
       'plata' => Plata
     }.freeze
   end

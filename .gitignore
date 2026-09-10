@@ -5,3 +5,4 @@ data
 .env
 tmp/
 CLAUDE.local.md
+test/fixtures/multi account statement.pdf

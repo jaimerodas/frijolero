@@ -336,3 +336,61 @@ class PipelineTest < Minitest::Test
     { 'trade_date' => '2025-11-01', 'entry_type' => entry_type, 'net_amount' => '1.00' }
   end
 end
+
+class MultiPipelineTest < Minitest::Test
+  include TestHelpers
+
+  CONFIG = {
+    'beancount_account' => 'Assets:Plata:Cuenta',
+    'accounts' => { 'Plata Cuenta' => 'Assets:Plata:Cuenta', 'Ahorro Flexible' => 'Assets:Plata:Ahorro' }
+  }.freeze
+
+  def test_for_returns_multi_strategy
+    assert_instance_of Frijolero::Pipeline::Multi, Frijolero::Pipeline.for('converter_type' => 'multi')
+  end
+
+  def test_multi_validate_accepts_a_row_with_a_known_account
+    Frijolero::Pipeline::Multi.new(CONFIG).validate!('transactions' => [row('Ahorro Flexible')])
+  end
+
+  def test_multi_validate_rejects_a_row_without_account
+    error = assert_raises(Frijolero::Pipeline::InvalidData) do
+      Frijolero::Pipeline::Multi.new(CONFIG).validate!('transactions' => [row(nil)])
+    end
+    assert_equal 'transactions[0] lacks account', error.message
+  end
+
+  def test_multi_validate_names_an_unknown_account
+    error = assert_raises(Frijolero::Pipeline::InvalidData) do
+      Frijolero::Pipeline::Multi.new(CONFIG).validate!('transactions' => [row('Plata Cuenta'), row('Plazo')])
+    end
+    assert_equal "transactions[1] account 'Plazo' is not in accounts: Plata Cuenta, Ahorro Flexible", error.message
+  end
+
+  # The labels come from accounts.yaml, so the model gets them as an enum and the
+  # names of the Beancount accounts never reach the prompt.
+  def test_multi_request_spec_fills_the_account_enum
+    spec = { 'instructions' => 'Extract.', 'format' => { 'schema' => { 'properties' => { 'transactions' => {
+      'items' => { 'properties' => { 'account' => { 'type' => 'string' } } }
+    } } } } }
+    filled = Frijolero::Pipeline::Multi.new(CONFIG).request_spec(spec)
+    enum = filled.dig('format', 'schema', 'properties', 'transactions', 'items', 'properties', 'account', 'enum')
+    assert_equal ['Plata Cuenta', 'Ahorro Flexible'], enum
+    assert_nil spec.dig('format', 'schema', 'properties', 'transactions', 'items', 'properties', 'account', 'enum')
+  end
+
+  def test_multi_convert_passes_the_sources
+    captured = nil
+    Frijolero::Converters::Default.stub(:convert, ->(**kwargs) { captured = kwargs }) do
+      Frijolero::Pipeline::Multi.new(CONFIG).convert(json_path: 'x.json', output: 'x.beancount')
+    end
+    assert_equal CONFIG['accounts'], captured[:sources]
+    assert_equal 'Assets:Plata:Cuenta', captured[:account]
+  end
+
+  private
+
+  def row(account)
+    { 'date' => '2026-08-25', 'description' => 'Rendimientos', 'amount' => 1733.28, 'account' => account }.compact
+  end
+end

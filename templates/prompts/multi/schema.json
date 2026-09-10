@@ -1,0 +1,39 @@
+{
+  "name": "transactions",
+  "strict": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "transactions": {
+        "type": "array",
+        "description": "Every movement in every 'Movimientos de ...' section of the statement.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "account": {
+              "type": "string",
+              "description": "The name of the account whose section lists this movement, exactly as printed after 'Movimientos de'."
+            },
+            "date": {
+              "type": "string",
+              "description": "The date of the transaction in YYYY-MM-DD format.",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "amount": {
+              "type": "number",
+              "description": "Amount of the transaction, can include decimals."
+            },
+            "description": {
+              "type": "string",
+              "description": "Description of the transaction."
+            }
+          },
+          "required": ["account", "date", "amount", "description"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["transactions"],
+    "additionalProperties": false
+  }
+}
