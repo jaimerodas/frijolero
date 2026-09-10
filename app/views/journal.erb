@@ -30,7 +30,7 @@
       <% if rows.empty? %>
         <p class="note">Sin movimientos.</p>
       <% else %>
-        <p class="net"><span class="count"><%= thousands(rows.size) %> movimientos</span><% unless account.empty? %><% total.each do |currency, amount| %><data value="<%= (amount * sign).to_s('F') %>"><%= figure(amount * sign) %> <%= h.(currency) %></data><% end %><% end %></p>
+        <p class="net"><span class="count"><%= thousands(rows.size) %> movimientos</span><% unless account.empty? %><% total.each do |currency, amount| %><data value="<%= (amount * sign).to_s('F') %>"><%= datum(amount * sign) %> <%= h.(currency) %></data><% end %><% end %></p>
         <ol class="ledger">
           <% rows.each do |tx| %>
             <% link = journal_statement_link(tx[:file]) %>
@@ -40,13 +40,13 @@
               <time datetime="<%= h.(tx[:date].iso8601) %>"><% if link %><a href="<%= link %>"><%= h.(tx[:date].iso8601) %></a><% else %><%= h.(tx[:date].iso8601) %><% end %></time>
               <details>
                 <summary>
-                  <% unless sum.empty? %><span class="sum"><% sum.each do |currency, amount| %><data<% if amount.negative? %> class="debit"<% end %> value="<%= amount.to_s('F') %>"><%= figure(amount) %> <%= h.(currency) %></data><% end %></span><% end %>
+                  <% unless sum.empty? %><span class="sum"><% sum.each do |currency, amount| %><data<% if amount.negative? %> class="debit"<% end %> value="<%= amount.to_s('F') %>"><%= datum(amount) %> <%= h.(currency) %></data><% end %></span><% end %>
                   <span class="line"><% if tx[:payee] %><strong><%= h.(tx[:payee]) %></strong><% unless tx[:narration].to_s.empty? %>: <% end %><% end %><%= h.(tx[:narration]) %><% if tx[:flag] == '!' %> <span class="flag">!</span><% end %></span>
                 </summary>
                 <ul class="postings">
                   <% tx[:postings].each do |p| %>
                     <% currency, number = p[:amount].first %>
-                    <li<% if p[:matched] %> class="matched"<% end %>><code><%= account_links(p[:account], period) %></code><data value="<%= number.to_s('F') %>"><%= figure(number) %> <%= h.(currency) %></data></li>
+                    <li<% if p[:matched] %> class="matched"<% end %>><code><%= account_links(p[:account], period) %></code><data value="<%= number.to_s('F') %>"><%= datum(number) %> <%= h.(currency) %></data></li>
                   <% end %>
                   <li class="tools"><button type="button" class="edit" data-file="<%= h.(ledger_relative(tx[:file])) %>" data-line="<%= h.(tx[:line]) %>">Editar</button></li>
                 </ul>

@@ -6,10 +6,10 @@ module Frijolero
   # Estado de resultados, Balance general and Diario over the whole ledger. Reopens App.
   class App
     helpers do
-      # Report figures: no sign on positives, blank for zero. Display only.
-      def figure(amount)
-        amount.zero? ? '' : money(amount).delete_prefix('+')
-      end
+      # Report figures, display only: no sign on positives. A table cell blanks a
+      # zero; a `<data>` line next to its currency shows 0.00.
+      def figure(amount) = amount.zero? ? '' : datum(amount)
+      def datum(amount) = money(amount).delete_prefix('+')
 
       # The pull button returns to the report it sits on. Nothing else is honoured.
       def report_back

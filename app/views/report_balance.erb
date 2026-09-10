@@ -26,7 +26,7 @@
         </div>
       </div>
       <h2>Patrimonio neto</h2>
-      <p class="net"><% currencies.each do |currency| %><data value="<%= net[currency].to_s('F') %>"><%= figure(net[currency]) %> <%= h.(currency) %></data><% end %></p>
+      <p class="net"><% currencies.each do |currency| %><data value="<%= net[currency].to_s('F') %>"><%= datum(net[currency]) %> <%= h.(currency) %></data><% end %></p>
     <% end %>
   </main>
 </body>

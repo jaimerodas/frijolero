@@ -371,6 +371,16 @@ class ReportsPageTest < Minitest::Test
                     '<span class="count">2 movimientos</span><data value="5150.0">5,150.00 MXN</data>'
   end
 
+  def test_journal_total_of_zero_shows_zero_not_a_bare_currency
+    rows = @reports.journal('Expenses', nil, nil)
+    rows.first[:postings] = [{ account: 'Expenses:Compras', amount: { 'MXN' => BigDecimal('-150') }, matched: true },
+                             { account: 'Expenses:Compras', amount: { 'MXN' => BigDecimal('150') }, matched: true }]
+    @reports.define_singleton_method(:journal) { |*| [rows.first] }
+    get '/journal', account: 'Expenses'
+
+    assert_includes last_response.body, '<data value="0.0">0.00 MXN</data>'
+  end
+
   def test_journal_count_has_a_thousands_separator
     rows = @reports.journal('Expenses', nil, nil)
     @reports.define_singleton_method(:journal) { |*| rows * 1000 }
