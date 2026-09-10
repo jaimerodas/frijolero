@@ -35,7 +35,9 @@ class ReportsPageTest < Minitest::Test
       { 'Assets:Bank' => { 'MXN' => BigDecimal('1100') },
         'Liabilities:Card' => { 'MXN' => BigDecimal('-250') },
         'Equity:Opening-Balances' => { 'MXN' => BigDecimal('-1000') },
-        Frijolero::Reports::EARNINGS => { 'MXN' => BigDecimal('150') } }
+        Frijolero::Reports::EARNINGS => { 'MXN' => BigDecimal('-150') },
+        Frijolero::Reports::UNREALIZED => { 'MXN' => BigDecimal('-40') },
+        Frijolero::Reports::CONVERSIONS => { 'MXN' => BigDecimal('-10') } }
     end
 
     def journal(prefix, from, to, mxn: true, text: nil)
@@ -225,7 +227,7 @@ class ReportsPageTest < Minitest::Test
     assert_includes body, '<title>Balance general</title>'
     assert_includes body, "al #{Date.today.iso8601}"
     assert_includes body, %(<a href="/journal?account=Liabilities%3ACard&amp;period=#{Date.today.year}">250.00</a>)
-    assert_match %r{Utilidades-acumuladas</th>\s*<td class="amount" data-label="MXN">-150.00</td>}, body
+    assert_match %r{Utilidades-acumuladas</th>\s*<td class="amount" data-label="MXN">150.00</td>}, body
     assert_includes body, '850.00 MXN'
   end
 
@@ -532,9 +534,13 @@ class ReportsPageTest < Minitest::Test
     assert_includes body, '<a href="/journal?account=Expenses&amp;period=2025-05&amp;mxn=0">100.50</a>'
   end
 
-  def test_balance_earnings_row_has_no_link
+  # The three synthetic rows are not accounts, so they have no journal to link to.
+  def test_balance_synthetic_rows_show_flipped_and_have_no_link
     get '/reports/balance'
+    body = last_response.body
 
-    assert_match %r{Utilidades-acumuladas</th>\s*<td class="amount" data-label="MXN">-150\.00</td>}, last_response.body
+    assert_match %r{Utilidades-acumuladas</th>\s*<td class="amount" data-label="MXN">150\.00</td>}, body
+    assert_match %r{Ganancias-no-realizadas</th>\s*<td class="amount" data-label="MXN">40\.00</td>}, body
+    assert_match %r{Conversiones</th>\s*<td class="amount" data-label="MXN">10\.00</td>}, body
   end
 end

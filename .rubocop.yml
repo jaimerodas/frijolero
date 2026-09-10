@@ -116,3 +116,10 @@ Metrics/ClassLength:
     - 'lib/converters/plata.rb'
     # App: routes are a table; each handler is a few lines.
     - 'app/app.rb'
+
+# Reports is one BQL query per report plus the parsing of what comes back and the
+# three made-up equity rows of the balance sheet. ~110 lines of small functions
+# over one binary; a split would separate the queries from the rows they yield.
+Metrics/ModuleLength:
+  Exclude:
+    - 'lib/reports.rb'

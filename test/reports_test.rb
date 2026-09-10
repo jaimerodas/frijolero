@@ -79,34 +79,40 @@ class ReportsTest < Minitest::Test
     refute_includes seen, 'CONVERT'
   end
 
-  def test_balance_values_on_the_date_and_folds_earnings_into_equity
-    rows = {
+  # Every row keeps the ledger's sign (a credit is negative; the view flips Equity).
+  # Cost over market is the unrealized row, and whatever is left closes the sheet.
+  def test_balance_values_on_the_date_and_adds_the_synthetic_equity_rows
+    market = {
       'Assets:Bank' => { 'MXN' => BigDecimal('1100') },
+      'Assets:Stock' => { 'MXN' => BigDecimal('750') },
       'Income:Salary' => { 'MXN' => BigDecimal('-500') },
       'Expenses:Food' => { 'MXN' => BigDecimal('100'), 'USD' => BigDecimal('3') }
     }
-    seen = nil
+    cost = { 'Assets:Bank' => { 'MXN' => BigDecimal('1100') }, 'Assets:Stock' => { 'MXN' => BigDecimal('400') } }
+    seen = []
     sheet = Reports.stub(:query, lambda { |bql|
-      seen = bql
-      rows
+      seen << bql
+      bql.include?('COST(') ? cost : market
     }) { Reports.balance(Date.new(2024, 4, 30), mxn: false) }
 
-    assert_includes seen, 'VALUE(SUM(position), 2024-04-30)'
-    assert_includes seen, 'date <= 2024-04-30'
+    assert_includes seen[0], 'VALUE(SUM(position), 2024-04-30) AS total WHERE date <= 2024-04-30'
+    assert_includes seen[1], "SUM(COST(position)) AS total WHERE date <= 2024-04-30 AND account ~ '^Assets'"
     assert_equal({ 'MXN' => BigDecimal('1100') }, sheet['Assets:Bank'])
-    assert_equal({ 'MXN' => BigDecimal('400'), 'USD' => BigDecimal('-3') }, sheet[Reports::EARNINGS])
+    assert_equal({ 'MXN' => BigDecimal('-400'), 'USD' => BigDecimal('3') }, sheet[Reports::EARNINGS])
+    assert_equal({ 'MXN' => BigDecimal('-350') }, sheet[Reports::UNREALIZED])
+    assert_equal({ 'MXN' => BigDecimal('-1100'), 'USD' => BigDecimal('-3') }, sheet[Reports::CONVERSIONS])
     refute sheet.key?('Income:Salary')
   end
 
-  def test_balance_converts_to_mxn_at_the_date
-    seen = nil
+  def test_balance_converts_market_and_cost_to_mxn_at_the_date
+    seen = []
     Reports.stub(:query, lambda { |bql|
-      seen = bql
+      seen << bql
       {}
     }) { Reports.balance(Date.new(2024, 4, 30)) }
 
-    assert_includes seen, "SUM(CONVERT(position, 'MXN', 2024-04-30)) AS total"
-    assert_includes seen, 'date <= 2024-04-30'
+    assert_includes seen[0], "SUM(CONVERT(position, 'MXN', 2024-04-30)) AS total"
+    assert_includes seen[1], "SUM(CONVERT(COST(position), 'MXN', 2024-04-30)) AS total"
   end
 
   # The BQL that `journal` would run, with the binary stubbed out.
@@ -326,7 +332,11 @@ class ReportsTest < Minitest::Test
       assert_equal BigDecimal('750'), sheet['Assets:Stock']['MXN']
       assert_equal BigDecimal('1100'), sheet['Assets:Bank']['MXN']
       assert_equal({ 'USD' => BigDecimal('20') }, sheet['Assets:Dollars'])
-      assert_equal BigDecimal('500'), sheet[Reports::EARNINGS]['MXN']
+      assert_equal BigDecimal('-500'), sheet[Reports::EARNINGS]['MXN']
+      # 15 ACME at 50 against 5 at 20 and 10 at 30 on the books.
+      assert_equal({ 'MXN' => BigDecimal('-350') }, sheet[Reports::UNREALIZED])
+      # No cross-currency postings, so the plug is zero in every currency.
+      assert sheet[Reports::CONVERSIONS].values.all?(&:zero?)
     end
   end
 

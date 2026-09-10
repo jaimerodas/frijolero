@@ -13,26 +13,48 @@ module Frijolero
     class Error < StandardError; end
 
     EARNINGS = 'Equity:Utilidades-acumuladas'
+    UNREALIZED = 'Equity:Ganancias-no-realizadas'
+    CONVERSIONS = 'Equity:Conversiones'
+    # Rows the balance sheet makes up. They are not accounts, so no journal.
+    SYNTHETIC = [EARNINGS, UNREALIZED, CONVERSIONS].freeze
 
     module_function
 
     # Income and Expenses postings in [from, to]: {account => {currency => BigDecimal}}.
     # With `mxn`, every posting is restated at the closing rate of the period.
     def income(from, to, mxn: true)
-      total = mxn ? in_mxn(to) : 'SUM(position)'
+      total = mxn ? valued(to, true) : 'SUM(position)'
       query("SELECT account, #{total} AS total WHERE date >= #{from.iso8601} AND date <= #{to.iso8601} " \
             "AND account ~ '^(Income|Expenses)' GROUP BY account")
     end
 
-    # Assets, Liabilities and Equity at market value on `at`. Income and Expenses
-    # up to that day fold, negated, into one equity row, so the sheet carries its earnings.
+    # Assets, Liabilities and Equity at market value on `at`, in the ledger's own
+    # signs (a credit is negative; the view flips Equity). Three made-up equity rows
+    # make Assets - Liabilities = Equity hold: Income and Expenses up to that day as
+    # retained earnings, cost over market of the assets as unrealized gains, and
+    # whatever is left as conversions, which is old cross-currency postings restated
+    # at the rate of `at`. Two queries: market value, and cost of the assets.
     def balance(at, mxn: true)
-      total = mxn ? in_mxn(at) : "VALUE(SUM(position), #{at.iso8601})"
-      rows = query("SELECT account, #{total} AS total WHERE date <= #{at.iso8601} GROUP BY account")
+      rows = query("SELECT account, #{valued(at, mxn)} AS total WHERE date <= #{at.iso8601} GROUP BY account")
+      at_cost = query("SELECT account, #{valued(at, mxn, cost: true)} AS total WHERE date <= #{at.iso8601} " \
+                      "AND account ~ '^Assets' GROUP BY account")
       sheet, earned = rows.partition { |account, _| account.start_with?('Assets', 'Liabilities', 'Equity') }
-      earnings = Hash.new(BigDecimal('0'))
-      earned.each { |(_, amounts)| amounts.each { |currency, number| earnings[currency] -= number } }
-      sheet.to_h.merge(EARNINGS => earnings)
+      sheet.to_h.merge(synthetic_rows(sheet.to_h, earned.to_h, at_cost))
+    end
+
+    def synthetic_rows(sheet, earned, at_cost)
+      assets = sheet.select { |account, _| account.start_with?('Assets') }.values
+      rows = { EARNINGS => total(earned.values), UNREALIZED => total(at_cost.values + negated(assets)) }
+      rows.merge(CONVERSIONS => total(negated(sheet.values + rows.values)))
+    end
+
+    def negated(amounts_list) = amounts_list.map { |amounts| amounts.transform_values(&:-@) }
+
+    # {currency => sum} over a list of {currency => number}, without the zeros.
+    def total(amounts_list)
+      sum = Hash.new(BigDecimal('0'))
+      amounts_list.each { |amounts| amounts.each { |c, n| sum[c] += n } }
+      sum.reject { |_, n| n.zero? }
     end
 
     # One entry per transaction with a posting under `prefix` ('' keeps every
@@ -96,10 +118,15 @@ module Frijolero
       value.to_s.empty? ? Date.today : Date.iso8601(value)
     end
 
-    # Market value in MXN at the latest price on or before `date`, stocks via USD.
-    # A commodity with no price stays as it is, so it shows in its own column.
-    def in_mxn(date)
-      "SUM(CONVERT(position, 'MXN', #{date.iso8601}))"
+    # BQL for a group's total: market value in MXN at the latest price on or before
+    # `at`, stocks via USD, with a commodity that has no price left as it is, so it
+    # shows in its own column; or, without `mxn`, valued in its own currency. With
+    # `cost`, the book value instead of the market value.
+    def valued(at, mxn, cost: false)
+      expr = cost ? 'COST(position)' : 'position'
+      return "SUM(CONVERT(#{expr}, 'MXN', #{at.iso8601}))" if mxn
+
+      cost ? 'SUM(COST(position))' : "VALUE(SUM(position), #{at.iso8601})"
     end
 
     def query(bql)

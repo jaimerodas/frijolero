@@ -17,7 +17,7 @@
         <% next if row[:depth].zero? %>
         <tr data-account="<%= h.(row[:name]) %>" data-depth="<%= row[:depth] %>"<% if row[:total] %> class="total"<% end %><% if row[:depth] > 1 %> hidden<% end %>>
           <th scope="row" style="--depth: <%= row[:depth] - 1 %>"><% if row[:total] %><button type="button" class="fold" aria-expanded="false"><%= h.(row[:name].split(':').last) %></button><% else %><%= h.(row[:name].split(':').last) %><% end %></th>
-          <% currencies.each do |currency| %><td class="amount" data-label="<%= h.(currency) %>"><% value = figure(row[:amounts][currency] * sign) %><% if value.empty? || row[:name] == Frijolero::Reports::EARNINGS %><%= value %><% else %><a href="<%= h.(journal_href.(row[:name])) %>"><%= value %></a><% end %></td><% end %>
+          <% currencies.each do |currency| %><td class="amount" data-label="<%= h.(currency) %>"><% value = figure(row[:amounts][currency] * sign) %><% if value.empty? || Frijolero::Reports::SYNTHETIC.include?(row[:name]) %><%= value %><% else %><a href="<%= h.(journal_href.(row[:name])) %>"><%= value %></a><% end %></td><% end %>
         </tr>
       <% end %>
     </tbody>
