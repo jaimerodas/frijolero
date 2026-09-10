@@ -11,23 +11,26 @@
   <%= topbar %>
   <main>
     <%= erb :_report_toolbar, layout: false, locals: { period: period, first: first, today: today } %>
-    <p class="note"><%= account.empty? ? 'Todas las cuentas' : account_links(account, period) %></p>
+    <header class="journal-head">
+      <h2 class="account"><%= account.empty? ? 'Todas las cuentas' : account_links(account, period) %></h2>
+      <% unless error %>
+        <form method="get" action="/journal" role="search">
+          <input type="hidden" name="account" value="<%= h.(account) %>">
+          <input type="hidden" name="period" value="<%= h.(period.param) %>">
+          <% unless mxn? %><input type="hidden" name="mxn" value="0"><% end %>
+          <input type="search" name="q" value="<%= h.(params[:q]) %>" aria-label="Buscar" placeholder="Beneficiario o descripción">
+          <button type="submit">Buscar</button>
+        </form>
+      <% end %>
+    </header>
 
     <% if error %>
       <p class="error" role="alert"><%= h.(error) %></p>
     <% else %>
-      <form method="get" action="/journal">
-        <input type="hidden" name="account" value="<%= h.(account) %>">
-        <input type="hidden" name="period" value="<%= h.(period.param) %>">
-        <% unless mxn? %><input type="hidden" name="mxn" value="0"><% end %>
-        <input type="search" name="q" value="<%= h.(params[:q]) %>" aria-label="Buscar" placeholder="Beneficiario o descripción">
-        <button type="submit">Buscar</button>
-      </form>
-
       <% if rows.empty? %>
         <p class="note">Sin movimientos.</p>
       <% else %>
-        <p class="net"><%= rows.size %> movimientos<% unless account.empty? %><% total.each do |currency, amount| %><data value="<%= (amount * sign).to_s('F') %>"><%= figure(amount * sign) %> <%= h.(currency) %></data><% end %><% end %></p>
+        <p class="net"><span class="count"><%= thousands(rows.size) %> movimientos</span><% unless account.empty? %><% total.each do |currency, amount| %><data value="<%= (amount * sign).to_s('F') %>"><%= figure(amount * sign) %> <%= h.(currency) %></data><% end %><% end %></p>
         <ol class="ledger">
           <% rows.each do |tx| %>
             <% link = journal_statement_link(tx[:file]) %>

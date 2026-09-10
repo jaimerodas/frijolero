@@ -298,7 +298,7 @@ class ReportsPageTest < Minitest::Test
     assert_includes body, '<span class="line"><strong>AMAZON</strong>: compra</span>'
     assert_includes body, '<span class="line">Nómina <span class="flag">!</span></span>'
     assert_includes body, '<li><code>Assets:BBVA</code><data value="25000.0">25,000.00 MXN</data></li>'.sub(
-      'Assets:BBVA', '<a href="/journal?account=Assets&amp;period=2026">Assets</a>:' \
+      'Assets:BBVA', '<a href="/journal?account=Assets&amp;period=2026">Assets</a>:<wbr>' \
                      '<a href="/journal?account=Assets%3ABBVA&amp;period=2026">BBVA</a>'
     )
     assert_includes body, '5,000.00 MXN'
@@ -308,10 +308,10 @@ class ReportsPageTest < Minitest::Test
     get '/journal', account: 'Expenses:Taxes', period: '2026-07', mxn: '0'
     body = last_response.body
 
-    assert_includes body, '<a href="/journal?account=Expenses&amp;period=2026-07&amp;mxn=0">Expenses</a>:' \
+    assert_includes body, '<a href="/journal?account=Expenses&amp;period=2026-07&amp;mxn=0">Expenses</a>:<wbr>' \
                           '<a href="/journal?account=Expenses%3ATaxes&amp;period=2026-07&amp;mxn=0">Taxes</a>'
     assert_includes body,
-                    '<p class="note"><a href="/journal?account=Expenses&amp;period=2026-07&amp;mxn=0">Expenses</a>:'
+                    '<h2 class="account"><a href="/journal?account=Expenses&amp;period=2026-07&amp;mxn=0">Expenses</a>:'
   end
 
   def test_journal_postings_are_folded_behind_the_summary
@@ -324,7 +324,7 @@ class ReportsPageTest < Minitest::Test
     get '/journal', account: 'Income:Salary'
 
     assert_match(/>Taxes<.*>Salary</m, last_response.body)
-    assert_match(%r{<li class="matched"><code><a [^>]*>Income</a>:<a [^>]*>Salary</a></code><data value="-30000.0">},
+    assert_match(%r{class="matched"><code><a [^>]*>Income</a>:<wbr><a [^>]*>Salary</a></code><data value="-30000.0">},
                  last_response.body)
   end
 
@@ -338,7 +338,7 @@ class ReportsPageTest < Minitest::Test
     get '/journal'
     body = last_response.body
 
-    assert_includes body, '<p class="net">2 movimientos</p>'
+    assert_includes body, '<p class="net"><span class="count">2 movimientos</span></p>'
     refute_includes body, 'class="sum"'
     refute_includes body, 'class="matched"'
   end
@@ -367,7 +367,16 @@ class ReportsPageTest < Minitest::Test
   def test_journal_shows_the_movement_count_and_total_per_currency
     get '/journal', account: 'Expenses'
 
-    assert_includes last_response.body, '2 movimientos<data value="5150.0">5,150.00 MXN</data>'
+    assert_includes last_response.body,
+                    '<span class="count">2 movimientos</span><data value="5150.0">5,150.00 MXN</data>'
+  end
+
+  def test_journal_count_has_a_thousands_separator
+    rows = @reports.journal('Expenses', nil, nil)
+    @reports.define_singleton_method(:journal) { |*| rows * 1000 }
+    get '/journal', account: 'Expenses'
+
+    assert_includes last_response.body, '<span class="count">2,000 movimientos</span>'
   end
 
   def test_journal_toolbar_links_carry_the_account_and_the_search_text

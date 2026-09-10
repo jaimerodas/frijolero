@@ -30,13 +30,14 @@ module Frijolero
       end
 
       # Each segment of an account links to the journal of that prefix, same
-      # period and currency: Expenses:Food:Coffee is three links. HTML, escaped here.
+      # period and currency: Expenses:Food:Coffee is three links, and a long name may
+      # wrap after a colon. HTML, escaped here.
       def account_links(account, period)
         parts = account.split(':')
         parts.each_index.map do |i|
           href = "/journal?account=#{Rack::Utils.escape(parts[..i].join(':'))}&#{report_query(period, filter: false)}"
           %(<a href="#{Rack::Utils.escape_html(href)}">#{Rack::Utils.escape_html(parts[i])}</a>)
-        end.join(':')
+        end.join(':<wbr>')
       end
 
       # `key=value`, URL-escaped, or nil when the param is absent or blank.

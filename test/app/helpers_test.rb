@@ -7,6 +7,12 @@ class HelpersTest < Minitest::Test
     @app = Frijolero::App.new!
   end
 
+  def test_thousands_groups_the_digits_of_a_count
+    assert_equal '1,234', @app.thousands(1234)
+    assert_equal '999', @app.thousands(999)
+    assert_equal '1,000,000', @app.thousands(1_000_000)
+  end
+
   def test_money_adds_thousands_separators_and_a_sign
     assert_equal '-1,234.50', @app.money(-1234.5)
     assert_equal '+5,276.79', @app.money(5276.79)
