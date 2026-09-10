@@ -10,7 +10,7 @@
   <%= topbar %>
   <main>
     <%= erb :_report_toolbar, layout: false, locals: { period: period, first: first, today: today } %>
-    <p class="note"><%= account.empty? ? 'Todas las cuentas' : h.(account) %></p>
+    <p class="note"><%= account.empty? ? 'Todas las cuentas' : account_links(account, period) %></p>
 
     <% if error %>
       <p class="error" role="alert"><%= h.(error) %></p>
@@ -42,7 +42,7 @@
                 <ul class="postings">
                   <% tx[:postings].each do |p| %>
                     <% currency, number = p[:amount].first %>
-                    <li<% if p[:matched] %> class="matched"<% end %>><code><%= h.(p[:account]) %></code><data value="<%= number.to_s('F') %>"><%= figure(number) %> <%= h.(currency) %></data></li>
+                    <li<% if p[:matched] %> class="matched"<% end %>><code><%= account_links(p[:account], period) %></code><data value="<%= number.to_s('F') %>"><%= figure(number) %> <%= h.(currency) %></data></li>
                   <% end %>
                 </ul>
               </details>

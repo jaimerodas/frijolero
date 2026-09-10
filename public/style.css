@@ -151,6 +151,8 @@ a.rules { font-size: 0.875rem; margin-left: 0.5rem; color: var(--muted); }
 .ledger .postings li { display: contents; }
 .ledger .postings code { font-size: inherit; overflow-wrap: anywhere; }
 .ledger .postings .matched { color: var(--muted); }
+.ledger .postings a, .note a { color: inherit; text-decoration: none; }
+.ledger .postings a:hover, .note a:hover { text-decoration: underline; }
 
 /* Reports: an account tree, one column per currency. Parents carry the sum of their subtree.
    On a wide screen the sections sit side by side: income and expenses, assets and the rest. */

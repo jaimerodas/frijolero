@@ -275,8 +275,21 @@ class ReportsPageTest < Minitest::Test
 
     assert_includes body, '<span class="line"><strong>AMAZON</strong>: compra</span>'
     assert_includes body, '<span class="line">Nómina <span class="flag">!</span></span>'
-    assert_includes body, '<li><code>Assets:BBVA</code><data value="25000.0">25,000.00 MXN</data></li>'
-    assert_includes body, '<li><code>Expenses:Taxes</code><data value="5000.0">5,000.00 MXN</data></li>'
+    assert_includes body, '<li><code>Assets:BBVA</code><data value="25000.0">25,000.00 MXN</data></li>'.sub(
+      'Assets:BBVA', '<a href="/journal?account=Assets&amp;period=2026">Assets</a>:' \
+                     '<a href="/journal?account=Assets%3ABBVA&amp;period=2026">BBVA</a>'
+    )
+    assert_includes body, '5,000.00 MXN'
+  end
+
+  def test_each_segment_of_an_account_links_to_that_prefix_in_the_same_period
+    get '/journal', account: 'Expenses:Taxes', period: '2026-07', mxn: '0'
+    body = last_response.body
+
+    assert_includes body, '<a href="/journal?account=Expenses&amp;period=2026-07&amp;mxn=0">Expenses</a>:' \
+                          '<a href="/journal?account=Expenses%3ATaxes&amp;period=2026-07&amp;mxn=0">Taxes</a>'
+    assert_includes body,
+                    '<p class="note"><a href="/journal?account=Expenses&amp;period=2026-07&amp;mxn=0">Expenses</a>:'
   end
 
   def test_journal_postings_are_folded_behind_the_summary
@@ -288,9 +301,9 @@ class ReportsPageTest < Minitest::Test
   def test_journal_lists_the_matched_postings_last_and_muted_with_the_ledger_sign
     get '/journal', account: 'Income:Salary'
 
-    assert_match(/Expenses:Taxes.*Income:Salary/m, last_response.body)
-    assert_includes last_response.body,
-                    '<li class="matched"><code>Income:Salary</code><data value="-30000.0">-30,000.00 MXN</data></li>'
+    assert_match(/>Taxes<.*>Salary</m, last_response.body)
+    assert_match(%r{<li class="matched"><code><a [^>]*>Income</a>:<a [^>]*>Salary</a></code><data value="-30000.0">},
+                 last_response.body)
   end
 
   def test_journal_headline_is_the_matched_sum_with_the_report_sign

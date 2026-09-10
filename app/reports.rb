@@ -29,6 +29,16 @@ module Frijolero
         "/statements/#{Rack::Utils.escape_path(match[1])}/#{match[2]}" if match
       end
 
+      # Each segment of an account links to the journal of that prefix, same
+      # period and currency: Expenses:Food:Coffee is three links. HTML, escaped here.
+      def account_links(account, period)
+        parts = account.split(':')
+        parts.each_index.map do |i|
+          href = "/journal?account=#{Rack::Utils.escape(parts[..i].join(':'))}&#{report_query(period, filter: false)}"
+          %(<a href="#{Rack::Utils.escape_html(href)}">#{Rack::Utils.escape_html(parts[i])}</a>)
+        end.join(':')
+      end
+
       # `key=value`, URL-escaped, or nil when the param is absent or blank.
       def query_param(key)
         "#{key}=#{Rack::Utils.escape(params[key])}" unless params[key].to_s.empty?
