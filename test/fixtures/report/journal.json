@@ -1,36 +1,76 @@
 {
-  "columns": ["date", "flag", "payee", "narration", "account", "other_accounts", "filename", "amount"],
-  "row_count": 3,
+  "columns": ["id", "date", "flag", "payee", "narration", "filename", "account", "amount"],
+  "row_count": 7,
   "rows": [
     {
-      "account": "Expenses:Food:Delivery",
-      "amount": { "cost": null, "units": { "currency": "MXN", "number": "500.58" } },
+      "id": 1,
       "date": "2026-08-01",
-      "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
       "flag": "*",
+      "payee": "Uber",
       "narration": "Uber Eats",
-      "other_accounts": ["Liabilities:Amex-Platinum"],
-      "payee": "Uber"
+      "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
+      "account": "Liabilities:Amex-Platinum",
+      "amount": { "cost": null, "units": { "currency": "MXN", "number": "-500.58" } }
     },
     {
-      "account": "Expenses:Food:Restaurants",
-      "amount": { "cost": null, "units": { "currency": "MXN", "number": "2133.25" } },
+      "id": 1,
       "date": "2026-08-01",
-      "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
       "flag": "*",
+      "payee": "Uber",
+      "narration": "Uber Eats",
+      "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
+      "account": "Expenses:Food:Delivery",
+      "amount": { "cost": null, "units": { "currency": "MXN", "number": "500.58" } }
+    },
+    {
+      "id": 2,
+      "date": "2026-08-01",
+      "flag": "*",
+      "payee": null,
       "narration": "Tacos",
-      "other_accounts": ["Liabilities:Amex-Platinum"],
-      "payee": null
+      "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
+      "account": "Expenses:Food:Restaurants",
+      "amount": { "cost": null, "units": { "currency": "MXN", "number": "2133.25" } }
     },
     {
-      "account": "Expenses:Food:Delivery",
-      "amount": { "cost": null, "units": { "currency": "MXN", "number": "566.72" } },
-      "date": "2026-08-02",
-      "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
+      "id": 2,
+      "date": "2026-08-01",
       "flag": "*",
-      "narration": "Uber Eats",
-      "other_accounts": ["Liabilities:Amex-Platinum"],
-      "payee": "Uber"
+      "payee": null,
+      "narration": "Tacos",
+      "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
+      "account": "Liabilities:Amex-Platinum",
+      "amount": { "cost": null, "units": { "currency": "MXN", "number": "-2133.25" } }
+    },
+    {
+      "id": 3,
+      "date": "2026-08-01",
+      "flag": "*",
+      "payee": null,
+      "narration": "Nomina",
+      "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
+      "account": "Assets:BBVA",
+      "amount": { "cost": null, "units": { "currency": "MXN", "number": "102336.25" } }
+    },
+    {
+      "id": 3,
+      "date": "2026-08-01",
+      "flag": "*",
+      "payee": null,
+      "narration": "Nomina",
+      "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
+      "account": "Assets:Accounts-Receivable",
+      "amount": { "cost": null, "units": { "currency": "MXN", "number": "-5568.00" } }
+    },
+    {
+      "id": 3,
+      "date": "2026-08-01",
+      "flag": "*",
+      "payee": null,
+      "narration": "Nomina",
+      "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
+      "account": "Income:Salary",
+      "amount": { "cost": null, "units": { "currency": "MXN", "number": "-96768.25" } }
     }
   ]
 }

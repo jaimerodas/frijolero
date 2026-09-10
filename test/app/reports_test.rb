@@ -42,15 +42,30 @@ class ReportsPageTest < Minitest::Test
       @calls << [:journal, prefix, from, to, mxn, text]
       raise Frijolero::Reports::Error, error if error
 
-      [
-        { date: Date.new(2026, 7, 5), flag: '*', payee: 'AMAZON', narration: 'compra',
-          account: 'Expenses:Compras', others: ['Liabilities:AMEX'],
-          file: '/data/ledger/accounts/AMEX/AMEX 2607.beancount', amount: { 'MXN' => BigDecimal('-150.00') } },
-        { date: Date.new(2026, 7, 20), flag: '!', payee: nil, narration: 'Nómina',
-          account: 'Income:Salary', others: ['Assets:BBVA'],
-          file: '/data/ledger/transactions.beancount', amount: { 'MXN' => BigDecimal('-30000.00') } }
-      ]
+      txns = JOURNAL.map { |tx| tx.merge(postings: postings_for(tx, prefix)) }
+      prefix.empty? ? txns : txns.select { |tx| tx[:postings].last[:matched] }
     end
+
+    # The contract: matched postings flagged and sorted last.
+    def postings_for(txn, prefix)
+      txn[:postings].map { |p| p.merge(matched: matched?(p, prefix)) }.sort_by { |p| p[:matched] ? 1 : 0 }
+    end
+
+    def matched?(posting, prefix)
+      !prefix.empty? && (posting[:account] == prefix || posting[:account].start_with?("#{prefix}:"))
+    end
+
+    JOURNAL = [
+      { date: Date.new(2026, 7, 5), flag: '*', payee: 'AMAZON', narration: 'compra',
+        file: '/data/ledger/accounts/AMEX/AMEX 2607.beancount',
+        postings: [{ account: 'Liabilities:AMEX', amount: { 'MXN' => BigDecimal('-150.00') } },
+                   { account: 'Expenses:Compras', amount: { 'MXN' => BigDecimal('150.00') } }] },
+      { date: Date.new(2026, 7, 20), flag: '!', payee: nil, narration: 'Nómina',
+        file: '/data/ledger/transactions.beancount',
+        postings: [{ account: 'Income:Salary', amount: { 'MXN' => BigDecimal('-30000.00') } },
+                   { account: 'Assets:BBVA', amount: { 'MXN' => BigDecimal('25000.00') } },
+                   { account: 'Expenses:Taxes', amount: { 'MXN' => BigDecimal('5000.00') } }] }
+    ].freeze
   end
 
   class FakeRepo
@@ -254,22 +269,37 @@ class ReportsPageTest < Minitest::Test
     assert_includes last_response.body, '<h1>Diario</h1>'
   end
 
-  def test_journal_lists_payee_narration_account_other_accounts_and_the_flag
+  def test_journal_entry_is_payee_colon_narration_then_one_line_per_posting
     get '/journal'
     body = last_response.body
 
-    assert_includes body, '<div>AMAZON</div>'
-    assert_includes body, '<span class="note">compra</span>'
-    assert_includes body, '<code>Expenses:Compras</code>'
-    assert_includes body, '<span class="note">Liabilities:AMEX</span>'
-    assert_includes body, '<strong>!</strong>'
+    assert_includes body, '<p class="line"><strong>AMAZON</strong>: compra</p>'
+    assert_includes body, '<p class="line">Nómina <span class="flag">!</span></p>'
+    assert_includes body, '<li><code>Assets:BBVA</code><data value="25000.0">25,000.00 MXN</data></li>'
+    assert_includes body, '<li><code>Expenses:Taxes</code><data value="5000.0">5,000.00 MXN</data></li>'
   end
 
-  def test_journal_applies_the_report_sign_to_rows_and_the_total
+  def test_journal_lists_the_matched_postings_last_and_muted_with_the_ledger_sign
     get '/journal', account: 'Income:Salary'
 
-    assert_includes last_response.body, '30,000.00 MXN'
-    refute_includes last_response.body, '-30,000.00 MXN'
+    assert_match(/Expenses:Taxes.*Income:Salary/m, last_response.body)
+    assert_includes last_response.body,
+                    '<li class="matched"><code>Income:Salary</code><data value="-30000.0">-30,000.00 MXN</data></li>'
+  end
+
+  def test_journal_headline_is_the_matched_sum_with_the_report_sign
+    get '/journal', account: 'Income:Salary'
+
+    assert_includes last_response.body, '<p class="sum"><data value="30000.0">30,000.00 MXN</data></p>'
+  end
+
+  def test_journal_without_an_account_has_no_headline_and_no_total
+    get '/journal'
+    body = last_response.body
+
+    assert_includes body, '<p class="net">2 movimientos</p>'
+    refute_includes body, 'class="sum"'
+    refute_includes body, 'class="matched"'
   end
 
   def test_journal_filter_does_not_follow_the_links_to_the_reports
@@ -294,10 +324,9 @@ class ReportsPageTest < Minitest::Test
   end
 
   def test_journal_shows_the_movement_count_and_total_per_currency
-    get '/journal'
+    get '/journal', account: 'Expenses'
 
-    assert_includes last_response.body, '2 movimientos'
-    assert_includes last_response.body, '-30,150.00 MXN'
+    assert_includes last_response.body, '2 movimientos<data value="5150.0">5,150.00 MXN</data>'
   end
 
   def test_journal_toolbar_links_carry_the_account_and_the_search_text

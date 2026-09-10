@@ -35,30 +35,50 @@ module Frijolero
       sheet.to_h.merge(EARNINGS => earnings)
     end
 
-    # One row per matching posting, in query order. `prefix` is pre-validated by
-    # the caller ('' means every account); `text` is escaped through `bql_text`.
+    # One entry per transaction with a posting under `prefix` ('' keeps every
+    # transaction, every posting unmatched), each with all of its postings,
+    # unmatched ones first. `text` is escaped through `bql_text`.
     def journal(prefix, from, to, mxn: true, text: nil)
-      bql = journal_query(prefix, from, to, mxn: mxn, text: text)
-      JSON.parse(run(bql)).fetch('rows').map { |row| journal_row(row) }
+      bql = journal_query(from, to, mxn: mxn, text: text)
+      rows = JSON.parse(run(bql)).fetch('rows').map { |row| journal_row(row) }
+      rows.group_by { |row| row[:id] }.values.filter_map { |postings| journal_transaction(prefix, postings) }
     end
 
-    def journal_query(prefix, from, to, mxn:, text:)
+    # No account clause: a transaction's other postings are needed too, so the
+    # prefix filter runs in Ruby once the rows are grouped.
+    def journal_query(from, to, mxn:, text:)
       amount = mxn ? "CONVERT(position, 'MXN', #{to.iso8601})" : 'position'
-      bql = "SELECT date, flag, payee, narration, account, other_accounts, filename, #{amount} AS amount " \
+      bql = "SELECT id, date, flag, payee, narration, filename, account, #{amount} AS amount " \
             "WHERE date >= #{from.iso8601} AND date <= #{to.iso8601}"
-      bql += " AND account ~ '^#{prefix}(:|$)'" unless prefix.empty?
       bql += " AND (payee ~ '#{bql_text(text)}' OR narration ~ '#{bql_text(text)}')" if text && !text.strip.empty?
       bql
     end
 
-    # A journal row, either shape: {account, ...} or a positional array in column order.
+    # A journal row, either shape: {id, ...} or a positional array in column order.
     def journal_row(row)
-      columns = %w[date flag payee narration account other_accounts filename amount]
-      date, flag, payee, narration, account, others, file, amount_value =
+      columns = %w[id date flag payee narration filename account amount]
+      id, date, flag, payee, narration, file, account, amount_value =
         row.is_a?(Hash) ? row.values_at(*columns) : row
       units = amount_value['units'] || amount_value
-      { date: Date.iso8601(date), flag: flag, payee: payee, narration: narration, account: account,
-        others: others, file: file, amount: { units['currency'] => BigDecimal(units['number']) } }
+      { id: id, date: Date.iso8601(date), flag: flag, payee: payee, narration: narration, file: file,
+        account: account, amount: { units['currency'] => BigDecimal(units['number']) } }
+    end
+
+    # One transaction from its grouped rows, or nil when none of its postings
+    # match `prefix`. Matched postings sort after unmatched ones.
+    def journal_transaction(prefix, rows)
+      postings = rows.map do |r|
+        { account: r[:account], amount: r[:amount], matched: journal_matches?(prefix, r[:account]) }
+      end
+      return nil unless prefix.empty? || postings.any? { |p| p[:matched] }
+
+      matched, unmatched = postings.partition { |p| p[:matched] }
+      rows.first.slice(:date, :flag, :payee, :narration, :file).merge(postings: unmatched + matched)
+    end
+
+    # The account itself or anything under it. '' matches nothing: Expenses:Foo never covers Expenses:Food.
+    def journal_matches?(prefix, account)
+      account == prefix || account.start_with?("#{prefix}:")
     end
 
     # A raw string into a BQL regex literal: escaped, then `'` becomes `.` (a

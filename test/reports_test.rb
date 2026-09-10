@@ -116,16 +116,17 @@ class ReportsTest < Minitest::Test
     seen
   end
 
-  def test_journal_filters_by_account_prefix_when_given
+  def test_journal_bql_has_no_account_clause
+    # The prefix filter runs in Ruby: a transaction's other postings are needed too.
     seen = journal_bql('Expenses:Food', Date.new(2026, 8, 1), Date.new(2026, 8, 31))
 
-    assert_includes seen, "account ~ '^Expenses:Food(:|$)'"
+    refute_includes seen, 'account ~'
   end
 
-  def test_journal_has_no_account_clause_for_every_account
+  def test_journal_bql_selects_id
     seen = journal_bql('', Date.new(2026, 8, 1), Date.new(2026, 8, 31))
 
-    refute_includes seen, 'account ~'
+    assert_includes seen, 'SELECT id, date, flag, payee, narration, filename, account,'
   end
 
   def test_journal_text_clause_is_escaped_when_given
@@ -151,30 +152,70 @@ class ReportsTest < Minitest::Test
     refute_includes seen, 'CONVERT'
   end
 
-  def test_journal_parses_the_fixture_rows
+  def test_journal_groups_rows_into_transactions_with_postings_in_ledger_order
     rows = with_rledger("cat #{fixture_path('report/journal.json')}") do
-      Reports.journal('Expenses:Food', Date.new(2026, 8, 1), Date.new(2026, 8, 3))
+      Reports.journal('Expenses:Food', Date.new(2026, 8, 1), Date.new(2026, 8, 1))
     end
 
-    assert_equal 3, rows.length
+    assert_equal 2, rows.length
     first, second = rows
     assert_equal Date.new(2026, 8, 1), first[:date]
     assert_equal '*', first[:flag]
     assert_equal 'Uber', first[:payee]
     assert_equal 'Uber Eats', first[:narration]
-    assert_equal 'Expenses:Food:Delivery', first[:account]
-    assert_equal ['Liabilities:Amex-Platinum'], first[:others]
     assert_equal '/data/ledger/accounts/AMEX/AMEX 2607.beancount', first[:file]
-    assert_equal({ 'MXN' => BigDecimal('500.58') }, first[:amount])
+    assert_equal [
+      { account: 'Liabilities:Amex-Platinum', amount: { 'MXN' => BigDecimal('-500.58') }, matched: false },
+      { account: 'Expenses:Food:Delivery', amount: { 'MXN' => BigDecimal('500.58') }, matched: true }
+    ], first[:postings]
     assert_nil second[:payee]
+  end
+
+  def test_journal_sorts_matched_postings_after_unmatched_ones
+    # The fixture's second transaction posts to Expenses:Food first, so this
+    # only passes if the postings are actually reordered, not just filtered.
+    rows = with_rledger("cat #{fixture_path('report/journal.json')}") do
+      Reports.journal('Expenses:Food', Date.new(2026, 8, 1), Date.new(2026, 8, 1))
+    end
+
+    assert_equal [
+      { account: 'Liabilities:Amex-Platinum', amount: { 'MXN' => BigDecimal('-2133.25') }, matched: false },
+      { account: 'Expenses:Food:Restaurants', amount: { 'MXN' => BigDecimal('2133.25') }, matched: true }
+    ], rows.last[:postings]
+  end
+
+  def test_journal_drops_a_transaction_with_no_matched_posting
+    rows = with_rledger("cat #{fixture_path('report/journal.json')}") do
+      Reports.journal('Expenses:Food', Date.new(2026, 8, 1), Date.new(2026, 8, 1))
+    end
+
+    refute_includes rows.map { |r| r[:narration] }, 'Nomina'
+  end
+
+  def test_journal_prefix_does_not_match_a_shorter_sibling_account
+    rows = with_rledger("cat #{fixture_path('report/journal.json')}") do
+      Reports.journal('Expenses:Foo', Date.new(2026, 8, 1), Date.new(2026, 8, 1))
+    end
+
+    assert_empty rows
+  end
+
+  def test_journal_with_empty_prefix_keeps_every_transaction_unmatched
+    rows = with_rledger("cat #{fixture_path('report/journal.json')}") do
+      Reports.journal('', Date.new(2026, 8, 1), Date.new(2026, 8, 1))
+    end
+
+    assert_equal 3, rows.length
+    salary = rows.last
+    assert_equal 3, salary[:postings].length
+    assert(salary[:postings].all? { |p| p[:matched] == false })
   end
 
   def test_journal_parses_array_shaped_rows
     json = {
-      columns: %w[date flag payee narration account other_accounts filename amount],
-      rows: [['2026-08-01', '*', nil, 'Tacos', 'Expenses:Food:Restaurants', ['Liabilities:Amex-Platinum'],
-              '/data/ledger/accounts/AMEX/AMEX 2607.beancount',
-              { 'units' => { 'currency' => 'MXN', 'number' => '150.00' } }]]
+      columns: %w[id date flag payee narration filename account amount],
+      rows: [[2, '2026-08-01', '*', nil, 'Tacos', '/data/ledger/accounts/AMEX/AMEX 2607.beancount',
+              'Expenses:Food:Restaurants', { 'units' => { 'currency' => 'MXN', 'number' => '150.00' } }]]
     }.to_json
 
     rows = with_rledger("echo '#{json}'") { Reports.journal('', Date.new(2026, 8, 1), Date.new(2026, 8, 3)) }
@@ -182,20 +223,19 @@ class ReportsTest < Minitest::Test
     assert_equal 1, rows.length
     assert_equal Date.new(2026, 8, 1), rows.first[:date]
     assert_nil rows.first[:payee]
-    assert_equal({ 'MXN' => BigDecimal('150.00') }, rows.first[:amount])
+    assert_equal({ 'MXN' => BigDecimal('150.00') }, rows.first[:postings].first[:amount])
   end
 
   def test_journal_parses_the_convert_amount_shape
     json = {
-      columns: %w[date flag payee narration account other_accounts filename amount],
-      rows: [['2026-08-01', '*', 'Uber', 'Uber Eats', 'Expenses:Food:Delivery', ['Liabilities:Amex-Platinum'],
-              '/data/ledger/accounts/AMEX/AMEX 2607.beancount',
-              { 'currency' => 'MXN', 'number' => '500.58' }]]
+      columns: %w[id date flag payee narration filename account amount],
+      rows: [[1, '2026-08-01', '*', 'Uber', 'Uber Eats', '/data/ledger/accounts/AMEX/AMEX 2607.beancount',
+              'Expenses:Food:Delivery', { 'currency' => 'MXN', 'number' => '500.58' }]]
     }.to_json
 
     rows = with_rledger("echo '#{json}'") { Reports.journal('', Date.new(2026, 8, 1), Date.new(2026, 8, 3)) }
 
-    assert_equal({ 'MXN' => BigDecimal('500.58') }, rows.first[:amount])
+    assert_equal({ 'MXN' => BigDecimal('500.58') }, rows.first[:postings].first[:amount])
   end
 
   def test_bql_text_escapes_regex_metacharacters_and_quotes

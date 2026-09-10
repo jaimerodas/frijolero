@@ -117,7 +117,7 @@ module Frijolero
         error = e.message
       end
       total = Hash.new(0)
-      rows.each { |row| row[:amount].each { |currency, number| total[currency] += number } }
+      rows.each { |tx| tx[:postings].each { |p| p[:amount].each { |c, n| total[c] += n } if p[:matched] } }
       erb :journal, locals: { period: period, first: first, today: today, error: error,
                               account: account, rows: rows, sign: sign, total: total }
     end
