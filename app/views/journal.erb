@@ -34,14 +34,18 @@
             <% tx[:postings].each { |p| p[:amount].each { |c, n| sum[c] += n * sign } if p[:matched] } %>
             <li class="txn">
               <time datetime="<%= h.(tx[:date].iso8601) %>"><% if link %><a href="<%= link %>"><%= h.(tx[:date].iso8601) %></a><% else %><%= h.(tx[:date].iso8601) %><% end %></time>
-              <p class="line"><% if tx[:payee] %><strong><%= h.(tx[:payee]) %></strong><% unless tx[:narration].to_s.empty? %>: <% end %><% end %><%= h.(tx[:narration]) %><% if tx[:flag] == '!' %> <span class="flag">!</span><% end %></p>
-              <% unless sum.empty? %><p class="sum"><% sum.each do |currency, amount| %><data<% if amount.negative? %> class="debit"<% end %> value="<%= amount.to_s('F') %>"><%= figure(amount) %> <%= h.(currency) %></data><% end %></p><% end %>
-              <ul class="postings">
-                <% tx[:postings].each do |p| %>
-                  <% currency, number = p[:amount].first %>
-                  <li<% if p[:matched] %> class="matched"<% end %>><code><%= h.(p[:account]) %></code><data value="<%= number.to_s('F') %>"><%= figure(number) %> <%= h.(currency) %></data></li>
-                <% end %>
-              </ul>
+              <details>
+                <summary>
+                  <% unless sum.empty? %><span class="sum"><% sum.each do |currency, amount| %><data<% if amount.negative? %> class="debit"<% end %> value="<%= amount.to_s('F') %>"><%= figure(amount) %> <%= h.(currency) %></data><% end %></span><% end %>
+                  <span class="line"><% if tx[:payee] %><strong><%= h.(tx[:payee]) %></strong><% unless tx[:narration].to_s.empty? %>: <% end %><% end %><%= h.(tx[:narration]) %><% if tx[:flag] == '!' %> <span class="flag">!</span><% end %></span>
+                </summary>
+                <ul class="postings">
+                  <% tx[:postings].each do |p| %>
+                    <% currency, number = p[:amount].first %>
+                    <li<% if p[:matched] %> class="matched"<% end %>><code><%= h.(p[:account]) %></code><data value="<%= number.to_s('F') %>"><%= figure(number) %> <%= h.(currency) %></data></li>
+                  <% end %>
+                </ul>
+              </details>
             </li>
           <% end %>
         </ol>

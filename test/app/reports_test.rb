@@ -273,10 +273,16 @@ class ReportsPageTest < Minitest::Test
     get '/journal'
     body = last_response.body
 
-    assert_includes body, '<p class="line"><strong>AMAZON</strong>: compra</p>'
-    assert_includes body, '<p class="line">Nómina <span class="flag">!</span></p>'
+    assert_includes body, '<span class="line"><strong>AMAZON</strong>: compra</span>'
+    assert_includes body, '<span class="line">Nómina <span class="flag">!</span></span>'
     assert_includes body, '<li><code>Assets:BBVA</code><data value="25000.0">25,000.00 MXN</data></li>'
     assert_includes body, '<li><code>Expenses:Taxes</code><data value="5000.0">5,000.00 MXN</data></li>'
+  end
+
+  def test_journal_postings_are_folded_behind_the_summary
+    get '/journal', account: 'Income:Salary'
+
+    assert_match(%r{<details>\s*<summary>.*Nómina.*</summary>\s*<ul class="postings">}m, last_response.body)
   end
 
   def test_journal_lists_the_matched_postings_last_and_muted_with_the_ledger_sign
@@ -290,7 +296,7 @@ class ReportsPageTest < Minitest::Test
   def test_journal_headline_is_the_matched_sum_with_the_report_sign
     get '/journal', account: 'Income:Salary'
 
-    assert_includes last_response.body, '<p class="sum"><data value="30000.0">30,000.00 MXN</data></p>'
+    assert_includes last_response.body, '<span class="sum"><data value="30000.0">30,000.00 MXN</data></span>'
   end
 
   def test_journal_without_an_account_has_no_headline_and_no_total

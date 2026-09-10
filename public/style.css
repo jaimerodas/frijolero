@@ -123,21 +123,26 @@ a.rules { font-size: 0.875rem; margin-left: 0.5rem; color: var(--muted); }
 .ledger .posting { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1rem; margin-top: 0.25rem; }
 .ledger .posting button { min-height: 2rem; padding-inline: 0.625rem; font-size: 0.875rem; }
 
-/* Journal: one entry per transaction. "Payee: narration" with the sum of the
-   filtered postings at the right, then one line per posting, its amount in the
-   same right column, so every amount on the page lines up. The filtered
-   account comes last and muted: the other side of the money is what matters. */
-.ledger .txn { grid-template-areas: "date line sum" ". postings postings"; }
-.ledger .txn > time { grid-area: date; }
-.ledger .line { grid-area: line; margin: 0; min-width: 0; overflow-wrap: anywhere; }
+/* Journal: one entry per transaction. The summary is "Payee: narration" with
+   the sum of the filtered postings at the right; opening it lists one line per
+   posting, its amount in the same right column, so every amount on the page
+   lines up. The filtered account comes last and muted: the other side of the
+   money is what matters. The fold glyph is the one the reports use. The sum
+   precedes the line in the markup so that on phones it floats at the top right. */
+.ledger .txn { grid-template-columns: 6.5rem 1fr; }
+.ledger .txn details { margin: 0; }
+.ledger .txn summary { display: grid; grid-template-columns: 1fr auto; column-gap: 1rem; font-weight: 400; list-style: none; }
+.ledger .txn summary::-webkit-details-marker { display: none; }
+.ledger .line { grid-area: 1 / 1; min-width: 0; overflow-wrap: anywhere; }
+.ledger .line::before { content: "▸"; display: inline-block; width: 1.1rem; color: var(--muted); }
+.ledger details[open] .line::before { content: "▾"; }
 .ledger .flag { color: var(--debit); font-weight: 700; }
-.ledger .sum { grid-area: sum; display: grid; margin: 0; }
+.ledger .sum { grid-area: 1 / 2; display: grid; }
 .ledger .postings {
-  grid-area: postings;
   display: grid;
   grid-template-columns: 1fr max-content;
   gap: 0 1rem;
-  margin: 0.25rem 0 0;
+  margin: 0.25rem 0 0 1.1rem;
   padding: 0;
   list-style: none;
   font-family: var(--mono);
@@ -310,5 +315,8 @@ summary { cursor: pointer; font-weight: 600; }
   .ledger > li { grid-template-columns: 1fr auto; }
   .ledger > li > data { grid-area: 1 / 2; }
   .ledger .entry { grid-column: 1 / -1; }
-  .ledger .txn { grid-template-areas: "date sum" "line line" "postings postings"; }
+  .ledger .txn { grid-template-columns: 1fr; row-gap: 0.25rem; }
+  .ledger .txn summary { display: block; }
+  .ledger .txn .sum { float: right; margin-left: 1rem; }
+  .ledger .postings { clear: both; }
 }
