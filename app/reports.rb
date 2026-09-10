@@ -54,11 +54,14 @@ module Frijolero
         params[:mxn] != '0'
       end
 
-      # `mxn:` lets the currency tabs pick the other choice while keeping the filter.
-      def report_query(period, mxn: mxn?)
+      # `mxn:` lets the currency tabs pick the other choice. The journal filter
+      # travels only between journal pages: a report link, or a link from a
+      # report, drops it, so a filter never leaks into another page's links.
+      def report_query(period, mxn: mxn?, filter: request.path_info == '/journal')
         parts = ["period=#{period.param}"]
         parts << 'mxn=0' unless mxn
-        [parts, query_param(:account), query_param(:q)].flatten.compact.join('&')
+        parts += [query_param(:account), query_param(:q)].compact if filter
+        parts.join('&')
       end
 
       def report_period(first, today)

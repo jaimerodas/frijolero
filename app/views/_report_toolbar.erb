@@ -9,7 +9,7 @@
 <div class="title">
   <nav class="reports" aria-label="Reportes">
     <% { '/reports/income' => 'Estado de resultados', '/reports/balance' => 'Balance general', '/journal' => 'Diario' }.each do |href, label| %>
-      <% if path == href %><h1><%= label %></h1><% else %><a href="<%= href %>?<%= h.(report_query(period)) %>"><%= label %></a><% end %>
+      <% if path == href %><h1><%= label %></h1><% else %><a href="<%= href %>?<%= h.(report_query(period, filter: false)) %>"><%= label %></a><% end %>
     <% end %>
   </nav>
   <form method="post" action="/ledger/pull" class="ledger-head">

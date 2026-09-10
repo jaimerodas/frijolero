@@ -272,6 +272,18 @@ class ReportsPageTest < Minitest::Test
     refute_includes last_response.body, '-30,000.00 MXN'
   end
 
+  def test_journal_filter_does_not_follow_the_links_to_the_reports
+    get '/journal?account=Income:Dividends&period=2025-05&q=x'
+
+    assert_includes last_response.body, '<a href="/reports/balance?period=2025-05">Balance general</a>'
+  end
+
+  def test_report_amount_links_ignore_a_stray_account_param
+    get '/reports/income?period=2025-05&account=Income:Dividends'
+
+    assert_includes last_response.body, '<a href="/journal?account=Expenses%3AFood&amp;period=2025-05">100.50</a>'
+  end
+
   def test_journal_currency_tabs_keep_the_filter
     get '/journal?account=Expenses:Food&period=2025-05&q=uber'
 
