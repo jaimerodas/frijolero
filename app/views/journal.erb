@@ -45,7 +45,7 @@
                     <% currency, number = p[:amount].first %>
                     <li<% if p[:matched] %> class="matched"<% end %>><code><%= account_links(p[:account], period) %></code><data value="<%= number.to_s('F') %>"><%= figure(number) %> <%= h.(currency) %></data></li>
                   <% end %>
-                  <li class="tools"><button type="button" class="edit" data-file="<%= h.(ledger_relative(tx[:file])) %>" data-line="<%= h.(tx[:line]) %>">editar</button></li>
+                  <li class="tools"><button type="button" class="edit" data-file="<%= h.(ledger_relative(tx[:file])) %>" data-line="<%= h.(tx[:line]) %>">Editar</button></li>
                 </ul>
               </details>
             </li>
