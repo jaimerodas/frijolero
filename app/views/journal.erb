@@ -5,6 +5,7 @@
 <html lang="es">
 <head>
   <%= head('Diario') %>
+  <script src="/reports.js" defer></script>
 </head>
 <body>
   <%= topbar %>
@@ -44,6 +45,7 @@
                     <% currency, number = p[:amount].first %>
                     <li<% if p[:matched] %> class="matched"<% end %>><code><%= account_links(p[:account], period) %></code><data value="<%= number.to_s('F') %>"><%= figure(number) %> <%= h.(currency) %></data></li>
                   <% end %>
+                  <li class="tools"><button type="button" class="edit" data-file="<%= h.(ledger_relative(tx[:file])) %>" data-line="<%= h.(tx[:line]) %>">editar</button></li>
                 </ul>
               </details>
             </li>
@@ -51,6 +53,20 @@
         </ol>
       <% end %>
     <% end %>
+
+    <dialog id="edit">
+      <form method="dialog">
+        <h2>Editar transacción</h2>
+        <p class="meta"></p>
+        <input type="hidden" name="file">
+        <input type="hidden" name="line">
+        <input type="hidden" name="original">
+        <label for="edit-content" class="visually-hidden">Beancount</label>
+        <textarea id="edit-content" name="content" rows="8" spellcheck="false"></textarea>
+        <p class="error" role="alert" hidden></p>
+        <p class="actions"><button type="submit" class="primary" value="save">Guardar</button><button type="submit" value="cancel">Cancelar</button></p>
+      </form>
+    </dialog>
   </main>
 </body>
 </html>

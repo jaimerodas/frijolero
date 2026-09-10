@@ -55,13 +55,21 @@ class ReportsPageTest < Minitest::Test
       !prefix.empty? && (posting[:account] == prefix || posting[:account].start_with?("#{prefix}:"))
     end
 
+    # What the edit dialog's save will find. Set by the test; [] means clean.
+    attr_accessor :check_errors
+
+    def check
+      @calls << [:check]
+      check_errors || []
+    end
+
     JOURNAL = [
       { date: Date.new(2026, 7, 5), flag: '*', payee: 'AMAZON', narration: 'compra',
-        file: '/data/ledger/accounts/AMEX/AMEX 2607.beancount',
+        file: '/data/ledger/accounts/AMEX/AMEX 2607.beancount', line: 12,
         postings: [{ account: 'Liabilities:AMEX', amount: { 'MXN' => BigDecimal('-150.00') } },
                    { account: 'Expenses:Compras', amount: { 'MXN' => BigDecimal('150.00') } }] },
       { date: Date.new(2026, 7, 20), flag: '!', payee: nil, narration: 'Nómina',
-        file: '/data/ledger/transactions.beancount',
+        file: '/data/ledger/transactions.beancount', line: 3,
         postings: [{ account: 'Income:Salary', amount: { 'MXN' => BigDecimal('-30000.00') } },
                    { account: 'Assets:BBVA', amount: { 'MXN' => BigDecimal('25000.00') } },
                    { account: 'Expenses:Taxes', amount: { 'MXN' => BigDecimal('5000.00') } }] }
@@ -69,10 +77,11 @@ class ReportsPageTest < Minitest::Test
   end
 
   class FakeRepo
-    attr_accessor :pulls, :error
+    attr_accessor :pulls, :error, :messages
 
     def initialize
       @pulls = 0
+      @messages = []
     end
 
     def head
@@ -83,18 +92,29 @@ class ReportsPageTest < Minitest::Test
       @pulls += 1
       raise Frijolero::LedgerRepo::Error, error if error
     end
+
+    def commit_and_push(message)
+      raise Frijolero::LedgerRepo::Error, error if error
+
+      @messages << message
+    end
   end
 
+  # The journal fixtures name files under /data/ledger; the page only turns
+  # those into relative paths, so the directory need not exist.
   def setup
     @reports = FakeReports.new
     @repo = FakeRepo.new
     Frijolero::App.reports = @reports
     Frijolero::App.repo = @repo
+    @previous_ledger_dir = ENV.fetch('LEDGER_DIR', nil)
+    ENV['LEDGER_DIR'] = '/data/ledger'
   end
 
   def teardown
     Frijolero::App.reports = nil
     Frijolero::App.repo = nil
+    @previous_ledger_dir ? ENV['LEDGER_DIR'] = @previous_ledger_dir : ENV.delete('LEDGER_DIR')
   end
 
   def app
@@ -363,6 +383,99 @@ class ReportsPageTest < Minitest::Test
 
     assert_includes body, '<time datetime="2026-07-05"><a href="/statements/AMEX/2607">2026-07-05</a></time>'
     assert_includes body, '<time datetime="2026-07-20">2026-07-20</time>'
+  end
+
+  def test_journal_entries_carry_an_edit_button_with_the_relative_file_and_the_line
+    get '/journal'
+    body = last_response.body
+
+    assert_includes body,
+                    '<button type="button" class="edit" data-file="accounts/AMEX/AMEX 2607.beancount" data-line="12">'
+    assert_includes body, '<button type="button" class="edit" data-file="transactions.beancount" data-line="3">'
+    assert_match(/<dialog id="edit">.*<form method="dialog">.*<textarea id="edit-content" name="content"/m, body)
+  end
+
+  STATEMENT = "2026-07-05 * \"AMAZON\" \"compra\"\n  Liabilities:AMEX  -150.00 MXN\n  Expenses:Compras\n\n" \
+              "2026-07-06 * \"Uber\"\n  Liabilities:AMEX  -50.00 MXN\n  Expenses:Transporte\n"
+
+  # The edit routes read and write a real file, so they get a ledger on disk.
+  def with_statement
+    with_ledger_dir do |dir|
+      FileUtils.mkdir_p(File.join(dir, 'accounts', 'AMEX'))
+      path = File.join(dir, 'accounts', 'AMEX', 'AMEX 2607.beancount')
+      File.write(path, STATEMENT)
+      yield path
+    end
+  end
+
+  def test_edit_answers_with_the_block_of_the_transaction_as_json
+    with_statement do
+      get '/edit', file: 'accounts/AMEX/AMEX 2607.beancount', line: 2
+
+      assert_equal 200, last_response.status
+      assert_includes last_response.content_type, 'application/json'
+      assert_equal({ 'first' => 1, 'last' => 3, 'text' => STATEMENT.lines[0..2].join }, JSON.parse(last_response.body))
+    end
+  end
+
+  def test_edit_is_404_outside_the_ledger_or_off_a_transaction
+    with_statement do
+      get '/edit', file: '../etc/passwd.beancount', line: 1
+      assert_equal 404, last_response.status
+
+      get '/edit', file: 'accounts/AMEX/AMEX 2607.beancount', line: 99
+      assert_equal 404, last_response.status
+    end
+  end
+
+  def test_saving_an_edit_writes_the_file_and_commits_with_the_transaction_in_the_subject
+    with_statement do |path|
+      original = STATEMENT.lines[0..2].join
+      post '/edit', file: 'accounts/AMEX/AMEX 2607.beancount', line: 2, original: original,
+                    content: original.sub('Compras', 'Casa')
+
+      assert_equal 204, last_response.status
+      assert_includes File.read(path), "  Expenses:Casa\n"
+      assert_includes @reports.calls, [:check]
+      assert_equal 'Edición AMEX 2607: 2026-07-05 AMAZON', @repo.messages.first.lines.first.chomp
+    end
+  end
+
+  def test_an_edit_that_fails_the_check_is_422_with_the_errors_and_leaves_the_file
+    with_statement do |path|
+      @reports.check_errors = ['E1001 Account Expenses:Casa was never opened (accounts/AMEX/AMEX 2607.beancount:1)']
+      original = STATEMENT.lines[0..2].join
+      post '/edit', file: 'accounts/AMEX/AMEX 2607.beancount', line: 2, original: original,
+                    content: original.sub('Compras', 'Casa')
+
+      assert_equal 422, last_response.status
+      assert_equal @reports.check_errors.first, last_response.body
+      assert_equal STATEMENT, File.read(path)
+      assert_empty @repo.messages
+    end
+  end
+
+  def test_a_stale_edit_is_409
+    with_statement do
+      post '/edit', file: 'accounts/AMEX/AMEX 2607.beancount', line: 2, original: "2026-07-05 * \"other\"\n",
+                    content: 'x'
+
+      assert_equal 409, last_response.status
+      assert_includes last_response.body, 'cambió'
+    end
+  end
+
+  def test_a_failed_push_after_a_valid_edit_is_502_and_says_the_file_is_saved
+    with_statement do |path|
+      @repo.error = 'git push: rejected'
+      original = STATEMENT.lines[0..2].join
+      post '/edit', file: 'accounts/AMEX/AMEX 2607.beancount', line: 2, original: original,
+                    content: original.sub('Compras', 'Casa')
+
+      assert_equal 502, last_response.status
+      assert_includes last_response.body, 'git push: rejected'
+      assert_includes File.read(path), "  Expenses:Casa\n"
+    end
   end
 
   def test_journal_calls_the_query_with_the_account

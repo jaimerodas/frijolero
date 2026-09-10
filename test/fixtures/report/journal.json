@@ -1,5 +1,5 @@
 {
-  "columns": ["id", "date", "flag", "payee", "narration", "filename", "account", "amount"],
+  "columns": ["id", "date", "flag", "payee", "narration", "filename", "lineno", "account", "amount"],
   "row_count": 7,
   "rows": [
     {
@@ -9,6 +9,7 @@
       "payee": "Uber",
       "narration": "Uber Eats",
       "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
+      "lineno": 325,
       "account": "Liabilities:Amex-Platinum",
       "amount": { "cost": null, "units": { "currency": "MXN", "number": "-500.58" } }
     },
@@ -19,6 +20,7 @@
       "payee": "Uber",
       "narration": "Uber Eats",
       "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
+      "lineno": 326,
       "account": "Expenses:Food:Delivery",
       "amount": { "cost": null, "units": { "currency": "MXN", "number": "500.58" } }
     },
@@ -29,6 +31,7 @@
       "payee": null,
       "narration": "Tacos",
       "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
+      "lineno": 329,
       "account": "Expenses:Food:Restaurants",
       "amount": { "cost": null, "units": { "currency": "MXN", "number": "2133.25" } }
     },
@@ -39,6 +42,7 @@
       "payee": null,
       "narration": "Tacos",
       "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
+      "lineno": 330,
       "account": "Liabilities:Amex-Platinum",
       "amount": { "cost": null, "units": { "currency": "MXN", "number": "-2133.25" } }
     },
@@ -49,6 +53,7 @@
       "payee": null,
       "narration": "Nomina",
       "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
+      "lineno": 333,
       "account": "Assets:BBVA",
       "amount": { "cost": null, "units": { "currency": "MXN", "number": "102336.25" } }
     },
@@ -59,6 +64,7 @@
       "payee": null,
       "narration": "Nomina",
       "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
+      "lineno": 334,
       "account": "Assets:Accounts-Receivable",
       "amount": { "cost": null, "units": { "currency": "MXN", "number": "-5568.00" } }
     },
@@ -69,6 +75,7 @@
       "payee": null,
       "narration": "Nomina",
       "filename": "/data/ledger/accounts/AMEX/AMEX 2607.beancount",
+      "lineno": 335,
       "account": "Income:Salary",
       "amount": { "cost": null, "units": { "currency": "MXN", "number": "-96768.25" } }
     }

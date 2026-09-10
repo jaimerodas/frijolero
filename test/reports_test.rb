@@ -126,7 +126,7 @@ class ReportsTest < Minitest::Test
   def test_journal_bql_selects_id
     seen = journal_bql('', Date.new(2026, 8, 1), Date.new(2026, 8, 31))
 
-    assert_includes seen, 'SELECT id, date, flag, payee, narration, filename, account,'
+    assert_includes seen, 'SELECT id, date, flag, payee, narration, filename, lineno, account,'
   end
 
   def test_journal_text_clause_is_escaped_when_given
@@ -164,6 +164,7 @@ class ReportsTest < Minitest::Test
     assert_equal 'Uber', first[:payee]
     assert_equal 'Uber Eats', first[:narration]
     assert_equal '/data/ledger/accounts/AMEX/AMEX 2607.beancount', first[:file]
+    assert_equal 325, first[:line]
     assert_equal [
       { account: 'Liabilities:Amex-Platinum', amount: { 'MXN' => BigDecimal('-500.58') }, matched: false },
       { account: 'Expenses:Food:Delivery', amount: { 'MXN' => BigDecimal('500.58') }, matched: true }
@@ -213,8 +214,8 @@ class ReportsTest < Minitest::Test
 
   def test_journal_parses_array_shaped_rows
     json = {
-      columns: %w[id date flag payee narration filename account amount],
-      rows: [[2, '2026-08-01', '*', nil, 'Tacos', '/data/ledger/accounts/AMEX/AMEX 2607.beancount',
+      columns: %w[id date flag payee narration filename lineno account amount],
+      rows: [[2, '2026-08-01', '*', nil, 'Tacos', '/data/ledger/accounts/AMEX/AMEX 2607.beancount', 329,
               'Expenses:Food:Restaurants', { 'units' => { 'currency' => 'MXN', 'number' => '150.00' } }]]
     }.to_json
 
@@ -222,20 +223,63 @@ class ReportsTest < Minitest::Test
 
     assert_equal 1, rows.length
     assert_equal Date.new(2026, 8, 1), rows.first[:date]
+    assert_equal 329, rows.first[:line]
     assert_nil rows.first[:payee]
     assert_equal({ 'MXN' => BigDecimal('150.00') }, rows.first[:postings].first[:amount])
   end
 
   def test_journal_parses_the_convert_amount_shape
     json = {
-      columns: %w[id date flag payee narration filename account amount],
-      rows: [[1, '2026-08-01', '*', 'Uber', 'Uber Eats', '/data/ledger/accounts/AMEX/AMEX 2607.beancount',
+      columns: %w[id date flag payee narration filename lineno account amount],
+      rows: [[1, '2026-08-01', '*', 'Uber', 'Uber Eats', '/data/ledger/accounts/AMEX/AMEX 2607.beancount', 325,
               'Expenses:Food:Delivery', { 'currency' => 'MXN', 'number' => '500.58' }]]
     }.to_json
 
     rows = with_rledger("echo '#{json}'") { Reports.journal('', Date.new(2026, 8, 1), Date.new(2026, 8, 3)) }
 
     assert_equal({ 'MXN' => BigDecimal('500.58') }, rows.first[:postings].first[:amount])
+  end
+
+  def test_check_is_empty_when_the_ledger_is_clean
+    with_ledger_dir do
+      seen = nil
+      Reports.stub(:capture, ->(*args) { seen = args and ['✓ No errors found', '', 0] }) do
+        assert_empty Reports.check
+      end
+
+      assert_equal ['check', '--no-cache', Frijolero::Config.report_file], seen
+    end
+  end
+
+  def test_check_lists_each_error_with_its_code_message_and_relative_location
+    with_ledger_dir do |dir|
+      out = File.read(fixture_path('report/check_errors.txt')).gsub('/data/ledger', dir)
+      errors = Reports.stub(:capture, ->(*) { [out, '', 1] }) { Reports.check }
+
+      assert_equal ['E1001 Account Expenses:Transportation:Tollz was never opened ' \
+                    '(accounts/AMEX/AMEX 2607.beancount:325)'], errors
+    end
+  end
+
+  def test_check_raises_when_the_output_has_no_error_blocks
+    with_ledger_dir do
+      error = Reports.stub(:capture, ->(*) { ['', 'cannot read moneys.beancount', 1] }) do
+        assert_raises(Reports::Error) { Reports.check }
+      end
+
+      assert_equal 'cannot read moneys.beancount', error.message
+    end
+  end
+
+  def test_check_raises_when_rledger_is_missing
+    with_ledger_dir do
+      previous = ENV.fetch('RLEDGER', nil)
+      ENV['RLEDGER'] = '/nonexistent/rledger'
+
+      assert_raises(Reports::Error) { Reports.check }
+    ensure
+      previous ? ENV['RLEDGER'] = previous : ENV.delete('RLEDGER')
+    end
   end
 
   def test_bql_text_escapes_regex_metacharacters_and_quotes

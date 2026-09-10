@@ -48,19 +48,20 @@ module Frijolero
     # prefix filter runs in Ruby once the rows are grouped.
     def journal_query(from, to, mxn:, text:)
       amount = mxn ? "CONVERT(position, 'MXN', #{to.iso8601})" : 'position'
-      bql = "SELECT id, date, flag, payee, narration, filename, account, #{amount} AS amount " \
+      bql = "SELECT id, date, flag, payee, narration, filename, lineno, account, #{amount} AS amount " \
             "WHERE date >= #{from.iso8601} AND date <= #{to.iso8601}"
       bql += " AND (payee ~ '#{bql_text(text)}' OR narration ~ '#{bql_text(text)}')" if text && !text.strip.empty?
       bql
     end
 
     # A journal row, either shape: {id, ...} or a positional array in column order.
+    # `lineno` is the posting's line; LedgerEdit walks back from it to the header.
     def journal_row(row)
-      columns = %w[id date flag payee narration filename account amount]
-      id, date, flag, payee, narration, file, account, amount_value =
+      columns = %w[id date flag payee narration filename lineno account amount]
+      id, date, flag, payee, narration, file, line, account, amount_value =
         row.is_a?(Hash) ? row.values_at(*columns) : row
       units = amount_value['units'] || amount_value
-      { id: id, date: Date.iso8601(date), flag: flag, payee: payee, narration: narration, file: file,
+      { id: id, date: Date.iso8601(date), flag: flag, payee: payee, narration: narration, file: file, line: line,
         account: account, amount: { units['currency'] => BigDecimal(units['number']) } }
     end
 
@@ -73,7 +74,7 @@ module Frijolero
       return nil unless prefix.empty? || postings.any? { |p| p[:matched] }
 
       matched, unmatched = postings.partition { |p| p[:matched] }
-      rows.first.slice(:date, :flag, :payee, :narration, :file).merge(postings: unmatched + matched)
+      rows.first.slice(:date, :flag, :payee, :narration, :file, :line).merge(postings: unmatched + matched)
     end
 
     # The account itself or anything under it. '' matches nothing: Expenses:Foo never covers Expenses:Food.
@@ -110,11 +111,34 @@ module Frijolero
     end
 
     def run(bql)
-      out, err, status = Open3.capture3(Config.rledger, 'query', '--no-cache', '-q', '-f', 'json',
-                                        Config.report_file, bql)
-      return out if status.success?
+      out, err, code = capture('query', '--no-cache', '-q', '-f', 'json', Config.report_file, bql)
+      return out if code.zero?
 
-      raise Error, err.strip.empty? ? "rledger salió con #{status.exitstatus}" : err.strip
+      raise Error, err.strip.empty? ? "rledger salió con #{code}" : err.strip
+    end
+
+    # One line per error block that `rledger check` prints: the code, the `x`
+    # line and the `,-[file:line:col]` line under it. The file is relative to the ledger.
+    CHECK_RE = /^(?<code>[A-Z]\d{4})\n\n\s+x (?<message>.*)\n\s+,-\[(?<file>.*?):(?<line>\d+):\d+\]/
+
+    # `rledger check` over the whole ledger: [] when it is clean, else the errors
+    # as "E3001 Transaction does not balance: … (accounts/AMEX/AMEX 2607.beancount:325)".
+    # Without `--no-cache` the binary would leave a cache file in the clone.
+    def check
+      out, err, code = capture('check', '--no-cache', Config.report_file)
+      return [] if code.zero?
+
+      root = "#{File.expand_path(Config.ledger_dir)}/"
+      errors = (out + err).scan(CHECK_RE).map { |c, m, f, l| "#{c} #{m} (#{f.delete_prefix(root)}:#{l})" }
+      raise Error, (out + err).strip if errors.empty?
+
+      errors
+    end
+
+    # [stdout, stderr, exit status] of one rledger call. The one seam the tests stub.
+    def capture(*)
+      out, err, status = Open3.capture3(Config.rledger, *)
+      [out, err, status.exitstatus]
     rescue Errno::ENOENT => e
       raise Error, e.message
     end

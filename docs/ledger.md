@@ -9,7 +9,7 @@ no necesita un deploy.
 | Copia | Dónde | Quién escribe |
 |---|---|---|
 | Laptop | Tu clon en la laptop | Tú, con ediciones a mano en fava. La función de fish `moneys` hace pull, corre fava, y hace commit y push al salir con Ctrl-C. |
-| Servidor | `/data/ledger` en el contenedor | La app. Cada job hace pull con rebase al empezar, y commit y push al terminar. Los editores hacen commit al guardar. |
+| Servidor | `/data/ledger` en el contenedor | La app. Cada job hace pull con rebase al empezar, y commit y push al terminar. Los editores y el diálogo de editar del Diario hacen commit al guardar. |
 | GitHub | origin | Nadie de forma directa. |
 
 Antes de cada push, la app hace pull con rebase otra vez. Así integra un push

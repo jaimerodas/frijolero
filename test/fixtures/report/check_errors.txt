@@ -1,0 +1,13 @@
+E1001
+
+  x Account Expenses:Transportation:Tollz was never opened
+     ,-[/data/ledger/accounts/AMEX/AMEX 2607.beancount:325:1]
+ 324 |       Expenses:Food:Restaurants
+ 325 | ,-> 2026-08-01 * "PASE" "PASE ENT S JERONIMO MIGUEL HIDALGO RFCISD950921HE5 /REFIMDM2799370014091690"
+ 326 | |     Liabilities:Amex-Platinum  -44.51 MXN
+ 327 | |->   Expenses:Transportation:Tollz
+     : `---- here
+ 328 |     2026-08-01 * "Uber" "Uber Eats"
+ 329 |       source_desc: "UBER EATS HTTPS://HELP.UB"
+     `----
+✗ 1 error
