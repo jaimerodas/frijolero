@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'json'
+
 module Frijolero
   module Pipeline
     # An extraction is a model's account of what the PDF said, and the converters
@@ -111,7 +113,32 @@ module Frijolero
       end
 
       def convert(json_path:, output: nil, account: beancount_account, **)
+        drop_mirrors(json_path)
         Converters::Default.convert(input: json_path, account: account, output: output, sources: accounts)
+      end
+
+      private
+
+      # Both sections print an internal move. A rule that points a row at another
+      # account of this statement marks it as the one that stays; the row in that
+      # account with the same date and the opposite amount is its mirror and goes.
+      def drop_mirrors(json_path)
+        data = JSON.parse(File.read(json_path))
+        kept = without_mirrors(data['transactions'])
+        dropped = data['transactions'].size - kept.size
+        return if dropped.zero?
+
+        Log.puts "Dropped #{dropped} mirrored internal transfer(s)"
+        File.write(json_path, JSON.pretty_generate(data.merge('transactions' => kept)))
+      end
+
+      def without_mirrors(rows)
+        rows.each_with_object([]) { |row, kept| kept << row unless kept.any? { |k| mirror?(k, row) } }
+      end
+
+      def mirror?(kept, row)
+        kept['expense_account'] == accounts[row['account']] && kept['date'] == row['date'] &&
+          kept['amount'] == -row['amount']
       end
     end
 

@@ -100,7 +100,7 @@ Old Card:
 | `beancount_account` | La cuenta de Beancount donde se registran las transacciones. |
 | `openai_prompt_type` | El directorio de `config/prompts/` que extrae este tipo de estado de cuenta. |
 | `converter_type` | El pipeline: `cetes_directo`, `fintual`, `plata` o `multi`. Sin esta llave, el pipeline es Default. Solo Default y Multi usan reglas. |
-| `accounts` | Solo Multi. Un estado de cuenta que cubre varias cuentas del mismo banco, cada una en su sección "Movimientos de <nombre>". Mapea el nombre impreso a la cuenta de Beancount. Cada movimiento se registra desde la cuenta de su sección. Las transferencias entre esas cuentas aparecen dos veces, una por sección: una regla que las mande a una cuenta puente, como `Assets:Plata:Traspasos`, las deja en cero. |
+| `accounts` | Solo Multi. Un estado de cuenta que cubre varias cuentas del mismo banco, cada una en su sección "Movimientos de <nombre>". Mapea el nombre impreso a la cuenta de Beancount. Cada movimiento se registra desde la cuenta de su sección. Un traspaso entre esas cuentas aparece dos veces, una por sección. Una regla que mande una fila a la otra cuenta del mismo estado de cuenta la marca como la que se queda, y la fila espejo, con la misma fecha y el monto opuesto en esa otra cuenta, se descarta. |
 | `description` | La pista que recibe el clasificador. Si falta, usa la clave. |
 | `cutoff_day` | El día del mes en que cierra el estado de cuenta. Sin esta llave, el último día del mes. El job lo llena la primera vez que ve un periodo impreso, y nunca lo sobreescribe. |
 | `closed` | Con `true`, la cuenta sale del dashboard y del clasificador. Su historial sigue en Cuentas. |

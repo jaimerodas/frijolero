@@ -381,16 +381,61 @@ class MultiPipelineTest < Minitest::Test
 
   def test_multi_convert_passes_the_sources
     captured = nil
-    Frijolero::Converters::Default.stub(:convert, ->(**kwargs) { captured = kwargs }) do
-      Frijolero::Pipeline::Multi.new(CONFIG).convert(json_path: 'x.json', output: 'x.beancount')
+    with_multi_json([row('Plata Cuenta')]) do |json_path|
+      Frijolero::Converters::Default.stub(:convert, ->(**kwargs) { captured = kwargs }) do
+        Frijolero::Pipeline::Multi.new(CONFIG).convert(json_path: json_path, output: 'x.beancount')
+      end
     end
     assert_equal CONFIG['accounts'], captured[:sources]
     assert_equal 'Assets:Plata:Cuenta', captured[:account]
   end
 
+  # Both sections print an internal move. A rule that points a row at the other
+  # account marks it as the one that stays, and its mirror goes, so the ledger
+  # gets one transaction from Cuenta straight to Ahorro.
+  def test_multi_convert_drops_the_mirror_of_an_internal_transfer
+    rows = [
+      row('Plata Cuenta', amount: -100, expense_account: 'Assets:Plata:Ahorro'),
+      row('Plata Cuenta', amount: 1.79),
+      row('Ahorro Flexible', amount: 100, expense_account: 'Assets:Plata:Cuenta'),
+      row('Ahorro Flexible', amount: 100, date: '2026-08-28')
+    ]
+    with_multi_json(rows) do |json_path|
+      output = json_path.sub('.json', '.beancount')
+      Frijolero::Pipeline::Multi.new(CONFIG).convert(json_path: json_path, output: output)
+
+      text = File.read(output)
+      assert_equal 1, text.scan('Assets:Plata:Cuenta  -100.00 MXN').size
+      refute_includes text, 'Assets:Plata:Ahorro  100.00 MXN\n  Assets:Plata:Cuenta'
+      assert_includes text, '2026-08-28 * "Rendimientos"'
+      assert_equal 3, JSON.parse(File.read(json_path))['transactions'].size
+    end
+  end
+
+  def test_multi_convert_keeps_a_row_that_only_looks_like_a_mirror
+    rows = [
+      row('Plata Cuenta', amount: -100, expense_account: 'Assets:Plata:Ahorro'),
+      row('Ahorro Flexible', amount: 100, date: '2026-08-26'),
+      row('Ahorro Flexible', amount: 50)
+    ]
+    with_multi_json(rows) do |json_path|
+      Frijolero::Pipeline::Multi.new(CONFIG).convert(json_path: json_path, output: json_path.sub('.json', '.beancount'))
+      assert_equal 3, JSON.parse(File.read(json_path))['transactions'].size
+    end
+  end
+
   private
 
-  def row(account)
-    { 'date' => '2026-08-25', 'description' => 'Rendimientos', 'amount' => 1733.28, 'account' => account }.compact
+  def row(account, amount: 1733.28, date: '2026-08-25', expense_account: nil)
+    { 'date' => date, 'description' => 'Rendimientos', 'amount' => amount, 'account' => account,
+      'expense_account' => expense_account }.compact
+  end
+
+  def with_multi_json(rows)
+    with_temp_dir do |dir|
+      json_path = File.join(dir, 'Plata Banco 2608.json')
+      File.write(json_path, JSON.generate('transactions' => rows))
+      yield json_path
+    end
   end
 end
