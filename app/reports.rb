@@ -68,10 +68,10 @@ module Frijolero
       # `mxn:` lets the currency tabs pick the other choice. The journal filter
       # travels only between journal pages: a report link, or a link from a
       # report, drops it, so a filter never leaks into another page's links.
-      def report_query(period, mxn: mxn?, filter: request.path_info == '/journal')
+      def report_query(period, mxn: mxn?, filter: request.path_info == '/journal', chart: params[:chart])
         parts = ["period=#{period.param}"]
         parts << 'mxn=0' unless mxn
-        parts += [query_param(:account), query_param(:q)].compact if filter
+        parts += [query_param(:account), query_param(:q), chart_param(chart)].compact if filter
         parts.join('&')
       end
 
@@ -129,8 +129,9 @@ module Frijolero
       end
       total = Hash.new(0)
       rows.each { |tx| tx[:postings].each { |p| p[:amount].each { |c, n| total[c] += n } if p[:matched] } }
-      erb :journal, locals: { period: period, first: first, today: today, error: error,
-                              account: account, rows: rows, sign: sign, total: total }
+      chart = chart? && chart_data(rows, period, today, sign)
+      erb :journal, locals: { period: period, first: first, today: today, error: error, account: account,
+                              rows: rows, sign: sign, total: total, chart: chart }
     end
   end
 end

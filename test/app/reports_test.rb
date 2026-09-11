@@ -416,6 +416,68 @@ class ReportsPageTest < Minitest::Test
     assert_match(/<dialog id="edit">.*<form method="dialog">.*<textarea id="edit-content" name="content"/m, body)
   end
 
+  def test_chart_toggle_appears_only_on_the_journal_of_an_account
+    get '/journal', account: 'Expenses', period: '2026'
+    assert_includes last_response.body,
+                    '<nav class="tabs toggle" aria-label="Gráfica">' \
+                    '<a href="/journal?period=2026&amp;account=Expenses&amp;chart=history">Gráfica</a></nav>'
+
+    get '/journal', period: '2026'
+    refute_includes last_response.body, 'Gráfica'
+
+    get '/reports/income', account: 'Expenses', period: '2026'
+    refute_includes last_response.body, 'Gráfica'
+  end
+
+  def test_chart_embeds_the_matched_postings_in_the_report_sign_and_the_period_cut_at_today
+    get '/journal', account: 'Income:Salary', period: '2026', chart: 'history'
+    body = last_response.body
+
+    assert_includes body, '<script src="/d3.min.js" defer></script><script src="/charts.js" defer></script>'
+    assert_includes body,
+                    '<a href="/journal?period=2026&amp;account=Income%3ASalary" aria-current="true">Gráfica</a>'
+    period = %({"from":"2026-01-01","to":"#{Date.today.iso8601}","resolution":"year"})
+    assert_includes body, '<script type="application/json" id="chart-data">' \
+                          "{\"period\":#{period}," \
+                          '"postings":[{"date":"2026-07-20","currency":"MXN","amount":30000.0}]}</script>'
+  end
+
+  def test_chart_period_ends_at_the_last_day_of_a_closed_period
+    get '/journal', account: 'Expenses', period: '2026-07', chart: 'history'
+
+    assert_includes last_response.body, '{"period":{"from":"2026-07-01","to":"2026-07-31","resolution":"month"}'
+  end
+
+  def test_journal_without_the_chart_loads_no_script_and_no_data
+    get '/journal', account: 'Expenses', period: '2026'
+    body = last_response.body
+
+    refute_includes body, 'd3.min.js'
+    refute_includes body, 'charts.js'
+    refute_includes body, 'chart-data'
+  end
+
+  def test_chart_rides_the_toolbar_links_and_the_forms_but_not_the_links_to_the_reports
+    get '/journal', account: 'Expenses', q: 'uber', period: '2026-07', chart: 'history'
+    body = last_response.body
+
+    filter = 'account=Expenses&amp;q=uber&amp;chart=history'
+    assert_includes body, %(<a href="/journal?period=2026&amp;#{filter}">Año</a>)
+    assert_includes body, %(<a href="/journal?period=2026-07&amp;mxn=0&amp;#{filter}">Por moneda</a>)
+    assert_includes body, '<a href="/reports/income?period=2026-07">Estado de resultados</a>'
+    hidden = '<input type="hidden" name="chart" value="history">'
+    assert_match(%r{<form method="get" action="/journal" class="period">.*#{hidden}.*</form>}m, body)
+    assert_match(%r{<form method="get" action="/journal" role="search">.*#{hidden}.*</form>}m, body)
+  end
+
+  def test_journal_period_menu_keeps_the_account_and_the_search_text
+    get '/journal', account: 'Expenses', q: 'uber', period: '2026-07'
+
+    hidden = '<input type="hidden" name="account" value="Expenses">.*<input type="hidden" name="q" value="uber">'
+    assert_match(%r{<form method="get" action="/journal" class="period">.*#{hidden}.*<select name="period"}m,
+                 last_response.body)
+  end
+
   STATEMENT = "2026-07-05 * \"AMAZON\" \"compra\"\n  Liabilities:AMEX  -150.00 MXN\n  Expenses:Compras\n\n" \
               "2026-07-06 * \"Uber\"\n  Liabilities:AMEX  -50.00 MXN\n  Expenses:Transporte\n"
 
