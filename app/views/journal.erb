@@ -12,13 +12,9 @@
   <%= topbar %>
   <main>
     <%= erb :_report_toolbar, layout: false, locals: { period: period, first: first, today: today } %>
-    <% if chart %>
-      <section class="chart" aria-label="Gráfica">
-        <script type="application/json" id="chart-data"><%= JSON.generate(chart).gsub('<', '\u003c') %></script>
-      </section>
-    <% end %>
     <header class="journal-head">
       <h2 class="account"><%= account.empty? ? 'Todas las cuentas' : account_links(account, period) %></h2>
+      <% unless error || account.empty? %><nav class="tabs toggle" aria-label="Gráfica"><a href="/journal?<%= h.(report_query(period, chart: chart ? nil : 'history')) %>"<% if chart %> aria-current="true"<% end %>>Gráfica</a></nav><% end %>
       <% unless error %>
         <form method="get" action="/journal" role="search">
           <input type="hidden" name="account" value="<%= h.(account) %>">
@@ -30,6 +26,11 @@
         </form>
       <% end %>
     </header>
+    <% if chart %>
+      <section class="chart" aria-label="Gráfica">
+        <script type="application/json" id="chart-data"><%= JSON.generate(chart).gsub('<', '\u003c') %></script>
+      </section>
+    <% end %>
 
     <% if error %>
       <p class="error" role="alert"><%= h.(error) %></p>

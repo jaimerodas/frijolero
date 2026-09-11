@@ -5,14 +5,10 @@ module Frijolero
   # as JSON; public/charts.js aggregates and draws them with d3. Reopens App.
   class App
     helpers do
-      # The first chart lives on the journal of one account. A report gets its
-      # own entry here when it has one.
-      def chart_available?
-        request.path_info == '/journal' && !params[:account].to_s.empty?
-      end
-
+      # The first chart lives on the journal of one account; the view shows the
+      # toggle only there. A report gets its own chart name when it has one.
       def chart?
-        chart_available? && params[:chart] == 'history'
+        params[:chart] == 'history' && !params[:account].to_s.empty?
       end
 
       # `chart=<name>` for the toolbar links, nil to drop it. The toggle passes

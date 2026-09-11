@@ -416,17 +416,26 @@ class ReportsPageTest < Minitest::Test
     assert_match(/<dialog id="edit">.*<form method="dialog">.*<textarea id="edit-content" name="content"/m, body)
   end
 
-  def test_chart_toggle_appears_only_on_the_journal_of_an_account
+  def test_chart_toggle_sits_in_the_journal_head_of_an_account
     get '/journal', account: 'Expenses', period: '2026'
-    assert_includes last_response.body,
-                    '<nav class="tabs toggle" aria-label="Gráfica">' \
-                    '<a href="/journal?period=2026&amp;account=Expenses&amp;chart=history">Gráfica</a></nav>'
+    toggle = '<nav class="tabs toggle" aria-label="Gráfica">' \
+             '<a href="/journal?period=2026&amp;account=Expenses&amp;chart=history">Gráfica</a></nav>'
+    assert_match(%r{<header class="journal-head">.*#{Regexp.escape(toggle)}.*</header>}m, last_response.body)
 
     get '/journal', period: '2026'
     refute_includes last_response.body, 'Gráfica'
 
     get '/reports/income', account: 'Expenses', period: '2026'
     refute_includes last_response.body, 'Gráfica'
+  end
+
+  def test_chart_block_follows_the_journal_head_and_needs_rows
+    get '/journal', account: 'Income:Salary', period: '2026', chart: 'history'
+    assert_match(%r{</header>\s*<section class="chart" aria-label="Gráfica">}, last_response.body)
+
+    @reports.error = 'rledger: boom'
+    get '/journal', account: 'Income:Salary', period: '2026', chart: 'history'
+    refute_includes last_response.body, 'chart-data'
   end
 
   def test_chart_embeds_the_matched_postings_in_the_report_sign_and_the_period_cut_at_today

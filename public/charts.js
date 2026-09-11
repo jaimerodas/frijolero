@@ -7,51 +7,92 @@ const section = block.parentElement;
 const parse = d3.utcParse('%Y-%m-%d');
 const from = parse(data.period.from);
 const to = parse(data.period.to);
-
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const QUARTER = d3.utcMonth.every(3);
+const year = (d) => d.getUTCFullYear();
+const month = (d) => MESES[d.getUTCMonth()];
+const quarter = (d) => Math.floor(d.getUTCMonth() / 3) + 1;
 
 // Finest first. A bucket is offered only when it is finer than the page's resolution.
+// `param` is the bucket as a ?period=, so its bar links to the same journal over it.
 const BUCKETS = {
-  day: { label: 'Día', interval: d3.utcDay, format: (d) => `${d.getUTCDate()} ${MESES[d.getUTCMonth()]}` },
-  month: { label: 'Mes', interval: d3.utcMonth, format: (d) => `${MESES[d.getUTCMonth()]} ${d.getUTCFullYear()}` },
-  quarter: { label: 'Trimestre', interval: d3.utcMonth.every(3), format: (d) => `T${Math.floor(d.getUTCMonth() / 3) + 1} ${d.getUTCFullYear()}` },
-  year: { label: 'Año', interval: d3.utcYear, format: (d) => `${d.getUTCFullYear()}` },
+  day: { label: 'Día', interval: d3.utcDay, format: (d) => `${d.getUTCDate()} ${month(d)} ${year(d)}` },
+  month: { label: 'Mes', interval: d3.utcMonth, format: (d) => `${month(d)} ${year(d)}`,
+    param: (d) => `${year(d)}-${String(d.getUTCMonth() + 1).padStart(2, '0')}` },
+  quarter: { label: 'Trimestre', interval: QUARTER, format: (d) => `T${quarter(d)} ${year(d)}`,
+    param: (d) => `${year(d)}-T${quarter(d)}` },
+  year: { label: 'Año', interval: d3.utcYear, format: (d) => `${year(d)}`, param: (d) => `${year(d)}` },
 };
 const FINER = { month: ['day'], quarter: ['day', 'month'], year: ['day', 'month', 'quarter'], all: Object.keys(BUCKETS) };
 const DEFAULT = { month: 'day', quarter: 'month', year: 'month', all: 'year' };
 
+// The x axis marks the starts of a calendar interval: the finest one, from the
+// bucket's own up to years, that gives at least two marks and at most one per
+// 80 px. Days of a month, months of a year, quarters of several years. January
+// reads as the year, like d3's own time axis. When nothing fits, every nth bar.
+const TICKS = [d3.utcDay, d3.utcMonth, QUARTER, d3.utcYear];
+function ticks(starts, bucket, slots) {
+  for (const interval of TICKS.slice(TICKS.indexOf(bucket.interval))) {
+    const at = d3.range(starts.length).filter((i) => +interval.floor(starts[i]) === +starts[i]);
+    if (at.length >= 2 && at.length <= slots) return { at, days: interval === d3.utcDay };
+  }
+  return { at: d3.range(0, starts.length, Math.ceil(starts.length / slots)), days: bucket.interval === d3.utcDay };
+}
+const tickLabel = (d, days) => (days ? `${d.getUTCDate()} ${month(d)}` : d.getUTCMonth() === 0 ? `${year(d)}` : month(d));
+
+// A bar's link: this page with the bucket as the period.
+function link(param) {
+  const query = new URLSearchParams(location.search);
+  query.set('period', param);
+  return `/journal?${query}`;
+}
+
 const amount = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const currencies = [...new Set(data.postings.map((p) => p.currency))];
+const tip = d3.select(section).append('div').attr('class', 'tip').attr('hidden', true);
+tip.append('span').attr('class', 'when');
+tip.append('data');
 
 function draw(by) {
-  const { interval, format } = BUCKETS[by];
+  const bucket = BUCKETS[by];
+  const { interval, format } = bucket;
   const starts = interval.range(interval.floor(from), d3.utcDay.offset(to, 1));
   const width = section.clientWidth;
   const height = 200;
   const margin = { top: 8, right: 32, bottom: 24, left: 64 };
+  const { at, days } = ticks(starts, bucket, Math.max(1, Math.floor((width - margin.left - margin.right) / 80)));
   d3.select(section).selectAll('figure').remove();
 
   for (const currency of currencies) {
     const sums = d3.rollup(data.postings.filter((p) => p.currency === currency),
       (v) => d3.sum(v, (p) => p.amount), (p) => interval.floor(parse(p.date)).getTime());
     const values = starts.map((start) => sums.get(start.getTime()) ?? 0);
+    const text = (i) => `${amount.format(values[i])} ${currency}`;
 
     const x = d3.scaleBand(d3.range(starts.length), [margin.left, width - margin.right]).padding(0.15);
     const y = d3.scaleLinear([Math.min(0, d3.min(values)), Math.max(0, d3.max(values))], [height - margin.bottom, margin.top]).nice();
     const figure = d3.select(section).append('figure');
     if (currencies.length > 1) figure.append('figcaption').text(currency);
-    const svg = figure.append('svg').attr('viewBox', [0, 0, width, height]).attr('role', 'img')
-      .attr('aria-label', `${currency} por ${BUCKETS[by].label.toLowerCase()}`);
+    const svg = figure.append('svg').attr('viewBox', [0, 0, width, height]);
 
-    svg.append('g').selectAll('rect').data(values).join('rect')
-      .attr('class', (v) => (v < 0 ? 'bar debit' : 'bar'))
-      .attr('x', (_, i) => x(i)).attr('width', x.bandwidth())
-      .attr('y', (v) => y(Math.max(0, v))).attr('height', (v) => Math.abs(y(v) - y(0)))
-      .append('title').text((v, i) => `${format(starts[i])}: ${amount.format(v)} ${currency}`);
+    svg.append('g').selectAll('a').data(d3.range(starts.length)).join('a')
+      .attr('href', bucket.param ? (i) => link(bucket.param(starts[i])) : null)
+      .attr('aria-label', (i) => `${format(starts[i])}: ${text(i)}`)
+      .append('rect')
+      .attr('class', (i) => (values[i] < 0 ? 'bar debit' : 'bar'))
+      .attr('x', (i) => x(i)).attr('width', x.bandwidth())
+      .attr('y', (i) => y(Math.max(0, values[i]))).attr('height', (i) => Math.abs(y(values[i]) - y(0)))
+      .on('pointerenter pointermove', (event, i) => {
+        const [px, py] = d3.pointer(event, section);
+        tip.select('.when').text(format(starts[i]));
+        tip.select('data').attr('value', values[i]).text(text(i));
+        tip.style('left', `${px}px`).style('top', `${py}px`).attr('hidden', null);
+      })
+      .on('pointerleave', () => tip.attr('hidden', true));
 
-    const every = Math.max(1, Math.ceil(starts.length / ((width - margin.left - margin.right) / 80)));
-    svg.append('g').attr('transform', `translate(0,${y(0)})`)
-      .call(d3.axisBottom(x).tickValues(d3.range(0, starts.length, every)).tickFormat((i) => format(starts[i])).tickSizeOuter(0));
+    svg.append('g').attr('transform', `translate(0,${height - margin.bottom})`)
+      .call(d3.axisBottom(x).tickValues(at).tickFormat((i) => tickLabel(starts[i], days)).tickSizeOuter(0));
+    if (y.domain()[0] < 0) svg.append('line').attr('class', 'zero').attr('x1', margin.left).attr('x2', width - margin.right).attr('y1', y(0)).attr('y2', y(0));
     svg.append('g').attr('transform', `translate(${margin.left},0)`)
       .call(d3.axisLeft(y).ticks(5).tickFormat(d3.format(',.0f')).tickSizeOuter(0));
   }

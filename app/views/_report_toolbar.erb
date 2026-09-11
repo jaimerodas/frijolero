@@ -40,7 +40,6 @@
     <a href="<%= h.(path) %>?<%= h.(report_query(period, mxn: true)) %>"<% if mxn? %> aria-current="true"<% end %>>MXN</a>
     <a href="<%= h.(path) %>?<%= h.(report_query(period, mxn: false)) %>"<% unless mxn? %> aria-current="true"<% end %>>Por moneda</a>
   </nav>
-  <% if chart_available? %><nav class="tabs toggle" aria-label="Gráfica"><a href="<%= h.(path) %>?<%= h.(report_query(period, chart: chart? ? nil : 'history')) %>"<% if chart? %> aria-current="true"<% end %>>Gráfica</a></nav><% end %>
 </div>
 <% if params[:pull] == 'ok' %>
   <p class="notice">Ledger actualizado.</p>
