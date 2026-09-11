@@ -26,19 +26,20 @@ const BUCKETS = {
 const FINER = { month: ['day'], quarter: ['day', 'month'], year: ['day', 'month', 'quarter'], all: Object.keys(BUCKETS) };
 const DEFAULT = { month: 'day', quarter: 'month', year: 'month', all: 'year' };
 
-// The x axis marks the starts of a calendar interval: the finest one, from the
-// bucket's own up to years, that gives at least two marks and at most one per
-// 80 px. Days of a month, months of a year, quarters of several years. January
-// reads as the year, like d3's own time axis. When nothing fits, every nth bar.
-const TICKS = [d3.utcDay, d3.utcMonth, QUARTER, d3.utcYear];
+// The x axis. Over months, quarters or years, every nth bar with its own label.
+// Over days, the starts of a calendar interval: months, quarters or years, the
+// finest that gives at least two marks and at most one per 80 px, with January
+// written as the year, like d3's own time axis. A single month, every nth day.
+const CALENDAR = [d3.utcMonth, QUARTER, d3.utcYear];
 function ticks(starts, bucket, slots) {
-  for (const interval of TICKS.slice(TICKS.indexOf(bucket.interval))) {
+  const nth = d3.range(0, starts.length, Math.ceil(starts.length / slots));
+  if (bucket !== BUCKETS.day) return { at: nth, label: bucket.format };
+  for (const interval of CALENDAR) {
     const at = d3.range(starts.length).filter((i) => +interval.floor(starts[i]) === +starts[i]);
-    if (at.length >= 2 && at.length <= slots) return { at, days: interval === d3.utcDay };
+    if (at.length >= 2 && at.length <= slots) return { at, label: (d) => (d.getUTCMonth() === 0 ? `${year(d)}` : month(d)) };
   }
-  return { at: d3.range(0, starts.length, Math.ceil(starts.length / slots)), days: bucket.interval === d3.utcDay };
+  return { at: nth, label: (d) => `${d.getUTCDate()} ${month(d)}` };
 }
-const tickLabel = (d, days) => (days ? `${d.getUTCDate()} ${month(d)}` : d.getUTCMonth() === 0 ? `${year(d)}` : month(d));
 
 // A bar's link: this page with the bucket as the period.
 function link(param) {
@@ -60,7 +61,7 @@ function draw(by) {
   const width = section.clientWidth;
   const height = 200;
   const margin = { top: 8, right: 32, bottom: 24, left: 64 };
-  const { at, days } = ticks(starts, bucket, Math.max(1, Math.floor((width - margin.left - margin.right) / 80)));
+  const { at, label } = ticks(starts, bucket, Math.max(1, Math.floor((width - margin.left - margin.right) / 80)));
   d3.select(section).selectAll('figure').remove();
 
   for (const currency of currencies) {
@@ -91,7 +92,7 @@ function draw(by) {
       .on('pointerleave', () => tip.attr('hidden', true));
 
     svg.append('g').attr('transform', `translate(0,${height - margin.bottom})`)
-      .call(d3.axisBottom(x).tickValues(at).tickFormat((i) => tickLabel(starts[i], days)).tickSizeOuter(0));
+      .call(d3.axisBottom(x).tickValues(at).tickFormat((i) => label(starts[i])).tickSizeOuter(0));
     if (y.domain()[0] < 0) svg.append('line').attr('class', 'zero').attr('x1', margin.left).attr('x2', width - margin.right).attr('y1', y(0)).attr('y2', y(0));
     svg.append('g').attr('transform', `translate(${margin.left},0)`)
       .call(d3.axisLeft(y).ticks(5).tickFormat(d3.format(',.0f')).tickSizeOuter(0));
