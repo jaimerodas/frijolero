@@ -236,7 +236,7 @@ dialog .actions { margin-bottom: 0; }
 .chart .bar.debit { fill: var(--debit); }
 .chart a[href]:hover .bar, .chart a[href]:focus-visible .bar { fill: var(--blue); }
 .chart .domain, .chart .tick line, .chart .zero { stroke: var(--rule); }
-.chart .tick text { fill: var(--muted); }
+.chart .tick text { fill: var(--muted); font-family: var(--mono); font-size: 0.75rem; }
 .chart .tip { position: absolute; display: grid; transform: translate(-50%, calc(-100% - 0.75rem)); padding: 0.25rem 0.5rem; border: 1px solid var(--ink); background: var(--bg); white-space: nowrap; pointer-events: none; }
 .chart .tip[hidden] { display: none; }
 .chart .tip .when { font-size: 0.75rem; color: var(--muted); }
