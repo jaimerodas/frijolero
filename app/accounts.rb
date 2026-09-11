@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Frijolero
-  # Accounts list, per-account config, and the per-account PDF history (under Estados).
+  # Accounts list, per-account config, and the per-account PDF history.
   # Reopens App to keep app.rb a table of contents.
   class App
     get '/accounts' do

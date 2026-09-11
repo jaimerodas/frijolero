@@ -37,13 +37,12 @@ class NavTest < Minitest::Test
   end
 
   SECTIONS = {
-    '/' => 'Estados', '/upload' => 'Estados', '/jobs' => 'Estados',
-    '/statements/AMEX' => 'Estados', '/statements/AMEX/2608' => 'Estados',
-    '/accounts' => 'Cuentas', '/accounts/new' => 'Cuentas', '/accounts/AMEX/config' => 'Cuentas',
-    '/rules/AMEX' => 'Cuentas'
+    '/' => 'Cuentas', '/upload' => 'Cuentas', '/jobs' => 'Cuentas', '/statements/AMEX' => 'Cuentas',
+    '/statements/AMEX/2608' => 'Cuentas', '/accounts' => 'Cuentas', '/accounts/new' => 'Cuentas',
+    '/accounts/AMEX/config' => 'Cuentas', '/rules/AMEX' => 'Cuentas'
   }.freeze
 
-  HREFS = { 'Estados' => '/', 'Cuentas' => '/accounts', 'Reportes' => '/reports' }.freeze
+  HREFS = { 'Cuentas' => '/', 'Reportes' => '/reports' }.freeze
 
   def test_topbar_marks_the_section_of_each_page
     SECTIONS.each do |path, section|
@@ -55,18 +54,19 @@ class NavTest < Minitest::Test
     end
   end
 
-  def test_topbar_has_three_sections_and_no_subir_or_jobs
+  def test_topbar_has_two_sections
     get '/'
 
     nav = last_response.body[%r{<nav aria-label="Secciones">.*?</nav>}m]
-    assert_equal %w[Estados Cuentas Reportes], nav.scan(%r{>([^<]+)</a>}).flatten
+    assert_equal %w[Cuentas Reportes], nav.scan(%r{>([^<]+)</a>}).flatten
   end
 
-  def test_dashboard_is_periodos_with_bitacora_beside_it_and_the_upload_cta
+  def test_dashboard_is_periodos_with_its_peers_beside_it_and_the_upload_cta
     get '/'
 
     assert_includes last_response.body, '<h1>Periodos</h1>'
     assert_includes last_response.body, '<a href="/jobs">Bitácora</a>'
+    assert_includes last_response.body, '<a href="/accounts">Configuración</a>'
     assert_includes last_response.body, '<a class="button primary" href="/upload">Subir estado de cuenta</a>'
   end
 
@@ -76,5 +76,13 @@ class NavTest < Minitest::Test
     assert_includes last_response.body, '<h1>Bitácora</h1>'
     assert_includes last_response.body, '<a href="/">Periodos</a>'
     assert_includes last_response.body, '<title>Bitácora</title>'
+  end
+
+  def test_accounts_list_is_configuracion_with_periodos_beside_it
+    get '/accounts'
+
+    assert_includes last_response.body, '<h1>Configuración</h1>'
+    assert_includes last_response.body, '<a href="/">Periodos</a>'
+    assert_includes last_response.body, '<title>Configuración</title>'
   end
 end

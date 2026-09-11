@@ -5,12 +5,12 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <%= head('Cuentas') %>
+  <%= head('Configuración') %>
 </head>
 <body>
   <%= topbar %>
   <main>
-    <h1>Cuentas</h1>
+    <%= erb :_cuentas, layout: false %>
 
     <% sections.each do |title, accounts| %>
       <h2><%= title %></h2>
