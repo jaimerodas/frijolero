@@ -49,6 +49,8 @@ function link(param) {
 }
 
 const amount = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// The amount axis: the full number under a thousand, then K and M.
+const short = (v) => (Math.abs(v) < 1000 ? d3.format(',')(v) : d3.format('.3~s')(v).replace('k', 'K'));
 const currencies = [...new Set(data.postings.map((p) => p.currency))];
 const tip = d3.select(section).append('div').attr('class', 'tip').attr('hidden', true);
 tip.append('span').attr('class', 'when');
@@ -60,7 +62,7 @@ function draw(by) {
   const starts = interval.range(interval.floor(from), d3.utcDay.offset(to, 1));
   const width = section.clientWidth;
   const height = 200;
-  const margin = { top: 8, right: 32, bottom: 24, left: 64 };
+  const margin = { top: 8, right: 32, bottom: 24, left: 48 };
   const { at, label } = ticks(starts, bucket, Math.max(1, Math.floor((width - margin.left - margin.right) / 80)));
   d3.select(section).selectAll('figure').remove();
 
@@ -95,7 +97,7 @@ function draw(by) {
       .call(d3.axisBottom(x).tickValues(at).tickFormat((i) => label(starts[i])).tickSizeOuter(0));
     if (y.domain()[0] < 0) svg.append('line').attr('class', 'zero').attr('x1', margin.left).attr('x2', width - margin.right).attr('y1', y(0)).attr('y2', y(0));
     svg.append('g').attr('transform', `translate(${margin.left},0)`)
-      .call(d3.axisLeft(y).ticks(5).tickFormat(d3.format(',.0f')).tickSizeOuter(0));
+      .call(d3.axisLeft(y).ticks(5).tickFormat(short).tickSizeOuter(0));
   }
 }
 
