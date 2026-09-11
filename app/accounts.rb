@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
 module Frijolero
-  # Accounts list and per-account PDF history. Reopens App to keep app.rb a table of contents.
+  # Accounts list, per-account config, and the per-account PDF history (under Estados).
+  # Reopens App to keep app.rb a table of contents.
   class App
     get '/accounts' do
       open, closed = Config.accounts.partition { |_k, c| !c['closed'] }
@@ -44,7 +45,7 @@ module Frijolero
       erb :account_new, locals: { values: values, prompt_types: NewAccount.prompt_types, error: e.message }
     end
 
-    get '/accounts/:key' do
+    get '/statements/:key' do
       key = params[:key]
       halt 404, 'Cuenta desconocida' unless Config.accounts.key?(key)
 
@@ -89,7 +90,7 @@ module Frijolero
 
       def account_config_locals(key, **extra)
         action = "/accounts/#{Rack::Utils.escape_path(key)}/config"
-        { title: "Config de #{key}", action: action, back: "/accounts/#{Rack::Utils.escape_path(key)}" }.merge(extra)
+        { title: "Config de #{key}", action: action, back: "/statements/#{Rack::Utils.escape_path(key)}" }.merge(extra)
       end
 
       # The PDFs in B2, plus a `missing` row for each period between the oldest PDF and

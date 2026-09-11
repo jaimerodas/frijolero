@@ -192,14 +192,15 @@ dialog .actions { margin-bottom: 0; }
 .journal-head input[type="search"] { width: 16rem; }
 .net .count { margin-right: auto; font-family: var(--sans); font-weight: 400; color: var(--muted); }
 
-/* Report title: the two report names as one heading pair, the current one heavy and
+/* Section title: the page names of a section as one heading pair, the current one heavy and
    the other a light link at the same size. Under it, one row: time on the left, currency on the right. */
 .title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem 2rem; }
-.title .reports { display: flex; flex-wrap: wrap; gap: 0 1.5rem; }
-.title .reports h1, .title .reports a { display: inline-flex; min-height: 2.25rem; font-size: 1.375rem; line-height: 1.2; }
+.title nav { display: flex; flex-wrap: wrap; gap: 0 1.5rem; }
+.title nav h1, .title nav a { display: inline-flex; min-height: 2.25rem; font-size: 1.375rem; line-height: 1.2; }
 .title h1 { margin: 0; box-shadow: inset 0 -2px var(--ink); }
-.title .reports a { font-weight: 400; color: var(--muted); text-decoration: none; }
-.title .reports a:hover { color: var(--ink); text-decoration: underline; }
+.title nav a { font-weight: 400; color: var(--muted); text-decoration: none; }
+.title nav a:hover { color: var(--ink); text-decoration: underline; }
+.title .primary { margin-left: auto; }
 .ledger-head { display: flex; gap: 0.75rem; margin: 0 0 0 auto; font-size: 0.875rem; }
 .ledger-head button { all: unset; cursor: pointer; color: var(--blue); }
 .ledger-head button:hover { text-decoration: underline; }
@@ -324,9 +325,9 @@ summary { cursor: pointer; font-weight: 600; }
   .topbar .brand { flex-basis: 100%; justify-content: center; margin-right: 0; }
   .toolbar { gap: 0 1.5rem; }
   .toolbar .tabs, .toolbar .period { flex-basis: 100%; justify-content: center; }
-  .toolbar .currency, .ledger-head { margin-left: 0; }
-  .title .reports { flex: 1 0 100%; flex-wrap: nowrap; gap: 0; }
-  .title .reports h1, .title .reports a { flex: 1 1 0; justify-content: center; align-items: center; padding: 0.5rem; text-align: center; }
+  .toolbar .currency, .ledger-head, .title .primary { margin-left: 0; }
+  .title nav { flex: 1 0 100%; flex-wrap: nowrap; gap: 0; }
+  .title nav h1, .title nav a { flex: 1 1 0; justify-content: center; align-items: center; padding: 0.5rem; text-align: center; }
   .ledger-head { order: -1; }
   .journal-head { justify-content: center; }
   .journal-head .account { flex-basis: 100%; text-align: center; }

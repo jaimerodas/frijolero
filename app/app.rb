@@ -29,7 +29,7 @@ module Frijolero
         erb :_head, layout: false, locals: { title: title, refresh: refresh }
       end
 
-      # The header every page shares: wordmark and the four sections.
+      # The header every page shares: wordmark and the three sections.
       def topbar
         erb :_topbar, layout: false
       end

@@ -4,12 +4,12 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <%= head %>
+  <%= head('Bitácora') %>
 </head>
 <body>
   <%= topbar %>
   <main>
-    <h1>Jobs</h1>
+    <%= erb :_estados, layout: false %>
     <div class="table-wrap">
       <table>
         <thead>

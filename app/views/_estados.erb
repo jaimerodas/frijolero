@@ -1,0 +1,8 @@
+<div class="title">
+  <nav aria-label="Estados">
+    <% { '/' => 'Periodos', '/jobs' => 'Bitácora' }.each do |href, label| %>
+      <% if request&.path_info == href %><h1><%= label %></h1><% else %><a href="<%= href %>"><%= label %></a><% end %>
+    <% end %>
+  </nav>
+  <a class="button primary" href="/upload">Subir estado de cuenta</a>
+</div>

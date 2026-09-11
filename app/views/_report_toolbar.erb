@@ -7,7 +7,7 @@
   covered = period.resolution == :all || period.to > today
 %>
 <div class="title">
-  <nav class="reports" aria-label="Reportes">
+  <nav aria-label="Reportes">
     <% { '/reports/income' => 'Estado de resultados', '/reports/balance' => 'Balance general', '/journal' => 'Diario' }.each do |href, label| %>
       <% if path == href %><h1><%= label %></h1><% else %><a href="<%= href %>?<%= h.(report_query(period, filter: false)) %>"><%= label %></a><% end %>
     <% end %>

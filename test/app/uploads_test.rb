@@ -325,7 +325,7 @@ class UploadsTest < Minitest::Test
     post '/upload/backup', account: 'AMEX', period: '2508', token: token
 
     assert_equal 303, last_response.status
-    assert_equal '/accounts/AMEX', URI(last_response.location).path
+    assert_equal '/statements/AMEX', URI(last_response.location).path
     assert_equal ['frijolero/accounts/AMEX/AMEX 2508.pdf'], @b2.calls
     assert_equal [:put], @order
     assert_empty Frijolero::App.jobs.all
