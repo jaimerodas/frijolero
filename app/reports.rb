@@ -22,11 +22,11 @@ module Frijolero
         nil
       end
 
-      # /statements/<Key>/<YYMM> for a row from `accounts/<Key>/<Key> YYMM.beancount`,
+      # /accounts/<Key>/<YYMM> for a row from `accounts/<Key>/<Key> YYMM.beancount`,
       # the layout Statement writes; nil for transactions.beancount (inline txns).
       def journal_statement_link(file)
         match = %r{accounts/([^/]+)/\1 (\d{4})\.beancount\z}.match(file.to_s)
-        "/statements/#{Rack::Utils.escape_path(match[1])}/#{match[2]}" if match
+        "/accounts/#{Rack::Utils.escape_path(match[1])}/#{match[2]}" if match
       end
 
       # Each segment of an account links to the journal of that prefix, same

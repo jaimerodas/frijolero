@@ -45,7 +45,7 @@ module Frijolero
       erb :account_new, locals: { values: values, prompt_types: NewAccount.prompt_types, error: e.message }
     end
 
-    get '/statements/:key' do
+    get '/accounts/:key' do
       key = params[:key]
       halt 404, 'Cuenta desconocida' unless Config.accounts.key?(key)
 
@@ -85,12 +85,12 @@ module Frijolero
 
     helpers do
       def yaml_locals(**extra)
-        { title: 'Cuentas', action: '/accounts/yaml', back: '/accounts' }.merge(extra)
+        { title: 'accounts.yaml', action: '/accounts/yaml' }.merge(extra)
       end
 
       def account_config_locals(key, **extra)
         action = "/accounts/#{Rack::Utils.escape_path(key)}/config"
-        { title: "Config de #{key}", action: action, back: "/statements/#{Rack::Utils.escape_path(key)}" }.merge(extra)
+        { title: "Config de #{key}", action: action, account: key, tab: :config }.merge(extra)
       end
 
       # The PDFs in B2, plus a `missing` row for each period between the oldest PDF and

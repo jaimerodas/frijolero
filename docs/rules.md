@@ -72,7 +72,7 @@ commit. Si no, no.
 
 ## El editor
 
-`/rules/<Key>` edita el archivo completo. Al guardar, la app valida el YAML y
+`/accounts/<Key>/rules` edita el archivo completo. Al guardar, la app valida el YAML y
 prueba una llamada al motor de reglas. Un archivo inválido no se guarda. Un
 archivo válido se guarda con el commit `rules <Key>`.
 

@@ -10,6 +10,7 @@
 <body>
   <%= topbar %>
   <main>
+    <%= erb :_cuentas, layout: false %>
     <h1><%= h.(job.label) %></h1>
     <p class="meta"><span class="status <%= h.(job.status) %>"><%= h.(job.status) %></span></p>
 
@@ -18,7 +19,7 @@
     <% end %>
 
     <% if job.status == 'ok' %>
-      <p class="actions"><a class="button" href="/statements/<%= Rack::Utils.escape_path(account) %>/<%= h.(period) %>">Ver estado de cuenta</a></p>
+      <p class="actions"><a class="button" href="/accounts/<%= Rack::Utils.escape_path(account) %>/<%= h.(period) %>">Ver estado de cuenta</a></p>
     <% end %>
 
     <pre><%= h.(job.output) %></pre>

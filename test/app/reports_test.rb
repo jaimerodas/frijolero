@@ -402,7 +402,7 @@ class ReportsPageTest < Minitest::Test
     get '/journal'
     body = last_response.body
 
-    assert_includes body, '<time datetime="2026-07-05"><a href="/statements/AMEX/2607">2026-07-05</a></time>'
+    assert_includes body, '<time datetime="2026-07-05"><a href="/accounts/AMEX/2607">2026-07-05</a></time>'
     assert_includes body, '<time datetime="2026-07-20">2026-07-20</time>'
   end
 

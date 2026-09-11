@@ -54,7 +54,7 @@ class StatementsTest < Minitest::Test
                     json: { 'transactions' => transactions },
                     beancount: "2025-08-01 * \"x\"\n  Expenses:FIXME 100 MXN\n  Liabilities:Amex -100 MXN\n")
 
-    get '/statements/AMEX/2508'
+    get '/accounts/AMEX/2508'
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, 'Found 2 transactions'
@@ -63,9 +63,9 @@ class StatementsTest < Minitest::Test
     assert_includes last_response.body, '1 por clasificar'
     assert_equal 1, last_response.body.scan('Hacer regla').size
     assert_includes last_response.body, 'value="SIN CLASIFICAR"'
-    assert_includes last_response.body, 'action="/statements/AMEX/2508/detail"'
+    assert_includes last_response.body, 'action="/accounts/AMEX/2508/detail"'
     assert_includes last_response.body, 'Volver a correr las reglas'
-    assert_includes last_response.body, 'href="/statements/AMEX/2508/pdf"'
+    assert_includes last_response.body, 'href="/accounts/AMEX/2508/pdf"'
     assert_includes last_response.body,
                     '<span class="bc-account bc-fixme">Expenses:FIXME</span> <span class="credit">100 MXN</span>'
   end
@@ -81,7 +81,7 @@ class StatementsTest < Minitest::Test
                         Liabilities:Amex -175 MXN
                     BEAN
 
-    get '/statements/AMEX/2508'
+    get '/accounts/AMEX/2508'
 
     assert_includes last_response.body, '3 por clasificar'
   end
@@ -90,10 +90,10 @@ class StatementsTest < Minitest::Test
     write_accounts_yaml(extra: "BBVA TDC:\n  beancount_account: \"Assets:BBVA\"\n")
     write_statement('BBVA TDC', '2508', json: { 'transactions' => [] }, beancount: '')
 
-    get '/statements/BBVA%20TDC/2508'
+    get '/accounts/BBVA%20TDC/2508'
 
     assert_equal 200, last_response.status
-    assert_includes last_response.body, '/statements/BBVA%20TDC/2508/pdf'
+    assert_includes last_response.body, '/accounts/BBVA%20TDC/2508/pdf'
   end
 
   def test_non_default_pipeline_shows_summary_without_a_transactions_table
@@ -101,7 +101,7 @@ class StatementsTest < Minitest::Test
                     json: { 'movements' => [{ 'date' => '2025-08-01', 'amount' => 100 }] },
                     beancount: '')
 
-    get '/statements/CETES/2508'
+    get '/accounts/CETES/2508'
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, 'movements'
@@ -113,13 +113,13 @@ class StatementsTest < Minitest::Test
     write_statement('CETES', '2508', json: { 'movements' => [] }, beancount: '')
     write_rules('CETES', 'start_with: {}')
 
-    post '/statements/CETES/2508/detail'
+    post '/accounts/CETES/2508/detail'
 
     assert_equal 404, last_response.status
   end
 
   def test_missing_beancount_file_is_404
-    get '/statements/AMEX/2508'
+    get '/accounts/AMEX/2508'
 
     assert_equal 404, last_response.status
   end
@@ -127,7 +127,7 @@ class StatementsTest < Minitest::Test
   def test_unknown_account_is_404
     write_statement('AMEX', '2508', json: { 'transactions' => [] }, beancount: '')
 
-    get '/statements/HSBC/2508'
+    get '/accounts/HSBC/2508'
 
     assert_equal 404, last_response.status
   end
@@ -135,7 +135,7 @@ class StatementsTest < Minitest::Test
   def test_bad_period_is_404
     write_statement('AMEX', '2508', json: { 'transactions' => [] }, beancount: '')
 
-    get '/statements/AMEX/25-08'
+    get '/accounts/AMEX/25-08'
 
     assert_equal 404, last_response.status
   end
@@ -145,7 +145,7 @@ class StatementsTest < Minitest::Test
     FileUtils.mkdir_p(File.dirname(paths[:beancount]))
     File.write(paths[:beancount], 'algo en beancount')
 
-    get '/statements/AMEX/2508'
+    get '/accounts/AMEX/2508'
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, 'algo en beancount'
@@ -156,14 +156,14 @@ class StatementsTest < Minitest::Test
     write_statement('AMEX', '2508',
                     json: { 'transactions' => [{ 'date' => '2025-08-01', 'description' => 'OXXO', 'amount' => -100 }] },
                     beancount: "2025-08-01 * \"OXXO\"\n  Expenses:FIXME 100 MXN\n  Liabilities:Amex -100 MXN\n")
-    get '/statements/AMEX/2508'
+    get '/accounts/AMEX/2508'
 
-    assert_includes last_response.body, '<input type="hidden" name="back" value="/statements/AMEX/2508">'
+    assert_includes last_response.body, '<input type="hidden" name="back" value="/accounts/AMEX/2508">'
   end
 
   def test_notice_after_saving_rules_asks_to_run_them
     write_statement('AMEX', '2508', json: { 'transactions' => [] }, beancount: '')
-    get '/statements/AMEX/2508', rules: '1'
+    get '/accounts/AMEX/2508', rules: '1'
 
     assert_includes last_response.body, 'Reglas guardadas. Vuelve a correr las reglas para aplicarlas.'
   end
@@ -171,7 +171,7 @@ class StatementsTest < Minitest::Test
   def test_notice_shows_the_detail_run_result
     write_statement('AMEX', '2508', json: { 'transactions' => [] }, beancount: '')
 
-    get '/statements/AMEX/2508', detailed: '2', remaining: '1'
+    get '/accounts/AMEX/2508', detailed: '2', remaining: '1'
 
     assert_includes last_response.body, '2 detalladas, 1 pendientes'
   end
@@ -184,7 +184,7 @@ class StatementsTest < Minitest::Test
                     ] },
                     beancount: '')
 
-    get '/statements/AMEX/2508'
+    get '/accounts/AMEX/2508'
 
     refute_includes last_response.body, '<script>alert(1)</script>'
     assert_includes last_response.body, '&lt;script&gt;alert(1)&lt;/script&gt;'
@@ -204,7 +204,7 @@ class StatementsTest < Minitest::Test
                         Expenses:FIXME
                     BEAN
 
-    post '/statements/AMEX/2508/detail'
+    post '/accounts/AMEX/2508/detail'
 
     assert_equal 303, last_response.status
     assert last_response.location.include?('detailed=1&remaining=1')
@@ -225,7 +225,7 @@ class StatementsTest < Minitest::Test
                         Expenses:FIXME
                     BEAN
 
-    post '/statements/AMEX/2508/detail'
+    post '/accounts/AMEX/2508/detail'
 
     assert_equal 303, last_response.status
     assert last_response.location.include?('detailed=0&remaining=1')
@@ -235,7 +235,7 @@ class StatementsTest < Minitest::Test
   def test_post_detail_no_rules_returns_422
     write_statement('AMEX', '2508', json: { 'transactions' => [] }, beancount: '')
 
-    post '/statements/AMEX/2508/detail'
+    post '/accounts/AMEX/2508/detail'
 
     assert_equal 422, last_response.status
     assert_includes last_response.body, 'No hay reglas'
@@ -244,7 +244,7 @@ class StatementsTest < Minitest::Test
   def test_post_detail_unknown_account_returns_404
     write_rules('AMEX', {})
 
-    post '/statements/HSBC/2508/detail'
+    post '/accounts/HSBC/2508/detail'
 
     assert_equal 404, last_response.status
     assert_includes last_response.body, 'Cuenta desconocida'
@@ -253,7 +253,7 @@ class StatementsTest < Minitest::Test
   def test_post_detail_missing_beancount_returns_404
     write_rules('AMEX', {})
 
-    post '/statements/AMEX/2508/detail'
+    post '/accounts/AMEX/2508/detail'
 
     assert_equal 404, last_response.status
     assert_includes last_response.body, 'No existe ese estado'
@@ -273,7 +273,7 @@ class StatementsTest < Minitest::Test
                         Expenses:FIXME
                     BEAN
 
-    post '/statements/AMEX/2508/detail'
+    post '/accounts/AMEX/2508/detail'
     follow_redirect!
 
     assert_includes last_response.body, '1 detalladas, 1 pendientes'
@@ -286,7 +286,7 @@ class StatementsTest < Minitest::Test
                                                  'reported_amount' => 1500.0, 'description' => 'Compra' }] },
                     beancount: "2026-08-04 * \"Compra\"\n  Assets:Fintual  1 FUND {1500.00 MXN}\n  Assets:BBVA\n")
 
-    get '/statements/Fintual/2608'
+    get '/accounts/Fintual/2608'
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, 'Found 1 transactions'
@@ -298,7 +298,7 @@ class StatementsTest < Minitest::Test
                     json: { 'transactions' => [{ 'date' => '2025-08-03', 'description' => 'X', 'amount' => nil }] },
                     beancount: "2025-08-03 * \"X\"\n  Liabilities:Amex  -1.00 MXN\n  Expenses:FIXME\n")
 
-    get '/statements/AMEX/2508'
+    get '/accounts/AMEX/2508'
 
     assert_equal 200, last_response.status
   end

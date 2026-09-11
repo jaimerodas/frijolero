@@ -4,5 +4,5 @@
       <% if request&.path_info == href %><h1><%= label %></h1><% else %><a href="<%= href %>"><%= label %></a><% end %>
     <% end %>
   </nav>
-  <a class="button primary" href="/upload">Subir estado de cuenta</a>
+  <% unless request&.path_info == '/upload' %><a class="button primary" href="/upload">Subir estado de cuenta</a><% end %>
 </div>

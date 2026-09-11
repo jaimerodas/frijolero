@@ -28,13 +28,13 @@
           <% dashboard.rows.each do |row| %>
             <% path = Rack::Utils.escape_path(row.account) %>
             <tr>
-              <th scope="row"><a href="/statements/<%= path %>"><%= h.(row.account) %></a><% if rules?(row.account) %> <a class="rules" href="/rules/<%= path %>" title="Reglas de <%= h.(row.account) %>">reglas</a><% end %></th>
+              <th scope="row"><a href="/accounts/<%= path %>"><%= h.(row.account) %></a><% if rules?(row.account) %> <a class="rules" href="/accounts/<%= path %>/rules" title="Reglas de <%= h.(row.account) %>">reglas</a><% end %></th>
               <td class="cutoff" data-label="Corte"><%= h.(cutoff.(row.cutoff_day)) %></td>
               <% periods.each do |period| %>
                 <% status = row.statuses[period] %>
                 <td data-label="<%= h.(period_name(period)) %>">
                   <% if status == :received %>
-                    <a class="status received" href="/statements/<%= path %>/<%= period %>"><%= labels[status] %></a>
+                    <a class="status received" href="/accounts/<%= path %>/<%= period %>"><%= labels[status] %></a>
                   <% else %>
                     <span class="status <%= status %>"><%= labels[status] %></span>
                   <% end %>

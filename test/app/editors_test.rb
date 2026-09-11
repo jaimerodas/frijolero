@@ -50,31 +50,31 @@ class EditorsTest < Minitest::Test
   end
 
   def test_hacer_regla_keeps_the_way_back_to_the_statement
-    post '/rules/AMEX/from', description: 'OXXO 123', amount: '-50', back: '/statements/AMEX/2508'
+    post '/accounts/AMEX/rules/from', description: 'OXXO 123', amount: '-50', back: '/accounts/AMEX/2508'
 
-    assert_includes last_response.body, '<a href="/statements/AMEX/2508">Volver al estado de cuenta</a>'
-    assert_includes last_response.body, '<input type="hidden" name="back" value="/statements/AMEX/2508">'
+    assert_includes last_response.body, '<a href="/accounts/AMEX/2508">Volver al estado de cuenta</a>'
+    assert_includes last_response.body, '<input type="hidden" name="back" value="/accounts/AMEX/2508">'
   end
 
   def test_saving_from_a_statement_returns_to_it
-    post '/rules/AMEX', content: "start_with: {}\n", back: '/statements/AMEX/2508'
+    post '/accounts/AMEX/rules', content: "start_with: {}\n", back: '/accounts/AMEX/2508'
 
     assert_equal 303, last_response.status
-    assert_equal '/statements/AMEX/2508?rules=1', URI(last_response.location).request_uri
+    assert_equal '/accounts/AMEX/2508?rules=1', URI(last_response.location).request_uri
   end
 
   def test_back_is_only_honoured_for_a_statement_path
-    post '/rules/AMEX', content: "start_with: {}\n", back: 'https://evil.example/'
+    post '/accounts/AMEX/rules', content: "start_with: {}\n", back: 'https://evil.example/'
 
-    assert_equal '/rules/AMEX?saved=1', URI(last_response.location).request_uri
+    assert_equal '/accounts/AMEX/rules?saved=1', URI(last_response.location).request_uri
 
-    get '/rules/AMEX', back: '/accounts'
+    get '/accounts/AMEX/rules', back: '/accounts'
 
     refute_includes last_response.body, 'Volver al estado de cuenta'
   end
 
   def test_rules_editor_shows_a_default_template_when_no_file_exists
-    get '/rules/AMEX'
+    get '/accounts/AMEX/rules'
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, 'start_with: {}'
@@ -90,16 +90,16 @@ class EditorsTest < Minitest::Test
       include: {}
     YAML
 
-    post '/rules/AMEX', content: yaml
+    post '/accounts/AMEX/rules', content: yaml
 
     assert_equal 303, last_response.status
-    assert_equal '/rules/AMEX?saved=1', URI(last_response.location).request_uri
+    assert_equal '/accounts/AMEX/rules?saved=1', URI(last_response.location).request_uri
     assert_equal yaml, File.read(rules_path('AMEX'))
     assert_equal ['rules AMEX'], @repo.messages
   end
 
   def test_invalid_yaml_syntax_is_rejected_without_writing_or_committing
-    post '/rules/AMEX', content: 'start_with: [unclosed'
+    post '/accounts/AMEX/rules', content: 'start_with: [unclosed'
 
     assert_equal 422, last_response.status
     refute_empty last_response.body[/class="error"[^>]*>([^<]+)/, 1].to_s
@@ -108,7 +108,7 @@ class EditorsTest < Minitest::Test
   end
 
   def test_structurally_wrong_rules_are_rejected
-    post '/rules/AMEX', content: 'start_with: 5'
+    post '/accounts/AMEX/rules', content: 'start_with: 5'
 
     assert_equal 422, last_response.status
     refute File.exist?(rules_path('AMEX'))
@@ -116,10 +116,10 @@ class EditorsTest < Minitest::Test
   end
 
   def test_rules_editor_route_handles_an_account_with_a_space
-    get '/rules/BBVA%20TDC'
+    get '/accounts/BBVA%20TDC/rules'
 
     assert_equal 200, last_response.status
-    assert_includes last_response.body, 'action="/rules/BBVA%20TDC"'
+    assert_includes last_response.body, 'action="/accounts/BBVA%20TDC/rules"'
   end
 
   def test_make_a_rule_prefills_a_new_pattern_without_saving
@@ -131,7 +131,7 @@ class EditorsTest < Minitest::Test
           account: "Expenses:Transporte"
     YAML
 
-    post '/rules/AMEX/from', description: 'OXXO 123', amount: '-50'
+    post '/accounts/AMEX/rules/from', description: 'OXXO 123', amount: '-50'
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, 'UBER'
@@ -155,31 +155,31 @@ class EditorsTest < Minitest::Test
           account: "Expenses:Comida"
     YAML
 
-    post '/rules/AMEX/from', description: 'OXXO 123', amount: '-50'
+    post '/accounts/AMEX/rules/from', description: 'OXXO 123', amount: '-50'
 
     assert_equal 1, last_response.body.scan('OXXO 123:').size
   end
 
   def test_make_a_rule_with_blank_description_shows_an_error
-    post '/rules/AMEX/from', description: '  ', amount: '-50'
+    post '/accounts/AMEX/rules/from', description: '  ', amount: '-50'
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, 'Falta la descripción'
   end
 
   def test_rules_editor_404s_for_an_account_without_rules
-    get '/rules/CETES'
+    get '/accounts/CETES/rules'
     assert_equal 404, last_response.status
 
-    post '/rules/CETES', content: "start_with: {}\n"
+    post '/accounts/CETES/rules', content: "start_with: {}\n"
     assert_equal 404, last_response.status
 
-    post '/rules/CETES/from', description: 'x', amount: '1'
+    post '/accounts/CETES/rules/from', description: 'x', amount: '1'
     assert_equal 404, last_response.status
   end
 
   def test_unknown_account_rules_editor_404s
-    get '/rules/Nope'
+    get '/accounts/Nope/rules'
 
     assert_equal 404, last_response.status
   end

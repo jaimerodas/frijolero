@@ -37,9 +37,9 @@ class NavTest < Minitest::Test
   end
 
   SECTIONS = {
-    '/' => 'Cuentas', '/upload' => 'Cuentas', '/jobs' => 'Cuentas', '/statements/AMEX' => 'Cuentas',
-    '/statements/AMEX/2608' => 'Cuentas', '/accounts' => 'Cuentas', '/accounts/new' => 'Cuentas',
-    '/accounts/AMEX/config' => 'Cuentas', '/rules/AMEX' => 'Cuentas'
+    '/' => 'Cuentas', '/upload' => 'Cuentas', '/jobs' => 'Cuentas', '/accounts/AMEX' => 'Cuentas',
+    '/accounts/AMEX/2608' => 'Cuentas', '/accounts' => 'Cuentas', '/accounts/new' => 'Cuentas',
+    '/accounts/AMEX/config' => 'Cuentas', '/accounts/AMEX/rules' => 'Cuentas'
   }.freeze
 
   HREFS = { 'Cuentas' => '/', 'Reportes' => '/reports' }.freeze
@@ -84,5 +84,63 @@ class NavTest < Minitest::Test
     assert_includes last_response.body, '<h1>Configuración</h1>'
     assert_includes last_response.body, '<a href="/">Periodos</a>'
     assert_includes last_response.body, '<title>Configuración</title>'
+  end
+
+  def test_other_pages_of_cuentas_show_the_title_row_as_links
+    get '/accounts/new'
+
+    assert_includes last_response.body, '<a href="/">Periodos</a>'
+    assert_includes last_response.body, '<a href="/accounts">Configuración</a>'
+    assert_includes last_response.body, '<h1>Nueva cuenta</h1>'
+  end
+
+  def test_upload_page_has_the_title_row_without_the_upload_button
+    get '/upload'
+
+    assert_includes last_response.body, '<a href="/jobs">Bitácora</a>'
+    refute_includes last_response.body, 'href="/upload"'
+  end
+
+  TABS = { '/accounts/AMEX' => 'Estados', '/accounts/AMEX/2608' => 'Estados',
+           '/accounts/AMEX/config' => 'Configuración', '/accounts/AMEX/rules' => 'Reglas' }.freeze
+  TAB_HREFS = { 'Estados' => '/accounts/AMEX', 'Configuración' => '/accounts/AMEX/config',
+                'Reglas' => '/accounts/AMEX/rules' }.freeze
+
+  def test_account_pages_share_the_account_heading_and_tabs
+    TABS.each do |path, tab|
+      get path
+
+      body = last_response.body
+      assert_equal 200, last_response.status, path
+      assert_equal ['<h1>AMEX</h1>'], body.scan(%r{<h1>.*?</h1>}), path
+      assert_includes body, '<a href="/accounts">Configuración</a>', path
+      assert_includes body, %(<a href="#{TAB_HREFS[tab]}" aria-current="true">#{tab}</a>), path
+      assert_equal 2, body.scan('aria-current=').size, path
+    end
+  end
+
+  def test_statement_page_has_the_period_as_subtitle
+    get '/accounts/AMEX/2608'
+
+    assert_includes last_response.body, '<h2>agosto 2026</h2>'
+    assert_includes last_response.body, '<title>AMEX agosto 2026</title>'
+  end
+
+  def test_an_account_without_rules_has_no_reglas_tab
+    File.write(File.join(@dir, 'config', 'accounts.yaml'), <<~YAML)
+      AMEX:
+        beancount_account: "Assets:A"
+        converter_type: fintual
+    YAML
+
+    get '/accounts/AMEX'
+
+    refute_includes last_response.body, 'Reglas'
+  end
+
+  def test_a_period_route_never_captures_config_or_rules
+    get '/accounts/AMEX/25-08'
+
+    assert_equal 404, last_response.status
   end
 end

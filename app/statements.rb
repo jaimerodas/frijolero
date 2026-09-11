@@ -13,6 +13,9 @@ module Frijolero
       | (?<amount>-?\d[\d,]*(?:\.\d+)?\ [A-Z][A-Z0-9._-]*)
     /x
 
+    # The period segment is four digits, so /accounts/<Key>/config and /rules never land here.
+    PERIOD = { mustermann_opts: { capture: { yymm: /\d{4}/ } } }.freeze
+
     helpers do
       # Beancount text → HTML with a span per date, flag, account and amount. Display only.
       # A line that matches nothing is just escaped text, so a hand edit never breaks the page.
@@ -47,7 +50,7 @@ module Frijolero
       end
     end
 
-    get '/statements/:account/:yymm' do
+    get '/accounts/:account/:yymm', PERIOD do
       account = params[:account]
       period = params[:yymm]
       halt 404, 'Cuenta desconocida' unless Config.accounts.key?(account)
@@ -81,14 +84,14 @@ module Frijolero
       end
     end
 
-    get '/statements/:account/:yymm/pdf' do
+    get '/accounts/:account/:yymm/pdf', PERIOD do
       halt 404, 'Cuenta desconocida' unless Config.accounts.key?(params[:account])
       halt 404, 'Periodo inválido' unless params[:yymm].match?(/\A\d{4}\z/)
 
       redirect self.class.b2.presigned_url(Config.pdf_key(params[:account], params[:yymm])), 302
     end
 
-    post '/statements/:account/:yymm/detail' do
+    post '/accounts/:account/:yymm/detail', PERIOD do
       account, period = params.values_at(:account, :yymm)
       halt 404, 'Cuenta desconocida' unless Config.accounts.key?(account)
       halt 404, 'Periodo inválido' unless period.match?(/\A\d{4}\z/)
@@ -100,7 +103,7 @@ module Frijolero
 
       stats = BeancountDetailer.new(beancount, rules).run
       self.class.repo.commit_and_push("detail #{account} #{period}") if stats[:detailed].any?
-      redirect_path = "/statements/#{Rack::Utils.escape_path(account)}/#{period}"
+      redirect_path = "/accounts/#{Rack::Utils.escape_path(account)}/#{period}"
       redirect "#{redirect_path}?detailed=#{stats[:detailed].size}&remaining=#{stats[:remaining].size}", 303
     end
   end

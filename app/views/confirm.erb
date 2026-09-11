@@ -9,6 +9,7 @@
 <body>
   <%= topbar %>
   <main>
+    <%= erb :_cuentas, layout: false %>
     <h1><%= h.(filename) %></h1>
     <% if result.period_start && result.period_end %>
       <p class="meta">Periodo impreso: <%= h.(result.period_start) %> a <%= h.(result.period_end) %></p>

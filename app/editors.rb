@@ -9,25 +9,25 @@ module Frijolero
     # to the user on the re-rendered editor.
     class EditorError < StandardError; end
 
-    get '/rules/:account' do
+    get '/accounts/:account/rules' do
       rules_account!
       path = Config.rules_path(params[:account])
       content = File.exist?(path) ? File.read(path) : "start_with: {}\ninclude: {}\n"
       render_editor(**rules_locals(params[:account], content: content, notice: saved_notice))
     end
 
-    post '/rules/:account' do
+    post '/accounts/:account/rules' do
       rules_account!
       content = params[:content].to_s
       data = parse_yaml_hash!(content)
       Detailer::Rules.new(data).matches_for(description: 'probe', amount: 0)
       save_config!(Config.rules_path(params[:account]), content, "rules #{params[:account]}")
-      redirect back_path ? "#{back_path}?rules=1" : "/rules/#{Rack::Utils.escape_path(params[:account])}?saved=1", 303
+      redirect back_path ? "#{back_path}?rules=1" : "#{rules_locals(params[:account])[:action]}?saved=1", 303
     rescue EditorError, Psych::SyntaxError, NoMethodError, TypeError, ArgumentError => e
       render_editor(status: 422, **rules_locals(params[:account], content: content, error: e.message))
     end
 
-    post '/rules/:account/from' do
+    post '/accounts/:account/rules/from' do
       rules_account!
       path = Config.rules_path(params[:account])
       content = File.exist?(path) ? File.read(path) : ''
@@ -56,18 +56,18 @@ module Frijolero
       # The statement page sends its own path with "Hacer regla", so the editor
       # can offer the way back and the save can return there. Nothing else is honoured.
       def back_path
-        params[:back] if params[:back].to_s.match?(%r{\A/statements/[^/?#]+/\d{4}\z})
+        params[:back] if params[:back].to_s.match?(%r{\A/accounts/[^/?#]+/\d{4}\z})
       end
 
       def render_editor(status: 200, **locals)
-        defaults = { notice: nil, error: nil, back: back_path }
+        defaults = { notice: nil, error: nil, back: back_path, account: nil, tab: nil }
         self.status(status)
         erb :editor, locals: defaults.merge(locals)
       end
 
       def rules_locals(account, **extra)
-        action = "/rules/#{Rack::Utils.escape_path(account)}"
-        { title: "Reglas de #{account}", action: action }.merge(extra)
+        action = "/accounts/#{Rack::Utils.escape_path(account)}/rules"
+        { title: "Reglas de #{account}", action: action, account: account, tab: :rules }.merge(extra)
       end
 
       def rule_added_notice(description)

@@ -6,6 +6,7 @@
 <body>
   <%= topbar %>
   <main>
+    <%= erb :_cuentas, layout: false %>
     <h1>Subir estado de cuenta</h1>
     <form method="post" action="/upload" enctype="multipart/form-data">
       <label for="pdf">PDF</label>

@@ -167,8 +167,8 @@ class UploadsTest < Minitest::Test
 
     assert_includes last_response.body, 'href="/jobs"'
     assert_includes last_response.body, 'href="/accounts"'
-    assert_includes last_response.body, 'href="/rules/AMEX"'
-    refute_includes last_response.body, 'href="/rules/CETES"'
+    assert_includes last_response.body, 'href="/accounts/AMEX/rules"'
+    refute_includes last_response.body, 'href="/accounts/CETES/rules"'
   end
 
   def test_upload_form_has_pdf_field
@@ -325,7 +325,7 @@ class UploadsTest < Minitest::Test
     post '/upload/backup', account: 'AMEX', period: '2508', token: token
 
     assert_equal 303, last_response.status
-    assert_equal '/statements/AMEX', URI(last_response.location).path
+    assert_equal '/accounts/AMEX', URI(last_response.location).path
     assert_equal ['frijolero/accounts/AMEX/AMEX 2508.pdf'], @b2.calls
     assert_equal [:put], @order
     assert_empty Frijolero::App.jobs.all
@@ -381,7 +381,7 @@ class UploadsTest < Minitest::Test
     Frijolero::App.jobs.work_one
     get "/jobs/#{job_id}"
     refute_includes last_response.body, 'http-equiv="refresh"'
-    assert_includes last_response.body, '/statements/AMEX/2508'
+    assert_includes last_response.body, '/accounts/AMEX/2508'
   end
 
   def test_job_page_shows_the_error_for_a_failed_job
@@ -415,7 +415,7 @@ class UploadsTest < Minitest::Test
   end
 
   def test_pdf_download_redirects_to_b2_presigned_url
-    get '/statements/AMEX/2508/pdf'
+    get '/accounts/AMEX/2508/pdf'
 
     assert_equal 302, last_response.status
     assert_equal 'https://b2.example/frijolero/accounts/AMEX/AMEX%202508.pdf?sig=1', last_response.headers['Location']
@@ -432,7 +432,7 @@ class UploadsTest < Minitest::Test
         beancount_account: "Assets:BBVA"
     YAML
 
-    get '/statements/BBVA%20TDC/2508/pdf'
+    get '/accounts/BBVA%20TDC/2508/pdf'
 
     assert_equal 302, last_response.status
     assert_equal 'https://b2.example/frijolero/accounts/BBVA%20TDC/BBVA%20TDC%202508.pdf?sig=1',
@@ -441,14 +441,14 @@ class UploadsTest < Minitest::Test
   end
 
   def test_pdf_download_returns_404_for_unknown_account
-    get '/statements/UNKNOWN/2508/pdf'
+    get '/accounts/UNKNOWN/2508/pdf'
 
     assert_equal 404, last_response.status
     assert_empty Frijolero::App.b2.calls
   end
 
   def test_pdf_download_returns_404_for_invalid_period
-    get '/statements/AMEX/25-08/pdf'
+    get '/accounts/AMEX/25-08/pdf'
 
     assert_equal 404, last_response.status
     assert_empty Frijolero::App.b2.calls

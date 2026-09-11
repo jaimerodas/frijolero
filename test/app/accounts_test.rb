@@ -96,7 +96,7 @@ class AccountsTest < Minitest::Test
   end
 
   def test_account_page_titles_and_escapes_the_key
-    get '/statements/BBVA%20TDC'
+    get '/accounts/BBVA%20TDC'
 
     assert_includes last_response.body, '<title>BBVA TDC</title>'
   end
@@ -104,17 +104,17 @@ class AccountsTest < Minitest::Test
   def test_accounts_list_escapes_links_for_a_key_with_a_space
     get '/accounts'
 
-    assert_includes last_response.body, '/statements/BBVA%20TDC"'
+    assert_includes last_response.body, '/accounts/BBVA%20TDC"'
     assert_includes last_response.body, '/accounts/BBVA%20TDC/config'
-    assert_includes last_response.body, '/rules/BBVA%20TDC'
+    assert_includes last_response.body, '/accounts/BBVA%20TDC/rules'
   end
 
   def test_accounts_without_rules_get_no_rules_link
     get '/accounts'
-    refute_includes last_response.body, '/rules/CETES'
+    refute_includes last_response.body, '/accounts/CETES/rules'
 
-    get '/statements/CETES'
-    refute_includes last_response.body, '/rules/CETES'
+    get '/accounts/CETES'
+    refute_includes last_response.body, '/accounts/CETES/rules'
   end
 
   def test_accounts_list_links_to_the_full_yaml_editor
@@ -171,15 +171,15 @@ class AccountsTest < Minitest::Test
     FileUtils.mkdir_p(File.dirname(beancount_path))
     File.write(beancount_path, '')
 
-    get '/statements/BBVA%20TDC'
+    get '/accounts/BBVA%20TDC'
 
     assert_equal 200, last_response.status
     assert_equal ['frijolero/accounts/BBVA TDC/'], @b2.prefixes
     assert_operator last_response.body.index('agosto 2025'), :<, last_response.body.index('julio 2025')
-    assert_includes last_response.body, '/statements/BBVA%20TDC/2508/pdf'
-    assert_includes last_response.body, '/statements/BBVA%20TDC/2507/pdf'
-    assert_includes last_response.body, '/statements/BBVA%20TDC/2508"'
-    refute_includes last_response.body, '/statements/BBVA%20TDC/2507"'
+    assert_includes last_response.body, '/accounts/BBVA%20TDC/2508/pdf'
+    assert_includes last_response.body, '/accounts/BBVA%20TDC/2507/pdf'
+    assert_includes last_response.body, '/accounts/BBVA%20TDC/2508"'
+    refute_includes last_response.body, '/accounts/BBVA%20TDC/2507"'
     assert_includes last_response.body, 'sin procesar'
   end
 
@@ -189,7 +189,7 @@ class AccountsTest < Minitest::Test
       { key: 'frijolero/accounts/AMEX/AMEX 2606.pdf', size: 130_000, last_modified: Time.new(2026, 7, 1) }
     ]
 
-    Date.stub(:today, Date.new(2026, 9, 6)) { get '/statements/AMEX' }
+    Date.stub(:today, Date.new(2026, 9, 6)) { get '/accounts/AMEX' }
 
     body = last_response.body
     assert_equal 200, last_response.status
@@ -205,7 +205,7 @@ class AccountsTest < Minitest::Test
   def test_account_page_keeps_a_pdf_newer_than_the_last_closed_period
     @b2.entries = [{ key: 'frijolero/accounts/AMEX/AMEX 2609.pdf', size: 1, last_modified: Time.new(2026, 9, 5) }]
 
-    Date.stub(:today, Date.new(2026, 9, 6)) { get '/statements/AMEX' }
+    Date.stub(:today, Date.new(2026, 9, 6)) { get '/accounts/AMEX' }
 
     assert_includes last_response.body, 'septiembre 2026'
     refute_includes last_response.body, 'falta'
@@ -220,7 +220,7 @@ class AccountsTest < Minitest::Test
     @b2.entries = [{ key: 'frijolero/accounts/AMEX/AMEX 2605.pdf', size: 1, last_modified: Time.new(2026, 6, 1) }]
 
     # Closed on Aug 10, so the newest statement is July's; August has not closed yet.
-    Date.stub(:today, Date.new(2026, 9, 6)) { get '/statements/AMEX' }
+    Date.stub(:today, Date.new(2026, 9, 6)) { get '/accounts/AMEX' }
 
     assert_includes last_response.body, 'julio 2026'
     assert_includes last_response.body, 'junio 2026'
@@ -230,7 +230,7 @@ class AccountsTest < Minitest::Test
   def test_account_page_with_no_pdfs
     @b2.entries = []
 
-    get '/statements/AMEX'
+    get '/accounts/AMEX'
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, 'No hay PDFs en B2'
@@ -239,14 +239,14 @@ class AccountsTest < Minitest::Test
   def test_account_page_shows_a_b2_error
     @b2.error = 'boom'
 
-    get '/statements/AMEX'
+    get '/accounts/AMEX'
 
     assert_equal 502, last_response.status
     assert_includes last_response.body, 'boom'
   end
 
   def test_unknown_account_page_404s
-    get '/statements/Nope'
+    get '/accounts/Nope'
 
     assert_equal 404, last_response.status
   end

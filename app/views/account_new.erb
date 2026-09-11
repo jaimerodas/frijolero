@@ -10,6 +10,7 @@
 <body>
   <%= topbar %>
   <main>
+    <%= erb :_cuentas, layout: false %>
     <h1>Nueva cuenta</h1>
     <% if error %>
       <p class="error" role="alert"><%= h.(error) %></p>

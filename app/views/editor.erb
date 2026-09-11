@@ -9,7 +9,8 @@
 <body>
   <%= topbar %>
   <main>
-    <h1><%= h.(title) %></h1>
+    <%= erb :_cuentas, layout: false %>
+    <% if account %><%= erb :_account, layout: false, locals: { account: account, tab: tab } %><% else %><h1><%= h.(title) %></h1><% end %>
     <% if notice %>
       <p class="notice"><%= h.(notice) %></p>
     <% end %>

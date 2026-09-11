@@ -201,6 +201,9 @@ dialog .actions { margin-bottom: 0; }
 .title nav a { font-weight: 400; color: var(--muted); text-decoration: none; }
 .title nav a:hover { color: var(--ink); text-decoration: underline; }
 .title .primary { margin-left: auto; }
+/* A page under the section: its own h1 under the title row; an account puts its tabs under the h1. */
+.title + h1 { margin-top: 1.5rem; }
+.toolbar + h2 { margin-top: 1.5rem; }
 .ledger-head { display: flex; gap: 0.75rem; margin: 0 0 0 auto; font-size: 0.875rem; }
 .ledger-head button { all: unset; cursor: pointer; color: var(--blue); }
 .ledger-head button:hover { text-decoration: underline; }

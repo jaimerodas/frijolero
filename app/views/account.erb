@@ -13,11 +13,8 @@
 <body>
   <%= topbar %>
   <main>
-    <h1><%= h.(key) %></h1>
-    <p class="actions">
-      <a class="button" href="/accounts/<%= key_path %>/config">Configuración</a>
-      <% if rules?(key) %><a class="button" href="/rules/<%= key_path %>">Reglas</a><% end %>
-    </p>
+    <%= erb :_cuentas, layout: false %>
+    <%= erb :_account, layout: false, locals: { account: key, tab: :statements } %>
 
     <% if error %>
       <p class="error" role="alert"><%= h.(error) %></p>
@@ -43,10 +40,10 @@
                 <td data-label="Estado"><a class="status missing" href="/upload">falta</a></td>
                 <% else %>
                 <td data-label="Tamaño"><%= h.(fmt_size.(row[:size])) %></td>
-                <td data-label="PDF"><a class="button" href="/statements/<%= key_path %>/<%= row[:period] %>/pdf">Descargar</a></td>
+                <td data-label="PDF"><a class="button" href="/accounts/<%= key_path %>/<%= row[:period] %>/pdf">Descargar</a></td>
                 <td data-label="Estado">
                   <% if row[:processed] %>
-                    <a class="button" href="/statements/<%= key_path %>/<%= row[:period] %>">Ver</a>
+                    <a class="button" href="/accounts/<%= key_path %>/<%= row[:period] %>">Ver</a>
                   <% else %>
                     <span class="note">sin procesar</span>
                   <% end %>
