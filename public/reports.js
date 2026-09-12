@@ -57,5 +57,9 @@ form?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const response = await fetch('/edit', { method: 'POST', body: new FormData(form) }).catch(() => null);
   if (response?.status === 204) return location.reload();
+  if (response?.status === 422) {
+    const { errors } = await response.json();
+    return showError(errors.map((e) => `${e.code} ${e.message} (${e.file}:${e.line})`).join('\n'));
+  }
   showError(response ? await response.text() : 'Sin conexión');
 });

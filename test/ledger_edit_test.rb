@@ -19,6 +19,9 @@ class LedgerEditTest < Minitest::Test
     2026-08-02 balance Liabilities:Amex-Platinum  -545.09 MXN
   BEANCOUNT
 
+  ERROR = { code: 'E1001', message: 'Account Expenses:Nope was never opened',
+            file: 'accounts/AMEX/AMEX 2607.beancount', line: 1 }.freeze
+
   # A checker that answers with a fixed list and remembers whether it ran.
   class Checker
     attr_reader :calls
@@ -79,9 +82,23 @@ class LedgerEditTest < Minitest::Test
   def test_block_raises_when_the_line_is_past_the_end_or_has_no_header
     with_ledger do
       assert_raises(LedgerEdit::NotFound) { edit(40).block }
-      assert_raises(LedgerEdit::NotFound) { edit(0).block }
       File.write(statement_path(Frijolero::Config.ledger_dir), "; only\n")
       assert_raises(LedgerEdit::NotFound) { edit(1).block }
+    end
+  end
+
+  def test_block_without_a_line_is_the_whole_file
+    with_ledger do
+      assert_equal({ first: 1, last: 9, text: LEDGER }, edit(nil).block)
+      File.write(statement_path(Frijolero::Config.ledger_dir), '')
+      assert_equal '', edit(nil).block[:text]
+    end
+  end
+
+  def test_statement_names_the_key_and_the_period_only_for_a_statement_file
+    with_ledger do
+      assert_equal %w[AMEX 2607], edit(nil).statement
+      assert_nil edit(nil, file: 'transactions.beancount').statement
     end
   end
 
@@ -111,6 +128,31 @@ class LedgerEditTest < Minitest::Test
     end
   end
 
+  def test_save_without_a_line_replaces_the_whole_file
+    with_ledger do |dir|
+      edited = LEDGER.sub('Tolls', 'Casetas')
+
+      text = edit(nil).save(original: LEDGER, edited: "#{edited}\n\n")
+
+      assert_equal edited, text
+      assert_equal edited, File.read(statement_path(dir))
+    end
+  end
+
+  def test_save_of_the_whole_file_is_stale_when_the_file_changed
+    with_ledger do |dir|
+      assert_raises(LedgerEdit::Stale) { edit(nil).save(original: LEDGER.lines[0..2].join, edited: 'x') }
+      assert_equal LEDGER, File.read(statement_path(dir))
+    end
+  end
+
+  def test_save_of_the_whole_file_restores_it_when_the_check_fails
+    with_ledger do |dir|
+      assert_raises(LedgerEdit::Invalid) { edit(nil, checker: Checker.new([ERROR])).save(original: LEDGER, edited: 'x') }
+      assert_equal LEDGER, File.read(statement_path(dir))
+    end
+  end
+
   def test_save_refuses_when_the_original_no_longer_matches
     with_ledger do |dir|
       checker = Checker.new
@@ -125,14 +167,15 @@ class LedgerEditTest < Minitest::Test
 
   def test_save_restores_the_file_when_the_check_fails
     with_ledger do |dir|
-      checker = Checker.new(['E1001 Account Expenses:Nope was never opened (accounts/AMEX/AMEX 2607.beancount:1)'])
+      checker = Checker.new([ERROR])
       error = assert_raises(LedgerEdit::Invalid) do
         edit(2, checker: checker).save(original: LEDGER.lines[0..2].join,
                                        edited: "2026-08-01 * \"x\"\n  Expenses:Nope  1 MXN\n")
       end
 
       assert_equal 1, checker.calls
-      assert_equal checker.check.join("\n"), error.message
+      assert_equal [ERROR], error.errors
+      assert_equal 'E1001 Account Expenses:Nope was never opened (accounts/AMEX/AMEX 2607.beancount:1)', error.message
       assert_equal LEDGER, File.read(statement_path(dir))
     end
   end
@@ -157,6 +200,14 @@ class LedgerEditTest < Minitest::Test
       message = edit(2).commit_message(original: original, edited: edited)
 
       assert_equal "Edición AMEX 2607: 2026-08-01 PASE\n\nAntes:\n#{original}\nDespués:\n#{edited}", message
+    end
+  end
+
+  def test_commit_message_of_the_whole_file_is_the_subject_alone
+    with_ledger do
+      assert_equal 'Edición AMEX 2607', edit(nil).commit_message(original: LEDGER, edited: 'x')
+      assert_equal 'Edición balances.beancount',
+                   edit(nil, file: 'balances.beancount').commit_message(original: LEDGER, edited: 'x')
     end
   end
 

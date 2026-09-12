@@ -148,15 +148,17 @@ module Frijolero
     # line and the `,-[file:line:col]` line under it. The file is relative to the ledger.
     CHECK_RE = /^(?<code>[A-Z]\d{4})\n\n\s+x (?<message>.*)\n\s+,-\[(?<file>.*?):(?<line>\d+):\d+\]/
 
-    # `rledger check` over the whole ledger: [] when it is clean, else the errors
-    # as "E3001 Transaction does not balance: … (accounts/AMEX/AMEX 2607.beancount:325)".
+    # `rledger check` over the whole ledger: [] when it is clean, else one
+    # {code:, message:, file:, line:} per error, the file relative to the ledger.
     # Without `--no-cache` the binary would leave a cache file in the clone.
     def check
       out, err, code = capture('check', '--no-cache', Config.report_file)
       return [] if code.zero?
 
       root = "#{File.expand_path(Config.ledger_dir)}/"
-      errors = (out + err).scan(CHECK_RE).map { |c, m, f, l| "#{c} #{m} (#{f.delete_prefix(root)}:#{l})" }
+      errors = (out + err).scan(CHECK_RE).map do |c, m, f, l|
+        { code: c, message: m, file: f.delete_prefix(root), line: l.to_i }
+      end
       raise Error, (out + err).strip if errors.empty?
 
       errors

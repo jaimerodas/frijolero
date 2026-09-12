@@ -7,6 +7,7 @@
 <html lang="es">
 <head>
   <%= head("#{account} #{period_name(period)}") %>
+  <script src="/editor.js" defer></script>
 </head>
 <body>
   <%= topbar %>
@@ -38,10 +39,11 @@
     <% if rows %>
       <div class="tabs">
         <div class="tablist">
-          <input type="radio" name="view" id="view-entries" class="visually-hidden" checked>
+          <input type="radio" name="view" id="view-entries" class="visually-hidden"<% unless params[:saved] %> checked<% end %>>
           <label for="view-entries">Movimientos</label>
-          <input type="radio" name="view" id="view-beancount" class="visually-hidden">
+          <input type="radio" name="view" id="view-beancount" class="visually-hidden"<% if params[:saved] %> checked<% end %>>
           <label for="view-beancount">Beancount</label>
+          <button type="button" class="edit-file">Editar</button>
         </div>
         <section id="entries">
           <ol class="ledger">
@@ -76,12 +78,12 @@
           </ol>
         </section>
         <section id="beancount">
-          <pre><%= beancount_html(beancount) %></pre>
+          <%= erb :_code, layout: false, locals: { file: file, text: beancount } %>
         </section>
       </div>
     <% else %>
-      <h2>Beancount</h2>
-      <pre><%= beancount_html(beancount) %></pre>
+      <div class="code-head"><h2>Beancount</h2><button type="button" class="edit-file">Editar</button></div>
+      <%= erb :_code, layout: false, locals: { file: file, text: beancount } %>
     <% end %>
   </main>
 </body>

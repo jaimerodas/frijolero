@@ -159,6 +159,42 @@ class StatementsTest < Minitest::Test
     refute_includes last_response.body, 'Aplicar reglas'
   end
 
+  def test_beancount_tab_is_the_editor_of_the_statement_file
+    write_statement('AMEX', '2508', json: {},
+                                    beancount: "2025-08-01 * \"X\"\n  Liabilities:Amex  -1 MXN\n  Expenses:Food\n")
+
+    get '/accounts/AMEX/2508'
+
+    body = last_response.body
+    assert_includes body, '<script src="/editor.js" defer></script>'
+    assert_match(%r{<div class="tablist">.*<button type="button" class="edit-file">Editar</button>\s*</div>}m, body)
+    assert_includes body, '<form class="code" method="post" action="/edit">'
+    assert_includes body, '<input type="hidden" name="file" value="accounts/AMEX/AMEX 2508.beancount">'
+    assert_includes body, '<span class="line" id="L2">  <span class="bc-account">Liabilities:Amex</span>'
+    assert_includes body, '<textarea name="content" hidden'
+  end
+
+  def test_after_a_save_the_page_opens_on_the_beancount_tab_and_says_guardado
+    write_statement('AMEX', '2508', json: {}, beancount: '')
+
+    get '/accounts/AMEX/2508', saved: 1
+
+    body = last_response.body
+    assert_includes body, '<p class="notice">Guardado</p>'
+    assert_includes body, 'id="view-beancount" class="visually-hidden" checked>'
+    refute_includes body, 'id="view-entries" class="visually-hidden" checked>'
+  end
+
+  def test_non_default_pipeline_has_the_editor_under_its_own_heading
+    write_statement('CETES', '2508', json: { 'movements' => [] }, beancount: '')
+
+    get '/accounts/CETES/2508'
+
+    assert_includes last_response.body, '<div class="code-head"><h2>Beancount</h2>' \
+                                        '<button type="button" class="edit-file">Editar</button></div>'
+    assert_includes last_response.body, '<input type="hidden" name="file" value="accounts/CETES/CETES 2508.beancount">'
+  end
+
   def test_post_detail_on_an_account_without_rules_is_404
     write_statement('CETES', '2508', json: { 'movements' => [] }, beancount: '')
     write_rules('CETES', 'start_with: {}')

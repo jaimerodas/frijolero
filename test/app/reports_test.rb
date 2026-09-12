@@ -639,15 +639,78 @@ class ReportsPageTest < Minitest::Test
 
   def test_an_edit_that_fails_the_check_is_422_with_the_errors_and_leaves_the_file
     with_statement do |path|
-      @reports.check_errors = ['E1001 Account Expenses:Casa was never opened (accounts/AMEX/AMEX 2607.beancount:1)']
+      @reports.check_errors = [{ code: 'E1001', message: 'Account Expenses:Casa was never opened',
+                                 file: 'accounts/AMEX/AMEX 2607.beancount', line: 1 }]
       original = STATEMENT.lines[0..2].join
       post '/edit', file: 'accounts/AMEX/AMEX 2607.beancount', line: 2, original: original,
                     content: original.sub('Compras', 'Casa')
 
       assert_equal 422, last_response.status
-      assert_equal @reports.check_errors.first, last_response.body
+      assert_includes last_response.content_type, 'application/json'
+      assert_equal({ 'errors' => [{ 'code' => 'E1001', 'message' => 'Account Expenses:Casa was never opened',
+                                    'file' => 'accounts/AMEX/AMEX 2607.beancount', 'line' => 1 }] },
+                   JSON.parse(last_response.body))
       assert_equal STATEMENT, File.read(path)
       assert_empty @repo.messages
+    end
+  end
+
+  def test_edit_without_a_line_answers_with_the_whole_file
+    with_statement do
+      get '/edit', file: 'accounts/AMEX/AMEX 2607.beancount'
+
+      assert_equal 200, last_response.status
+      assert_equal({ 'first' => 1, 'last' => 7, 'text' => STATEMENT }, JSON.parse(last_response.body))
+    end
+  end
+
+  def test_saving_the_whole_file_commits_with_the_statement_as_the_subject
+    with_statement do |path|
+      post '/edit', file: 'accounts/AMEX/AMEX 2607.beancount', original: STATEMENT,
+                    content: STATEMENT.sub('Uber', 'Didi')
+
+      assert_equal 204, last_response.status
+      assert_equal STATEMENT.sub('Uber', 'Didi'), File.read(path)
+      assert_equal ['Edición AMEX 2607'], @repo.messages
+    end
+  end
+
+  def test_files_page_shows_the_file_in_the_editor_with_its_statement_link
+    with_statement do
+      get '/files/accounts/AMEX/AMEX%202607.beancount'
+
+      assert_equal 200, last_response.status
+      body = last_response.body
+      assert_includes body, '<h1 class="file">accounts/AMEX/AMEX 2607.beancount</h1>'
+      assert_includes body, '<a href="/accounts/AMEX/2607">Ver estado de cuenta</a>'
+      assert_includes body, '<button type="button" class="edit-file">Editar</button>'
+      assert_includes body, '<input type="hidden" name="file" value="accounts/AMEX/AMEX 2607.beancount">'
+      assert_includes body, '<span class="line" id="L5"><span class="bc-date">2026-07-06</span>'
+      assert_includes body, '<script src="/editor.js" defer></script>'
+    end
+  end
+
+  def test_files_page_of_a_plain_ledger_file_has_no_statement_link_and_says_guardado
+    with_statement do
+      File.write(File.join(Frijolero::Config.ledger_dir, 'balances.beancount'), "2026-07-31 balance Assets:X 1 MXN\n")
+      get '/files/balances.beancount', saved: 1
+
+      assert_equal 200, last_response.status
+      refute_includes last_response.body, 'Ver estado de cuenta'
+      assert_includes last_response.body, '<p class="notice">Guardado</p>'
+    end
+  end
+
+  def test_files_page_is_404_outside_the_ledger_or_for_another_kind_of_file
+    with_statement do
+      get '/files/../outside.beancount'
+      assert_equal 404, last_response.status
+
+      get '/files/config/accounts.yaml'
+      assert_equal 404, last_response.status
+
+      get '/files/nope.beancount'
+      assert_equal 404, last_response.status
     end
   end
 

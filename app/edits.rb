@@ -15,7 +15,8 @@ module Frijolero
       end
     end
 
-    # One transaction as text, by file and line: {first, last, text}.
+    # One transaction as text, by file and line, or the whole file without a
+    # line: {first, last, text}.
     get '/edit' do
       block = ledger_edit.block
       content_type :json
@@ -25,7 +26,8 @@ module Frijolero
     end
 
     # The save writes the block, checks the whole ledger, and commits and pushes.
-    # Every failure is plain text for the dialog; the file is back as it was on
+    # A failed check is 422 with the errors as JSON, so the editor can mark the
+    # lines; every other failure is plain text. The file is back as it was on
     # 422, and saved but only committed locally on 502.
     post '/edit' do
       edit = ledger_edit
@@ -35,13 +37,25 @@ module Frijolero
     rescue LedgerEdit::NotFound
       halt 404, 'No existe esa transacción'
     rescue LedgerEdit::Stale
-      halt 409, 'La transacción cambió en el ledger. Cierra el diálogo y vuelve a abrirla.'
+      halt 409, 'El archivo cambió en el ledger. Cancela y vuelve a abrirlo.'
     rescue LedgerEdit::Invalid => e
-      halt 422, e.message
+      content_type :json
+      halt 422, JSON.generate(errors: e.errors)
     rescue Reports::Error => e
       halt 502, "No se pudo validar el ledger: #{e.message}"
     rescue LedgerRepo::Error => e
       halt 502, "Guardado en el servidor, pero no se pudo subir: #{e.message}"
+    end
+
+    # The editor page of any `.beancount` file of the ledger, where an error of
+    # another file sends the person. The path checks are LedgerEdit's.
+    get '/files/*' do
+      file = params[:splat].first
+      edit = LedgerEdit.new(file: file, line: nil, checker: self.class.reports)
+      erb :file, locals: { file: file, text: edit.block[:text], statement: edit.statement,
+                           notice: ('Guardado' if params[:saved]) }
+    rescue LedgerEdit::NotFound
+      halt 404, 'No existe ese archivo'
     end
   end
 end

@@ -338,6 +338,61 @@ pre {
   overflow-x: auto;
   white-space: pre-wrap;
 }
+/* Code: the Beancount file, one numbered .line per line. The editor (editor.js) lays a
+   transparent textarea over the pre; the pre keeps the colors and sets the height, so both
+   must share font, padding and wrapping, and nothing inside .surface may change a line's
+   height, or the caret drifts from the text. The number sits in the pre's left padding. */
+.code { margin-block: 0 2rem; }
+.code .surface { position: relative; }
+.code pre, .code textarea {
+  margin: 0;
+  padding: 1rem 1rem 1rem calc(1rem + 4ch);
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  white-space: normal;
+}
+.code pre { counter-reset: line; }
+.code .line { display: block; position: relative; min-height: 1lh; white-space: pre-wrap; overflow-wrap: anywhere; }
+.code .line::before {
+  counter-increment: line;
+  content: counter(line);
+  position: absolute;
+  right: calc(100% + 1ch);
+  width: 3ch;
+  text-align: right;
+  color: var(--muted);
+  user-select: none;
+}
+.code:not(.editing) .line:last-child:empty { display: none; }
+.code .line:is(.err, :target) { background: color-mix(in oklab, var(--red) 12%, var(--bg)); }
+.code .line:is(.err, :target)::before { color: var(--red); font-weight: 600; }
+.code textarea {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+  resize: none;
+}
+.code .errors { margin-block: 0.75rem 0; padding-left: 2.5rem; font-family: var(--mono); font-size: 0.875rem; }
+.code .errors li { overflow-wrap: anywhere; }
+.code .actions { margin-block: 0.75rem 0; }
+.code-head { display: flex; align-items: baseline; gap: 1rem; margin: 2.5rem 0 0.75rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--rule); }
+.code-head :is(h1, h2) { flex: 1; margin: 0; padding: 0; border: 0; overflow-wrap: anywhere; }
+.code-head h1.file { font-family: var(--mono); font-size: 1.25rem; }
+.edit-file { all: unset; display: inline-flex; align-items: center; min-height: 2rem; font: inherit; font-size: 0.875rem; color: var(--blue); cursor: pointer; }
+.edit-file:hover { text-decoration: underline; }
+.edit-file:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* The tab labels carry the form label margins, so the button takes the same ones to sit level with them. */
+.tablist .edit-file { margin: 1.25rem 0 0.375rem auto; }
 .bc-date, .bc-comment { color: var(--muted); }
 .bc-flag { font-weight: 600; }
 .bc-warn, pre .debit { color: var(--debit); }

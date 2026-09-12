@@ -262,8 +262,8 @@ class ReportsTest < Minitest::Test
       out = File.read(fixture_path('report/check_errors.txt')).gsub('/data/ledger', dir)
       errors = Reports.stub(:capture, ->(*) { [out, '', 1] }) { Reports.check }
 
-      assert_equal ['E1001 Account Expenses:Transportation:Tollz was never opened ' \
-                    '(accounts/AMEX/AMEX 2607.beancount:325)'], errors
+      assert_equal [{ code: 'E1001', message: 'Account Expenses:Transportation:Tollz was never opened',
+                      file: 'accounts/AMEX/AMEX 2607.beancount', line: 325 }], errors
     end
   end
 

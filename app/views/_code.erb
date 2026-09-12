@@ -1,0 +1,7 @@
+<form class="code" method="post" action="/edit">
+  <input type="hidden" name="file" value="<%= Rack::Utils.escape_html(file) %>">
+  <input type="hidden" name="original">
+  <div class="surface"><pre><%= beancount_html(text) %></pre><textarea name="content" hidden spellcheck="false" autocapitalize="off" autocorrect="off" aria-label="Beancount"></textarea></div>
+  <ul class="errors error" role="alert" hidden></ul>
+  <p class="actions" hidden><button type="submit" class="primary">Guardar</button><button type="button" value="cancel">Cancelar</button></p>
+</form>

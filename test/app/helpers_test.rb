@@ -29,7 +29,7 @@ class HelpersTest < Minitest::Test
   end
 
   def test_beancount_html_wraps_directives_postings_and_comments
-    html = @app.beancount_html(<<~BEAN)
+    html = @app.beancount_line(<<~BEAN)
       ; nota <b>
       2026-08-04 * "Amazon" "AMAZON COM"
         source_desc: "AMAZON COM"
@@ -50,12 +50,22 @@ class HelpersTest < Minitest::Test
   def test_beancount_html_keeps_strings_plain_and_marks_flagged_transactions
     assert_equal '<span class="bc-date">2026-08-04</span> <span class="bc-flag bc-warn">!</span> ' \
                  '&quot;Pago; Assets:Cash&quot;',
-                 @app.beancount_html('2026-08-04 ! "Pago; Assets:Cash"')
+                 @app.beancount_line('2026-08-04 ! "Pago; Assets:Cash"')
   end
 
   def test_beancount_html_leaves_unknown_lines_escaped
-    assert_equal "option &quot;title&quot; &lt;x&gt;\n", @app.beancount_html(%(option "title" <x>\n))
+    assert_equal 'option &quot;title&quot; &lt;x&gt;', @app.beancount_line(%(option "title" <x>))
     assert_equal '  <span class="bc-account">Assets:Cash</span>  <span class="credit">1.00 USD</span>',
-                 @app.beancount_html('  Assets:Cash  1.00 USD')
+                 @app.beancount_line('  Assets:Cash  1.00 USD')
+  end
+
+  # The trailing empty line is kept, as the editor's render does, so the two agree.
+  def test_beancount_html_numbers_every_line_including_the_trailing_empty_one
+    assert_equal '<span class="line" id="L1"><span class="bc-comment">; a</span></span>' \
+                 '<span class="line" id="L2"></span>' \
+                 '<span class="line" id="L3">b</span>' \
+                 '<span class="line" id="L4"></span>',
+                 @app.beancount_html("; a\n\nb\n")
+    assert_equal '<span class="line" id="L1"></span>', @app.beancount_html('')
   end
 end

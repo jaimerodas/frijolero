@@ -17,9 +17,20 @@ module Frijolero
     PERIOD = { mustermann_opts: { capture: { yymm: /\d{4}/ } } }.freeze
 
     helpers do
-      # Beancount text → HTML with a span per date, flag, account and amount. Display only.
-      # A line that matches nothing is just escaped text, so a hand edit never breaks the page.
+      # Beancount text → one `span.line#L<n>` per line, colored. The lines are
+      # split on "\n" with the trailing empty one kept, the same as the editor's
+      # render in public/editor.js, which has the JS copy of BEANCOUNT_TOKEN.
       def beancount_html(text)
+        lines = text.split("\n", -1)
+        lines = [''] if lines.empty?
+        lines.each_with_index.map { |line, i| %(<span class="line" id="L#{i + 1}">#{beancount_line(line)}</span>) }.join
+      end
+    end
+
+    helpers do
+      # One line → HTML with a span per date, flag, account and amount. Display only.
+      # A line that matches nothing is just escaped text, so a hand edit never breaks the page.
+      def beancount_line(text)
         Rack::Utils.escape_html(text).gsub(BEANCOUNT_TOKEN) do
           m = Regexp.last_match
           kind = m.names.find { |n| m[n] }
@@ -76,6 +87,7 @@ module Frijolero
         neighbours: statement_neighbours(account, period),
         fixme_count: beancount.scan(/^\s+Expenses:FIXME\b/).size,
         beancount: beancount,
+        file: ledger_relative(paths[:beancount]),
         notice: statement_notice
       }
     end
@@ -92,6 +104,7 @@ module Frijolero
 
       def statement_notice
         return "#{params[:detailed]} clasificadas, #{params[:remaining]} sin clasificar" if params[:detailed]
+        return 'Guardado' if params[:saved]
 
         'Reglas guardadas. Aplica las reglas para usarlas.' if params[:rules]
       end
