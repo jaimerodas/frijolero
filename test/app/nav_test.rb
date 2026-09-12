@@ -36,13 +36,10 @@ class NavTest < Minitest::Test
     FileUtils.remove_entry(@dir)
   end
 
-  SECTIONS = {
-    '/' => 'Cuentas', '/upload' => 'Cuentas', '/jobs' => 'Cuentas', '/accounts/AMEX' => 'Cuentas',
-    '/accounts/AMEX/2608' => 'Cuentas', '/accounts' => 'Cuentas', '/accounts/new' => 'Cuentas',
-    '/accounts/AMEX/config' => 'Cuentas', '/accounts/AMEX/rules' => 'Cuentas'
-  }.freeze
+  SECTIONS = %w[/ /upload /jobs /accounts /accounts/new /accounts/AMEX /accounts/AMEX/2608
+                /accounts/AMEX/config /accounts/AMEX/rules].to_h { |p| [p, 'Estados de cuenta'] }.freeze
 
-  HREFS = { 'Cuentas' => '/', 'Reportes' => '/reports' }.freeze
+  HREFS = { 'Estados de cuenta' => '/', 'Reportes' => '/reports' }.freeze
 
   def test_topbar_marks_the_section_of_each_page
     SECTIONS.each do |path, section|
@@ -58,39 +55,39 @@ class NavTest < Minitest::Test
     get '/'
 
     nav = last_response.body[%r{<nav aria-label="Secciones">.*?</nav>}m]
-    assert_equal %w[Cuentas Reportes], nav.scan(%r{>([^<]+)</a>}).flatten
+    assert_equal ['Estados de cuenta', 'Reportes'], nav.scan(%r{>([^<]+)</a>}).flatten
   end
 
-  def test_dashboard_is_periodos_with_its_peers_beside_it_and_the_upload_cta
+  def test_dashboard_is_recientes_with_its_peers_beside_it_and_the_upload_cta
     get '/'
 
-    assert_includes last_response.body, '<h1>Periodos</h1>'
-    assert_includes last_response.body, '<a href="/jobs">Bitácora</a>'
-    assert_includes last_response.body, '<a href="/accounts">Configuración</a>'
+    nav = last_response.body[%r{<nav aria-label="Estados de cuenta">.*?</nav>}m]
+    assert_equal ['<h1>Recientes</h1>', '<a href="/accounts">Cuentas</a>', '<a href="/jobs">Bitácora</a>'],
+                 nav.scan(%r{<h1>.*?</h1>|<a href.*?</a>})
     assert_includes last_response.body, '<a class="button primary" href="/upload">Subir estado de cuenta</a>'
   end
 
-  def test_jobs_page_is_bitacora_with_periodos_beside_it
+  def test_jobs_page_is_bitacora_with_recientes_beside_it
     get '/jobs'
 
     assert_includes last_response.body, '<h1>Bitácora</h1>'
-    assert_includes last_response.body, '<a href="/">Periodos</a>'
+    assert_includes last_response.body, '<a href="/">Recientes</a>'
     assert_includes last_response.body, '<title>Bitácora</title>'
   end
 
-  def test_accounts_list_is_configuracion_with_periodos_beside_it
+  def test_accounts_list_is_cuentas_with_recientes_beside_it
     get '/accounts'
 
-    assert_includes last_response.body, '<h1>Configuración</h1>'
-    assert_includes last_response.body, '<a href="/">Periodos</a>'
-    assert_includes last_response.body, '<title>Configuración</title>'
+    assert_includes last_response.body, '<h1>Cuentas</h1>'
+    assert_includes last_response.body, '<a href="/">Recientes</a>'
+    assert_includes last_response.body, '<title>Cuentas</title>'
   end
 
   def test_other_pages_of_cuentas_show_the_title_row_as_links
     get '/accounts/new'
 
-    assert_includes last_response.body, '<a href="/">Periodos</a>'
-    assert_includes last_response.body, '<a href="/accounts">Configuración</a>'
+    assert_includes last_response.body, '<a href="/">Recientes</a>'
+    assert_includes last_response.body, '<a href="/accounts">Cuentas</a>'
     assert_includes last_response.body, '<h1>Nueva cuenta</h1>'
   end
 
@@ -113,7 +110,7 @@ class NavTest < Minitest::Test
       body = last_response.body
       assert_equal 200, last_response.status, path
       assert_equal ['<h1>AMEX</h1>'], body.scan(%r{<h1>.*?</h1>}), path
-      assert_includes body, '<a href="/accounts">Configuración</a>', path
+      assert_includes body, '<a href="/accounts">Cuentas</a>', path
       assert_includes body, %(<a href="#{TAB_HREFS[tab]}" aria-current="true">#{tab}</a>), path
       assert_equal 2, body.scan('aria-current=').size, path
     end

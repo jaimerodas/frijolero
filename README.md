@@ -14,15 +14,16 @@ uno vacío.
 
 ## Las secciones de la app
 
-- **Inicio.** El dashboard muestra, por cuenta, si los últimos dos periodos
-  están recibidos, pendientes, faltantes o fallidos.
+- **Estados de cuenta.** La sección principal, con tres páginas:
+  - **Recientes.** El dashboard muestra, por cuenta, si los últimos dos
+    periodos están recibidos, pendientes, faltantes o fallidos.
+  - **Cuentas.** Las cuentas del ledger, los PDF de cada una y los periodos
+    que faltan. Desde aquí editas la configuración de una cuenta o das de alta
+    una cuenta nueva.
+  - **Bitácora.** La lista de jobs y la salida de cada uno. Un job que falla
+    muestra el error y deja el PDF en el servidor.
 - **Subir.** Subes un PDF y confirmas la cuenta y el periodo. El botón
   "Solo guardar PDF" guarda el archivo en B2 y no extrae nada.
-- **Jobs.** La lista de jobs y la salida de cada uno. Un job que falla muestra
-  el error y deja el PDF en el servidor.
-- **Cuentas.** Las cuentas del ledger, los PDF de cada una y los periodos que
-  faltan. Desde aquí editas la configuración de una cuenta o das de alta una
-  cuenta nueva.
 - **Reportes.** El estado de resultados y el balance general, por año,
   trimestre o mes, en MXN o por moneda.
 - **Estado de cuenta.** Cada estado de cuenta tiene su página. Muestra la lista de

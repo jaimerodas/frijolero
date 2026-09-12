@@ -14,7 +14,7 @@
 1. Instala las gemas con `bundle install`.
 2. Copia `.env.example` a `.env` y pon la ruta de tu ledger en `LEDGER_REPO`.
    Las demás líneas son opcionales.
-3. Si quieres ver la sección Cuentas o descargar un PDF, llena las variables
+3. Si quieres ver la página Cuentas o descargar un PDF, llena las variables
    de B2 en `.env`.
 4. Si quieres subir un estado de cuenta, pon `OPENAI_API_KEY` en `.env`.
    Una subida gasta dinero y hace commit al ledger.

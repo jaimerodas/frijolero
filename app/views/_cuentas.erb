@@ -1,6 +1,6 @@
 <div class="title">
-  <nav aria-label="Cuentas">
-    <% { '/' => 'Periodos', '/jobs' => 'Bitácora', '/accounts' => 'Configuración' }.each do |href, label| %>
+  <nav aria-label="Estados de cuenta">
+    <% { '/' => 'Recientes', '/accounts' => 'Cuentas', '/jobs' => 'Bitácora' }.each do |href, label| %>
       <% if request&.path_info == href %><h1><%= label %></h1><% else %><a href="<%= href %>"><%= label %></a><% end %>
     <% end %>
   </nav>
