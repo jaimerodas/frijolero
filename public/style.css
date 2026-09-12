@@ -258,14 +258,19 @@ dialog .code { margin-bottom: 0; }
 .chart .tip[hidden] { display: none; }
 .chart .tip .when { font-size: 0.75rem; color: var(--muted); }
 .chart .tip data { font-family: var(--mono); font-size: 0.875rem; }
-/* The Sankey of the income statement takes the place of the tables (.behind) and fills the viewport. Flows are ink
-   at a tint; the net node is green or orange; a label sits beside its node, so on hover it turns blue, not white. */
+/* The Sankey of the income statement takes the place of the tables (.behind) and fills the viewport. Income is
+   blue, expenses the debit orange, a gain green and a loss red; a flow is the tone of the node it feeds, at a tint.
+   Blue is taken, so a hovered node turns ink, and its label, beside the node, blue rather than white. */
 .behind { display: none; }
 .chart.sankey { border-bottom: 0; padding-bottom: 0; }
-.chart .flow { fill: none; stroke: var(--ink); stroke-opacity: 0.12; }
-.chart .flow:hover { stroke-opacity: 0.3; }
-.chart .tile.credit { fill: var(--credit); }
-.chart .tile.debit { fill: var(--debit); }
+.chart .income { --tone: var(--blue); }
+.chart .expense { --tone: var(--debit); }
+.chart .gain { --tone: var(--credit); }
+.chart .loss { --tone: var(--red); }
+.chart .tile:is(.income, .expense, .gain, .loss) { fill: var(--tone); }
+.chart .flow { fill: none; stroke: var(--tone, var(--ink)); stroke-opacity: 0.22; }
+.chart .flow:hover { stroke-opacity: 0.45; }
+.chart.sankey a[href]:is(:hover, :focus-visible) .tile { fill: var(--ink); }
 .chart.sankey a[href]:is(:hover, :focus-visible) .label { fill: var(--blue); }
 
 /* Tabs: two radios, no script. The checked one shows its section. The row is the

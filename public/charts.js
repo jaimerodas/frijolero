@@ -228,8 +228,8 @@ function sankey() {
     }
   }
   flow(ingresos, gastos, Math.min(income, expenses));
-  if (income > expenses) flow(ingresos, node('net', { label: 'Utilidad neta', income: false, depth: 0, net: 'credit' }), income - expenses);
-  if (expenses > income) flow(node('net', { label: 'Pérdida neta', income: true, depth: 0, net: 'debit' }), gastos, expenses - income);
+  if (income > expenses) flow(ingresos, node('net', { label: 'Utilidad neta', income: false, depth: 0, net: 'gain' }), income - expenses);
+  if (expenses > income) flow(node('net', { label: 'Pérdida neta', income: true, depth: 0, net: 'loss' }), gastos, expenses - income);
   // Columns by depth from the hubs outward, each side as deep as it turned out.
   const deepest = (income) => d3.max([...nodes.values()].filter((n) => n.income === income), (n) => n.depth);
   const [dIn, dOut] = [deepest(true), deepest(false)];
@@ -239,8 +239,10 @@ function sankey() {
     .nodeWidth(12).nodePadding(8).extent([[0, 4], [width, height - 4]])({ nodes: [...nodes.values()], links: [...links.values()] });
   // Nodes and flows are named alike in the tooltips: the full account, or the label when there is none.
   const name = (d) => d.account ?? d.label;
+  // The tone is the side, or the net's own; a flow takes the tone of the node it feeds, and a loss keeps its own.
+  const tone = (d) => d.net ?? (d.income ? 'income' : 'expense');
   const svg = figure('MXN', height);
-  svg.append('g').selectAll('path').data(graph.links).join('path').attr('class', 'flow')
+  svg.append('g').selectAll('path').data(graph.links).join('path').attr('class', (d) => `flow ${tone(d.source.net ? d.source : d.target)}`)
     .attr('d', d3.sankeyLinkHorizontal()).attr('stroke-width', (d) => Math.max(1, d.width))
     .on('pointerenter pointermove', (event, d) => showTip(event, `${name(d.source)} → ${name(d.target)}`, d.value, 'MXN'))
     .on('pointerleave', hideTip);
@@ -249,10 +251,11 @@ function sankey() {
     .attr('aria-label', (d) => `${name(d)}: ${money(d.value, 'MXN')}`)
     .on('pointerenter pointermove', (event, d) => showTip(event, name(d), d.value, 'MXN'))
     .on('pointerleave', hideTip);
-  a.append('rect').attr('class', (d) => (d.net ? `tile ${d.net}` : 'tile'))
+  a.append('rect').attr('class', (d) => `tile ${tone(d)}`)
     .attr('x', (d) => d.x0).attr('y', (d) => d.y0).attr('width', (d) => d.x1 - d.x0).attr('height', (d) => Math.max(0, d.y1 - d.y0));
-  // The label beside the node, on the side away from the edge; a thin node has only the tooltip.
-  const left = (d) => d.x0 < width / 2;
+  // The label beside the node, on the side away from the edge. A hub's goes on its left, over the band
+  // into it, where no other label sits. A thin node has only the tooltip.
+  const left = (d) => !d.hub && d.x0 < width / 2;
   a.filter((d) => d.hub || d.net || d.y1 - d.y0 >= 12)
     .append('text').attr('class', 'label').attr('dy', '0.35em')
     .attr('x', (d) => (left(d) ? d.x1 + 6 : d.x0 - 6)).attr('y', (d) => (d.y0 + d.y1) / 2)
