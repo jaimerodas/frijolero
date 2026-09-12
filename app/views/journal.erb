@@ -14,13 +14,12 @@
     <%= erb :_report_toolbar, layout: false, locals: { period: period, first: first, today: today } %>
     <header class="journal-head">
       <h2 class="account"><%= account.empty? ? 'Todas las cuentas' : account_links(account, period) %></h2>
-      <% unless error || account.empty? %><nav class="tabs toggle" aria-label="Gráfica"><a href="/journal?<%= h.(report_query(period, chart: chart ? nil : 'history')) %>"<% if chart %> aria-current="true"<% end %>>Gráfica</a></nav><% end %>
       <% unless error %>
         <form method="get" action="/journal" role="search">
           <input type="hidden" name="account" value="<%= h.(account) %>">
           <input type="hidden" name="period" value="<%= h.(period.param) %>">
           <% unless mxn? %><input type="hidden" name="mxn" value="0"><% end %>
-          <% if chart %><input type="hidden" name="chart" value="history"><% end %>
+          <% if options %><select name="chart" aria-label="Gráficas"><option value="">Gráficas…</option><% Frijolero::App::CHARTS.each do |name, label| %><option value="<%= name %>"<% unless options[name] %> disabled<% end %><% if chart && chart[:chart] == name %> selected<% end %>><%= label %></option><% end %></select><% end %>
           <input type="search" name="q" value="<%= h.(params[:q]) %>" aria-label="Buscar" placeholder="Beneficiario o descripción">
           <button type="submit">Buscar</button>
         </form>

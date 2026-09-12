@@ -15,9 +15,10 @@ document.addEventListener('click', (event) => {
   }
 });
 
-// The period menu is a GET form with no button: choosing an option is the submit.
+// The period menu and the journal's chart menu submit their GET form on change:
+// choosing an option is the submit.
 document.addEventListener('change', (event) => {
-  if (event.target.matches('select[name="period"]')) event.target.form.requestSubmit();
+  if (event.target.matches('select[name="period"], select[name="chart"]')) event.target.form.requestSubmit();
 });
 
 // The journal's edit dialog. The text of one transaction comes from /edit and

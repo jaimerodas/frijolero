@@ -227,14 +227,16 @@ dialog .actions { margin-bottom: 0; }
 
 /* The chart block under the journal head: bucket tabs, then one figure per currency. charts.js sets no colors.
    A bar over a month, quarter or year is a link to that period; the tooltip follows the pointer. */
-.journal-head .toggle { margin-left: auto; }
 .chart { position: relative; margin-top: 0.5rem; border-bottom: 1px solid var(--rule); padding-bottom: 1rem; }
 .chart figure { margin: 0.75rem 0 0; }
 .chart figcaption { font-family: var(--mono); font-size: 0.875rem; color: var(--muted); }
 .chart svg { display: block; width: 100%; height: auto; font-family: var(--mono); font-size: 0.75rem; }
 .chart .bar { fill: var(--ink); }
 .chart .bar.debit { fill: var(--debit); }
-.chart a[href]:hover .bar, .chart a[href]:focus-visible .bar { fill: var(--blue); }
+.chart .tile { fill: var(--bg); stroke: var(--ink); }
+.chart .label { fill: var(--ink); }
+.chart a[href]:is(:hover, :focus-visible) :is(.bar, .label) { fill: var(--blue); }
+.chart a[href]:is(:hover, :focus-visible) .tile { stroke: var(--blue); }
 .chart .domain, .chart .tick line, .chart .zero { stroke: var(--rule); }
 .chart .tick text { fill: var(--muted); font-family: var(--mono); font-size: 0.75rem; }
 .chart .tip { position: absolute; display: grid; transform: translate(-50%, calc(-100% - 0.75rem)); padding: 0.25rem 0.5rem; border: 1px solid var(--ink); background: var(--bg); white-space: nowrap; pointer-events: none; }
@@ -348,7 +350,6 @@ summary { cursor: pointer; font-weight: 600; }
   .toolbar { gap: 0 1.5rem; }
   .toolbar .tabs, .toolbar .period, .chart .tabs { flex-basis: 100%; justify-content: center; }
   .toolbar .currency, .ledger-head, .title .primary { margin-left: 0; }
-  .journal-head .toggle { margin-left: 0; margin-right: auto; }
   .title nav { flex: 1 0 100%; flex-wrap: nowrap; gap: 0; }
   .title nav h1, .title nav a { flex: 1 1 0; justify-content: center; align-items: center; padding: 0.5rem; text-align: center; }
   .ledger-head { order: -1; }

@@ -416,17 +416,31 @@ class ReportsPageTest < Minitest::Test
     assert_match(/<dialog id="edit">.*<form method="dialog">.*<textarea id="edit-content" name="content"/m, body)
   end
 
-  def test_chart_toggle_sits_in_the_journal_head_of_an_account
+  def test_chart_menu_sits_in_the_search_form_of_an_account
     get '/journal', account: 'Expenses', period: '2026'
-    toggle = '<nav class="tabs toggle" aria-label="Gráfica">' \
-             '<a href="/journal?period=2026&amp;account=Expenses&amp;chart=history">Gráfica</a></nav>'
-    assert_match(%r{<header class="journal-head">.*#{Regexp.escape(toggle)}.*</header>}m, last_response.body)
+    menu = '<select name="chart" aria-label="Gráficas"><option value="">Gráficas…</option>' \
+           '<option value="history">Histograma</option><option value="accounts">Subcuentas</option>' \
+           '<option value="payees">Contrapartes</option></select>'
+    assert_match(%r{<form method="get" action="/journal" role="search">.*#{Regexp.escape(menu)}.*<input type="search"}m,
+                 last_response.body)
 
     get '/journal', period: '2026'
-    refute_includes last_response.body, 'Gráfica'
+    refute_includes last_response.body, 'Gráficas'
 
     get '/reports/income', account: 'Expenses', period: '2026'
-    refute_includes last_response.body, 'Gráfica'
+    refute_includes last_response.body, 'Gráficas'
+  end
+
+  def test_chart_menu_disables_a_treemap_with_one_group_and_ignores_a_request_for_it
+    get '/journal', account: 'Income:Salary', period: '2026', chart: 'accounts'
+    body = last_response.body
+
+    assert_includes body, '<option value="history">Histograma</option>' \
+                          '<option value="accounts" disabled>Subcuentas</option>' \
+                          '<option value="payees" disabled>Contrapartes</option>'
+    refute_includes body, 'selected>Subcuentas'
+    refute_includes body, 'd3.min.js'
+    refute_includes body, 'chart-data'
   end
 
   def test_chart_block_follows_the_journal_head_and_needs_rows
@@ -436,6 +450,7 @@ class ReportsPageTest < Minitest::Test
     @reports.error = 'rledger: boom'
     get '/journal', account: 'Income:Salary', period: '2026', chart: 'history'
     refute_includes last_response.body, 'chart-data'
+    refute_includes last_response.body, 'Gráficas'
   end
 
   def test_chart_embeds_the_matched_postings_in_the_report_sign_and_the_period_cut_at_today
@@ -443,18 +458,18 @@ class ReportsPageTest < Minitest::Test
     body = last_response.body
 
     assert_includes body, '<script src="/d3.min.js" defer></script><script src="/charts.js" defer></script>'
-    assert_includes body,
-                    '<a href="/journal?period=2026&amp;account=Income%3ASalary" aria-current="true">Gráfica</a>'
+    assert_includes body, '<option value="history" selected>Histograma</option>'
     period = %({"from":"2026-01-01","to":"#{Date.today.iso8601}","resolution":"year"})
     assert_includes body, '<script type="application/json" id="chart-data">' \
-                          "{\"period\":#{period}," \
-                          '"postings":[{"date":"2026-07-20","currency":"MXN","amount":30000.0}]}</script>'
+                          "{\"chart\":\"history\",\"period\":#{period}," \
+                          '"postings":[{"date":"2026-07-20","currency":"MXN","amount":30000.0,' \
+                          '"account":"Income:Salary","payee":null}]}</script>'
   end
 
   def test_chart_period_ends_at_the_last_day_of_a_closed_period
     get '/journal', account: 'Expenses', period: '2026-07', chart: 'history'
 
-    assert_includes last_response.body, '{"period":{"from":"2026-07-01","to":"2026-07-31","resolution":"month"}'
+    assert_includes last_response.body, '"period":{"from":"2026-07-01","to":"2026-07-31","resolution":"month"}'
   end
 
   def test_journal_without_the_chart_loads_no_script_and_no_data
@@ -476,7 +491,7 @@ class ReportsPageTest < Minitest::Test
     assert_includes body, '<a href="/reports/income?period=2026-07">Estado de resultados</a>'
     hidden = '<input type="hidden" name="chart" value="history">'
     assert_match(%r{<form method="get" action="/journal" class="period">.*#{hidden}.*</form>}m, body)
-    assert_match(%r{<form method="get" action="/journal" role="search">.*#{hidden}.*</form>}m, body)
+    assert_match(%r{<form method="get" action="/journal" role="search">.*<select name="chart".*</form>}m, body)
   end
 
   def test_journal_period_menu_keeps_the_account_and_the_search_text
