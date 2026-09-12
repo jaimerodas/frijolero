@@ -21,9 +21,10 @@ document.addEventListener('change', (event) => {
   if (event.target.matches('select[name="period"], select[name="chart"]')) event.target.form.requestSubmit();
 });
 
-// The journal's edit dialog. The text of one transaction comes from /edit and
-// goes back to it. A save the ledger rejects shows the errors and stays open;
-// a saved one reloads the page, which keeps the scroll position.
+// The journal's edit dialog, opened from the date of an entry. The text of one
+// transaction comes from /edit and goes back to it. A save the ledger rejects
+// shows the errors and stays open; a saved one reloads the page, which keeps
+// the scroll position.
 const dialog = document.getElementById('edit');
 const form = dialog?.querySelector('form');
 
@@ -36,13 +37,17 @@ function showError(text) {
 document.addEventListener('click', async (event) => {
   const button = event.target.closest('button.edit');
   if (!button) return;
-  const response = await fetch(`/edit?${new URLSearchParams(button.dataset)}`).catch(() => null);
+  const { file, line, statement } = button.dataset;
+  const response = await fetch(`/edit?${new URLSearchParams({ file, line })}`).catch(() => null);
   const block = response?.ok ? await response.json() : { text: '' };
-  form.elements.file.value = button.dataset.file;
-  form.elements.line.value = button.dataset.line;
+  form.elements.file.value = file;
+  form.elements.line.value = line;
   form.elements.original.value = block.text;
   form.elements.content.value = block.text;
-  form.querySelector('.meta').textContent = `${button.dataset.file}, líneas ${block.first}–${block.last}`;
+  const link = form.querySelector('.meta .statement');
+  link.textContent = file;
+  if (statement) link.href = statement; else link.removeAttribute('href');
+  form.querySelector('.meta .lines').textContent = `líneas ${block.first}–${block.last}`;
   showError(response?.ok ? '' : response ? await response.text() : 'Sin conexión');
   dialog.showModal();
 });

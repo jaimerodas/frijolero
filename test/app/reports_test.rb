@@ -484,22 +484,24 @@ class ReportsPageTest < Minitest::Test
                     '<a href="/journal?period=2026-06&amp;account=Expenses%3ACompras&amp;q=uber" aria-label="Anterior">'
   end
 
-  def test_journal_date_links_to_the_statement_only_for_a_statement_file
+  def test_journal_date_is_the_edit_button_and_carries_the_statement_only_for_a_statement_file
     get '/journal'
     body = last_response.body
 
-    assert_includes body, '<time datetime="2026-07-05"><a href="/accounts/AMEX/2607">2026-07-05</a></time>'
-    assert_includes body, '<time datetime="2026-07-20">2026-07-20</time>'
+    assert_includes body, '<time datetime="2026-07-05"><button type="button" class="edit" ' \
+                          'data-file="accounts/AMEX/AMEX 2607.beancount" data-line="12" ' \
+                          'data-statement="/accounts/AMEX/2607">2026-07-05</button></time>'
+    assert_includes body, '<time datetime="2026-07-20"><button type="button" class="edit" ' \
+                          'data-file="transactions.beancount" data-line="3">2026-07-20</button></time>'
+    refute_includes body, '<li class="tools">'
   end
 
-  def test_journal_entries_carry_an_edit_button_with_the_relative_file_and_the_line
+  def test_journal_edit_dialog_has_a_statement_link_in_its_meta_line
     get '/journal'
-    body = last_response.body
 
-    assert_includes body,
-                    '<button type="button" class="edit" data-file="accounts/AMEX/AMEX 2607.beancount" data-line="12">'
-    assert_includes body, '<button type="button" class="edit" data-file="transactions.beancount" data-line="3">'
-    assert_match(/<dialog id="edit">.*<form method="dialog">.*<textarea id="edit-content" name="content"/m, body)
+    meta = '<p class="meta"><a class="statement"></a> <span class="lines"></span></p>'
+    assert_match(/<dialog id="edit">.*<form method="dialog">.*#{Regexp.escape(meta)}.*<textarea id="edit-content"/m,
+                 last_response.body)
   end
 
   def test_chart_menu_sits_in_the_search_form_of_an_account

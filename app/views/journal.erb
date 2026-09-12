@@ -45,7 +45,7 @@
             <% link = journal_statement_link(tx[:file]) %>
             <% sum = tx[:sum] %>
             <li class="txn">
-              <time datetime="<%= h.(tx[:date].iso8601) %>"><% if link %><a href="<%= link %>"><%= h.(tx[:date].iso8601) %></a><% else %><%= h.(tx[:date].iso8601) %><% end %></time>
+              <time datetime="<%= h.(tx[:date].iso8601) %>"><button type="button" class="edit" data-file="<%= h.(ledger_relative(tx[:file])) %>" data-line="<%= h.(tx[:line]) %>"<% if link %> data-statement="<%= link %>"<% end %>><%= h.(tx[:date].iso8601) %></button></time>
               <details>
                 <summary>
                   <% unless sum.empty? %><span class="sum"><% sum.each do |currency, amount| %><data<% if amount.negative? %> class="debit"<% end %> value="<%= amount.to_s('F') %>"><%= datum(amount) %> <%= h.(currency) %></data><% end %></span><% end %>
@@ -56,7 +56,6 @@
                     <% currency, number = p[:amount].first %>
                     <li<% if p[:matched] %> class="matched"<% end %>><code><%= account_links(p[:account], period) %></code><data value="<%= number.to_s('F') %>"><%= datum(number) %> <%= h.(currency) %></data></li>
                   <% end %>
-                  <li class="tools"><button type="button" class="edit" data-file="<%= h.(ledger_relative(tx[:file])) %>" data-line="<%= h.(tx[:line]) %>">Editar</button></li>
                 </ul>
               </details>
             </li>
@@ -68,7 +67,7 @@
     <dialog id="edit">
       <form method="dialog">
         <h2>Editar transacción</h2>
-        <p class="meta"></p>
+        <p class="meta"><a class="statement"></a> <span class="lines"></span></p>
         <input type="hidden" name="file">
         <input type="hidden" name="line">
         <input type="hidden" name="original">
