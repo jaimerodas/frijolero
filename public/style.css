@@ -194,7 +194,7 @@ dialog .actions { margin-bottom: 0; }
 .net { display: flex; flex-wrap: wrap; gap: 0 1rem; margin: 0; font-family: var(--mono); font-size: 0.9375rem; font-weight: 500; }
 .net .count { font-family: var(--sans); font-weight: 400; color: var(--muted); }
 /* Order line: Fecha over the dates, Monto over the amounts; the active key in ink with its glyph. */
-.order { display: flex; justify-content: space-between; margin: 1.5rem 0 0.5rem; font-size: 0.875rem; }
+.order { display: flex; justify-content: space-between; margin: 0.25rem 0 0; padding-bottom: 0.25rem; border-bottom: 1px solid var(--rule); font-size: 0.875rem; }
 .order a { color: var(--muted); text-decoration: none; }
 .order a[aria-current] { color: var(--ink); }
 .order a:hover { text-decoration: underline; }
