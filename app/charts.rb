@@ -53,5 +53,26 @@ module Frijolero
         end
       end
     end
+
+    helpers do
+      # The Sankey of the income statement: on its page, in MXN, when asked for.
+      def sankey?
+        request.path_info == '/reports/income' && mxn? && params[:chart] == 'sankey'
+      end
+
+      # What charts.js draws: the leaves of Income and Expenses with their MXN
+      # amount in the report sign, sorted by account. It builds the tree itself,
+      # so a negative net (a refund larger than the spend) can move to the other
+      # side. A commodity with no price has no MXN and is left out. Nil when nothing.
+      def sankey_data(flat, period)
+        rows = flat.filter_map do |account, amounts|
+          n = amounts['MXN']
+          next if n.nil? || n.zero?
+
+          { account: account, amount: (account.start_with?('Income') ? -n : n).to_f }
+        end
+        { chart: 'sankey', period: period.param, rows: rows.sort_by { |row| row[:account] } } unless rows.empty?
+      end
+    end
   end
 end

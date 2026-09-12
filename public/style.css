@@ -258,6 +258,15 @@ dialog .code { margin-bottom: 0; }
 .chart .tip[hidden] { display: none; }
 .chart .tip .when { font-size: 0.75rem; color: var(--muted); }
 .chart .tip data { font-family: var(--mono); font-size: 0.875rem; }
+/* The Sankey of the income statement takes the place of the tables (.behind) and fills the viewport. Flows are ink
+   at a tint; the net node is green or orange; a label sits beside its node, so on hover it turns blue, not white. */
+.behind { display: none; }
+.chart.sankey { border-bottom: 0; padding-bottom: 0; }
+.chart .flow { fill: none; stroke: var(--ink); stroke-opacity: 0.12; }
+.chart .flow:hover { stroke-opacity: 0.3; }
+.chart .tile.credit { fill: var(--credit); }
+.chart .tile.debit { fill: var(--debit); }
+.chart.sankey a[href]:is(:hover, :focus-visible) .label { fill: var(--blue); }
 
 /* Tabs: two radios, no script. The checked one shows its section. The row is the
    statement's sort line: small, muted but the current one, the thin rule under it. */
@@ -432,6 +441,9 @@ summary { cursor: pointer; font-weight: 600; }
   .page-head form { flex: 1; flex-wrap: wrap; }
   .page-head input[type="search"] { flex: 1; width: auto; min-width: 0; }
   .page-head select[name="chart"] { order: 1; flex-basis: 100%; }
+  /* No room for the Sankey: the tables show and the Diagrama tab goes. */
+  .chart.sankey, .toolbar .currency a[href*="chart=sankey"] { display: none; }
+  .behind { display: block; }
   /* Report rows: the name on the left, each amount with its currency on the right, one line each. */
   .report tr { display: grid; grid-template-columns: 1fr auto; column-gap: 1rem; align-items: baseline; }
   .report th[scope="row"] { grid-area: 1 / 1; font-weight: 400; }

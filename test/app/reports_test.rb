@@ -586,6 +586,67 @@ class ReportsPageTest < Minitest::Test
     assert_match(%r{<form method="get" action="/journal" role="search">.*<select name="chart".*</form>}m, body)
   end
 
+  def test_income_offers_the_diagram_as_a_third_view_and_the_other_pages_do_not
+    get '/reports/income', period: '2025-05'
+    body = last_response.body
+
+    assert_includes body, '<nav class="tabs currency" aria-label="Vista">'
+    assert_includes body, '<a href="/reports/income?period=2025-05" aria-current="true">MXN</a>'
+    assert_includes body, '<a href="/reports/income?period=2025-05&amp;chart=sankey">Diagrama</a>'
+
+    get '/reports/balance', period: '2025-05'
+    refute_includes last_response.body, 'Diagrama'
+    get '/journal', period: '2025-05'
+    refute_includes last_response.body, 'Diagrama'
+  end
+
+  def test_sankey_replaces_the_tables_with_the_mxn_flows_of_the_leaves
+    get '/reports/income', period: '2026', chart: 'sankey'
+    body = last_response.body
+
+    assert_includes body, '<script src="/d3.min.js" defer></script><script src="/d3-sankey.min.js" defer></script>' \
+                          '<script src="/charts.js" defer></script>'
+    assert_includes body, '<a href="/reports/income?period=2026&amp;chart=sankey" aria-current="true">Diagrama</a>'
+    assert_includes body, '<a href="/reports/income?period=2026">MXN</a>'
+    assert_includes body, '<script type="application/json" id="chart-data">{"chart":"sankey","period":"2026",' \
+                          '"rows":[{"account":"Expenses:Food:Tacos","amount":100.5},' \
+                          '{"account":"Income:Salary","amount":1500.0}]}</script>'
+    assert_match(%r{</div>\s*<section class="chart sankey" aria-label="Gráfica">}, body)
+    assert_includes body, '<div class="tables behind">'
+  end
+
+  def test_sankey_needs_mxn_and_rows
+    get '/reports/income', period: '2026', chart: 'sankey', mxn: '0'
+    body = last_response.body
+
+    refute_includes body, 'chart-data'
+    refute_includes body, 'd3.min.js'
+    assert_includes body, '<div class="tables">'
+
+    @reports.define_singleton_method(:income) { |*| {} }
+    get '/reports/income', period: '2026', chart: 'sankey'
+    refute_includes last_response.body, 'chart-data'
+    assert_includes last_response.body, '<div class="tables">'
+
+    @reports.error = 'rledger: boom'
+    get '/reports/income', period: '2026', chart: 'sankey'
+    refute_includes last_response.body, 'chart-data'
+  end
+
+  def test_sankey_rides_the_period_links_but_not_the_currency_tabs_nor_the_links_to_the_other_pages
+    get '/reports/income', period: '2026-07', chart: 'sankey'
+    body = last_response.body
+
+    assert_includes body, '<a href="/reports/income?period=2026&amp;chart=sankey">Año</a>'
+    assert_includes body, '<a href="/reports/income?period=2026-06&amp;chart=sankey" aria-label="Anterior">'
+    hidden = '<input type="hidden" name="chart" value="sankey">'
+    assert_match(%r{<form method="get" action="/reports/income" class="period">.*#{hidden}.*</form>}m, body)
+    assert_includes body, '<a href="/reports/income?period=2026-07">MXN</a>'
+    assert_includes body, '<a href="/reports/income?period=2026-07&amp;mxn=0">Por moneda</a>'
+    assert_includes body, '<a href="/reports/balance?period=2026-07">Balance general</a>'
+    assert_includes body, '<a href="/journal?period=2026-07">Diario</a>'
+  end
+
   def test_journal_period_menu_keeps_the_account_and_the_search_text
     get '/journal', account: 'Expenses', q: 'uber', period: '2026-07'
 

@@ -9,6 +9,7 @@
 <head>
   <%= head('Estado de resultados') %>
   <script src="/reports.js" defer></script>
+  <% if chart %><script src="/d3.min.js" defer></script><script src="/d3-sankey.min.js" defer></script><script src="/charts.js" defer></script><% end %>
 </head>
 <body>
   <%= topbar %>
@@ -18,12 +19,19 @@
     <% if error %>
       <p class="error" role="alert"><%= h.(error) %></p>
     <% else %>
+      <% if chart %>
+        <section class="chart sankey" aria-label="Gráfica">
+          <script type="application/json" id="chart-data"><%= JSON.generate(chart).gsub('<', '\u003c') %></script>
+        </section>
+      <% end %>
+      <div class="tables<%= ' behind' if chart %>">
       <div class="columns">
         <div><%= erb :_report_table, layout: false, locals: { title: 'Ingresos', rows: sections.fetch('Income', []), currencies: currencies, sign: -1, period: period } %></div>
         <div><%= erb :_report_table, layout: false, locals: { title: 'Gastos', rows: sections.fetch('Expenses', []), currencies: currencies, sign: 1, period: period } %></div>
       </div>
       <h2>Utilidad neta</h2>
       <p class="net"><% currencies.each do |currency| %><data value="<%= net[currency].to_s('F') %>"><%= datum(net[currency]) %> <%= h.(currency) %></data><% end %></p>
+      </div>
     <% end %>
   </main>
 </body>

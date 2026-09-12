@@ -9,7 +9,7 @@
 <div class="title">
   <nav aria-label="Reportes">
     <% { '/reports/income' => 'Estado de resultados', '/reports/balance' => 'Balance general', '/journal' => 'Diario' }.each do |href, label| %>
-      <% if path == href %><h1><%= label %></h1><% else %><a href="<%= href %>?<%= h.(report_query(period, filter: false)) %>"><%= label %></a><% end %>
+      <% if path == href %><h1><%= label %></h1><% else %><a href="<%= href %>?<%= h.(report_query(period, filter: false, chart: nil)) %>"><%= label %></a><% end %>
     <% end %>
   </nav>
   <form method="post" action="/ledger/pull" class="ledger-head">
@@ -27,7 +27,7 @@
   <form method="get" action="<%= h.(path) %>" class="period">
     <% if prev_period %><a href="<%= h.(path) %>?<%= h.(report_query(prev_period)) %>" aria-label="Anterior">&lsaquo;</a><% else %><span aria-hidden="true">&lsaquo;</span><% end %>
     <% unless mxn? %><input type="hidden" name="mxn" value="0"><% end %>
-    <% if path == '/journal' %><% %w[account q chart sort].each do |key| %><% unless params[key].to_s.empty? %><input type="hidden" name="<%= key %>" value="<%= h.(params[key]) %>"><% end %><% end %><% end %>
+    <% (path == '/journal' ? %w[account q chart sort] : %w[chart]).each do |key| %><% unless params[key].to_s.empty? %><input type="hidden" name="<%= key %>" value="<%= h.(params[key]) %>"><% end %><% end %>
     <select name="period" aria-label="Periodo">
       <% period.siblings(first: first, today: today).each do |option| %>
         <option value="<%= h.(option.param) %>"<% if option.param == period.param %> selected<% end %>><%= h.(option.label) %></option>
@@ -36,9 +36,12 @@
     <% if next_period %><a href="<%= h.(path) %>?<%= h.(report_query(next_period)) %>" aria-label="Siguiente">&rsaquo;</a><% else %><span aria-hidden="true">&rsaquo;</span><% end %>
     <% if covered %><span class="note">al <%= h.(today.iso8601) %></span><% end %>
   </form>
-  <nav class="tabs currency" aria-label="Moneda">
-    <a href="<%= h.(path) %>?<%= h.(report_query(period, mxn: true)) %>"<% if mxn? %> aria-current="true"<% end %>>MXN</a>
-    <a href="<%= h.(path) %>?<%= h.(report_query(period, mxn: false)) %>"<% unless mxn? %> aria-current="true"<% end %>>Por moneda</a>
+  <%# The income statement has a third view, the Sankey, so its tabs drop the chart and Diagrama sets it. %>
+  <% income = path == '/reports/income' %>
+  <nav class="tabs currency" aria-label="<%= income ? 'Vista' : 'Moneda' %>">
+    <a href="<%= h.(path) %>?<%= h.(report_query(period, mxn: true, chart: (params[:chart] unless income))) %>"<% if mxn? && !sankey? %> aria-current="true"<% end %>>MXN</a>
+    <a href="<%= h.(path) %>?<%= h.(report_query(period, mxn: false, chart: (params[:chart] unless income))) %>"<% unless mxn? %> aria-current="true"<% end %>>Por moneda</a>
+    <% if income %><a href="<%= h.(path) %>?<%= h.(report_query(period, mxn: true, chart: 'sankey')) %>"<% if sankey? %> aria-current="true"<% end %>>Diagrama</a><% end %>
   </nav>
 </div>
 <% if params[:pull] == 'ok' %>

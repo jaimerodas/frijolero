@@ -54,23 +54,30 @@ module Frijolero
         today = Date.today
         first = self.class.reports.first_date
         period = report_period(first, today)
-        { period: period, first: first, today: today, error: nil }.merge(report_sections(Reports.tree(yield(period))))
+        flat = yield(period)
+        { period: period, first: first, today: today, error: nil, flat: flat, **report_sections(Reports.tree(flat)) }
       rescue Reports::Error => e
         status 502
-        { period: report_period(today, today), first: today, today: today, error: e.message }.merge(report_sections([]))
+        { period: report_period(today, today), first: today, today: today, error: e.message, flat: {},
+          **report_sections([]) }
       end
 
       # Everything in MXN unless `?mxn=0`. The toolbar links carry the choice.
       def mxn? = params[:mxn] != '0'
+    end
 
-      # `mxn:` lets the currency tabs pick the other choice. The journal filter (account, q, chart, sort)
-      # rides only between journal pages: a link to a report drops it, so it never leaks into another page.
+    helpers do
+      # `mxn:` lets the currency tabs pick the other choice. The chart is the page's own, like mxn: a link
+      # to another page passes `chart: nil`. The journal filter (account, q, sort) rides only between
+      # journal pages: a link to a report drops it, so it never leaks into another page.
       def report_query(period, mxn: mxn?, filter: request.path_info == '/journal', chart: params[:chart],
                        sort: journal_sort)
         parts = ["period=#{period.param}"]
         parts << 'mxn=0' unless mxn
-        parts += [query_param(:account), query_param(:q), chart_param(chart), sort_param(sort)].compact if filter
-        parts.join('&')
+        parts += [query_param(:account), query_param(:q)] if filter
+        parts << chart_param(chart)
+        parts << sort_param(sort) if filter
+        parts.compact.join('&')
       end
 
       def report_period(first, today)
@@ -98,7 +105,7 @@ module Frijolero
 
     get '/reports/income' do
       rows = report_locals { |period| self.class.reports.income(period.from, period.to, mxn: mxn?) }
-      erb :report_income, locals: rows
+      erb :report_income, locals: rows.merge(chart: sankey? && sankey_data(rows[:flat], rows[:period]))
     end
 
     # A snapshot at the end of the period, or today while it is still running.
