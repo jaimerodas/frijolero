@@ -61,17 +61,15 @@ module Frijolero
       end
 
       # Everything in MXN unless `?mxn=0`. The toolbar links carry the choice.
-      def mxn?
-        params[:mxn] != '0'
-      end
+      def mxn? = params[:mxn] != '0'
 
-      # `mxn:` lets the currency tabs pick the other choice. The journal filter
-      # travels only between journal pages: a report link, or a link from a
-      # report, drops it, so a filter never leaks into another page's links.
-      def report_query(period, mxn: mxn?, filter: request.path_info == '/journal', chart: params[:chart])
+      # `mxn:` lets the currency tabs pick the other choice. The journal filter (account, q, chart, sort)
+      # rides only between journal pages: a link to a report drops it, so it never leaks into another page.
+      def report_query(period, mxn: mxn?, filter: request.path_info == '/journal', chart: params[:chart],
+                       sort: journal_sort)
         parts = ["period=#{period.param}"]
         parts << 'mxn=0' unless mxn
-        parts += [query_param(:account), query_param(:q), chart_param(chart)].compact if filter
+        parts += [query_param(:account), query_param(:q), chart_param(chart), sort_param(sort)].compact if filter
         parts.join('&')
       end
 
@@ -129,6 +127,7 @@ module Frijolero
       end
       total = Hash.new(0)
       rows.each { |tx| tx[:postings].each { |p| p[:amount].each { |c, n| total[c] += n } if p[:matched] } }
+      rows = sort_rows(journal_sums(rows, sign))
       options = chart_options(rows, account)
       name = chart_name(options)
       erb :journal, locals: { period: period, first: first, today: today, error: error, account: account,

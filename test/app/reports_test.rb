@@ -389,6 +389,92 @@ class ReportsPageTest < Minitest::Test
     assert_includes last_response.body, '<span class="count">2,000 movimientos</span>'
   end
 
+  # Three Expenses rows: compra (2026-07-05, 150), Nómina (07-20, 5000) and a
+  # third one whose date and amount order differently, chicle (07-25, 10).
+  def journal_rows_with_chicle
+    rows = @reports.journal('Expenses', nil, nil)
+    rows << rows.first.merge(date: Date.new(2026, 7, 25), narration: 'chicle',
+                             postings: [{ account: 'Expenses:Compras', amount: { 'MXN' => BigDecimal('10') },
+                                          matched: true }])
+    @reports.define_singleton_method(:journal) { |*| rows }
+  end
+
+  def order_of(body) = %w[compra Nómina chicle segunda].sort_by { |word| body.index(word) || body.size }
+
+  def test_journal_lists_the_newest_first_and_keeps_the_ledger_order_within_a_day
+    rows = @reports.journal('', nil, nil)
+    rows << rows.first.merge(narration: 'segunda')
+    @reports.define_singleton_method(:journal) { |*| rows }
+    get '/journal'
+
+    assert_equal %w[Nómina compra segunda chicle], order_of(last_response.body)
+  end
+
+  def test_journal_sort_date_asc_lists_the_oldest_first
+    get '/journal', sort: 'date-asc'
+
+    assert_equal %w[compra Nómina chicle segunda], order_of(last_response.body)
+  end
+
+  def test_journal_sorts_by_the_headline_sum_of_an_account
+    journal_rows_with_chicle
+    get '/journal', account: 'Expenses', sort: 'amount-desc'
+    assert_equal %w[Nómina compra chicle segunda], order_of(last_response.body)
+
+    get '/journal', account: 'Expenses', sort: 'amount-asc'
+    assert_equal %w[chicle compra Nómina segunda], order_of(last_response.body)
+  end
+
+  def test_journal_unknown_sort_and_amount_sort_without_an_account_fall_back_to_newest_first
+    journal_rows_with_chicle
+    get '/journal', account: 'Expenses', sort: 'payee'
+    assert_equal %w[chicle Nómina compra segunda], order_of(last_response.body)
+
+    get '/journal', sort: 'amount-desc'
+    assert_equal %w[chicle Nómina compra segunda], order_of(last_response.body)
+    refute_includes last_response.body, 'amount-desc'
+  end
+
+  def test_journal_order_links_flip_the_current_key_and_mark_it
+    get '/journal', account: 'Expenses', period: '2026'
+    body = last_response.body
+    assert_match(%r{</p>\s*<p class="order">.*</p>\s*<ol class="ledger">}m, body)
+    assert_includes body, '<a href="/journal?period=2026&amp;account=Expenses&amp;sort=date-asc" ' \
+                          'aria-current="true">Fecha ▾</a>'
+    assert_includes body, '<a href="/journal?period=2026&amp;account=Expenses&amp;sort=amount-desc">Monto</a>'
+
+    get '/journal', account: 'Expenses', period: '2026', sort: 'amount-asc'
+    body = last_response.body
+    assert_includes body, '<a href="/journal?period=2026&amp;account=Expenses">Fecha</a>'
+    assert_includes body, '<a href="/journal?period=2026&amp;account=Expenses&amp;sort=amount-desc" ' \
+                          'aria-current="true">Monto ▴</a>'
+  end
+
+  def test_journal_order_line_has_no_monto_without_an_account_and_is_absent_without_rows
+    get '/journal', period: '2026', sort: 'date-asc'
+    body = last_response.body
+    assert_includes body, '<a href="/journal?period=2026" aria-current="true">Fecha ▴</a>'
+    refute_includes body, 'Monto'
+
+    @reports.define_singleton_method(:journal) { |*| [] }
+    get '/journal', account: 'Expenses'
+    refute_includes last_response.body, 'class="order"'
+  end
+
+  def test_journal_sort_rides_the_toolbar_links_and_the_forms_but_not_the_links_to_the_reports
+    get '/journal', account: 'Expenses', q: 'uber', period: '2026-07', sort: 'date-asc'
+    body = last_response.body
+
+    filter = 'account=Expenses&amp;q=uber&amp;sort=date-asc'
+    assert_includes body, %(<a href="/journal?period=2026&amp;#{filter}">Año</a>)
+    assert_includes body, %(<a href="/journal?period=2026-07&amp;mxn=0&amp;#{filter}">Por moneda</a>)
+    assert_includes body, %(<a href="/journal?period=2026-06&amp;#{filter}" aria-label="Anterior">)
+    assert_includes body, '<a href="/reports/income?period=2026-07">Estado de resultados</a>'
+    hidden = '<input type="hidden" name="sort" value="date-asc">'
+    assert_match(%r{<form method="get" action="/journal" class="period">.*#{hidden}.*</form>}m, body)
+    assert_match(%r{<form method="get" action="/journal" role="search">.*#{hidden}.*</form>}m, body)
+  end
+
   def test_journal_toolbar_links_carry_the_account_and_the_search_text
     get '/journal', account: 'Expenses:Compras', q: 'uber', period: '2026-07'
     body = last_response.body

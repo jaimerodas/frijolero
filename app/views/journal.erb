@@ -19,6 +19,7 @@
           <input type="hidden" name="account" value="<%= h.(account) %>">
           <input type="hidden" name="period" value="<%= h.(period.param) %>">
           <% unless mxn? %><input type="hidden" name="mxn" value="0"><% end %>
+          <% if sort_param(journal_sort) %><input type="hidden" name="sort" value="<%= journal_sort %>"><% end %>
           <% if options %><select name="chart" aria-label="Gráficas"><option value="">Gráficas…</option><% Frijolero::App::CHARTS.each do |name, label| %><option value="<%= name %>"<% unless options[name] %> disabled<% end %><% if chart && chart[:chart] == name %> selected<% end %>><%= label %></option><% end %></select><% end %>
           <input type="search" name="q" value="<%= h.(params[:q]) %>" aria-label="Buscar" placeholder="Beneficiario o descripción">
           <button type="submit">Buscar</button>
@@ -38,11 +39,11 @@
         <p class="note">Sin movimientos.</p>
       <% else %>
         <p class="net"><span class="count"><%= thousands(rows.size) %> movimientos</span><% unless account.empty? %><% total.each do |currency, amount| %><data value="<%= (amount * sign).to_s('F') %>"><%= datum(amount * sign) %> <%= h.(currency) %></data><% end %><% end %></p>
+        <p class="order"><%= sort_link('date', 'Fecha', period) %><% unless account.empty? %><%= sort_link('amount', 'Monto', period) %><% end %></p>
         <ol class="ledger">
           <% rows.each do |tx| %>
             <% link = journal_statement_link(tx[:file]) %>
-            <% sum = Hash.new(BigDecimal('0')) %>
-            <% tx[:postings].each { |p| p[:amount].each { |c, n| sum[c] += n * sign } if p[:matched] } %>
+            <% sum = tx[:sum] %>
             <li class="txn">
               <time datetime="<%= h.(tx[:date].iso8601) %>"><% if link %><a href="<%= link %>"><%= h.(tx[:date].iso8601) %></a><% else %><%= h.(tx[:date].iso8601) %><% end %></time>
               <details>

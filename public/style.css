@@ -191,6 +191,11 @@ dialog .actions { margin-bottom: 0; }
 .journal-head form { display: flex; gap: 0.5rem; margin: 0; }
 .journal-head input[type="search"] { width: 16rem; }
 .net .count { margin-right: auto; font-family: var(--sans); font-weight: 400; color: var(--muted); }
+/* Order line: Fecha over the dates, Monto over the amounts; the active key in ink with its glyph. */
+.order { display: flex; justify-content: space-between; margin: 0 0 0.5rem; font-size: 0.875rem; }
+.order a { color: var(--muted); text-decoration: none; }
+.order a[aria-current] { color: var(--ink); }
+.order a:hover { text-decoration: underline; }
 
 /* Section title: the page names of a section as one heading pair, the current one heavy and
    the other a light link at the same size. Under it, one row: time on the left, currency on the right. */
