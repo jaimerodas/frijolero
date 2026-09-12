@@ -183,18 +183,18 @@ dialog .actions { margin-bottom: 0; }
 .report .amount { text-align: right; font-family: var(--mono); font-size: 0.9375rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .report tr.total th, .report tr.total td { font-weight: 600; }
 .report tfoot th, .report tfoot td { border-top: 1px solid var(--ink); border-bottom: 0; }
-.net { display: flex; flex-wrap: wrap; gap: 1rem 2rem; font-family: var(--mono); font-size: 1.125rem; font-weight: 500; }
-
 /* Journal head: the account is the subtitle of the page, in the mono of the postings,
-   each segment a link to its prefix, with the search at the right. Under it the count
-   sits at the left and the total at the right, over the amounts column it adds up. */
+   each segment a link to its prefix, and under it, smaller, the count and the total it
+   adds up to; the search at the right, centered on the two lines. */
 .journal-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 2rem; margin-block: 1.25rem 0; }
 .journal-head .account { margin: 0; padding: 0; border: 0; font-family: var(--mono); font-size: 1.25rem; font-weight: 500; overflow-wrap: anywhere; }
 .journal-head form { display: flex; gap: 0.5rem; margin: 0; }
 .journal-head input[type="search"] { width: 16rem; }
-.net .count { margin-right: auto; font-family: var(--sans); font-weight: 400; color: var(--muted); }
+.journal-head hgroup { margin: 0; }
+.net { display: flex; flex-wrap: wrap; gap: 0 1rem; margin: 0.25rem 0 0; font-family: var(--mono); font-size: 0.9375rem; font-weight: 500; }
+.net .count { font-family: var(--sans); font-weight: 400; color: var(--muted); }
 /* Order line: Fecha over the dates, Monto over the amounts; the active key in ink with its glyph. */
-.order { display: flex; justify-content: space-between; margin: 0 0 0.5rem; font-size: 0.875rem; }
+.order { display: flex; justify-content: space-between; margin: 1.5rem 0 0.5rem; font-size: 0.875rem; }
 .order a { color: var(--muted); text-decoration: none; }
 .order a[aria-current] { color: var(--ink); }
 .order a:hover { text-decoration: underline; }
@@ -362,7 +362,8 @@ summary { cursor: pointer; font-weight: 600; }
   .title nav h1, .title nav a { flex: 1 1 0; justify-content: center; align-items: center; padding: 0.5rem; text-align: center; }
   .ledger-head { order: -1; }
   .journal-head { justify-content: center; }
-  .journal-head .account { flex-basis: 100%; text-align: center; }
+  .journal-head hgroup { flex-basis: 100%; text-align: center; }
+  .net { justify-content: center; }
   /* The search and its button on one line, the chart menu at full width under them. */
   .journal-head form { flex: 1; flex-wrap: wrap; }
   .journal-head input[type="search"] { flex: 1; width: auto; min-width: 0; }

@@ -369,6 +369,8 @@ class ReportsPageTest < Minitest::Test
 
     assert_includes last_response.body,
                     '<span class="count">2 movimientos</span><data value="5150.0">5,150.00 MXN</data>'
+    assert_match(%r{<hgroup>\s*<h2 class="account">.*?</h2>\s*<p class="net">.*?</p>\s*</hgroup>\s*<form}m,
+                 last_response.body)
   end
 
   def test_journal_total_of_zero_shows_zero_not_a_bare_currency
@@ -437,7 +439,7 @@ class ReportsPageTest < Minitest::Test
   def test_journal_order_links_flip_the_current_key_and_mark_it
     get '/journal', account: 'Expenses', period: '2026'
     body = last_response.body
-    assert_match(%r{</p>\s*<p class="order">.*</p>\s*<ol class="ledger">}m, body)
+    assert_match(%r{<p class="order">.*?</p>\s*<ol class="ledger">}m, body)
     assert_includes body, '<a href="/journal?period=2026&amp;account=Expenses&amp;sort=date-asc" ' \
                           'aria-current="true">Fecha ▾</a>'
     assert_includes body, '<a href="/journal?period=2026&amp;account=Expenses&amp;sort=amount-desc">Monto</a>'

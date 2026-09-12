@@ -13,7 +13,10 @@
   <main>
     <%= erb :_report_toolbar, layout: false, locals: { period: period, first: first, today: today } %>
     <header class="journal-head">
-      <h2 class="account"><%= account.empty? ? 'Todas las cuentas' : account_links(account, period) %></h2>
+      <hgroup>
+        <h2 class="account"><%= account.empty? ? 'Todas las cuentas' : account_links(account, period) %></h2>
+        <% if !error && !rows.empty? %><p class="net"><span class="count"><%= thousands(rows.size) %> movimientos</span><% unless account.empty? %><% total.each do |currency, amount| %><data value="<%= amount.to_s('F') %>"><%= datum(amount) %> <%= h.(currency) %></data><% end %><% end %></p><% end %>
+      </hgroup>
       <% unless error %>
         <form method="get" action="/journal" role="search">
           <input type="hidden" name="account" value="<%= h.(account) %>">
@@ -38,7 +41,6 @@
       <% if rows.empty? %>
         <p class="note">Sin movimientos.</p>
       <% else %>
-        <p class="net"><span class="count"><%= thousands(rows.size) %> movimientos</span><% unless account.empty? %><% total.each do |currency, amount| %><data value="<%= amount.to_s('F') %>"><%= datum(amount) %> <%= h.(currency) %></data><% end %><% end %></p>
         <p class="order"><%= sort_link('date', 'Fecha', period) %><% unless account.empty? %><%= sort_link('amount', 'Monto', period) %><% end %></p>
         <ol class="ledger">
           <% rows.each do |tx| %>
