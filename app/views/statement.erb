@@ -1,7 +1,7 @@
 <%
   h = ->(s) { Rack::Utils.escape_html(s.to_s) }
   account_path = Rack::Utils.escape_path(account)
-  fixme_status = fixme_count.positive? ? 'missing' : 'received'
+  prev_period, next_period = neighbours
 %>
 <!DOCTYPE html>
 <html lang="es">
@@ -13,26 +13,29 @@
   <main>
     <%= erb :_cuentas, layout: false %>
     <%= erb :_account, layout: false, locals: { account: account, tab: :statements } %>
-    <h2><%= h.(period_name(period)) %></h2>
-    <p class="meta">
-      <% if summary %><%= h.(summary) %> · <% end %>
-      <span class="status <%= fixme_status %>"><%= fixme_count %> por clasificar</span>
-    </p>
+    <header class="page-head">
+      <hgroup>
+        <h2 class="period"><% if prev_period %><a href="/accounts/<%= account_path %>/<%= prev_period %>" aria-label="Anterior">&lsaquo;</a><% else %><span aria-hidden="true">&lsaquo;</span><% end %><%= h.(period_name(period)) %><% if next_period %><a href="/accounts/<%= account_path %>/<%= next_period %>" aria-label="Siguiente">&rsaquo;</a><% else %><span aria-hidden="true">&rsaquo;</span><% end %></h2>
+        <p class="net">
+          <% if rows %><span class="count"><%= thousands(rows.size) %> movimientos</span><% totals.each do |currency, sides| %><% sides.zip(%w[cargo abono], %w[debit credit]).each do |(count, sum), noun, side| %><% next if count.zero? %><span class="count"><%= thousands(count) %> <%= noun %><%= 's' unless count == 1 %></span><data class="<%= side %>" value="<%= sum.to_s('F') %>"><%= money(sum) %> <%= h.(currency) %></data><% end %><% end %><% elsif summary %><span class="count"><%= h.(summary) %></span><% end %>
+          <% if fixme_count.zero? %><span class="status received">Todo clasificado</span><% else %><span class="status missing"><%= fixme_count %> sin clasificar</span><% end %>
+        </p>
+      </hgroup>
+      <div class="actions">
+        <a class="button" href="/accounts/<%= account_path %>/<%= h.(period) %>/pdf">Descargar PDF</a>
+        <% if rules?(account) && fixme_count.positive? %>
+          <form method="post" action="/accounts/<%= account_path %>/<%= h.(period) %>/detail">
+            <button type="submit">Aplicar reglas</button>
+          </form>
+        <% end %>
+      </div>
+    </header>
 
     <% if notice %>
       <p class="notice"><%= h.(notice) %></p>
     <% end %>
 
-    <div class="actions">
-      <a class="button" href="/accounts/<%= account_path %>/<%= h.(period) %>/pdf">Descargar PDF</a>
-      <% if rules?(account) %>
-        <form method="post" action="/accounts/<%= account_path %>/<%= h.(period) %>/detail">
-          <button type="submit">Volver a correr las reglas</button>
-        </form>
-      <% end %>
-    </div>
-
-    <% if transactions.is_a?(Array) %>
+    <% if rows %>
       <div class="tabs">
         <div class="tablist">
           <input type="radio" name="view" id="view-entries" class="visually-hidden" checked>
@@ -42,32 +45,32 @@
         </div>
         <section id="entries">
           <ol class="ledger">
-            <% transactions.each do |tx| %>
-              <% account_name = tx['expense_account'].to_s.strip %>
-              <% unclassified = account_name.empty? || account_name == 'Expenses:FIXME' %>
-              <% merchant, tail = split_description(tx['description']) %>
+            <% rows.each do |tx| %>
+              <% merchant, tail = split_description(tx[:description]) %>
               <li>
-                <time datetime="<%= h.(tx['date']) %>"><%= h.(tx['date']) %></time>
+                <time datetime="<%= h.(tx[:date]) %>"><%= h.(tx[:date]) %></time>
                 <div class="entry">
-                  <div><%= h.(merchant) %></div>
+                  <div><%= h.(merchant) %><% if tx[:flag] == '!' %> <span class="flag">!</span><% end %></div>
                   <% if tail %><div class="tail"><%= h.(tail) %></div><% end %>
                   <div class="posting">
-                    <% if tx['payee'] %><span><%= h.(tx['payee']) %></span><% end %>
-                    <% if tx['narration'] %><span class="note"><%= h.(tx['narration']) %></span><% end %>
-                    <% if unclassified %>
-                      <span class="status missing">sin clasificar</span>
-                      <form method="post" action="/accounts/<%= account_path %>/rules/from">
-                        <input type="hidden" name="description" value="<%= h.(tx['description']) %>">
-                        <input type="hidden" name="amount" value="<%= h.(tx['amount']) %>">
-                        <input type="hidden" name="back" value="/accounts/<%= account_path %>/<%= h.(period) %>">
-                        <button type="submit">Hacer regla</button>
-                      </form>
-                    <% else %>
-                      <code><%= h.(account_name) %></code>
+                    <% if tx[:payee] %><span><%= h.(tx[:payee]) %></span><% end %>
+                    <% if tx[:narration] %><span class="note"><%= h.(tx[:narration]) %></span><% end %>
+                    <% tx[:accounts].each do |name| %>
+                      <% if name == 'Expenses:FIXME' %>
+                        <span class="status missing">sin clasificar</span>
+                        <form method="post" action="/accounts/<%= account_path %>/rules/from">
+                          <input type="hidden" name="description" value="<%= h.(tx[:description]) %>">
+                          <input type="hidden" name="amount" value="<%= h.(tx[:amount]&.to_s('F')) %>">
+                          <input type="hidden" name="back" value="/accounts/<%= account_path %>/<%= h.(period) %>">
+                          <button type="submit">Hacer regla</button>
+                        </form>
+                      <% else %>
+                        <code><%= h.(name) %></code>
+                      <% end %>
                     <% end %>
                   </div>
                 </div>
-                <data class="<%= tx['amount'].to_f.negative? ? 'debit' : 'credit' %>" value="<%= h.(tx['amount']) %>"><%= money(tx['amount']) %> <%= h.(tx['currency']) %></data>
+                <data class="<%= tx[:amount]&.negative? ? 'debit' : 'credit' %>" value="<%= h.(tx[:amount]&.to_s('F')) %>"><%= money(tx[:amount]) %> <%= h.(tx[:currency]) %></data>
               </li>
             <% end %>
           </ol>

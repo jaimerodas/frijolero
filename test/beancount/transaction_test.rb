@@ -43,6 +43,26 @@ class BeancountTransactionTest < Minitest::Test
 
   # --- parsing -------------------------------------------------------------
 
+  def test_reads_the_flag_and_keeps_a_flagged_transaction
+    tx = transaction_for(<<~BEANCOUNT)
+      2026-01-16 ! "Pendiente"
+        Liabilities:BBVA  -800.00 MXN
+        Expenses:FIXME
+
+    BEANCOUNT
+
+    assert_predicate tx, :parsed?
+    assert_equal '!', tx.flag
+    assert_equal '*', undetailed.flag
+  end
+
+  def test_postings_carry_their_currency
+    postings = detailed.postings
+
+    assert_equal 'USD', postings[0][:currency]
+    assert_nil postings[1][:currency]
+  end
+
   def test_reads_narration_from_a_single_string_header
     tx = undetailed
 

@@ -4,7 +4,7 @@ module Frijolero
   module Beancount
     module Parser
       MARKER_RE = /^; === (Start|End): .+ ===$/
-      TRANSACTION_RE = /^\d{4}-\d{2}-\d{2}\s+\*/
+      TRANSACTION_RE = /^\d{4}-\d{2}-\d{2}\s+[*!]/
       INDENTED_RE = /^\s+\S/
 
       def self.parse(path)

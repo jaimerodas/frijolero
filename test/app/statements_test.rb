@@ -43,31 +43,81 @@ class StatementsTest < Minitest::Test
     Frijolero::App
   end
 
-  def test_statement_page_shows_summary_transactions_and_fixme_count
-    transactions = [
-      { 'date' => '2025-08-01', 'description' => 'SIN CLASIFICAR', 'amount' => -100.0,
-        'currency' => 'MXN', 'expense_account' => 'Expenses:FIXME' },
-      { 'date' => '2025-08-02', 'description' => 'YA CLASIFICADA', 'amount' => -50.0,
-        'currency' => 'MXN', 'expense_account' => 'Expenses:Food' }
-    ]
+  def test_statement_page_reads_the_rows_from_the_beancount_file
     write_statement('AMEX', '2508',
-                    json: { 'transactions' => transactions },
-                    beancount: "2025-08-01 * \"x\"\n  Expenses:FIXME 100 MXN\n  Liabilities:Amex -100 MXN\n")
+                    json: { 'transactions' => [{ 'date' => '2025-08-01', 'description' => 'DEL JSON' }] },
+                    beancount: <<~BEAN)
+                      2025-08-01 * "SIN CLASIFICAR"
+                        Liabilities:Amex  -100.00 MXN
+                        Expenses:FIXME
+
+                      2025-08-02 * "Comida" "Tacos"
+                        source_desc: "YA CLASIFICADA"
+                        Liabilities:Amex  -50.00 MXN
+                        Expenses:Food
+
+                      2025-08-03 * "PAGO"
+                        Liabilities:Amex  75.00 MXN
+                        Assets:BBVA
+                    BEAN
 
     get '/accounts/AMEX/2508'
 
     assert_equal 200, last_response.status
-    assert_includes last_response.body, 'Found 2 transactions'
-    assert_includes last_response.body, 'SIN CLASIFICAR'
-    assert_includes last_response.body, 'YA CLASIFICADA'
-    assert_includes last_response.body, '1 por clasificar'
+    refute_includes last_response.body, 'DEL JSON'
+    assert_includes last_response.body, '3 movimientos'
+    assert_includes last_response.body, '2 cargos</span><data class="debit" value="-150.0">-150.00 MXN'
+    assert_includes last_response.body, '1 abono</span><data class="credit" value="75.0">+75.00 MXN'
+    assert_includes last_response.body, '1 sin clasificar'
     assert_equal 1, last_response.body.scan('Hacer regla').size
     assert_includes last_response.body, 'value="SIN CLASIFICAR"'
+    assert_includes last_response.body, 'value="-100.0"'
+    assert_includes last_response.body, 'YA CLASIFICADA'
+    assert_includes last_response.body, '<span>Comida</span>'
+    assert_includes last_response.body, '<span class="note">Tacos</span>'
+    assert_includes last_response.body, '<code>Expenses:Food</code>'
     assert_includes last_response.body, 'action="/accounts/AMEX/2508/detail"'
-    assert_includes last_response.body, 'Volver a correr las reglas'
+    assert_includes last_response.body, 'Aplicar reglas'
     assert_includes last_response.body, 'href="/accounts/AMEX/2508/pdf"'
     assert_includes last_response.body,
-                    '<span class="bc-account bc-fixme">Expenses:FIXME</span> <span class="credit">100 MXN</span>'
+                    '<span class="bc-account bc-fixme">Expenses:FIXME</span>'
+  end
+
+  def test_fully_classified_statement_has_no_rules_button
+    write_statement('AMEX', '2508',
+                    json: { 'transactions' => [] },
+                    beancount: "2025-08-01 * \"x\"\n  Liabilities:Amex -100 MXN\n  Expenses:Food\n")
+
+    get '/accounts/AMEX/2508'
+
+    assert_includes last_response.body, 'Todo clasificado'
+    refute_includes last_response.body, 'Aplicar reglas'
+    refute_includes last_response.body, 'Hacer regla'
+  end
+
+  def test_period_links_to_the_neighbouring_statements
+    %w[2507 2508 2509].each { |p| write_statement('AMEX', p, json: { 'transactions' => [] }, beancount: '') }
+
+    get '/accounts/AMEX/2508'
+
+    assert_includes last_response.body, '<a href="/accounts/AMEX/2507" aria-label="Anterior">'
+    assert_includes last_response.body, '<a href="/accounts/AMEX/2509" aria-label="Siguiente">'
+
+    get '/accounts/AMEX/2509'
+
+    refute_includes last_response.body, 'aria-label="Siguiente"'
+    assert_includes last_response.body, '<a href="/accounts/AMEX/2508" aria-label="Anterior">'
+  end
+
+  def test_flagged_transaction_shows_its_flag
+    write_statement('AMEX', '2508',
+                    json: { 'transactions' => [] },
+                    beancount: "2025-08-01 ! \"DUDA\"\n  Liabilities:Amex -100 MXN\n  Expenses:Food\n")
+
+    get '/accounts/AMEX/2508'
+
+    assert_includes last_response.body, 'DUDA'
+    assert_includes last_response.body, '<span class="flag">!</span>'
   end
 
   def test_fixme_count_comes_from_the_beancount_file
@@ -83,7 +133,7 @@ class StatementsTest < Minitest::Test
 
     get '/accounts/AMEX/2508'
 
-    assert_includes last_response.body, '3 por clasificar'
+    assert_includes last_response.body, '3 sin clasificar'
   end
 
   def test_account_with_a_space_in_the_url
@@ -106,7 +156,7 @@ class StatementsTest < Minitest::Test
     assert_equal 200, last_response.status
     assert_includes last_response.body, 'movements'
     refute_includes last_response.body, '<table'
-    refute_includes last_response.body, 'Volver a correr las reglas'
+    refute_includes last_response.body, 'Aplicar reglas'
   end
 
   def test_post_detail_on_an_account_without_rules_is_404
@@ -165,7 +215,7 @@ class StatementsTest < Minitest::Test
     write_statement('AMEX', '2508', json: { 'transactions' => [] }, beancount: '')
     get '/accounts/AMEX/2508', rules: '1'
 
-    assert_includes last_response.body, 'Reglas guardadas. Vuelve a correr las reglas para aplicarlas.'
+    assert_includes last_response.body, 'Reglas guardadas. Aplica las reglas para usarlas.'
   end
 
   def test_notice_shows_the_detail_run_result
@@ -173,16 +223,13 @@ class StatementsTest < Minitest::Test
 
     get '/accounts/AMEX/2508', detailed: '2', remaining: '1'
 
-    assert_includes last_response.body, '2 detalladas, 1 pendientes'
+    assert_includes last_response.body, '2 clasificadas, 1 sin clasificar'
   end
 
   def test_description_with_script_tag_is_escaped
     write_statement('AMEX', '2508',
-                    json: { 'transactions' => [
-                      { 'date' => '2025-08-01', 'description' => '<script>alert(1)</script>',
-                        'amount' => -10.0, 'currency' => 'MXN', 'expense_account' => 'Expenses:FIXME' }
-                    ] },
-                    beancount: '')
+                    json: { 'transactions' => [] },
+                    beancount: "2025-08-01 * \"<script>alert(1)</script>\"\n  Liabilities:Amex -10 MXN\n  Expenses:X")
 
     get '/accounts/AMEX/2508'
 
@@ -276,7 +323,7 @@ class StatementsTest < Minitest::Test
     post '/accounts/AMEX/2508/detail'
     follow_redirect!
 
-    assert_includes last_response.body, '1 detalladas, 1 pendientes'
+    assert_includes last_response.body, '1 clasificadas, 1 sin clasificar'
   end
 
   def test_fintual_statement_shows_summary_without_the_table
@@ -293,14 +340,23 @@ class StatementsTest < Minitest::Test
     refute_includes last_response.body, '<th>Fecha</th>'
   end
 
-  def test_default_row_without_amount_does_not_crash
+  def test_row_whose_source_posting_has_no_amount_takes_it_from_the_other_side
     write_statement('AMEX', '2508',
-                    json: { 'transactions' => [{ 'date' => '2025-08-03', 'description' => 'X', 'amount' => nil }] },
-                    beancount: "2025-08-03 * \"X\"\n  Liabilities:Amex  -1.00 MXN\n  Expenses:FIXME\n")
+                    json: { 'transactions' => [] },
+                    beancount: <<~BEAN)
+                      2025-08-03 * "X"
+                        Liabilities:Amex
+                        Expenses:FIXME  1.00 MXN
+
+                      2025-08-04 * "Y"
+                        Liabilities:Amex
+                        Expenses:FIXME
+                    BEAN
 
     get '/accounts/AMEX/2508'
 
     assert_equal 200, last_response.status
+    assert_includes last_response.body, '-1.00 MXN'
   end
 
   private

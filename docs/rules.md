@@ -63,12 +63,12 @@ El job las aplica una vez, después de la extracción y antes de escribir el
 archivo `.beancount`. Si la cuenta no tiene archivo de reglas, el job no
 aplica nada.
 
-El botón "Volver a correr las reglas" de la página del estado de cuenta las
-aplica otra vez sobre el archivo `.beancount` que ya existe. Ese paso toca
-solo las transacciones que siguen en `Expenses:FIXME`. Una transacción que ya
-tiene cuenta no cambia, así una edición a mano está a salvo. Una transacción
-con la bandera `!` es invisible para las reglas. Si algo cambió, la app hace
-commit. Si no, no.
+El botón "Aplicar reglas" de la página del estado de cuenta las aplica otra
+vez sobre el archivo `.beancount` que ya existe. Ese paso toca solo las
+transacciones que siguen en `Expenses:FIXME`, y el botón aparece solo cuando
+queda alguna. Una transacción que ya tiene cuenta no cambia, así una edición a
+mano está a salvo. Una transacción con la bandera `!` es invisible para las
+reglas. Si algo cambió, la app hace commit. Si no, no.
 
 ## El editor
 
@@ -83,7 +83,7 @@ archivo válido se guarda con el commit `rules <Key>`.
    con una entrada nueva de `start_with`, con la descripción como patrón.
 3. Ajusta el patrón, el `payee`, la `narration` y la cuenta.
 4. Presiona "Guardar". La app vuelve al estado de cuenta.
-5. Presiona "Volver a correr las reglas".
+5. Presiona "Aplicar reglas".
 
 "Hacer regla" reescribe el archivo completo con `YAML.dump`. Ese paso borra
 los comentarios y reordena las llaves. Es visible en un archivo largo.

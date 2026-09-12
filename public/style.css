@@ -183,16 +183,25 @@ dialog .actions { margin-bottom: 0; }
 .report .amount { text-align: right; font-family: var(--mono); font-size: 0.9375rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .report tr.total th, .report tr.total td { font-weight: 600; }
 .report tfoot th, .report tfoot td { border-top: 1px solid var(--ink); border-bottom: 0; }
-/* Journal head: the account is the subtitle of the page, in the mono of the postings,
-   each segment a link to its prefix, and under it, smaller, the count and the total it
-   adds up to; the search at the right, centered on the two lines. */
-.journal-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 2rem; margin-block: 1.25rem 0; }
-.journal-head .account { margin: 0; padding: 0; border: 0; font-family: var(--mono); font-size: 1.25rem; font-weight: 500; overflow-wrap: anywhere; }
-.journal-head form { display: flex; gap: 0.5rem; margin: 0; }
-.journal-head input[type="search"] { width: 16rem; }
-.journal-head hgroup { margin: 0; }
+/* Page head, under the toolbar of the journal and the tabs of an account: the subject
+   as the subtitle of the page (the journal's account in the mono of the postings, each
+   segment a link to its prefix; the statement's period between ‹ › to its neighbours),
+   under it, smaller, the count and the totals it adds up to, and the controls at the
+   right, centered on the two lines. */
+.page-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 2rem; margin-block: 1.25rem 0; }
+.page-head h2 { margin: 0; padding: 0; border: 0; font-size: 1.25rem; font-weight: 500; }
+.page-head .account { font-family: var(--mono); overflow-wrap: anywhere; }
+.page-head .period { display: flex; align-items: center; }
+.page-head .period :is(a, span) { display: inline-flex; justify-content: center; align-items: center; width: 2rem; min-height: 2.75rem; text-decoration: none; color: var(--ink); }
+.page-head .period span { color: var(--rule); }
+.page-head .period a:first-child, .page-head .period span:first-child { margin-left: -0.5rem; }
+.page-head form { display: flex; gap: 0.5rem; margin: 0; }
+.page-head .actions { margin: 0; }
+.page-head input[type="search"] { width: 16rem; }
+.page-head hgroup { margin: 0; }
 .net { display: flex; flex-wrap: wrap; gap: 0 1rem; margin: 0; font-family: var(--mono); font-size: 0.9375rem; font-weight: 500; }
 .net .count { font-family: var(--sans); font-weight: 400; color: var(--muted); }
+.net .status { font-family: var(--sans); font-weight: 400; }
 /* Order line: Fecha over the dates, Monto over the amounts; the active key in ink with its glyph. */
 .order { display: flex; justify-content: space-between; margin: 0.25rem 0 0; padding-bottom: 0.25rem; border-bottom: 1px solid var(--rule); font-size: 0.875rem; }
 .order a { color: var(--muted); text-decoration: none; }
@@ -222,9 +231,9 @@ dialog .actions { margin-bottom: 0; }
 .toolbar .tabs, .chart .tabs { display: flex; gap: 1rem; }
 .chart .tabs button { all: unset; font-family: var(--sans); cursor: pointer; }
 .chart .tabs button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-:is(.toolbar, .chart, .journal-head) .tabs :is(a, button) { display: inline-flex; align-items: center; min-height: 2.75rem; color: var(--muted); text-decoration: none; }
-:is(.toolbar, .chart, .journal-head) .tabs :is(a, button):hover { color: var(--ink); text-decoration: underline; }
-:is(.toolbar, .chart, .journal-head) .tabs :is(a[aria-current], button[aria-pressed="true"]) { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px var(--ink); }
+:is(.toolbar, .chart, .page-head) .tabs :is(a, button) { display: inline-flex; align-items: center; min-height: 2.75rem; color: var(--muted); text-decoration: none; }
+:is(.toolbar, .chart, .page-head) .tabs :is(a, button):hover { color: var(--ink); text-decoration: underline; }
+:is(.toolbar, .chart, .page-head) .tabs :is(a[aria-current], button[aria-pressed="true"]) { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px var(--ink); }
 .toolbar .period { display: flex; align-items: center; gap: 0.25rem; margin: 0; }
 .toolbar .period a, .toolbar .period span[aria-hidden] { display: inline-flex; justify-content: center; align-items: center; width: 2rem; min-height: 2.75rem; font-size: 1.25rem; text-decoration: none; color: var(--ink); }
 .toolbar .period span[aria-hidden] { color: var(--rule); }
@@ -252,9 +261,10 @@ dialog .actions { margin-bottom: 0; }
 .chart .tip .when { font-size: 0.75rem; color: var(--muted); }
 .chart .tip data { font-family: var(--mono); font-size: 0.875rem; }
 
-/* Tabs: two radios, no script. The checked one shows its section. */
-.tablist { display: flex; gap: 1.5rem; margin-top: 1.5rem; border-bottom: 1px solid var(--ink); }
-.tablist label { display: inline-flex; align-items: center; min-height: 2.75rem; color: var(--muted); cursor: pointer; }
+/* Tabs: two radios, no script. The checked one shows its section. The row is the
+   statement's sort line: small, muted but the current one, the thin rule under it. */
+.tablist { display: flex; gap: 1rem; margin-top: 0.25rem; border-bottom: 1px solid var(--rule); font-size: 0.875rem; }
+.tablist label { display: inline-flex; align-items: center; min-height: 2rem; color: var(--muted); cursor: pointer; }
 .tablist input:checked + label { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px var(--ink); }
 .tablist input:focus-visible + label { outline: 2px solid var(--ink); outline-offset: -2px; }
 .tabs:has(#view-entries:checked) #beancount, .tabs:has(#view-beancount:checked) #entries { display: none; }
@@ -361,13 +371,13 @@ summary { cursor: pointer; font-weight: 600; }
   .title nav { flex: 1 0 100%; flex-wrap: nowrap; gap: 0; }
   .title nav h1, .title nav a { flex: 1 1 0; justify-content: center; align-items: center; padding: 0.5rem; text-align: center; }
   .ledger-head { order: -1; }
-  .journal-head { justify-content: center; }
-  .journal-head hgroup { flex-basis: 100%; text-align: center; }
+  .page-head { justify-content: center; }
+  .page-head hgroup { flex-basis: 100%; text-align: center; }
   .net { justify-content: center; }
   /* The search and its button on one line, the chart menu at full width under them. */
-  .journal-head form { flex: 1; flex-wrap: wrap; }
-  .journal-head input[type="search"] { flex: 1; width: auto; min-width: 0; }
-  .journal-head select[name="chart"] { order: 1; flex-basis: 100%; }
+  .page-head form { flex: 1; flex-wrap: wrap; }
+  .page-head input[type="search"] { flex: 1; width: auto; min-width: 0; }
+  .page-head select[name="chart"] { order: 1; flex-basis: 100%; }
   /* Report rows: the name on the left, each amount with its currency on the right, one line each. */
   .report tr { display: grid; grid-template-columns: 1fr auto; column-gap: 1rem; align-items: baseline; }
   .report th[scope="row"] { grid-area: 1 / 1; font-weight: 400; }

@@ -32,7 +32,7 @@ module Frijolero
         [strings, rest.strip]
       end
 
-      attr_reader :payee, :narration, :eol
+      attr_reader :payee, :narration, :eol, :flag
 
       def initialize(date, flag, strings, trailing, eol)
         @date = date

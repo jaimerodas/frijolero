@@ -15,7 +15,7 @@ module Frijolero
       # to be unicode-aware: an unparsed posting means a nil amount, which would
       # make a `when: {amount:}` rule fall through to the wrong fallback.
       POSTING_RE = /\A\s+(?<account>[[:upper:]][[:word:]:-]*)(?<tail>\s.*?)?\s*\z/
-      AMOUNT_RE = /\A\s*(-?[\d,]+(?:\.\d+)?)\s+[A-Z]/
+      AMOUNT_RE = /\A\s*(-?[\d,]+(?:\.\d+)?)\s+([A-Z][A-Z0-9._-]*)/
       DEFAULT_INDENT = '  '
 
       attr_reader :block
@@ -35,6 +35,10 @@ module Frijolero
 
       def narration
         @header&.narration
+      end
+
+      def flag
+        @header&.flag
       end
 
       def metadata
@@ -88,14 +92,15 @@ module Frijolero
         match = POSTING_RE.match(line.chomp)
         return nil unless match
 
-        { index: index, account: match[:account], amount: parse_amount(match[:tail]) }
+        { index: index, account: match[:account], **parse_amount(match[:tail]) }
       end
 
+      # { amount:, currency: } of a posting that carries one; nothing when it does not.
       def parse_amount(tail)
         match = tail && AMOUNT_RE.match(tail)
-        return nil unless match
+        return {} unless match
 
-        BigDecimal(match[1].delete(','))
+        { amount: BigDecimal(match[1].delete(',')), currency: match[2] }
       end
 
       def rewrite_posting(index, new_account)

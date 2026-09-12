@@ -122,7 +122,7 @@ class NavTest < Minitest::Test
   def test_statement_page_has_the_period_as_subtitle
     get '/accounts/AMEX/2608'
 
-    assert_includes last_response.body, '<h2>agosto 2026</h2>'
+    assert_includes last_response.body, 'agosto 2026<span aria-hidden="true">&rsaquo;</span></h2>'
     assert_includes last_response.body, '<title>AMEX agosto 2026</title>'
   end
 

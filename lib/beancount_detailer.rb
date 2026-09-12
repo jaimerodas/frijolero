@@ -31,8 +31,10 @@ module Frijolero
 
     private
 
+    # A `!` transaction is one someone flagged by hand: the rules never touch it.
     def transactions(blocks)
       blocks.filter_map { |block| Beancount::Transaction.new(block) if block[:type] == :transaction }
+            .reject { |transaction| transaction.flag == '!' }
     end
 
     def classify(transaction, rules, stats)

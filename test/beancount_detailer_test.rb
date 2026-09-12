@@ -199,6 +199,22 @@ class BeancountDetailerTest < Minitest::Test
     end
   end
 
+  def test_leaves_a_flagged_transaction_alone_and_out_of_the_count
+    ledger = <<~BEANCOUNT
+      2026-01-16 ! "HIPER LUMEN DEL VALLE | revisar"
+        Liabilities:BBVA  -800.00 MXN
+        Expenses:FIXME
+
+      #{LEDGER}
+    BEANCOUNT
+
+    detail(ledger: ledger) do |stats, content|
+      assert_includes content, '2026-01-16 ! "HIPER LUMEN DEL VALLE | revisar"'
+      assert_equal 3, stats[:total]
+      assert_equal 2, stats[:detailed].size
+    end
+  end
+
   def test_ignores_directives_that_are_not_transactions
     ledger = <<~BEANCOUNT
       ; -*- mode: beancount -*-
