@@ -35,11 +35,15 @@ const tip = d3.select(section).append('div').attr('class', 'tip').attr('hidden',
 tip.append('span').attr('class', 'when');
 tip.append('data');
 
+// The tip is kept inside the block: one that overhung an edge widened the page,
+// and the scrollbar shifted the whole view.
 function showTip(event, when, value, currency) {
   const [px, py] = d3.pointer(event, section);
   tip.select('.when').text(when);
   tip.select('data').attr('value', value).text(money(value, currency));
-  tip.style('left', `${px}px`).style('top', `${py}px`).attr('hidden', null);
+  tip.attr('hidden', null);
+  const half = tip.node().offsetWidth / 2;
+  tip.style('left', `${Math.min(Math.max(px, half), section.clientWidth - half)}px`).style('top', `${py}px`);
 }
 const hideTip = () => tip.attr('hidden', true);
 
@@ -233,15 +237,17 @@ function sankey() {
 
   const graph = d3.sankey().nodeId((d) => d.id).nodeAlign((d) => d.column).nodeSort(null)
     .nodeWidth(12).nodePadding(8).extent([[0, 4], [width, height - 4]])({ nodes: [...nodes.values()], links: [...links.values()] });
+  // Nodes and flows are named alike in the tooltips: the full account, or the label when there is none.
+  const name = (d) => d.account ?? d.label;
   const svg = figure('MXN', height);
   svg.append('g').selectAll('path').data(graph.links).join('path').attr('class', 'flow')
     .attr('d', d3.sankeyLinkHorizontal()).attr('stroke-width', (d) => Math.max(1, d.width))
-    .on('pointerenter pointermove', (event, d) => showTip(event, `${d.source.label} → ${d.target.label}`, d.value, 'MXN'))
+    .on('pointerenter pointermove', (event, d) => showTip(event, `${name(d.source)} → ${name(d.target)}`, d.value, 'MXN'))
     .on('pointerleave', hideTip);
   const a = svg.append('g').selectAll('a').data(graph.nodes).join('a')
     .attr('href', (d) => (d.account ? `/journal?account=${encodeURIComponent(d.account)}&period=${encodeURIComponent(data.period)}` : null))
-    .attr('aria-label', (d) => `${d.account ?? d.label}: ${money(d.value, 'MXN')}`)
-    .on('pointerenter pointermove', (event, d) => showTip(event, d.account ?? d.label, d.value, 'MXN'))
+    .attr('aria-label', (d) => `${name(d)}: ${money(d.value, 'MXN')}`)
+    .on('pointerenter pointermove', (event, d) => showTip(event, name(d), d.value, 'MXN'))
     .on('pointerleave', hideTip);
   a.append('rect').attr('class', (d) => (d.net ? `tile ${d.net}` : 'tile'))
     .attr('x', (d) => d.x0).attr('y', (d) => d.y0).attr('width', (d) => d.x1 - d.x0).attr('height', (d) => Math.max(0, d.y1 - d.y0));
