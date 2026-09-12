@@ -500,9 +500,12 @@ class ReportsPageTest < Minitest::Test
   def test_journal_edit_dialog_has_a_statement_link_in_its_meta_line
     get '/journal'
 
-    meta = '<p class="meta"><a class="statement"></a> <span class="lines"></span></p>'
-    assert_match(/<dialog id="edit">.*<form method="dialog">.*#{Regexp.escape(meta)}.*<textarea id="edit-content"/m,
-                 last_response.body)
+    body = last_response.body
+    assert_includes body, '<script src="/editor.js" defer></script>'
+    dialog = ['<dialog id="edit">', '<p class="meta"><a class="statement"></a></p>',
+              '<form class="code" method="post" action="/edit">', '<input type="hidden" name="line">',
+              '<textarea name="content" hidden'].map { |s| Regexp.escape(s) }.join('.*')
+    assert_match(/#{dialog}/m, body)
   end
 
   def test_chart_menu_sits_in_the_search_form_of_an_account

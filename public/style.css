@@ -166,9 +166,7 @@ dialog::backdrop { background: rgb(0 0 0 / 0.5); }
 dialog h2 { margin-top: 0; border-bottom: 3px solid var(--ink); }
 dialog .meta { font-family: var(--mono); font-size: 0.875rem; }
 dialog .meta a:not([href]) { color: inherit; }
-dialog textarea { max-width: none; white-space: pre; overflow-x: auto; }
-dialog .error { white-space: pre-wrap; font-family: var(--mono); font-size: 0.875rem; }
-dialog .actions { margin-bottom: 0; }
+dialog .code { margin-bottom: 0; }
 
 /* Reports: an account tree, one column per currency. Parents carry the sum of their subtree.
    On a wide screen the sections sit side by side: income and expenses, assets and the rest. */
@@ -390,6 +388,7 @@ pre {
 .code-head h1.file { font-family: var(--mono); font-size: 1.25rem; }
 .edit-file { all: unset; display: inline-flex; align-items: center; min-height: 2rem; font: inherit; font-size: 0.875rem; color: var(--blue); cursor: pointer; }
 .edit-file:hover { text-decoration: underline; }
+body:has(.code.editing) .edit-file { display: none; }
 .edit-file:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 /* The tab labels carry the form label margins, so the button takes the same ones to sit level with them. */
 .tablist .edit-file { margin: 1.25rem 0 0.375rem auto; }

@@ -6,6 +6,7 @@
 <head>
   <%= head('Diario') %>
   <script src="/reports.js" defer></script>
+  <script src="/editor.js" defer></script>
   <% if chart %><script src="/d3.min.js" defer></script><script src="/charts.js" defer></script><% end %>
 </head>
 <body>
@@ -67,17 +68,9 @@
     <% end %>
 
     <dialog id="edit">
-      <form method="dialog">
-        <h2>Editar transacción</h2>
-        <p class="meta"><a class="statement"></a> <span class="lines"></span></p>
-        <input type="hidden" name="file">
-        <input type="hidden" name="line">
-        <input type="hidden" name="original">
-        <label for="edit-content" class="visually-hidden">Beancount</label>
-        <textarea id="edit-content" name="content" rows="8" spellcheck="false"></textarea>
-        <p class="error" role="alert" hidden></p>
-        <p class="actions"><button type="submit" class="primary" value="save">Guardar</button><button type="submit" value="cancel">Cancelar</button></p>
-      </form>
+      <h2>Editar transacción</h2>
+      <p class="meta"><a class="statement"></a></p>
+      <%= erb :_code, layout: false, locals: { file: '', text: '' } %>
     </dialog>
   </main>
 </body>
