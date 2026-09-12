@@ -125,9 +125,8 @@ module Frijolero
         rows = []
         error = e.message
       end
-      total = Hash.new(0)
-      rows.each { |tx| tx[:postings].each { |p| p[:amount].each { |c, n| total[c] += n } if p[:matched] } }
       rows = sort_rows(journal_sums(rows, sign))
+      total = rows.each_with_object(Hash.new(0)) { |tx, t| tx[:sum].each { |c, n| t[c] += n } }
       options = chart_options(rows, account)
       name = chart_name(options)
       erb :journal, locals: { period: period, first: first, today: today, error: error, account: account,

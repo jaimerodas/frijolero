@@ -24,7 +24,7 @@ module Frijolero
       def sort_link(key, label, period)
         current = journal_sort.start_with?(key)
         desc = current && journal_sort.end_with?('desc')
-        glyph = { true => ' ▾', false => ' ▴' }[desc] if current
+        glyph = (desc ? ' ▾' : ' ▴') if current
         href = "/journal?#{report_query(period, sort: "#{key}-#{desc ? 'asc' : 'desc'}")}"
         %(<a href="#{Rack::Utils.escape_html(href)}"#{' aria-current="true"' if current}>#{label}#{glyph}</a>)
       end

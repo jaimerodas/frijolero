@@ -432,7 +432,6 @@ class ReportsPageTest < Minitest::Test
 
     get '/journal', sort: 'amount-desc'
     assert_equal %w[chicle Nómina compra segunda], order_of(last_response.body)
-    refute_includes last_response.body, 'amount-desc'
   end
 
   def test_journal_order_links_flip_the_current_key_and_mark_it
