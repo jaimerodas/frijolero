@@ -191,7 +191,7 @@ dialog .actions { margin-bottom: 0; }
 .journal-head form { display: flex; gap: 0.5rem; margin: 0; }
 .journal-head input[type="search"] { width: 16rem; }
 .journal-head hgroup { margin: 0; }
-.net { display: flex; flex-wrap: wrap; gap: 0 1rem; margin: 0.25rem 0 0; font-family: var(--mono); font-size: 0.9375rem; font-weight: 500; }
+.net { display: flex; flex-wrap: wrap; gap: 0 1rem; margin: 0; font-family: var(--mono); font-size: 0.9375rem; font-weight: 500; }
 .net .count { font-family: var(--sans); font-weight: 400; color: var(--muted); }
 /* Order line: Fecha over the dates, Monto over the amounts; the active key in ink with its glyph. */
 .order { display: flex; justify-content: space-between; margin: 1.5rem 0 0.5rem; font-size: 0.875rem; }
