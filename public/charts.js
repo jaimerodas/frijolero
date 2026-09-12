@@ -151,17 +151,22 @@ function tree(group) {
     const root = d3.treemap().size([width, height]).padding(1)(
       d3.hierarchy({ children: kept }).sum((d) => d.value).sort((a, b) => b.value - a.value));
     const label = (d) => d.data.name || none;
+    // Four tints of ink by the square root of the share of the largest tile, like a
+    // grey scale; labels reverse out on the two dark steps and none lands on a midtone.
+    const largest = root.leaves()[0].value;
+    const tint = (d) => { const r = Math.sqrt(d.value / largest); return r >= 0.75 ? 1 : r >= 0.5 ? 0.7 : r >= 0.25 ? 0.25 : 0.1; };
 
     const tile = figure(currency).selectAll('a').data(root.leaves()).join('a')
       .attr('href', (d) => (d.data.name && !d.data.other ? href(d.data.name) : null))
       .attr('aria-label', (d) => `${label(d)}: ${money(d.value, currency)}`)
       .on('pointerenter pointermove', (event, d) => showTip(event, label(d), d.value, currency))
       .on('pointerleave', hideTip);
-    tile.append('rect').attr('class', 'tile')
+    tile.append('rect').attr('class', 'tile').attr('fill-opacity', tint)
       .attr('x', (d) => d.x0).attr('y', (d) => d.y0).attr('width', (d) => d.x1 - d.x0).attr('height', (d) => d.y1 - d.y0);
     // A line of text only where it fits: about 7.5 px per mono character, 14 px per line.
     const line = (row, text) => tile.filter((d) => d.x1 - d.x0 > text(d).length * 7.5 + 8 && d.y1 - d.y0 > row * 14 + 6)
-      .append('text').attr('class', 'label').attr('x', (d) => d.x0 + 4).attr('y', (d) => d.y0 + row * 14).text(text);
+      .append('text').attr('class', (d) => (tint(d) >= 0.7 ? 'label on-ink' : 'label'))
+      .attr('x', (d) => d.x0 + 4).attr('y', (d) => d.y0 + row * 14).text(text);
     line(1, label);
     line(2, (d) => money(d.value, currency));
   }

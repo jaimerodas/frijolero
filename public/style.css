@@ -233,10 +233,11 @@ dialog .actions { margin-bottom: 0; }
 .chart svg { display: block; width: 100%; height: auto; font-family: var(--mono); font-size: 0.75rem; }
 .chart .bar { fill: var(--ink); }
 .chart .bar.debit { fill: var(--debit); }
-.chart .tile { fill: var(--bg); stroke: var(--ink); }
+.chart .tile { fill: var(--ink); stroke: var(--bg); }
 .chart .label { fill: var(--ink); }
-.chart a[href]:is(:hover, :focus-visible) :is(.bar, .label) { fill: var(--blue); }
-.chart a[href]:is(:hover, :focus-visible) .tile { stroke: var(--blue); }
+.chart .on-ink { fill: var(--bg); }
+.chart a[href]:is(:hover, :focus-visible) :is(.bar, .tile) { fill: var(--blue); fill-opacity: 1; }
+.chart a[href]:is(:hover, :focus-visible) .label { fill: var(--on-blue); }
 .chart .domain, .chart .tick line, .chart .zero { stroke: var(--rule); }
 .chart .tick text { fill: var(--muted); font-family: var(--mono); font-size: 0.75rem; }
 .chart .tip { position: absolute; display: grid; transform: translate(-50%, calc(-100% - 0.75rem)); padding: 0.25rem 0.5rem; border: 1px solid var(--ink); background: var(--bg); white-space: nowrap; pointer-events: none; }
