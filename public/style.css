@@ -9,6 +9,12 @@
   --on-blue: light-dark(#ffffff, #000000);
   --credit: light-dark(#1a7f37, #3fb950);
   --debit: light-dark(#b3410f, #ff8a5b);
+  /* The four steps of the treemap, largest tile first. On paper the top is ink; on the dark ground it stops at a
+     mid grey, so the largest tile is not a white slab, and the steps are set by eye, not the light ones flipped. */
+  --tile-1: light-dark(#000000, #8c8c8c);
+  --tile-2: light-dark(#4d4d4d, #5c5c5c);
+  --tile-3: light-dark(#bfbfbf, #333333);
+  --tile-4: light-dark(#e6e6e6, #1c1c1c);
   --sans: "Public Sans", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
 }
@@ -249,14 +255,20 @@ dialog .code { margin-bottom: 0; }
 .chart .bar.debit { fill: var(--debit); }
 .chart .tile { fill: var(--ink); stroke: var(--bg); }
 .chart .label { fill: var(--ink); }
-.chart .on-ink { fill: var(--bg); }
-.chart a[href]:is(:hover, :focus-visible) :is(.bar, .tile) { fill: var(--blue); fill-opacity: 1; }
+.chart .t1 .tile { fill: var(--tile-1); }
+.chart .t2 .tile { fill: var(--tile-2); }
+.chart .t3 .tile { fill: var(--tile-3); }
+.chart .t4 .tile { fill: var(--tile-4); }
+/* Labels reverse out on the two darkest steps of paper; on the dark ground only the top step takes black. */
+.chart .t1 .label { fill: var(--bg); }
+.chart .t2 .label { fill: light-dark(var(--bg), var(--ink)); }
+.chart a[href]:is(:hover, :focus-visible) :is(.bar, .tile) { fill: var(--blue); }
 .chart a[href]:is(:hover, :focus-visible) .label { fill: var(--on-blue); }
 .chart .domain, .chart .tick line, .chart .zero { stroke: var(--rule); }
 .chart .tick text { fill: var(--muted); font-family: var(--mono); font-size: 0.75rem; }
 .chart .tip { position: absolute; display: grid; transform: translate(-50%, calc(-100% - 0.75rem)); padding: 0.25rem 0.5rem; border: 1px solid var(--ink); background: var(--bg); white-space: nowrap; pointer-events: none; }
 .chart .tip[hidden] { display: none; }
-.chart .tip .when { font-size: 0.75rem; color: var(--muted); }
+.chart .tip :is(.when, .count) { font-size: 0.75rem; color: var(--muted); }
 .chart .tip data { font-family: var(--mono); font-size: 0.875rem; }
 /* The Sankey of the income statement takes the place of the tables (.behind) and fills the viewport. Income is
    blue, expenses the debit orange, a gain green and a loss red; a flow is the tone of the node it feeds, at a tint.

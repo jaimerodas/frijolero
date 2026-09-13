@@ -34,13 +34,18 @@ const currencies = [...new Set((data.postings ?? []).map((p) => p.currency))];
 const tip = d3.select(section).append('div').attr('class', 'tip').attr('hidden', true);
 tip.append('span').attr('class', 'when');
 tip.append('data');
+tip.append('span').attr('class', 'count');
 
 // The tip is kept inside the block: one that overhung an edge widened the page,
 // and the scrollbar shifted the whole view.
-function showTip(event, when, value, currency) {
+// The count line: the postings behind the figure and their mean, when there is one.
+const counted = (count, value, currency) => (count == null ? ''
+  : `${count} movimiento${count === 1 ? '' : 's'}` + (count > 1 ? `, promedio ${money(value / count, currency)}` : ''));
+function showTip(event, when, value, currency, count) {
   const [px, py] = d3.pointer(event, section);
   tip.select('.when').text(when);
   tip.select('data').attr('value', value).text(money(value, currency));
+  tip.select('.count').text(counted(count, value, currency));
   tip.attr('hidden', null);
   const half = tip.node().offsetWidth / 2;
   tip.style('left', `${Math.min(Math.max(px, half), section.clientWidth - half)}px`).style('top', `${py}px`);
@@ -92,8 +97,9 @@ function drawHistory(by) {
 
   for (const currency of currencies) {
     const sums = d3.rollup(data.postings.filter((p) => p.currency === currency),
-      (v) => d3.sum(v, (p) => p.amount), (p) => interval.floor(parse(p.date)).getTime());
-    const values = starts.map((start) => sums.get(start.getTime()) ?? 0);
+      (v) => ({ value: d3.sum(v, (p) => p.amount), count: v.length }), (p) => interval.floor(parse(p.date)).getTime());
+    const values = starts.map((start) => sums.get(start.getTime())?.value ?? 0);
+    const counts = starts.map((start) => sums.get(start.getTime())?.count ?? 0);
 
     const x = d3.scaleBand(d3.range(starts.length), [margin.left, width - margin.right]).padding(0.15);
     const y = d3.scaleLinear([Math.min(0, d3.min(values)), Math.max(0, d3.max(values))], [height - margin.bottom, margin.top]).nice();
@@ -106,7 +112,7 @@ function drawHistory(by) {
       .attr('class', (i) => (values[i] < 0 ? 'bar debit' : 'bar'))
       .attr('x', (i) => x(i)).attr('width', x.bandwidth())
       .attr('y', (i) => y(Math.max(0, values[i]))).attr('height', (i) => Math.abs(y(values[i]) - y(0)))
-      .on('pointerenter pointermove', (event, i) => showTip(event, format(starts[i]), values[i], currency))
+      .on('pointerenter pointermove', (event, i) => showTip(event, format(starts[i]), values[i], currency, counts[i]))
       .on('pointerleave', hideTip);
 
     svg.append('g').attr('transform', `translate(0,${height - margin.bottom})`)
@@ -147,31 +153,32 @@ const GROUPS = {
 function tree(group) {
   const { key, none, href } = GROUPS[group];
   for (const currency of currencies) {
-    const sums = d3.rollup(data.postings.filter((p) => p.currency === currency), (v) => d3.sum(v, (p) => p.amount), key);
-    const leaves = [...sums].filter(([, value]) => value > 0).map(([name, value]) => ({ name, value }));
+    const sums = d3.rollup(data.postings.filter((p) => p.currency === currency), (v) => ({ value: d3.sum(v, (p) => p.amount), count: v.length }), key);
+    const leaves = [...sums].filter(([, { value }]) => value > 0).map(([name, { value, count }]) => ({ name, value, count }));
     const total = d3.sum(leaves, (leaf) => leaf.value);
     const small = leaves.filter((leaf) => leaf.value < total / 100);
     const kept = small.length > 1
-      ? [...leaves.filter((leaf) => leaf.value >= total / 100), { name: 'Otras', value: d3.sum(small, (leaf) => leaf.value), other: true }]
+      ? [...leaves.filter((leaf) => leaf.value >= total / 100), { name: 'Otras', value: d3.sum(small, (leaf) => leaf.value), count: d3.sum(small, (leaf) => leaf.count), other: true }]
       : leaves;
     const root = d3.treemap().size([width, height]).padding(1)(
       d3.hierarchy({ children: kept }).sum((d) => d.value).sort((a, b) => b.value - a.value));
     const label = (d) => d.data.name || none;
-    // Four tints of ink by the square root of the share of the largest tile, like a
-    // grey scale; labels reverse out on the two dark steps and none lands on a midtone.
+    // Four steps of tone by the square root of the share of the largest tile, like a
+    // grey scale; style.css sets the colour of each step and of its label.
     const largest = root.leaves()[0].value;
-    const tint = (d) => { const r = Math.sqrt(d.value / largest); return r >= 0.75 ? 1 : r >= 0.5 ? 0.7 : r >= 0.25 ? 0.25 : 0.1; };
+    const step = (d) => { const r = Math.sqrt(d.value / largest); return r >= 0.75 ? 1 : r >= 0.5 ? 2 : r >= 0.25 ? 3 : 4; };
 
     const tile = figure(currency).selectAll('a').data(root.leaves()).join('a')
+      .attr('class', (d) => `t${step(d)}`)
       .attr('href', (d) => (d.data.name && !d.data.other ? href(d.data.name) : null))
       .attr('aria-label', (d) => `${label(d)}: ${money(d.value, currency)}`)
-      .on('pointerenter pointermove', (event, d) => showTip(event, label(d), d.value, currency))
+      .on('pointerenter pointermove', (event, d) => showTip(event, label(d), d.value, currency, d.data.count))
       .on('pointerleave', hideTip);
-    tile.append('rect').attr('class', 'tile').attr('fill-opacity', tint)
+    tile.append('rect').attr('class', 'tile')
       .attr('x', (d) => d.x0).attr('y', (d) => d.y0).attr('width', (d) => d.x1 - d.x0).attr('height', (d) => d.y1 - d.y0);
     // A line of text only where it fits: about 7.5 px per mono character, 14 px per line.
     const line = (row, text) => tile.filter((d) => d.x1 - d.x0 > text(d).length * 7.5 + 8 && d.y1 - d.y0 > row * 14 + 6)
-      .append('text').attr('class', (d) => (tint(d) >= 0.7 ? 'label on-ink' : 'label'))
+      .append('text').attr('class', 'label')
       .attr('x', (d) => d.x0 + 4).attr('y', (d) => d.y0 + row * 14).text(text);
     line(1, label);
     line(2, (d) => money(d.value, currency));
