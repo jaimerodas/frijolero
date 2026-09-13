@@ -268,7 +268,8 @@ dialog .code { margin-bottom: 0; }
 .chart .tick text { fill: var(--muted); font-family: var(--mono); font-size: 0.75rem; }
 .chart .tip { position: absolute; display: grid; transform: translate(-50%, calc(-100% - 0.75rem)); padding: 0.25rem 0.5rem; border: 1px solid var(--ink); background: var(--bg); white-space: nowrap; pointer-events: none; }
 .chart .tip[hidden] { display: none; }
-.chart .tip :is(.when, .count) { font-size: 0.75rem; color: var(--muted); }
+.chart .tip :is(.when, .count, .mean) { font-size: 0.75rem; color: var(--muted); }
+.chart .tip .mean { font-family: var(--mono); }
 .chart .tip data { font-family: var(--mono); font-size: 0.875rem; }
 /* The Sankey of the income statement takes the place of the tables (.behind) and fills the viewport. Income is
    blue, expenses the debit orange, a gain green and a loss red; a flow is the tone of the node it feeds, at a tint.

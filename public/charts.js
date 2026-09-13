@@ -35,17 +35,17 @@ const tip = d3.select(section).append('div').attr('class', 'tip').attr('hidden',
 tip.append('span').attr('class', 'when');
 tip.append('data');
 tip.append('span').attr('class', 'count');
+tip.append('span').attr('class', 'mean');
 
 // The tip is kept inside the block: one that overhung an edge widened the page,
 // and the scrollbar shifted the whole view.
-// The count line: the postings behind the figure and their mean, when there is one.
-const counted = (count, value, currency) => (count == null ? ''
-  : `${count} movimiento${count === 1 ? '' : 's'}` + (count > 1 ? `, promedio ${money(value / count, currency)}` : ''));
+// Two more lines when there is a count: the postings behind the figure, and their mean as µ.
 function showTip(event, when, value, currency, count) {
   const [px, py] = d3.pointer(event, section);
   tip.select('.when').text(when);
   tip.select('data').attr('value', value).text(money(value, currency));
-  tip.select('.count').text(counted(count, value, currency));
+  tip.select('.count').text(count == null ? '' : `${count} movimiento${count === 1 ? '' : 's'}`);
+  tip.select('.mean').text(count > 1 ? `µ ${money(value / count, currency)}` : '');
   tip.attr('hidden', null);
   const half = tip.node().offsetWidth / 2;
   tip.style('left', `${Math.min(Math.max(px, half), section.clientWidth - half)}px`).style('top', `${py}px`);
