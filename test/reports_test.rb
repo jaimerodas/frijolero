@@ -115,6 +115,30 @@ class ReportsTest < Minitest::Test
     assert_includes seen[1], "SUM(CONVERT(COST(position), 'MXN', 2024-04-30)) AS total"
   end
 
+  def test_opening_sums_the_subtree_before_the_period_at_the_closing_rate
+    seen = nil
+    opening = Reports.stub(:query, lambda { |bql|
+      seen = bql
+      { 'Assets:BBVA' => { 'MXN' => BigDecimal('100'), 'USD' => BigDecimal('5') },
+        'Assets:BBVA:Ahorro' => { 'MXN' => BigDecimal('-100.5') } }
+    }) { Reports.opening('Assets:BBVA', Date.new(2026, 1, 1), Date.new(2026, 9, 9)) }
+
+    assert_includes seen, "SUM(CONVERT(position, 'MXN', 2026-09-09)) AS total WHERE date < 2026-01-01"
+    assert_includes seen, "account ~ '^Assets:BBVA(:|$)' GROUP BY account"
+    assert_equal({ 'MXN' => BigDecimal('-0.5'), 'USD' => BigDecimal('5') }, opening)
+  end
+
+  def test_opening_keeps_the_original_currencies_when_asked
+    seen = nil
+    Reports.stub(:query, lambda { |bql|
+      seen = bql
+      {}
+    }) { Reports.opening('Liabilities', Date.new(2026, 7, 1), Date.new(2026, 7, 31), mxn: false) }
+
+    assert_includes seen, 'SUM(position) AS total WHERE date < 2026-07-01'
+    refute_includes seen, 'CONVERT'
+  end
+
   # The BQL that `journal` would run, with the binary stubbed out.
   def journal_bql(*, **)
     seen = nil

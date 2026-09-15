@@ -9,7 +9,7 @@ class ReportsPageTest < Minitest::Test
 
   class FakeReports
     attr_reader :calls
-    attr_accessor :error
+    attr_accessor :error, :opening_error
 
     def initialize
       @calls = []
@@ -46,6 +46,14 @@ class ReportsPageTest < Minitest::Test
 
       txns = JOURNAL.map { |tx| tx.merge(postings: postings_for(tx, prefix)) }
       prefix.empty? ? txns : txns.select { |tx| tx[:postings].last[:matched] }
+    end
+
+    # The balance before the period, in the ledger's sign: a card owes 250.
+    def opening(prefix, from, to, mxn: true)
+      @calls << [:opening, prefix, from, to, mxn]
+      raise Frijolero::Reports::Error, opening_error if opening_error
+
+      { 'MXN' => BigDecimal('-250') }
     end
 
     # The contract: matched postings flagged and sorted last.
@@ -511,8 +519,8 @@ class ReportsPageTest < Minitest::Test
   def test_chart_menu_sits_in_the_search_form_of_an_account
     get '/journal', account: 'Expenses', period: '2026'
     menu = '<select name="chart" aria-label="Gráficas"><option value="">Gráficas…</option>' \
-           '<option value="history">Histograma</option><option value="accounts">Subcuentas</option>' \
-           '<option value="payees">Contrapartes</option></select>'
+           '<option value="history">Histograma</option><option value="balance" disabled>Saldo</option>' \
+           '<option value="accounts">Subcuentas</option><option value="payees">Contrapartes</option></select>'
     assert_match(%r{<form method="get" action="/journal" role="search">.*#{Regexp.escape(menu)}.*<input type="search"}m,
                  last_response.body)
 
@@ -523,11 +531,53 @@ class ReportsPageTest < Minitest::Test
     refute_includes last_response.body, 'Gráficas'
   end
 
+  # A balance-sheet account gets the balance line instead of the histogram.
+  def test_chart_menu_swaps_the_histogram_for_the_balance_on_a_balance_sheet_account
+    get '/journal', account: 'Liabilities:AMEX', period: '2026', chart: 'history'
+    body = last_response.body
+
+    assert_includes body, '<option value="history" disabled>Histograma</option><option value="balance">Saldo</option>'
+    refute_includes body, 'chart-data'
+    refute_includes @reports.calls.map(&:first), :opening
+  end
+
+  def test_chart_embeds_the_opening_balance_in_the_report_sign_for_the_balance_line
+    get '/journal', account: 'Liabilities:AMEX', period: '2026-07', chart: 'balance'
+    body = last_response.body
+
+    assert_includes body, '<option value="balance" selected>Saldo</option>'
+    assert_includes body, '"chart":"balance","period":{"from":"2026-07-01","to":"2026-07-31","resolution":"month"},' \
+                          '"postings":[{"date":"2026-07-05","currency":"MXN","amount":150.0,' \
+                          '"account":"Liabilities:AMEX","payee":"AMAZON"}],"opening":{"MXN":250.0}}</script>'
+    assert_includes @reports.calls, [:opening, 'Liabilities:AMEX', Date.new(2026, 7, 1), Date.new(2026, 7, 31), true]
+
+    get '/journal', account: 'Liabilities:AMEX', period: '2026-07', chart: 'balance', mxn: '0'
+    assert_includes @reports.calls, [:opening, 'Liabilities:AMEX', Date.new(2026, 7, 1), Date.new(2026, 7, 31), false]
+  end
+
+  def test_chart_menu_disables_the_balance_line_with_a_search_text
+    get '/journal', account: 'Liabilities:AMEX', period: '2026', q: 'amazon', chart: 'balance'
+    body = last_response.body
+
+    assert_includes body, '<option value="balance" disabled>Saldo</option>'
+    refute_includes body, 'chart-data'
+    refute_includes @reports.calls.map(&:first), :opening
+  end
+
+  def test_chart_without_an_opening_balance_shows_the_error_and_no_chart
+    @reports.opening_error = 'rledger: boom'
+    get '/journal', account: 'Liabilities:AMEX', period: '2026', chart: 'balance'
+
+    assert_equal 502, last_response.status
+    assert_includes last_response.body, 'rledger: boom'
+    refute_includes last_response.body, 'chart-data'
+  end
+
   def test_chart_menu_disables_a_treemap_with_one_group_and_ignores_a_request_for_it
     get '/journal', account: 'Income:Salary', period: '2026', chart: 'accounts'
     body = last_response.body
 
-    assert_includes body, '<option value="history">Histograma</option>' \
+    assert_includes body, '<option value="history">Histograma</option><option value="balance" disabled>Saldo</option>' \
                           '<option value="accounts" disabled>Subcuentas</option>' \
                           '<option value="payees" disabled>Contrapartes</option>'
     refute_includes body, 'selected>Subcuentas'

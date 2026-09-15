@@ -66,6 +66,17 @@ module Frijolero
       rows.group_by { |row| row[:id] }.values.filter_map { |postings| journal_transaction(prefix, postings) }
     end
 
+    # The balance of `prefix` (the account and its subtree) the day before `from`,
+    # {currency => BigDecimal} in the ledger's sign; with `mxn`, at the closing
+    # rate of `to`, like the journal's postings, so opening plus postings lands on
+    # the balance sheet's figure. `prefix` is validated by the route before it gets here.
+    def opening(prefix, from, to, mxn: true)
+      sum = mxn ? valued(to, true) : 'SUM(position)'
+      rows = query("SELECT account, #{sum} AS total WHERE date < #{from.iso8601} " \
+                   "AND account ~ '^#{prefix}(:|$)' GROUP BY account")
+      total(rows.values)
+    end
+
     # No account clause: a transaction's other postings are needed too, so the
     # prefix filter runs in Ruby once the rows are grouped.
     def journal_query(from, to, mxn:, text:)

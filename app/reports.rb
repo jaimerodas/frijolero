@@ -126,19 +126,22 @@ module Frijolero
       sign = account.start_with?('Income', 'Liabilities', 'Equity') ? -1 : 1
       begin
         rows = self.class.reports.journal(account, period.from, period.to, mxn: mxn?, text: params[:q])
+        options = chart_options(rows, account)
+        name = chart_name(options)
+        # The balance line is the one chart that needs more than the page's rows.
+        opening = self.class.reports.opening(account, period.from, period.to, mxn: mxn?) if name == 'balance'
         error = nil
       rescue Reports::Error => e
         status 502
         rows = []
+        options = name = opening = nil
         error = e.message
       end
       rows = sort_rows(journal_sums(rows, sign))
       total = rows.each_with_object(Hash.new(0)) { |tx, t| tx[:sum].each { |c, n| t[c] += n } }
-      options = chart_options(rows, account)
-      name = chart_name(options)
+      chart = name && chart_data(rows, period, today, sign, name).merge(chart_opening(opening, sign))
       erb :journal, locals: { period: period, first: first, today: today, error: error, account: account,
-                              rows: rows, sign: sign, total: total, options: options,
-                              chart: name && chart_data(rows, period, today, sign, name) }
+                              rows: rows, sign: sign, total: total, options: options, chart: chart }
     end
   end
 end

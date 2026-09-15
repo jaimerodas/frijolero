@@ -5,18 +5,25 @@ module Frijolero
   # as JSON; public/charts.js aggregates and draws them with d3. Reopens App.
   class App
     # The menu of the journal of one account, in order. A report gets its own list.
-    CHARTS = { 'history' => 'Histograma', 'accounts' => 'Subcuentas', 'payees' => 'Contrapartes' }.freeze
+    CHARTS = { 'history' => 'Histograma', 'balance' => 'Saldo', 'accounts' => 'Subcuentas',
+               'payees' => 'Contrapartes' }.freeze
 
     helpers do
       # Which charts the menu offers, or nil when there is no menu (no account, no
-      # rows). A treemap needs at least two groups to split on: the first segment
+      # rows). A balance-sheet account gets the balance line instead of the histogram,
+      # and not with a search text, because the opening of a filtered subset means
+      # nothing. A treemap needs at least two groups to split on: the first segment
       # under the account (postings on the account itself are one group), or the payee.
       def chart_options(rows, account)
         return if account.empty? || rows.empty?
 
-        { 'history' => true, 'accounts' => chart_children(rows, account).size >= 2,
+        sheet = account.start_with?('Assets', 'Liabilities', 'Equity')
+        { 'history' => !sheet, 'balance' => sheet && !searching?,
+          'accounts' => chart_children(rows, account).size >= 2,
           'payees' => rows.map { |tx| tx[:payee].to_s }.uniq.size >= 2 }
       end
+
+      def searching? = !params[:q].to_s.strip.empty?
 
       def chart_children(rows, account)
         rows.flat_map { |tx| tx[:postings].select { |p| p[:matched] } }
@@ -42,6 +49,12 @@ module Frijolero
         { chart: name,
           period: { from: period.from.iso8601, to: [period.to, today].min.iso8601, resolution: period.resolution },
           postings: rows.flat_map { |tx| chart_postings(tx, sign) } }
+      end
+
+      # The balance line also gets the opening balance, in the same sign, so it
+      # starts where the period does. Nothing for the other charts.
+      def chart_opening(opening, sign)
+        opening ? { opening: opening.transform_values { |n| (n * sign).to_f } } : {}
       end
 
       def chart_postings(txn, sign)

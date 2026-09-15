@@ -139,6 +139,48 @@ function history() {
   drawHistory(by);
 }
 
+// The balance by day: the opening balance plus the running sum of the postings,
+// as a step line from the first day of the period to its last (or today), one
+// figure per currency, in the report sign. A day is not a period, so nothing
+// links. The tooltip follows the pointer to the balance of the day under it.
+const day = (d) => `${d.getUTCDate()} ${month(d)}`;
+function balance() {
+  const margin = { top: 8, right: 32, bottom: 24, left: 48 };
+  const end = d3.utcDay.offset(to, 1);
+  const x = d3.scaleUtc([from, end], [margin.left, width - margin.right]);
+  const slots = Math.max(1, Math.floor((width - margin.left - margin.right) / 80));
+  // Ticks on the 1st of months read as the month, January as the year; ticks on days read as `d mmm`.
+  const ticks = x.ticks(slots);
+  const label = ticks.every((d) => d.getUTCDate() === 1) ? (d) => (d.getUTCMonth() === 0 ? `${year(d)}` : month(d)) : day;
+  const at = d3.bisector((p) => p[0]).right;
+
+  for (const currency of [...new Set([...Object.keys(data.opening), ...currencies])]) {
+    const sums = d3.rollup(data.postings.filter((p) => p.currency === currency), (v) => d3.sum(v, (p) => p.amount), (p) => p.date);
+    let running = data.opening[currency] ?? 0;
+    const points = [[from, running]];
+    for (const date of [...sums.keys()].sort()) points.push([parse(date), (running += sums.get(date))]);
+    points.push([end, running]);
+    const y = d3.scaleLinear([Math.min(0, d3.min(points, (p) => p[1])), Math.max(0, d3.max(points, (p) => p[1]))], [height - margin.bottom, margin.top]).nice();
+    const svg = figure(currency);
+
+    svg.append('path').attr('class', 'balance')
+      .attr('d', d3.line().curve(d3.curveStepAfter).x((p) => x(p[0])).y((p) => y(p[1]))(points));
+    svg.append('g').attr('transform', `translate(0,${height - margin.bottom})`)
+      .call(d3.axisBottom(x).tickValues(ticks).tickFormat(label).tickSizeOuter(0));
+    if (y.domain()[0] < 0) svg.append('line').attr('class', 'zero').attr('x1', margin.left).attr('x2', width - margin.right).attr('y1', y(0)).attr('y2', y(0));
+    svg.append('g').attr('transform', `translate(${margin.left},0)`)
+      .call(d3.axisLeft(y).ticks(5).tickFormat(short).tickSizeOuter(0));
+    svg.append('rect').attr('class', 'hover')
+      .attr('x', margin.left).attr('y', margin.top).attr('width', width - margin.left - margin.right).attr('height', height - margin.top - margin.bottom)
+      .on('pointerenter pointermove', (event) => {
+        const when = d3.utcDay.floor(x.invert(d3.pointer(event, svg.node())[0]));
+        const p = points[Math.max(0, at(points, when, 0, points.length - 1) - 1)];
+        showTip(event, `${day(when)} ${year(when)}`, p[1], currency);
+      })
+      .on('pointerleave', hideTip);
+  }
+}
+
 // Treemaps of the matched amount by group: the first segment under the account,
 // or the transaction's payee. A group at or below zero has no area and is left
 // out; groups under 1 % of the total merge into Otras, which links nowhere, and
@@ -273,6 +315,6 @@ function sankey() {
 // Drawn once the stylesheet is in, so the block's width is the laid-out one, not the unstyled page.
 function draw() {
   width = section.clientWidth;
-  if (data.chart === 'sankey') sankey(); else if (data.chart === 'history') history(); else tree(data.chart);
+  if (data.chart === 'sankey') sankey(); else if (data.chart === 'history') history(); else if (data.chart === 'balance') balance(); else tree(data.chart);
 }
 if (document.readyState === 'complete') draw(); else window.addEventListener('load', draw);
