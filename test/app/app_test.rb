@@ -54,6 +54,15 @@ class AppTest < Minitest::Test
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, 'name="password"'
+    assert_includes last_response.body, '<h1 class="wordmark">Frijolero</h1>'
+  end
+
+  def test_login_page_wordmark_is_the_ledger_title
+    File.write(File.join(@dir, 'main.beancount'), %(option "title" "Mi ledger"\n))
+
+    get '/login'
+
+    assert_includes last_response.body, '<h1 class="wordmark">Mi ledger</h1>'
   end
 
   def test_style_without_session_is_ok

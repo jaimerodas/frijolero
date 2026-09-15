@@ -5,7 +5,7 @@
 </head>
 <body class="login">
   <main>
-    <h1 class="wordmark">Frijolero</h1>
+    <h1 class="wordmark"><%= Rack::Utils.escape_html(Frijolero::Config.title) %></h1>
     <p class="tagline">Mis finanzas personales.</p>
     <% if error %>
       <p class="error" role="alert">Contraseña incorrecta.</p>

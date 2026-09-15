@@ -60,6 +60,8 @@ una cuenta y un `include` cuando procesa un estado de cuenta, y los reportes
 lo leen con rustledger. Las transacciones sueltas, los precios y las
 aserciones de saldo van ahí también, o en archivos aparte con su propio
 `include`. A Beancount no le importa en qué archivo está cada entrada.
+Si el archivo principal tiene `option "title"`, ese es el nombre que la app
+muestra en cada página y en la de entrada; si no, dice Frijolero.
 
 Si el repo tiene un `account_opens.beancount`, los opens van ahí en lugar del
 archivo principal.

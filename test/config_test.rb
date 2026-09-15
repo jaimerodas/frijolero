@@ -46,6 +46,21 @@ class ConfigTest < Minitest::Test
     end
   end
 
+  def test_title_reads_the_title_option_of_the_main_file
+    with_ledger_dir do |dir|
+      File.write(File.join(dir, 'main.beancount'), %(option "operating_currency" "MXN"\noption "title" "Mi ledger"\n))
+      assert_equal 'Mi ledger', Frijolero::Config.title
+    end
+  end
+
+  def test_title_falls_back_to_frijolero_without_a_main_file_or_a_title_option
+    with_ledger_dir do |dir|
+      assert_equal 'Frijolero', Frijolero::Config.title
+      File.write(File.join(dir, 'main.beancount'), %(option "operating_currency" "MXN"\n))
+      assert_equal 'Frijolero', Frijolero::Config.title
+    end
+  end
+
   def test_rules_path_with_two_word_key
     with_ledger_dir do |dir|
       expected = File.join(dir, 'config', 'rules', 'BBVA TDC.yaml')

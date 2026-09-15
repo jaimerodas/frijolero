@@ -32,6 +32,12 @@ module Frijolero
 
       def report_file = main_file
 
+      # The brand and the default page title: the ledger's own `option "title"`,
+      # or the app's name. Read on each call, like `accounts`.
+      def title
+        (File.exist?(main_file) && File.read(main_file)[/^option "title" "(.+)"/, 1]) || 'Frijolero'
+      end
+
       def rledger
         ENV.fetch('RLEDGER', 'rledger')
       end

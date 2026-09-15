@@ -51,6 +51,15 @@ class NavTest < Minitest::Test
     end
   end
 
+  def test_brand_and_page_title_are_the_ledger_title
+    File.write(File.join(@dir, 'main.beancount'), %(option "title" "Casa <Rodas>"\n))
+
+    get '/'
+
+    assert_includes last_response.body, '<a class="brand" href="/">Casa &lt;Rodas&gt;</a>'
+    assert_includes last_response.body, '<title>Casa &lt;Rodas&gt;</title>'
+  end
+
   def test_topbar_has_two_sections
     get '/'
 
