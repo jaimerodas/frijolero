@@ -212,8 +212,8 @@ class ReportsPageTest < Minitest::Test
     assert_includes body, 'style="--depth: 0">Salary</th>'
     assert_includes body, %(<a href="/journal?account=Income%3ASalary&amp;period=#{Date.today.year}">1,500.00</a>)
     assert_includes body, 'style="--depth: 1">Tacos</th>'
-    assert_includes body, '1,399.50 MXN'
-    assert_includes body, '-3.00 USD'
+    assert_match(%r{<th scope="row">Utilidad neta</th>\s*<td class="amount" data-label="MXN">1,399.50</td>}, body)
+    assert_includes body, '<td class="amount" data-label="USD">-3.00</td>'
   end
 
   def test_income_folds_parents_and_hides_the_deeper_rows
@@ -236,7 +236,7 @@ class ReportsPageTest < Minitest::Test
     assert_includes body, "al #{Date.today.iso8601}"
     assert_includes body, %(<a href="/journal?account=Liabilities%3ACard&amp;period=#{Date.today.year}">250.00</a>)
     assert_match %r{Utilidades-acumuladas</th>\s*<td class="amount" data-label="MXN">150.00</td>}, body
-    assert_includes body, '850.00 MXN'
+    assert_match(%r{<th scope="row">Patrimonio neto</th>\s*<td class="amount" data-label="MXN">850.00</td>}, body)
   end
 
   def test_balance_is_a_snapshot_at_the_end_of_a_closed_period
@@ -898,11 +898,63 @@ class ReportsPageTest < Minitest::Test
     assert_includes body, '<a href="/journal?account=Expenses%3AFees&amp;period=2025-05">3.00</a>'
   end
 
-  def test_income_total_links_to_the_root_account
+  def test_income_root_row_is_the_title_with_the_total_and_there_is_no_total_row
     get '/reports/income', period: '2025-05', mxn: '0'
     body = last_response.body
 
+    assert_match(%r{<thead>\s*<tr class="root">\s*<th scope="row">Gastos</th>\s*<td class="amount"}, body)
     assert_includes body, '<a href="/journal?account=Expenses&amp;period=2025-05&amp;mxn=0">100.50</a>'
+    assert_match(%r{<tr class="root">\s*<th scope="row">Ingresos</th>}, body)
+    refute_includes body, '<tfoot>'
+    refute_includes body, '<h2>Gastos</h2>'
+    refute_includes body, '>Total<'
+  end
+
+  def test_balance_root_rows_are_the_titles
+    get '/reports/balance'
+    body = last_response.body
+
+    %w[Activos Pasivos Capital].each { |title| assert_includes body, %(<th scope="row">#{title}</th>) }
+    refute_includes body, '<tfoot>'
+  end
+
+  # The column headers are the sort links: Cuenta by name, each currency by its own column.
+  # Fees has no MXN, so it sorts as zero: last under MXN-desc, first by name.
+  def test_report_column_headers_sort_and_flip_the_current_key
+    get '/reports/income', period: '2026'
+    body = last_response.body
+    assert_operator body.index('data-account="Expenses:Fees"'), :<, body.index('data-account="Expenses:Food"')
+    assert_includes body,
+                    '<th><a href="/reports/income?period=2026&amp;sort=name-desc" aria-current="true">Cuenta ▴</a></th>'
+    assert_includes body, '<th class="amount"><a href="/reports/income?period=2026&amp;sort=MXN-desc">MXN</a></th>'
+    assert_includes body, '<th class="amount"><a href="/reports/income?period=2026&amp;sort=USD-desc">USD</a></th>'
+
+    get '/reports/income', period: '2026', sort: 'MXN-desc'
+    body = last_response.body
+    assert_operator body.index('data-account="Expenses:Food"'), :<, body.index('data-account="Expenses:Fees"')
+    assert_includes body, '<th><a href="/reports/income?period=2026">Cuenta</a></th>'
+    assert_includes body, '<a href="/reports/income?period=2026&amp;sort=MXN-asc" aria-current="true">MXN ▾</a>'
+
+    get '/reports/income', period: '2026', mxn: '0', sort: 'USD-desc'
+    body = last_response.body
+    assert_operator body.index('data-account="Expenses:Fees"'), :<, body.index('data-account="Expenses:Food"')
+    assert_includes body, 'href="/reports/income?period=2026&amp;mxn=0&amp;sort=USD-asc" aria-current="true">USD ▾</a>'
+
+    get '/reports/income', period: '2026', sort: 'payee'
+    assert_includes last_response.body, 'sort=name-desc" aria-current="true">Cuenta ▴</a>'
+  end
+
+  def test_report_sort_rides_between_the_reports_and_the_toolbar_but_not_into_the_journal
+    get '/reports/income', period: '2026-07', sort: 'MXN-desc'
+    body = last_response.body
+
+    assert_includes body, '<a href="/reports/income?period=2026&amp;sort=MXN-desc">Año</a>'
+    assert_includes body, '<a href="/reports/income?period=2026-07&amp;mxn=0&amp;sort=MXN-desc">Por moneda</a>'
+    assert_includes body, '<a href="/reports/balance?period=2026-07&amp;sort=MXN-desc">Balance general</a>'
+    assert_includes body, '<a href="/journal?period=2026-07">Diario</a>'
+    assert_includes body, '<a href="/journal?account=Expenses%3AFood%3ATacos&amp;period=2026-07">100.50</a>'
+    hidden = '<input type="hidden" name="sort" value="MXN-desc">'
+    assert_match(%r{<form method="get" action="/reports/income" class="period">.*#{hidden}.*</form>}m, body)
   end
 
   # The three synthetic rows are not accounts, so they have no journal to link to.

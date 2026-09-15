@@ -25,8 +25,7 @@
           <%= erb :_report_table, layout: false, locals: { title: 'Capital', rows: sections.fetch('Equity', []), currencies: currencies, sign: -1, period: period } %>
         </div>
       </div>
-      <h2>Patrimonio neto</h2>
-      <p class="net"><% currencies.each do |currency| %><data value="<%= net[currency].to_s('F') %>"><%= datum(net[currency]) %> <%= h.(currency) %></data><% end %></p>
+      <%= erb :_closing, layout: false, locals: { title: 'Patrimonio neto', currencies: currencies, net: net } %>
     <% end %>
   </main>
 </body>

@@ -9,7 +9,7 @@
 <div class="title">
   <nav aria-label="Reportes">
     <% { '/reports/income' => 'Estado de resultados', '/reports/balance' => 'Balance general', '/journal' => 'Diario' }.each do |href, label| %>
-      <% if path == href %><h1><%= label %></h1><% else %><a href="<%= href %>?<%= h.(report_query(period, filter: false, chart: nil)) %>"><%= label %></a><% end %>
+      <% if path == href %><h1><%= label %></h1><% else %><a href="<%= href %>?<%= h.(report_query(period, filter: false, chart: nil, sort: (page_sort unless href == '/journal'))) %>"><%= label %></a><% end %>
     <% end %>
   </nav>
   <form method="post" action="/ledger/pull" class="ledger-head">
@@ -27,7 +27,7 @@
   <form method="get" action="<%= h.(path) %>" class="period">
     <% if prev_period %><a href="<%= h.(path) %>?<%= h.(report_query(prev_period)) %>" aria-label="Anterior">&lsaquo;</a><% else %><span aria-hidden="true">&lsaquo;</span><% end %>
     <% unless mxn? %><input type="hidden" name="mxn" value="0"><% end %>
-    <% (path == '/journal' ? %w[account q chart sort] : %w[chart]).each do |key| %><% unless params[key].to_s.empty? %><input type="hidden" name="<%= key %>" value="<%= h.(params[key]) %>"><% end %><% end %>
+    <% (path == '/journal' ? %w[account q chart sort] : %w[chart sort]).each do |key| %><% unless params[key].to_s.empty? %><input type="hidden" name="<%= key %>" value="<%= h.(params[key]) %>"><% end %><% end %>
     <select name="period" aria-label="Periodo">
       <% period.siblings(first: first, today: today).each do |option| %>
         <option value="<%= h.(option.param) %>"<% if option.param == period.param %> selected<% end %>><%= h.(option.label) %></option>

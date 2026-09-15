@@ -186,14 +186,37 @@ module Frijolero
     # One row per account and per ancestor, in tree order, with the parents
     # carrying the sum of their subtree: {name:, depth:, amounts:, total:}.
     # An account at zero in every currency is left out, as on a printed sheet.
-    def tree(flat)
+    # `sort` orders the siblings under each parent: `name-asc`, `name-desc`, or `<currency>-asc|desc`,
+    # by the subtotal in that currency in the report sign, so desc is the biggest first on every root.
+    def tree(flat, sort: 'name-asc')
       sums = subtotals(flat.reject { |_, amounts| amounts.values.all?(&:zero?) })
-      # ponytail: O(n²) parent check; ~130 accounts.
-      sums.keys.sort_by { |k| k.split(':') }.map do |name|
-        { name: name, depth: name.count(':'), amounts: sums[name],
-          total: sums.keys.any? { |k| k.start_with?("#{name}:") } }
+      branch(sums, nil, order(sums, sort))
+    end
+
+    # The sort of a sibling group. An amount tie keeps the names ascending in either direction.
+    def order(sums, sort)
+      by, _, direction = sort.rpartition('-')
+      flip = direction == 'desc' ? -1 : 1
+      lambda do |names|
+        next names.sort_by { |k| [sums[k][by] * sign(k) * flip, k] } unless by == 'name'
+
+        flip.negative? ? names.sort.reverse : names.sort
       end
     end
+
+    # The rows under `parent`, each followed by its own subtree.
+    # ponytail: O(n²) children scan; ~130 accounts.
+    def branch(sums, parent, children)
+      depth = parent ? parent.count(':') + 1 : 0
+      names = sums.keys.select { |k| k.count(':') == depth && (parent.nil? || k.start_with?("#{parent}:")) }
+      children.call(names).flat_map do |name|
+        rows = branch(sums, name, children)
+        [{ name: name, depth: depth, amounts: sums[name], total: !rows.empty? }, *rows]
+      end
+    end
+
+    # The report sign: a credit account reads positive on the page.
+    def sign(account) = account.start_with?('Income', 'Liabilities', 'Equity') ? -1 : 1
 
     def subtotals(flat)
       sums = Hash.new { |h, k| h[k] = Hash.new(BigDecimal('0')) }

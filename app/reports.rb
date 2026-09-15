@@ -55,7 +55,8 @@ module Frijolero
         first = self.class.reports.first_date
         period = report_period(first, today)
         flat = yield(period)
-        { period: period, first: first, today: today, error: nil, flat: flat, **report_sections(Reports.tree(flat)) }
+        { period: period, first: first, today: today, error: nil, flat: flat,
+          **report_sections(Reports.tree(flat, sort: report_sort)) }
       rescue Reports::Error => e
         status 502
         { period: report_period(today, today), first: today, today: today, error: e.message, flat: {},
@@ -69,14 +70,14 @@ module Frijolero
     helpers do
       # `mxn:` lets the currency tabs pick the other choice. The chart is the page's own, like mxn: a link
       # to another page passes `chart: nil`. The journal filter (account, q, sort) rides only between
-      # journal pages: a link to a report drops it, so it never leaks into another page.
-      def report_query(period, mxn: mxn?, filter: request.path_info == '/journal', chart: params[:chart],
-                       sort: journal_sort)
+      # journal pages: a link to a report drops it, so it never leaks into another page. A report's sort
+      # rides between the two reports; a link into the journal passes `sort: nil`.
+      def report_query(period, mxn: mxn?, filter: journal?, chart: params[:chart], sort: page_sort)
         parts = ["period=#{period.param}"]
         parts << 'mxn=0' unless mxn
         parts += [query_param(:account), query_param(:q)] if filter
         parts << chart_param(chart)
-        parts << sort_param(sort) if filter
+        parts << sort_param(sort) if sort && (filter || !journal?)
         parts.compact.join('&')
       end
 
@@ -123,7 +124,7 @@ module Frijolero
       today = Date.today
       first = self.class.reports.first_date
       period = report_period(first, today)
-      sign = account.start_with?('Income', 'Liabilities', 'Equity') ? -1 : 1
+      sign = Reports.sign(account)
       begin
         rows = self.class.reports.journal(account, period.from, period.to, mxn: mxn?, text: params[:q])
         options = chart_options(rows, account)

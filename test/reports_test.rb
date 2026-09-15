@@ -318,12 +318,12 @@ class ReportsTest < Minitest::Test
   end
 
   def test_tree_adds_parents_with_subtotals_in_tree_order
-    rows = Reports.tree(
-      'Expenses:Food:Tacos' => { 'MXN' => BigDecimal('10') },
-      'Expenses:Fees' => { 'MXN' => BigDecimal('1'), 'USD' => BigDecimal('2') },
-      'Expenses:Fees:Legal' => { 'MXN' => BigDecimal('5') },
-      'Expenses:Fees-Extra' => { 'MXN' => BigDecimal('7') }
-    )
+    rows = Reports.tree({
+                          'Expenses:Food:Tacos' => { 'MXN' => BigDecimal('10') },
+                          'Expenses:Fees' => { 'MXN' => BigDecimal('1'), 'USD' => BigDecimal('2') },
+                          'Expenses:Fees:Legal' => { 'MXN' => BigDecimal('5') },
+                          'Expenses:Fees-Extra' => { 'MXN' => BigDecimal('7') }
+                        })
 
     assert_equal(%w[Expenses Expenses:Fees Expenses:Fees:Legal Expenses:Fees-Extra Expenses:Food Expenses:Food:Tacos],
                  rows.map { |r| r[:name] })
@@ -333,8 +333,41 @@ class ReportsTest < Minitest::Test
     assert_equal([true, true, false, false, true, false], rows.map { |r| r[:total] })
   end
 
+  def test_tree_sorts_siblings_by_amount_in_the_report_sign_and_keeps_children_under_parents
+    flat = { 'Expenses:Food:Tacos' => { 'MXN' => BigDecimal('10') },
+             'Expenses:Fees' => { 'MXN' => BigDecimal('1'), 'USD' => BigDecimal('50') },
+             'Expenses:Fees:Legal' => { 'MXN' => BigDecimal('5') },
+             'Expenses:Rent' => { 'MXN' => BigDecimal('40') },
+             'Income:Salary' => { 'MXN' => BigDecimal('-100') },
+             'Income:Tips' => { 'MXN' => BigDecimal('-3') } }
+
+    names = ->(**opts) { Reports.tree(flat, **opts).map { |r| r[:name] }.group_by { |n| n[/\A[^:]+/] } }
+
+    desc = names.call(sort: 'MXN-desc')
+    assert_equal %w[Expenses Expenses:Rent Expenses:Food Expenses:Food:Tacos Expenses:Fees Expenses:Fees:Legal],
+                 desc['Expenses']
+    assert_equal %w[Income Income:Salary Income:Tips], desc['Income']
+
+    asc = names.call(sort: 'MXN-asc')
+    assert_equal %w[Expenses Expenses:Fees Expenses:Fees:Legal Expenses:Food Expenses:Food:Tacos Expenses:Rent],
+                 asc['Expenses']
+    assert_equal %w[Income Income:Tips Income:Salary], asc['Income']
+
+    by_usd = names.call(sort: 'USD-desc')
+    assert_equal %w[Expenses Expenses:Fees Expenses:Fees:Legal Expenses:Food Expenses:Food:Tacos Expenses:Rent],
+                 by_usd['Expenses']
+  end
+
+  def test_tree_sorts_by_name_in_either_direction
+    flat = { 'Expenses:Food:Tacos' => { 'MXN' => BigDecimal('10') }, 'Expenses:Fees' => { 'MXN' => BigDecimal('1') } }
+
+    assert_equal(%w[Expenses Expenses:Food Expenses:Food:Tacos Expenses:Fees],
+                 Reports.tree(flat, sort: 'name-desc').map { |r| r[:name] })
+  end
+
   def test_tree_leaves_out_accounts_at_zero
-    rows = Reports.tree('Assets:Prius' => { 'MXN' => BigDecimal('0') }, 'Assets:Bank' => { 'MXN' => BigDecimal('5') })
+    rows = Reports.tree({ 'Assets:Prius' => { 'MXN' => BigDecimal('0') },
+                          'Assets:Bank' => { 'MXN' => BigDecimal('5') } })
 
     assert_equal(%w[Assets Assets:Bank], rows.map { |r| r[:name] })
   end
