@@ -7,8 +7,7 @@ class NewLedgerTest < Minitest::Test
   include TestHelpers
 
   SCRIPT = File.expand_path('../bin/new-ledger', __dir__)
-  FILES = %w[transactions.beancount moneys.beancount account_opens.beancount balances.beancount
-             prices.beancount config/accounts.yaml config/prompts/default/spec.json
+  FILES = %w[main.beancount config/accounts.yaml config/prompts/default/spec.json
              config/prompts/classify/schema.json config/rules/.gitkeep accounts/.gitkeep .gitignore].freeze
 
   def test_creates_the_files_and_a_first_commit
@@ -18,6 +17,7 @@ class NewLedgerTest < Minitest::Test
 
       assert_predicate status, :success?, err
       FILES.each { |file| assert_path_exists File.join(dir, file) }
+      assert_equal %w[accounts config main.beancount], Dir.children(dir).sort - ['.git', '.gitignore']
       log, = Open3.capture2(scrubbed_env, 'git', '-C', dir, 'log', '--oneline')
       assert_equal 1, log.lines.size
       assert_includes out, 'remote add origin'

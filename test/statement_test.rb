@@ -77,7 +77,7 @@ class StatementTest < Minitest::Test
                  "AMEX:\n  beancount_account: \"Liabilities:Amex\"\n  openai_prompt_type: default\n")
       FileUtils.mkdir_p(File.join(dir, 'config', 'prompts'))
       FileUtils.cp_r(fixture_path('prompts/default'), File.join(dir, 'config', 'prompts', 'default'))
-      File.write(File.join(dir, 'transactions.beancount'), '')
+      File.write(File.join(dir, 'main.beancount'), '')
       yield dir
     end
   end
@@ -91,7 +91,7 @@ class StatementTest < Minitest::Test
 
   def json_path(dir) = File.join(dir, 'accounts', 'AMEX', 'AMEX 2508.json')
   def beancount_path(dir) = File.join(dir, 'accounts', 'AMEX', 'AMEX 2508.beancount')
-  def main_file(dir) = File.read(File.join(dir, 'transactions.beancount'))
+  def main_file(dir) = File.read(File.join(dir, 'main.beancount'))
 
   # --- tests -------------------------------------------------------------
 

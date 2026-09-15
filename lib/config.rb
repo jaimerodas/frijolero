@@ -9,8 +9,10 @@ module Frijolero
         ENV.fetch('LEDGER_DIR') { raise 'LEDGER_DIR is not set' }
       end
 
+      # The one file the app knows by name: it appends the includes (and, without a
+      # separate opens file, the opens) to it, and the reports read it.
       def main_file
-        File.join(ledger_dir, ENV.fetch('LEDGER_MAIN_FILE', 'transactions.beancount'))
+        File.join(ledger_dir, ENV.fetch('LEDGER_MAIN_FILE', 'main.beancount'))
       end
 
       def config_dir
@@ -21,14 +23,14 @@ module Frijolero
         File.join(config_dir, 'accounts.yaml')
       end
 
+      # A ledger that keeps its opens apart has account_opens.beancount; the rest go
+      # to the main file. Beancount does not care which file an entry is in.
       def account_opens_file
-        File.join(ledger_dir, 'account_opens.beancount')
+        separate = File.join(ledger_dir, 'account_opens.beancount')
+        File.exist?(separate) ? separate : main_file
       end
 
-      # The fava entry point: options, opens, balances and prices. Reports load it.
-      def report_file
-        File.join(ledger_dir, 'moneys.beancount')
-      end
+      def report_file = main_file
 
       def rledger
         ENV.fetch('RLEDGER', 'rledger')

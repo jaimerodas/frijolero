@@ -366,7 +366,7 @@ class AccountsTest < Minitest::Test
     assert_equal 'Cuenta HSBC', Frijolero::Config.accounts['HSBC']['description']
     assert_equal 'default', Frijolero::Config.accounts['HSBC']['openai_prompt_type']
     assert_equal 15, Frijolero::Config.accounts['HSBC']['cutoff_day']
-    assert_equal "2026-09-01 open Assets:HSBC\n", File.read(File.join(@dir, 'account_opens.beancount'))
+    assert_equal "2026-09-01 open Assets:HSBC\n", File.read(File.join(@dir, 'main.beancount'))
     assert_equal ['cuenta HSBC'], @repo.messages
   end
 
@@ -448,7 +448,7 @@ class AccountsTest < Minitest::Test
     assert_equal 422, last_response.status
     assert_includes last_response.body, message
     refute Frijolero::Config.accounts.key?('HSBC')
-    refute File.exist?(File.join(@dir, 'account_opens.beancount'))
+    refute File.exist?(File.join(@dir, 'main.beancount'))
     assert_empty @repo.messages
   end
 

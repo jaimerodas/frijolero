@@ -31,7 +31,7 @@ sin necesidad de la cookie de sesión.
 | Variable | Uso |
 |---|---|
 | `LEDGER_DIR` | El clon del ledger. Obligatoria. El directorio padre guarda el log de jobs y las subidas. |
-| `LEDGER_MAIN_FILE` | El archivo principal del ledger, relativo a `LEDGER_DIR`. Por defecto, `transactions.beancount`. |
+| `LEDGER_MAIN_FILE` | El archivo principal del ledger, relativo a `LEDGER_DIR`. Por defecto, `main.beancount`. Es el único archivo que la app conoce por nombre. |
 | `APP_PASSWORD` | La única credencial. Se verifica en el formulario de login y firma la cookie de sesión que dura 30 días. Cambiar la contraseña cierra todas las sesiones en todos los dispositivos. Obligatoria. |
 | `OPENAI_API_KEY` | Para clasificar y extraer. |
 | `OPENAI_POLL_TIMEOUT` | Segundos de espera para una extracción. Por defecto, 900. |

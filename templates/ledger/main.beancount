@@ -1,0 +1,8 @@
+option "title" "Mi ledger"
+option "operating_currency" "MXN"
+option "render_commas" "TRUE"
+
+; Frijolero agrega aquí un `open` por cada cuenta que das de alta en /accounts/new
+; y un `include` por cada estado de cuenta que procesa. Las transacciones sueltas,
+; los precios y las aserciones de saldo también van aquí, o en otro archivo con
+; su propio `include`.

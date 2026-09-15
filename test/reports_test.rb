@@ -378,7 +378,7 @@ class ReportsTest < Minitest::Test
     skip 'rledger not installed' unless system(Frijolero::Config.rledger, '--version', out: File::NULL, err: File::NULL)
 
     with_ledger_dir do |dir|
-      FileUtils.cp(fixture_path('report/ledger.beancount'), File.join(dir, 'moneys.beancount'))
+      FileUtils.cp(fixture_path('report/ledger.beancount'), File.join(dir, 'main.beancount'))
       income = Reports.income(Date.new(2024, 1, 1), Date.new(2024, 12, 31), mxn: false)
       sheet = Reports.balance(Date.new(2024, 4, 30), mxn: false)
 
@@ -403,7 +403,7 @@ class ReportsTest < Minitest::Test
     skip 'rledger not installed' unless system(Frijolero::Config.rledger, '--version', out: File::NULL, err: File::NULL)
 
     with_ledger_dir do |dir|
-      FileUtils.cp(fixture_path('report/ledger.beancount'), File.join(dir, 'moneys.beancount'))
+      FileUtils.cp(fixture_path('report/ledger.beancount'), File.join(dir, 'main.beancount'))
       income = Reports.income(Date.new(2024, 1, 1), Date.new(2024, 6, 30))
       sheet = Reports.balance(Date.new(2024, 4, 30))
 

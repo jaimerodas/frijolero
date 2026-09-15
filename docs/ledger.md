@@ -42,9 +42,7 @@ Cada job hace `git pull --rebase` al empezar. Sin un remoto, el job falla.
 ## El layout del repo
 
 ```
-transactions.beancount        # el archivo principal: transacciones sueltas e includes
-moneys.beancount              # lo que abre fava: incluye transactions, account_opens, balances y precios
-account_opens.beancount       # un `open` por cada cuenta que no es un commodity
+main.beancount                # el archivo principal: las opciones, los opens y un include por estado de cuenta
 config/accounts.yaml          # las cuentas
 config/rules/<Key>.yaml       # las reglas, un archivo por cuenta
 config/prompts/<tipo>/        # spec.json, instructions.txt y schema.json
@@ -56,8 +54,15 @@ periodo como `YYMM`. El periodo es el mes que contiene la mayoría de los días
 del estado de cuenta. Un estado de AMEX del 4 de agosto al 3 de septiembre es
 `2608`.
 
-Los reportes leen `moneys.beancount` con rustledger, así que las opciones,
-los opens, los balances y los precios entran en el cálculo.
+`main.beancount` es el único archivo que la app conoce por nombre
+(`LEDGER_MAIN_FILE` lo cambia). La app le agrega un `open` cuando das de alta
+una cuenta y un `include` cuando procesa un estado de cuenta, y los reportes
+lo leen con rustledger. Las transacciones sueltas, los precios y las
+aserciones de saldo van ahí también, o en archivos aparte con su propio
+`include`. A Beancount no le importa en qué archivo está cada entrada.
+
+Si el repo tiene un `account_opens.beancount`, los opens van ahí en lugar del
+archivo principal.
 
 En B2, los PDF viven en `frijolero/accounts/<Key>/<Key> YYMM.pdf`. El bucket
 puede ser compartido con otras apps, porque todo va bajo el prefijo

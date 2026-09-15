@@ -35,6 +35,7 @@ volumes:
 env:
   clear:
     LEDGER_DIR: /data/ledger
+    LEDGER_MAIN_FILE: moneys.beancount
     PUMA_THREADS: "3"
     B2_ENDPOINT: s3.us-west-000.backblazeb2.com
     B2_BUCKET: rodas-app-backups

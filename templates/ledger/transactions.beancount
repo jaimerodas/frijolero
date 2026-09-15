@@ -1,2 +1,0 @@
-; Transacciones sueltas y un `include` por cada estado de cuenta.
-; Frijolero agrega la línea `include` cuando procesa un estado de cuenta.

@@ -27,7 +27,7 @@ class StatementsTest < Minitest::Test
     ENV['LEDGER_DIR'] = @dir
     FileUtils.mkdir_p(File.join(@dir, 'config'))
     write_accounts_yaml
-    File.write(File.join(@dir, 'transactions.beancount'), '')
+    File.write(File.join(@dir, 'main.beancount'), '')
 
     @fake_repo = FakeRepo.new
     Frijolero::App.repo = @fake_repo

@@ -102,7 +102,7 @@ class UploadsTest < Minitest::Test
     FileUtils.cp_r(fixture_path('prompts/default'), File.join(@dir, 'config', 'prompts', 'default'))
     FileUtils.cp_r(template_path('prompts/classify'),
                    File.join(@dir, 'config', 'prompts', 'classify'))
-    File.write(File.join(@dir, 'transactions.beancount'), '')
+    File.write(File.join(@dir, 'main.beancount'), '')
 
     Frijolero::App.jobs = Frijolero::Jobs.new(log_path: File.join(@dir, 'jobs.jsonl'))
     @client = FakeClient.new

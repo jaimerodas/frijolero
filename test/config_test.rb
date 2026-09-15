@@ -13,16 +13,36 @@ class ConfigTest < Minitest::Test
     assert_match(/LEDGER_DIR is not set/, error.message)
   end
 
-  def test_main_file_defaults_to_transactions_beancount
+  def test_main_file_defaults_to_main_beancount
     with_ledger_dir do |dir|
-      assert_equal File.join(dir, 'transactions.beancount'), Frijolero::Config.main_file
+      assert_equal File.join(dir, 'main.beancount'), Frijolero::Config.main_file
     end
   end
 
   def test_main_file_honors_override
     with_ledger_dir do |dir|
-      ENV['LEDGER_MAIN_FILE'] = 'main.beancount'
-      assert_equal File.join(dir, 'main.beancount'), Frijolero::Config.main_file
+      ENV['LEDGER_MAIN_FILE'] = 'moneys.beancount'
+      assert_equal File.join(dir, 'moneys.beancount'), Frijolero::Config.main_file
+    end
+  end
+
+  def test_report_file_is_the_main_file
+    with_ledger_dir do |dir|
+      ENV['LEDGER_MAIN_FILE'] = 'moneys.beancount'
+      assert_equal File.join(dir, 'moneys.beancount'), Frijolero::Config.report_file
+    end
+  end
+
+  def test_account_opens_file_is_the_main_file_by_default
+    with_ledger_dir do |dir|
+      assert_equal File.join(dir, 'main.beancount'), Frijolero::Config.account_opens_file
+    end
+  end
+
+  def test_account_opens_file_is_the_separate_file_when_it_exists
+    with_ledger_dir do |dir|
+      File.write(File.join(dir, 'account_opens.beancount'), '')
+      assert_equal File.join(dir, 'account_opens.beancount'), Frijolero::Config.account_opens_file
     end
   end
 
