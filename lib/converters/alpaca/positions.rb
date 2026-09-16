@@ -2,7 +2,7 @@
 
 module Frijolero
   module Converters
-    class Plata < Base
+    class Alpaca < Base
       # Which commodity accounts the statement says came into existence this period,
       # and which were emptied.
       #

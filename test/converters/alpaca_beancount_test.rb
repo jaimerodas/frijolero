@@ -14,7 +14,7 @@ require 'English'
 # that loses basis or a dropped movement fails here rather than in fava months later.
 #
 # Skips when no checker is installed, so the suite stays runnable without one.
-class PlataBeancountTest < Minitest::Test
+class AlpacaBeancountTest < Minitest::Test
   include TestHelpers
 
   CHECKER = 'bean-check'
@@ -44,7 +44,7 @@ class PlataBeancountTest < Minitest::Test
 
   def generated
     io = StringIO.new
-    Frijolero::Converters::Plata.new(
+    Frijolero::Converters::Alpaca.new(
       input: fixture_path('sample_plata.json'),
       account: 'Assets:Investments:Plata',
       targets: Frijolero::Converters::AccountTargets.new(

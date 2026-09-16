@@ -6,13 +6,13 @@ module Frijolero
       DEFAULT_GAINS = 'Income:FIXME'
 
       attr_reader :counterpart, :interest, :tax, :dividend, :gains, :fees, :withholding,
-                  :opening
+                  :opening, :payee
 
       CONFIG_KEYS = {
         counterpart: 'counterpart_account', interest: 'interest_account',
         tax: 'tax_account', dividend: 'dividend_account', gains: 'gains_account',
         fees: 'fees_account', withholding: 'withholding_account',
-        opening: 'opening_account'
+        opening: 'opening_account', payee: 'payee'
       }.freeze
 
       def self.from_config(config)
@@ -21,11 +21,12 @@ module Frijolero
       end
 
       # `tax` is the local (ISR) withholding account; `withholding` is for
-      # foreign tax withheld at source, which Plata reports separately.
+      # foreign tax withheld at source, which Alpaca reports separately.
       # `opening` receives positions transferred in, which arrive from another
-      # broker rather than from anywhere in this ledger.
+      # broker rather than from anywhere in this ledger. `payee` is the name on
+      # every transaction of a brokerage statement.
       def initialize(counterpart: nil, interest: nil, tax: nil, dividend: nil, gains: nil,
-                     fees: nil, withholding: nil, opening: nil)
+                     fees: nil, withholding: nil, opening: nil, payee: nil)
         @counterpart = counterpart
         @interest = interest
         @tax = tax
@@ -34,6 +35,7 @@ module Frijolero
         @fees = fees
         @withholding = withholding
         @opening = opening
+        @payee = payee
       end
     end
   end

@@ -5,9 +5,9 @@ require 'test_helper'
 # Splits and spinoffs conserve cost basis: the shares removed and the shares added
 # are the same money. Alpaca prints a rounded per-share price on the new side, so
 # the removed total is what the additions have to be reconciled against.
-class PlataCorporateActionTest < Minitest::Test
-  CorporateAction = Frijolero::Converters::Plata::CorporateAction
-  Entry = Frijolero::Converters::Plata::Entry
+class AlpacaCorporateActionTest < Minitest::Test
+  CorporateAction = Frijolero::Converters::Alpaca::CorporateAction
+  Entry = Frijolero::Converters::Alpaca::Entry
 
   # NFLX 5 @ 480.46 = 2402.30 becomes 50 @ 48.05, which multiplies back to
   # 2402.50. Trusting the printed price would invent 20 cents of basis.

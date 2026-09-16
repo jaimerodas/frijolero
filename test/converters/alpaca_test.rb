@@ -2,7 +2,7 @@
 
 require 'test_helper'
 
-class PlataConverterTest < Minitest::Test
+class AlpacaConverterTest < Minitest::Test
   include TestHelpers
 
   # --- trades ---------------------------------------------------------------
@@ -10,21 +10,21 @@ class PlataConverterTest < Minitest::Test
   # The statement's Amount column is authoritative: 10 x 79.59 = 795.90, but the
   # statement reports 795.91. Total-cost syntax keeps the ledger balanced.
   def test_buy_uses_total_cost_not_rounded_unit_price
-    block = transaction_block(convert, '2025-11-25 * "Plata" "Buy VGK"')
+    block = transaction_block(convert, '2025-11-25 * "Alpaca" "Buy VGK"')
 
     assert_includes block, 'Assets:Investments:Plata:VGK  10 VGK {{795.91 USD}}'
     refute_includes block, '{79.59 USD}'
   end
 
   def test_buy_expenses_commission_and_debits_cash_including_it
-    block = transaction_block(convert, '2025-11-25 * "Plata" "Buy VGK"')
+    block = transaction_block(convert, '2025-11-25 * "Alpaca" "Buy VGK"')
 
     assert_includes block, 'Expenses:Fees:Plata  1.43 USD'
     assert_includes block, 'Assets:Investments:Plata:Cash  -797.34 USD'
   end
 
   def test_sell_credits_cash_net_of_commission_and_books_gains
-    block = transaction_block(convert, '2025-11-25 * "Plata" "Sell NFLX"')
+    block = transaction_block(convert, '2025-11-25 * "Alpaca" "Sell NFLX"')
 
     assert_includes block, 'Assets:Investments:Plata:NFLX  -20 NFLX {} @@ 2,133.20 USD'
     assert_includes block, 'Expenses:Fees:Plata  3.83 USD'
@@ -44,7 +44,7 @@ class PlataConverterTest < Minitest::Test
   # 50 x 48.05 = 2402.50 against a removed basis of 2402.30 -- so the ADD takes
   # its total from the REMOVE side and the split conserves basis exactly.
   def test_split_conserves_cost_basis_against_the_rounded_new_price
-    block = transaction_block(convert, '2025-11-17 * "Plata" "Stock Split NFLX"')
+    block = transaction_block(convert, '2025-11-17 * "Alpaca" "Stock Split NFLX"')
 
     assert_includes block, 'Assets:Investments:Plata:NFLX  -5 NFLX {}'
     assert_includes block, 'Assets:Investments:Plata:NFLX  50 NFLX {{2,402.30 USD}}'
@@ -52,14 +52,14 @@ class PlataConverterTest < Minitest::Test
   end
 
   def test_split_needs_no_equity_plug
-    block = transaction_block(convert, '2025-11-17 * "Plata" "Stock Split NFLX"')
+    block = transaction_block(convert, '2025-11-17 * "Alpaca" "Stock Split NFLX"')
 
     refute_includes block, 'Equity:FIXME'
     refute_includes block, 'Income:Gains'
   end
 
   def test_split_keeps_the_statement_description_as_a_comment
-    block = transaction_block(convert, '2025-11-17 * "Plata" "Stock Split NFLX"')
+    block = transaction_block(convert, '2025-11-17 * "Alpaca" "Stock Split NFLX"')
 
     assert_includes block, '; REMOVE, From QTY:-5, To QTY:50, Position Value:2402.3'
   end
@@ -67,7 +67,7 @@ class PlataConverterTest < Minitest::Test
   # SPGI 5 @ 342.04 = 1710.20 becomes SPGI 5 @ 324.47 = 1622.35 plus MBGL
   # 5 @ 17.57 = 87.85. Basis is conserved to the cent.
   def test_spinoff_splits_basis_between_source_and_target
-    block = transaction_block(convert, '2025-11-20 * "Plata" "Stock SpinOff SPGI -> MBGL"')
+    block = transaction_block(convert, '2025-11-20 * "Alpaca" "Stock SpinOff SPGI -> MBGL"')
 
     assert_includes block, 'Assets:Investments:Plata:SPGI  -5 SPGI {}'
     assert_includes block, 'Assets:Investments:Plata:SPGI  5 SPGI {{1,622.35 USD}}'
@@ -77,14 +77,14 @@ class PlataConverterTest < Minitest::Test
   # The spinoff's target row carries neither "ADD" nor "REMOVE" in its description,
   # so the sign of Quantity is what separates the two sides.
   def test_spinoff_classifies_rows_by_quantity_sign_not_description_keyword
-    block = transaction_block(convert, '2025-11-20 * "Plata" "Stock SpinOff SPGI -> MBGL"')
+    block = transaction_block(convert, '2025-11-20 * "Alpaca" "Stock SpinOff SPGI -> MBGL"')
 
     assert_equal 1, block.scan('-5 SPGI').size
     assert_includes block, '5 MBGL {{87.85 USD}}'
   end
 
   def test_corporate_action_removals_come_before_additions
-    block = transaction_block(convert, '2025-11-20 * "Plata" "Stock SpinOff SPGI -> MBGL"')
+    block = transaction_block(convert, '2025-11-20 * "Alpaca" "Stock SpinOff SPGI -> MBGL"')
     postings = block.lines.grep(/Assets:Investments/)
 
     assert_match(/-5 SPGI/, postings.first)
@@ -93,7 +93,7 @@ class PlataConverterTest < Minitest::Test
   # --- transfers ------------------------------------------------------------
 
   def test_acats_securities_carry_their_cost_basis_against_opening_balances
-    block = transaction_block(convert, '2025-11-03 * "Plata" "ACAT Transfer 20250270052117"')
+    block = transaction_block(convert, '2025-11-03 * "Alpaca" "ACAT Transfer 20250270052117"')
 
     assert_includes block, 'Assets:Investments:Plata:AMZN  15 AMZN {154.53 USD}'
     assert_includes block, 'Equity:Opening-Balances'
@@ -111,14 +111,14 @@ class PlataConverterTest < Minitest::Test
   # Alpaca reports the gross dividend and the withholding as separate rows, unlike
   # the advisor statement which reported the dividend already net.
   def test_dividend_books_the_gross_amount
-    block = transaction_block(convert, '2025-11-05 * "Plata" "Dividend BND"')
+    block = transaction_block(convert, '2025-11-05 * "Alpaca" "Dividend BND"')
 
     assert_includes block, 'Assets:Investments:Plata:Cash  3.90 USD'
     assert_includes block, 'Income:Dividends:Plata  -3.90 USD'
   end
 
   def test_withholding_is_its_own_transaction
-    block = transaction_block(convert, '2025-11-05 * "Plata" "Withholding BND"')
+    block = transaction_block(convert, '2025-11-05 * "Alpaca" "Withholding BND"')
 
     assert_includes block, 'Assets:Investments:Plata:Cash  -0.39 USD'
     assert_includes block, 'Expenses:Taxes:Withholding:USA  0.39 USD'
@@ -129,7 +129,7 @@ class PlataConverterTest < Minitest::Test
   def test_dividend_reversals_survive_as_three_separate_transactions
     content = convert
 
-    assert_equal 3, content.scan('* "Plata" "Dividend AAPL"').size
+    assert_equal 3, content.scan('* "Alpaca" "Dividend AAPL"').size
     assert_includes content, 'Assets:Investments:Plata:Cash  -3.64 USD'
     assert_includes content, 'Income:Dividends:Plata  3.64 USD'
   end
@@ -137,20 +137,20 @@ class PlataConverterTest < Minitest::Test
   def test_withholding_reversal_flips_both_postings
     content = convert
 
-    assert_equal 3, content.scan('* "Plata" "Withholding AAPL"').size
+    assert_equal 3, content.scan('* "Alpaca" "Withholding AAPL"').size
     assert_includes content, 'Assets:Investments:Plata:Cash  0.36 USD'
     assert_includes content, 'Expenses:Taxes:Withholding:USA  -0.36 USD'
   end
 
   def test_cash_interest_books_to_the_interest_account
-    block = transaction_block(convert, '2025-11-30 * "Plata" "Cash Interest"')
+    block = transaction_block(convert, '2025-11-30 * "Alpaca" "Cash Interest"')
 
     assert_includes block, 'Assets:Investments:Plata:Cash  1.27 USD'
     assert_includes block, 'Income:Interest  -1.27 USD'
   end
 
   def test_fee_rows_debit_cash_and_expense_the_fee
-    block = transaction_block(convert, '2025-11-29 * "Plata" "ADR pass-through fee"')
+    block = transaction_block(convert, '2025-11-29 * "Alpaca" "ADR pass-through fee"')
 
     assert_includes block, 'Assets:Investments:Plata:Cash  -2.50 USD'
     assert_includes block, 'Expenses:Fees:Plata  2.50 USD'
@@ -164,7 +164,7 @@ class PlataConverterTest < Minitest::Test
   def test_journal_entry_lands_on_fixme_flagged_for_the_detailer
     block = transaction_block(
       convert,
-      '2025-11-10 * "Plata" "Journal Entry: NRA withholding refund - Income Reallocation"'
+      '2025-11-10 * "Alpaca" "Journal Entry: NRA withholding refund - Income Reallocation"'
     )
 
     assert_includes block, 'Assets:Investments:Plata:Cash  20.54 USD'
@@ -192,7 +192,7 @@ class PlataConverterTest < Minitest::Test
   # only symptom would be a failed balance assertion with nothing to point at.
   def test_unknown_entry_type_becomes_a_flagged_fixme_rather_than_vanishing
     block = transaction_block(
-      convert, '2025-11-30 ! "Plata" "FIXME unclassified entry: Custody Adjustment"'
+      convert, '2025-11-30 ! "Alpaca" "FIXME unclassified entry: Custody Adjustment"'
     )
 
     assert_includes block, 'Assets:Investments:Plata:Cash  -3.00 USD'
@@ -255,7 +255,7 @@ class PlataConverterTest < Minitest::Test
   def test_opens_precede_the_transactions
     content = convert
     first_open = content.index('open Assets:Investments:Plata')
-    first_transaction = content.index('* "Plata"')
+    first_transaction = content.index('* "Alpaca"')
 
     assert_operator first_open, :<, first_transaction
   end
@@ -389,18 +389,18 @@ class PlataConverterTest < Minitest::Test
     io = StringIO.new
     converter.run_to(io)
 
-    assert_includes io.string, '2025-11-25 * "Plata" "Buy VGK"'
+    assert_includes io.string, '2025-11-25 * "Alpaca" "Buy VGK"'
   end
 
   def test_raises_without_input
     assert_raises ArgumentError do
-      Frijolero::Converters::Plata.convert(input: nil, account: 'Test')
+      Frijolero::Converters::Alpaca.convert(input: nil, account: 'Test')
     end
   end
 
   def test_raises_without_account
     assert_raises ArgumentError do
-      Frijolero::Converters::Plata.convert(input: 'test.json', account: nil)
+      Frijolero::Converters::Alpaca.convert(input: 'test.json', account: nil)
     end
   end
 
@@ -416,8 +416,17 @@ class PlataConverterTest < Minitest::Test
     )
   end
 
+  def test_payee_comes_from_the_account_config
+    io = StringIO.new
+    Frijolero::Converters::Alpaca.new(input: fixture_path('sample_plata.json'), account: 'Assets:Investments:Plata',
+                                      targets: Frijolero::Converters::AccountTargets.new(payee: 'Plata')).run_to(io)
+
+    assert_includes io.string, '2025-11-25 * "Plata" "Buy VGK"'
+    refute_includes io.string, '"Alpaca"'
+  end
+
   def converter(input = fixture_path('sample_plata.json'))
-    Frijolero::Converters::Plata.new(
+    Frijolero::Converters::Alpaca.new(
       input: input, account: 'Assets:Investments:Plata', targets: targets
     )
   end

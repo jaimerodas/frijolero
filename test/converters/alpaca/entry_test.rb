@@ -5,8 +5,8 @@ require 'test_helper'
 # Entry flattens the statement's four detail tables into one stream. The ordering
 # guarantees are what let the converter group corporate actions by adjacency and
 # keep reversal rows in the order the statement printed them.
-class PlataEntryTest < Minitest::Test
-  Entry = Frijolero::Converters::Plata::Entry
+class AlpacaEntryTest < Minitest::Test
+  Entry = Frijolero::Converters::Alpaca::Entry
 
   def test_merges_all_four_tables
     stream = Entry.stream(

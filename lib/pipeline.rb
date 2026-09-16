@@ -195,7 +195,7 @@ module Frijolero
       end
     end
 
-    class Plata < Base
+    class Alpaca < Base
       # An Alpaca statement spreads its movements over four tables, so counting one
       # of them under-reports badly. Entry.stream is what the converter itself walks,
       # so this counts exactly what will reach the ledger — sweep rows, which are
@@ -213,15 +213,15 @@ module Frijolero
       end
 
       def summary(data)
-        entries = Converters::Plata::Entry.stream(data)
-        sweeps = entries.count { |entry| entry.entry_type == Converters::Plata::SWEEP }
+        entries = Converters::Alpaca::Entry.stream(data)
+        sweeps = entries.count { |entry| entry.entry_type == Converters::Alpaca::SWEEP }
         parts = [pluralize(entries.size - sweeps, 'movement')]
         parts << "#{pluralize(sweeps, 'cash sweep')} ignored" if sweeps.positive?
         "Found #{parts.join(', ')}"
       end
 
       def convert(json_path:, output: nil, account: beancount_account, **)
-        Converters::Plata.convert(
+        Converters::Alpaca.convert(
           input: json_path,
           account: account,
           output: output,
@@ -240,7 +240,8 @@ module Frijolero
       'cetes_directo' => CetesDirecto,
       'fintual' => Fintual,
       'multi' => Multi,
-      'plata' => Plata
+      'alpaca' => Alpaca,
+      'plata' => Alpaca # the old name, kept for existing ledgers
     }.freeze
   end
 end

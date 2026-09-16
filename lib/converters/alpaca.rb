@@ -5,7 +5,7 @@ require_relative '../beancount/quoting'
 
 module Frijolero
   module Converters
-    # Alpaca monthly brokerage statements, held through the Mexican advisor Plata.
+    # Alpaca monthly brokerage statements, held through an investment advisor.
     # USD, English labels, and — unlike the advisor's own summary statement this
     # replaced — internally complete: every Cash Summary line is reproducible from
     # the detail tables to the cent.
@@ -21,10 +21,10 @@ module Frijolero
     # 3. `High-Yield Cash Sweep` rows move cash between the brokerage and the FDIC
     #    partner banks. They are absent from the Cash Summary, so emitting them
     #    would double-count; they are skipped and reported in the header.
-    class Plata < Base
+    class Alpaca < Base
       include Amounts
 
-      PAYEE = 'Plata'
+      PAYEE = 'Alpaca' # unless the account config sets `payee`
       SWEEP = 'High-Yield Cash Sweep'
       # Sales emit `{}` reductions, which are ambiguous under Beancount's default
       # STRICT booking as soon as a commodity has more than one lot.
@@ -420,12 +420,12 @@ module Frijolero
 
       def write_header(entry, narration, flag: '*')
         quoted = Beancount::Quoting.escape(narration)
-        @out.puts %(#{entry.date} #{flag} "#{PAYEE}" "#{quoted}")
+        @out.puts %(#{entry.date} #{flag} "#{@targets.payee || PAYEE}" "#{quoted}")
       end
     end
   end
 end
 
-require_relative 'plata/entry'
-require_relative 'plata/corporate_action'
-require_relative 'plata/positions'
+require_relative 'alpaca/entry'
+require_relative 'alpaca/corporate_action'
+require_relative 'alpaca/positions'

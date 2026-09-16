@@ -30,9 +30,9 @@ class PipelineTest < Minitest::Test
     assert_instance_of Frijolero::Pipeline::Fintual, pipeline
   end
 
-  def test_for_returns_plata_strategy
-    pipeline = Frijolero::Pipeline.for('converter_type' => 'plata')
-    assert_instance_of Frijolero::Pipeline::Plata, pipeline
+  def test_for_returns_alpaca_strategy_under_both_names
+    assert_instance_of Frijolero::Pipeline::Alpaca, Frijolero::Pipeline.for('converter_type' => 'alpaca')
+    assert_instance_of Frijolero::Pipeline::Alpaca, Frijolero::Pipeline.for('converter_type' => 'plata')
   end
 
   def test_for_falls_back_to_default_for_unknown_type
@@ -78,49 +78,50 @@ class PipelineTest < Minitest::Test
     assert_equal 'Found 3 transactions', pipeline.summary(data)
   end
 
-  def test_plata_skips_detailer
-    pipeline = Frijolero::Pipeline::Plata.new({})
+  def test_alpaca_skips_detailer
+    pipeline = Frijolero::Pipeline::Alpaca.new({})
     refute pipeline.runs_detailer?
   end
 
   # An Alpaca statement spreads its movements over four tables; counting only
   # "transactions" would report 1 for a month of a dozen dividends.
-  def test_plata_summary_counts_every_table
-    pipeline = Frijolero::Pipeline::Plata.new({})
+  def test_alpaca_summary_counts_every_table
+    pipeline = Frijolero::Pipeline::Alpaca.new({})
     data = {
-      'transactions' => [plata_row('Trade Entry')],
-      'income' => [plata_row('Dividends'), plata_row('Dividends')],
+      'transactions' => [alpaca_row('Trade Entry')],
+      'income' => [alpaca_row('Dividends'), alpaca_row('Dividends')],
       'fees' => [{ 'trade_date' => '2025-11-01', 'net_amount' => '-1.00' }],
-      'deposits_withdrawals' => [plata_row('Journal Entry(Cash)')]
+      'deposits_withdrawals' => [alpaca_row('Journal Entry(Cash)')]
     }
     assert_equal 'Found 5 movements', pipeline.summary(data)
   end
 
   # Sweep rows never reach the ledger, so counting them among the movements would
   # make the summary disagree with the file the converter writes.
-  def test_plata_summary_reports_ignored_sweeps_separately
-    pipeline = Frijolero::Pipeline::Plata.new({})
+  def test_alpaca_summary_reports_ignored_sweeps_separately
+    pipeline = Frijolero::Pipeline::Alpaca.new({})
     data = {
-      'transactions' => [plata_row('Trade Entry'), plata_row('High-Yield Cash Sweep')]
+      'transactions' => [alpaca_row('Trade Entry'), alpaca_row('High-Yield Cash Sweep')]
     }
     assert_equal 'Found 1 movement, 1 cash sweep ignored', pipeline.summary(data)
   end
 
-  def test_plata_summary_handles_an_empty_statement
-    pipeline = Frijolero::Pipeline::Plata.new({})
+  def test_alpaca_summary_handles_an_empty_statement
+    pipeline = Frijolero::Pipeline::Alpaca.new({})
     assert_equal 'Found 0 movements', pipeline.summary({})
   end
 
-  def test_plata_convert_passes_all_account_config_keys
+  def test_alpaca_convert_passes_all_account_config_keys
     captured = nil
-    Frijolero::Converters::Plata.stub(:convert, ->(**kwargs) { captured = kwargs }) do
-      pipeline = Frijolero::Pipeline::Plata.new(
+    Frijolero::Converters::Alpaca.stub(:convert, ->(**kwargs) { captured = kwargs }) do
+      pipeline = Frijolero::Pipeline::Alpaca.new(
         'beancount_account' => 'Assets:Investments:Plata',
         'counterpart_account' => 'Assets:Bank',
         'dividend_account' => 'Income:Dividends:Plata',
         'interest_account' => 'Income:Interest',
         'gains_account' => 'Income:Gains:Plata',
         'fees_account' => 'Expenses:Fees:Plata',
+        'payee' => 'Plata',
         'withholding_account' => 'Expenses:Taxes:Withholding:USA'
       )
       pipeline.convert(json_path: '/in.json', output: '/out.beancount')
@@ -130,6 +131,7 @@ class PipelineTest < Minitest::Test
     assert_equal 'Income:Dividends:Plata', captured[:targets].dividend
     assert_equal 'Income:Gains:Plata', captured[:targets].gains
     assert_equal 'Expenses:Fees:Plata', captured[:targets].fees
+    assert_equal 'Plata', captured[:targets].payee
     assert_equal 'Expenses:Taxes:Withholding:USA', captured[:targets].withholding
   end
 
@@ -309,15 +311,15 @@ class PipelineTest < Minitest::Test
     assert_equal 'transactions[0] lacks reported_amount', error.message
   end
 
-  def test_plata_validate_accepts_the_four_tables_and_the_holdings
-    assert_valid Frijolero::Pipeline::Plata.new({}),
-                 'transactions' => [plata_row('Trade Entry')], 'income' => [], 'fees' => [],
+  def test_alpaca_validate_accepts_the_four_tables_and_the_holdings
+    assert_valid Frijolero::Pipeline::Alpaca.new({}),
+                 'transactions' => [alpaca_row('Trade Entry')], 'income' => [], 'fees' => [],
                  'deposits_withdrawals' => [], 'holdings' => []
   end
 
-  def test_plata_validate_requires_every_table
+  def test_alpaca_validate_requires_every_table
     error = assert_raises(Frijolero::Pipeline::InvalidData) do
-      Frijolero::Pipeline::Plata.new({}).validate!(
+      Frijolero::Pipeline::Alpaca.new({}).validate!(
         'transactions' => [], 'income' => [], 'fees' => [], 'deposits_withdrawals' => []
       )
     end
@@ -332,7 +334,7 @@ class PipelineTest < Minitest::Test
     pass "#{pipeline.class} accepted the payload"
   end
 
-  def plata_row(entry_type)
+  def alpaca_row(entry_type)
     { 'trade_date' => '2025-11-01', 'entry_type' => entry_type, 'net_amount' => '1.00' }
   end
 end

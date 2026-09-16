@@ -6,9 +6,9 @@ require 'test_helper'
 # so the opening position is recoverable: closing minus what moved. That is enough
 # to tell a position that appeared this month from one that was already held, and a
 # position that was emptied from one that merely shrank.
-class PlataPositionsTest < Minitest::Test
-  Positions = Frijolero::Converters::Plata::Positions
-  Entry = Frijolero::Converters::Plata::Entry
+class AlpacaPositionsTest < Minitest::Test
+  Positions = Frijolero::Converters::Alpaca::Positions
+  Entry = Frijolero::Converters::Alpaca::Entry
 
   def test_a_position_bought_from_nothing_is_opened
     positions = build(holdings: [holding('MBGL', '5')], rows: [move('MBGL', '5')])

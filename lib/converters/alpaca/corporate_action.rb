@@ -2,7 +2,7 @@
 
 module Frijolero
   module Converters
-    class Plata < Base
+    class Alpaca < Base
       # A `Stock Split` or `Stock SpinOff` group: the rows Alpaca prints for one
       # corporate action on one date.
       #

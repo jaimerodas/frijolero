@@ -2,7 +2,7 @@
 
 module Frijolero
   module Converters
-    class Plata < Base
+    class Alpaca < Base
       # One row of an Alpaca statement, whichever of the four detail tables it came
       # from. The tables disagree on column names -- "Net Amt" against "Amount" --
       # and the Fees table has no Entry Type column at all, so the converter works

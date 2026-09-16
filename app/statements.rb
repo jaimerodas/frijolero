@@ -73,7 +73,7 @@ module Frijolero
       config = Config.accounts[account]
       pipeline = Pipeline.for(config)
       # Only the Default pipeline's transactions read as rows; an investment statement
-      # (Fintual, Plata, CETES) shows the extraction summary and the Beancount text only.
+      # (Fintual, Alpaca, CETES) shows the extraction summary and the Beancount text only.
       rows = StatementRows.read(paths[:beancount], config) if pipeline.runs_detailer?
       data = JSON.parse(File.read(paths[:json])) if rows.nil? && File.exist?(paths[:json])
       beancount = File.read(paths[:beancount])

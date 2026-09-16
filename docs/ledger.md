@@ -86,11 +86,12 @@ AMEX:
   description: "Amex credit card (tarjeta de crédito), MXN"
   cutoff_day: 3
 
-Plata:
-  beancount_account: "Assets:Investments:Plata"
-  openai_prompt_type: plata
-  converter_type: plata
-  dividend_account: "Income:Dividends:Plata"
+Alpaca:
+  beancount_account: "Assets:Investments:Alpaca"
+  openai_prompt_type: alpaca
+  converter_type: alpaca
+  dividend_account: "Income:Dividends:Alpaca"
+  payee: "Mi asesor"
 
 Plata Banco:
   beancount_account: "Assets:Plata:Cuenta"
@@ -110,13 +111,13 @@ Old Card:
 |---|---|
 | `beancount_account` | La cuenta de Beancount donde se registran las transacciones. |
 | `openai_prompt_type` | El directorio de `config/prompts/` que extrae este tipo de estado de cuenta. |
-| `converter_type` | El pipeline: `cetes_directo`, `fintual`, `plata` o `multi`. Sin esta llave, el pipeline es Default. Solo Default y Multi usan reglas. |
+| `converter_type` | El pipeline: `cetes_directo`, `fintual`, `alpaca` (o `plata`, su nombre viejo) o `multi`. Sin esta llave, el pipeline es Default. Solo Default y Multi usan reglas. |
 | `accounts` | Solo Multi. Un estado de cuenta que cubre varias cuentas del mismo banco, cada una en su sección "Movimientos de <nombre>". Mapea el nombre impreso a la cuenta de Beancount. Cada movimiento se registra desde la cuenta de su sección. Un traspaso entre esas cuentas aparece dos veces, una por sección. Una regla que mande una fila a la otra cuenta del mismo estado de cuenta la marca como la que se queda, y la fila espejo, con la misma fecha y el monto opuesto en esa otra cuenta, se descarta. |
 | `description` | La pista que recibe el clasificador. Si falta, usa la clave. |
 | `cutoff_day` | El día del mes en que cierra el estado de cuenta. Sin esta llave, el último día del mes. El job lo llena la primera vez que ve un periodo impreso, y nunca lo sobreescribe. |
 | `closed` | Con `true`, la cuenta sale del dashboard y del clasificador. Su historial sigue en su página, bajo Cuentas. |
 
-Los pipelines CetesDirecto, Fintual y Plata registran intereses, impuestos y
+Los pipelines CetesDirecto, Fintual y Alpaca registran intereses, impuestos y
 ganancias en otras cuentas. Estas llaves las nombran. Cada una es opcional.
 Sin ella, la transacción va a `Income:FIXME` o `Expenses:FIXME`.
 
@@ -126,10 +127,11 @@ Sin ella, la transacción va a `Income:FIXME` o `Expenses:FIXME`.
 | `interest_account` | Los tres | Intereses. |
 | `tax_account` | CetesDirecto, Fintual | El ISR retenido. |
 | `gains_account` | Los tres | Ganancias y pérdidas de capital. |
-| `dividend_account` | Fintual, Plata | Dividendos. |
-| `fees_account` | Plata | Comisiones. |
-| `withholding_account` | Plata | El impuesto retenido en el extranjero. |
-| `opening_account` | Plata | La contraparte de una posición transferida desde otro broker. |
+| `dividend_account` | Fintual, Alpaca | Dividendos. |
+| `fees_account` | Alpaca | Comisiones. |
+| `withholding_account` | Alpaca | El impuesto retenido en el extranjero. |
+| `opening_account` | Alpaca | La contraparte de una posición transferida desde otro broker. |
+| `payee` | Alpaca | El nombre en cada transacción. Sin él, `Alpaca`. |
 
 Un estado de cuenta que cierra en `cutoff_day` pertenece al mes de 15 días
 antes del cierre. El dashboard y el clasificador usan la misma regla.
@@ -153,14 +155,16 @@ subido. La app llena su lista de cuentas desde `accounts.yaml` en cada
 llamada.
 
 `templates/prompts/` de este repo tiene los cuatro genéricos: `classify`,
-`default`, `multi` y `plata`. `bin/new-ledger` los copia. El ledger tiene la
+`default`, `multi` y `alpaca`. `bin/new-ledger` los copia. El ledger tiene la
 copia viva, y el formulario de cuenta nueva ofrece los directorios que hay en
 `config/prompts/` del ledger. Un prompt para un banco en particular es un
 directorio más ahí. Un cambio en un prompt es un commit en el ledger.
 
-## Las cuentas de Plata
+## Las cuentas de Alpaca
 
-El pipeline `plata` lee los estados de cuenta de Alpaca. Abre y cierra las
+El pipeline `alpaca` lee los estados de cuenta mensuales de Alpaca, la casa de
+bolsa detrás de varios asesores. `payee` en el bloque de la cuenta es el nombre
+que lleva cada transacción; sin él, "Alpaca". El pipeline abre y cierra las
 cuentas de cada commodity por sí mismo, con `"FIFO"`. No declares esas cuentas
 en `account_opens.beancount`. Si una posición se cierra y vuelve a abrir en
 un mes posterior, `bean-check` reporta una colisión. Borra el `close` anterior
