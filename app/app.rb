@@ -74,7 +74,7 @@ module Frijolero
 
     get '/jobs/:id' do
       job = self.class.jobs.find(params[:id])
-      halt 404, 'No existe ese job' unless job
+      halt 404, 'No existe esa corrida' unless job
 
       erb :job, locals: { job: job }
     end

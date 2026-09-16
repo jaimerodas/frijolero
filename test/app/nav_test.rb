@@ -81,7 +81,7 @@ class NavTest < Minitest::Test
   def test_jobs_page_without_jobs_says_so
     get '/jobs'
 
-    assert_includes last_response.body, 'Todavía no hay jobs.'
+    assert_includes last_response.body, 'Todavía no hay corridas.'
     refute_includes last_response.body, '<table'
   end
 
