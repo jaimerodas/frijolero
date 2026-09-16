@@ -21,6 +21,19 @@ class ReportsTest < Minitest::Test
     end
   end
 
+  # bin/dev reaches the ledger through tmp/dev/ledger, a symlink, and rledger
+  # prints every file by its real path. Yields that real path.
+  def with_symlinked_ledger_dir
+    with_ledger_dir do |dir|
+      Dir.mktmpdir do |links|
+        link = File.join(links, 'ledger')
+        File.symlink(dir, link)
+        ENV['LEDGER_DIR'] = link
+        yield File.realpath(dir)
+      end
+    end
+  end
+
   def test_query_parses_rows_into_amounts_by_currency
     rows = with_rledger("cat #{fixture_path('report/rows.json')}") { Reports.query('SELECT account') }
 
@@ -270,6 +283,21 @@ class ReportsTest < Minitest::Test
     assert_equal({ 'MXN' => BigDecimal('500.58') }, rows.first[:postings].first[:amount])
   end
 
+  def test_journal_files_are_relative_to_a_ledger_behind_a_symlink
+    with_symlinked_ledger_dir do |real|
+      json = {
+        columns: %w[id date flag payee narration filename lineno account amount],
+        rows: [[1, '2026-08-01', '*', nil, 'Tacos', "#{real}/accounts/AMEX/AMEX 2607.beancount", 329,
+                'Expenses:Food', { 'currency' => 'MXN', 'number' => '150.00' }]]
+      }.to_json
+      rows = Reports.stub(:capture, ->(*) { [json, '', 0] }) do
+        Reports.journal('', Date.new(2026, 8, 1), Date.new(2026, 8, 3))
+      end
+
+      assert_equal 'accounts/AMEX/AMEX 2607.beancount', rows.first[:file]
+    end
+  end
+
   def test_check_is_empty_when_the_ledger_is_clean
     with_ledger_dir do
       seen = nil
@@ -282,8 +310,8 @@ class ReportsTest < Minitest::Test
   end
 
   def test_check_lists_each_error_with_its_code_message_and_relative_location
-    with_ledger_dir do |dir|
-      out = File.read(fixture_path('report/check_errors.txt')).gsub('/data/ledger', dir)
+    with_symlinked_ledger_dir do |real|
+      out = File.read(fixture_path('report/check_errors.txt')).gsub('/data/ledger', real)
       errors = Reports.stub(:capture, ->(*) { [out, '', 1] }) { Reports.check }
 
       assert_equal [{ code: 'E1001', message: 'Account Expenses:Transportation:Tollz was never opened',

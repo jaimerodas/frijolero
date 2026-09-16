@@ -81,11 +81,11 @@ class ReportsPageTest < Minitest::Test
 
     JOURNAL = [
       { date: Date.new(2026, 7, 5), flag: '*', payee: 'AMAZON', narration: 'compra',
-        file: '/data/ledger/accounts/AMEX/AMEX 2607.beancount', line: 12,
+        file: 'accounts/AMEX/AMEX 2607.beancount', line: 12,
         postings: [{ account: 'Liabilities:AMEX', amount: { 'MXN' => BigDecimal('-150.00') } },
                    { account: 'Expenses:Compras', amount: { 'MXN' => BigDecimal('150.00') } }] },
       { date: Date.new(2026, 7, 20), flag: '!', payee: nil, narration: 'Nómina',
-        file: '/data/ledger/transactions.beancount', line: 3,
+        file: 'transactions.beancount', line: 3,
         postings: [{ account: 'Income:Salary', amount: { 'MXN' => BigDecimal('-30000.00') } },
                    { account: 'Assets:BBVA', amount: { 'MXN' => BigDecimal('25000.00') } },
                    { account: 'Expenses:Taxes', amount: { 'MXN' => BigDecimal('5000.00') } }] }

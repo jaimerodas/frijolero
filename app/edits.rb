@@ -4,11 +4,6 @@ module Frijolero
   # The edit dialog of the journal. Reopens App to keep reports.rb the reports.
   class App
     helpers do
-      # The journal reports absolute paths; the edit dialog works in ledger-relative ones.
-      def ledger_relative(file)
-        file.to_s.delete_prefix("#{File.expand_path(Config.ledger_dir)}/")
-      end
-
       # `file` and `line` are checked by LedgerEdit itself: the trust boundary for both.
       def ledger_edit
         LedgerEdit.new(file: params[:file], line: params[:line], checker: self.class.reports)

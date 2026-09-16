@@ -87,7 +87,7 @@ module Frijolero
         neighbours: statement_neighbours(account, period),
         fixme_count: beancount.scan(/^\s+Expenses:FIXME\b/).size,
         beancount: beancount,
-        file: ledger_relative(paths[:beancount]),
+        file: paths[:beancount].delete_prefix("#{File.expand_path(Config.ledger_dir)}/"),
         notice: statement_notice
       }
     end

@@ -94,8 +94,9 @@ module Frijolero
       id, date, flag, payee, narration, file, line, account, amount_value =
         row.is_a?(Hash) ? row.values_at(*columns) : row
       units = amount_value['units'] || amount_value
-      { id: id, date: Date.iso8601(date), flag: flag, payee: payee, narration: narration, file: file, line: line,
-        account: account, amount: { units['currency'] => BigDecimal(units['number']) } }
+      { id: id, date: Date.iso8601(date), flag: flag, payee: payee, narration: narration,
+        file: ledger_file(file), line: line, account: account,
+        amount: { units['currency'] => BigDecimal(units['number']) } }
     end
 
     # One transaction from its grouped rows, or nil when none of its postings
@@ -166,13 +167,18 @@ module Frijolero
       out, err, code = capture('check', '--no-cache', Config.report_file)
       return [] if code.zero?
 
-      root = "#{File.expand_path(Config.ledger_dir)}/"
       errors = (out + err).scan(CHECK_RE).map do |c, m, f, l|
-        { code: c, message: m, file: f.delete_prefix(root), line: l.to_i }
+        { code: c, message: m, file: ledger_file(f), line: l.to_i }
       end
       raise Error, (out + err).strip if errors.empty?
 
       errors
+    end
+
+    # A file rledger printed, relative to the ledger. rledger resolves symlinks, and
+    # bin/dev reaches the ledger through one, so the root is the real path too.
+    def ledger_file(file)
+      file.delete_prefix("#{File.realpath(Config.ledger_dir)}/")
     end
 
     # [stdout, stderr, exit status] of one rledger call. The one seam the tests stub.

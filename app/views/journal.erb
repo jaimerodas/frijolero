@@ -48,7 +48,7 @@
             <% link = journal_statement_link(tx[:file]) %>
             <% sum = tx[:sum] %>
             <li class="txn">
-              <time datetime="<%= h.(tx[:date].iso8601) %>"><button type="button" class="edit" data-file="<%= h.(ledger_relative(tx[:file])) %>" data-line="<%= h.(tx[:line]) %>"<% if link %> data-statement="<%= link %>"<% end %>><%= h.(tx[:date].iso8601) %></button></time>
+              <time datetime="<%= h.(tx[:date].iso8601) %>"><button type="button" class="edit" data-file="<%= h.(tx[:file]) %>" data-line="<%= h.(tx[:line]) %>"<% if link %> data-statement="<%= link %>"<% end %>><%= h.(tx[:date].iso8601) %></button></time>
               <details>
                 <summary>
                   <% unless sum.empty? %><span class="sum"><% sum.each do |currency, amount| %><data<% if amount.negative? %> class="debit"<% end %> value="<%= amount.to_s('F') %>"><%= datum(amount) %> <%= h.(currency) %></data><% end %></span><% end %>
