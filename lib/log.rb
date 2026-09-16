@@ -19,7 +19,11 @@ module Frijolero
         GLYPHS.reduce(msg.to_s) { |s, (k, v)| s.gsub(k, v) }.gsub(/\{\{\w+:(.*?)\}\}/, '\1')
       end
 
+      # Relative to the ledger when the path is inside it, else with the home as ~.
       def short_path(path)
+        ledger = ENV.fetch('LEDGER_DIR', nil)
+        return path.delete_prefix("#{ledger}/") if ledger && path.start_with?("#{ledger}/")
+
         home = Dir.home
         path.start_with?(home) ? path.sub(home, '~') : path
       end

@@ -233,7 +233,7 @@ class AccountsTest < Minitest::Test
     get '/accounts/AMEX'
 
     assert_equal 200, last_response.status
-    assert_includes last_response.body, 'No hay PDFs en B2'
+    assert_includes last_response.body, 'No hay PDFs de esta cuenta'
   end
 
   def test_account_page_shows_a_b2_error

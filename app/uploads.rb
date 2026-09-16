@@ -45,7 +45,7 @@ module Frijolero
       FileUtils.rm_rf(File.dirname(pdf_path))
       redirect "/accounts/#{Rack::Utils.escape_path(account)}", 303
     rescue B2::Error => e
-      halt 502, "No se pudo guardar el PDF en B2: #{Rack::Utils.escape_html(e.message)}"
+      halt 502, "No se pudo guardar el PDF: #{Rack::Utils.escape_html(e.message)}"
     end
 
     private

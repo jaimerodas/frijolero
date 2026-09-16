@@ -24,7 +24,7 @@
       </hgroup>
       <div class="actions">
         <a class="button" href="/accounts/<%= account_path %>/<%= h.(period) %>/pdf">Descargar PDF</a>
-        <% if rules?(account) && fixme_count.positive? %>
+        <% if rules?(account) && fixme_count.positive? && File.exist?(Frijolero::Config.rules_path(account)) %>
           <form method="post" action="/accounts/<%= account_path %>/<%= h.(period) %>/detail">
             <button type="submit">Aplicar reglas</button>
           </form>

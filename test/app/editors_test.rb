@@ -73,6 +73,26 @@ class EditorsTest < Minitest::Test
     refute_includes last_response.body, 'Volver al estado de cuenta'
   end
 
+  def test_rules_editor_lists_the_ledger_accounts_and_explains_the_rules
+    File.write(File.join(@dir, 'main.beancount'), "2024-01-01 open Liabilities:Amex\n2024-01-01 open Assets:BBVA\n")
+    FileUtils.mkdir_p(File.join(@dir, 'config', 'rules'))
+    File.write(rules_path('BBVA TDC'), <<~YAML)
+      start_with:
+        OXXO: { account: "Expenses:Comida" }
+        UBER: { account: Expenses:Taxi }
+    YAML
+
+    get '/accounts/AMEX/rules'
+
+    accounts = last_response.body[%r{<aside.*?</aside>}m]
+    assert_equal ['Assets:BBVA', 'Expenses:Comida', 'Expenses:Taxi', 'Liabilities:Amex'],
+                 accounts.scan(%r{<li>(.*?)</li>}).flatten
+    assert_includes last_response.body, 'Cómo escribir reglas'
+
+    get '/accounts/yaml'
+    refute_includes last_response.body, '<aside'
+  end
+
   def test_rules_editor_shows_a_default_template_when_no_file_exists
     get '/accounts/AMEX/rules'
 

@@ -1,8 +1,0 @@
-{
-  "model": "gpt-5.5",
-  "format": {
-    "type": "json_schema",
-    "name": "transaction_list",
-    "strict": true
-  }
-}

@@ -1,8 +1,0 @@
-{
-  "model": "gpt-5.5",
-  "format": {
-    "type": "json_schema",
-    "name": "cetes_directo_statement",
-    "strict": true
-  }
-}

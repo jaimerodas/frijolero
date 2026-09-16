@@ -17,6 +17,7 @@ class NewLedgerTest < Minitest::Test
 
       assert_predicate status, :success?, err
       FILES.each { |file| assert_path_exists File.join(dir, file) }
+      assert_equal %w[classify default multi plata], Dir.children(File.join(dir, 'config', 'prompts')).sort
       assert_equal %w[accounts config main.beancount], Dir.children(dir).sort - ['.git', '.gitignore']
       log, = Open3.capture2(scrubbed_env, 'git', '-C', dir, 'log', '--oneline')
       assert_equal 1, log.lines.size

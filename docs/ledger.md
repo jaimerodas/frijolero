@@ -152,9 +152,11 @@ El directorio `classify` es el prompt que lee la cuenta y el periodo de un PDF
 subido. La app llena su lista de cuentas desde `accounts.yaml` en cada
 llamada.
 
-`templates/prompts/` de este repo tiene los siete: `classify`, `default`,
-`bbva`, `cetes`, `fintual`, `multi` y `plata`. `bin/new-ledger` los copia. El ledger
-tiene la copia viva. Un cambio en un prompt es un commit en el ledger.
+`templates/prompts/` de este repo tiene los cuatro genéricos: `classify`,
+`default`, `multi` y `plata`. `bin/new-ledger` los copia. El ledger tiene la
+copia viva, y el formulario de cuenta nueva ofrece los directorios que hay en
+`config/prompts/` del ledger. Un prompt para un banco en particular es un
+directorio más ahí. Un cambio en un prompt es un commit en el ledger.
 
 ## Las cuentas de Plata
 

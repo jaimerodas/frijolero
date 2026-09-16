@@ -4,6 +4,8 @@ require 'test_helper'
 require 'stringio'
 
 class LogTest < Minitest::Test
+  include TestHelpers
+
   def setup
     @sink = StringIO.new
     Frijolero::Log.sink = @sink
@@ -16,6 +18,13 @@ class LogTest < Minitest::Test
   def test_short_path_replaces_home_directory
     home = Dir.home
     assert_equal '~/Documents/file.txt', Frijolero::Log.short_path("#{home}/Documents/file.txt")
+  end
+
+  def test_short_path_is_relative_to_the_ledger
+    with_ledger_dir do |dir|
+      path = File.join(dir, 'accounts/AMEX/AMEX 2508.json')
+      assert_equal 'accounts/AMEX/AMEX 2508.json', Frijolero::Log.short_path(path)
+    end
   end
 
   def test_short_path_leaves_non_home_paths_unchanged

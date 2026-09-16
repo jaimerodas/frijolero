@@ -27,6 +27,7 @@
       <label for="beancount_account">Cuenta Beancount</label>
       <input type="text" id="beancount_account" name="beancount_account" value="<%= v.('beancount_account') %>"
              pattern="(Assets|Liabilities|Equity|Income|Expenses)(:[A-Z][A-Za-z0-9-]*)+" placeholder="Assets:Banco" required>
+      <p class="note">Empieza con <code>Assets</code> (una cuenta de banco), <code>Liabilities</code> (una tarjeta de crédito), <code>Income</code>, <code>Expenses</code> o <code>Equity</code>. Cada nivel va después de dos puntos, con mayúscula inicial, sin espacios ni acentos: <code>Assets:BBVA:Cheques</code>.</p>
 
       <label for="openai_prompt_type">Tipo de prompt</label>
       <select id="openai_prompt_type" name="openai_prompt_type">

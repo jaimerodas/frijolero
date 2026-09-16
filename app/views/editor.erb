@@ -1,5 +1,6 @@
 <%
   h = ->(s) { Rack::Utils.escape_html(s.to_s) }
+  accounts = tab == :rules ? Frijolero::LedgerAccounts.all : nil
 %>
 <!DOCTYPE html>
 <html lang="es">
@@ -18,12 +19,41 @@
       <p class="error" role="alert"><%= h.(error) %></p>
     <% end %>
     <% if back %><p><a href="<%= h.(back) %>">Volver al estado de cuenta</a></p><% end %>
+    <% if accounts %>
+      <details class="help">
+        <summary>Cómo escribir reglas</summary>
+        <p>Una regla clasifica una transacción por su descripción. Hay dos secciones: <code>start_with</code>, cuando la descripción empieza con el patrón, e <code>include</code>, cuando lo contiene en cualquier parte. Cada entrada puede poner <code>payee</code>, <code>narration</code> y <code>account</code>; los tres son opcionales.</p>
+<pre>start_with:
+  OXXO:
+    payee: Oxxo
+    account: Expenses:Comida
+  NETFLIX:                      # solo con este monto exacto (un cargo es negativo)
+    when: { amount: -299 }
+    payee: Netflix
+    account: Expenses:Suscripciones
+  TRANSFERENCIA:                # una lista prueba cada `when` en orden; la última es el respaldo
+    - { when: { amount: -15000 }, payee: Casero, account: Expenses:Renta }
+    - { payee: Transferencia, account: Expenses:Varios }
+include:
+  UBER:
+    account: Expenses:Taxi</pre>
+        <p>Se aplican todas las reglas que coinciden: primero <code>start_with</code> en el orden del archivo, luego <code>include</code>. Una regla posterior sobreescribe solo los campos que define. Al guardar, la app vuelve al estado de cuenta; ahí, "Aplicar reglas" clasifica lo que sigue en <code>Expenses:FIXME</code>.</p>
+      </details>
+    <% end %>
+    <div class="<%= 'rules-editor' if accounts %>">
     <form method="post" action="<%= h.(action) %>">
       <% if back %><input type="hidden" name="back" value="<%= h.(back) %>"><% end %>
       <label for="content">Contenido</label>
       <textarea id="content" name="content" rows="30" spellcheck="false"><%= h.(content) %></textarea>
       <p class="actions"><button type="submit" class="primary">Guardar</button></p>
     </form>
+    <% if accounts %>
+      <aside>
+        <h2>Cuentas del ledger</h2>
+        <ul><% accounts.each do |a| %><li><%= h.(a) %></li><% end %></ul>
+      </aside>
+    <% end %>
+    </div>
   </main>
 </body>
 </html>

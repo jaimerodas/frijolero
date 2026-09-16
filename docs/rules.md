@@ -66,13 +66,16 @@ aplica nada.
 El botón "Aplicar reglas" de la página del estado de cuenta las aplica otra
 vez sobre el archivo `.beancount` que ya existe. Ese paso toca solo las
 transacciones que siguen en `Expenses:FIXME`, y el botón aparece solo cuando
-queda alguna. Una transacción que ya tiene cuenta no cambia, así una edición a
+queda alguna y la cuenta ya tiene archivo de reglas. Una transacción que ya tiene cuenta no cambia, así una edición a
 mano está a salvo. Una transacción con la bandera `!` es invisible para las
 reglas. Si algo cambió, la app hace commit. Si no, no.
 
 ## El editor
 
-`/accounts/<Key>/rules` edita el archivo completo. Al guardar, la app valida el YAML y
+`/accounts/<Key>/rules` edita el archivo completo. Arriba, "Cómo escribir
+reglas" abre un resumen de este formato. Al lado, la lista de cuentas que el
+ledger ya abre o que otra regla ya nombra, para copiar el nombre en lugar de
+inventarlo. Al guardar, la app valida el YAML y
 prueba una llamada al motor de reglas. Un archivo inválido no se guarda. Un
 archivo válido se guarda con el commit `rules <Key>`.
 

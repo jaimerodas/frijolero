@@ -132,7 +132,7 @@ module Frijolero
 
       key = Config.pdf_key(@account_name, @date_str)
       @b2.put(key, @pdf_path)
-      Log.puts "Saved PDF to B2: #{key}"
+      Log.puts "Saved PDF: #{key}"
     end
 
     def discard_local_pdf

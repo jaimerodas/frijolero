@@ -1,8 +1,0 @@
-{
-  "model": "gpt-5.5",
-  "format": {
-    "type": "json_schema",
-    "name": "fintual_statement_compact_v2",
-    "strict": true
-  }
-}

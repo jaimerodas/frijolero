@@ -61,6 +61,7 @@ class StatementsTest < Minitest::Test
                         Assets:BBVA
                     BEAN
 
+    write_rules('AMEX', 'start_with' => {})
     get '/accounts/AMEX/2508'
 
     assert_equal 200, last_response.status
@@ -81,6 +82,19 @@ class StatementsTest < Minitest::Test
     assert_includes last_response.body, 'href="/accounts/AMEX/2508/pdf"'
     assert_includes last_response.body,
                     '<span class="bc-account bc-fixme">Expenses:FIXME</span>'
+  end
+
+  def test_rules_button_needs_a_rules_file
+    write_statement('AMEX', '2508', json: { 'transactions' => [] }, beancount: <<~BEAN)
+      2025-08-01 * "SIN CLASIFICAR"
+        Liabilities:Amex  -100.00 MXN
+        Expenses:FIXME
+    BEAN
+
+    get '/accounts/AMEX/2508'
+
+    assert_includes last_response.body, '1 sin clasificar'
+    refute_includes last_response.body, 'Aplicar reglas'
   end
 
   def test_fully_classified_statement_has_no_rules_button

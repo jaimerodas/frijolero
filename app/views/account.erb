@@ -19,7 +19,7 @@
     <% if error %>
       <p class="error" role="alert"><%= h.(error) %></p>
     <% elsif rows.empty? %>
-      <p>No hay PDFs en B2. <a href="/upload">Sube el primero.</a></p>
+      <p>No hay PDFs de esta cuenta. <a href="/upload">Sube el primero.</a></p>
     <% else %>
       <div class="table-wrap">
         <table>
