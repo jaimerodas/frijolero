@@ -174,6 +174,7 @@ class ReportsPageTest < Minitest::Test
 
       assert_match zero, last_response.body, title
     end
+    refute_includes last_response.body, 'Cuenta', 'an empty table has no column headers to sort'
   end
 
   def test_an_empty_ledger_has_no_guide_when_a_query_fails

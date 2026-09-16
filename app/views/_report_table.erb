@@ -20,10 +20,12 @@
           <% currencies.each do |currency| %><td class="amount" data-label="<%= h.(currency) %>"><%= (v = cell.(row, currency)).empty? ? datum(0) : v %></td><% end %>
         </tr>
       <% end %>
+      <% unless rows.empty? %>
       <tr class="cols">
         <th><%= sort_link('name', 'Cuenta', period) %></th>
         <% currencies.each do |currency| %><th class="amount"><%= sort_link(currency, h.(currency), period) %></th><% end %>
       </tr>
+      <% end %>
     </thead>
     <tbody>
       <% rows.each do |row| %>
