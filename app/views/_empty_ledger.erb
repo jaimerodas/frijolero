@@ -1,0 +1,6 @@
+<%# The one-sentence guide of an empty ledger, shared by the three report pages. %>
+<% if Frijolero::Config.accounts.empty? %>
+<p>El ledger está vacío. <a href="/accounts/new">Da de alta la primera cuenta.</a></p>
+<% else %>
+<p>El ledger no tiene movimientos. <a href="/upload">Sube un estado de cuenta.</a></p>
+<% end %>

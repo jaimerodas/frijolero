@@ -122,11 +122,11 @@ module Frijolero
     end
 
     # The earliest transaction, for the `all` period and the period menu.
-    # A ledger with no transactions yet answers with today.
+    # A ledger with no transactions yet answers nil, and the pages say so.
     def first_date
       row = JSON.parse(run('SELECT MIN(date) AS first')).fetch('rows').first
       value = row.is_a?(Hash) ? row['first'] : row&.first
-      value.to_s.empty? ? Date.today : Date.iso8601(value)
+      Date.iso8601(value) unless value.to_s.empty?
     end
 
     # BQL for a group's total: market value in MXN at the latest price on or before

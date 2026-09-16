@@ -19,6 +19,7 @@
     <% if error %>
       <p class="error" role="alert"><%= h.(error) %></p>
     <% else %>
+      <% if empty %><%= erb :_empty_ledger, layout: false %><% end %>
       <% if chart %>
         <section class="chart sankey" aria-label="Gráfica">
           <script type="application/json" id="chart-data"><%= JSON.generate(chart).gsub('<', '\u003c') %></script>

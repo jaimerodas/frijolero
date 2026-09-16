@@ -53,13 +53,13 @@ module Frijolero
       def report_locals
         today = Date.today
         first = self.class.reports.first_date
-        period = report_period(first, today)
+        period = report_period(first || today, today)
         flat = yield(period)
-        { period: period, first: first, today: today, error: nil, flat: flat,
+        { period: period, first: first || today, today: today, error: nil, empty: first.nil?, flat: flat,
           **report_sections(Reports.tree(flat, sort: report_sort)) }
       rescue Reports::Error => e
         status 502
-        { period: report_period(today, today), first: today, today: today, error: e.message, flat: {},
+        { period: report_period(today, today), first: today, today: today, error: e.message, empty: false, flat: {},
           **report_sections([]) }
       end
 
@@ -85,9 +85,10 @@ module Frijolero
         Period.parse(params[:period], first: first, today: today) || Period.of(today, :year)
       end
 
+      # With no rows there is still one column, MXN, so an empty table reads 0.00.
       def report_sections(rows)
-        { sections: rows.group_by { |row| row[:name][/\A[^:]+/] },
-          currencies: rows.flat_map { |row| row[:amounts].keys }.uniq.sort }
+        seen = rows.flat_map { |row| row[:amounts].keys }.uniq.sort
+        { sections: rows.group_by { |row| row[:name][/\A[^:]+/] }, currencies: seen.empty? ? ['MXN'] : seen }
       end
     end
 
@@ -123,7 +124,7 @@ module Frijolero
 
       today = Date.today
       first = self.class.reports.first_date
-      period = report_period(first, today)
+      period = report_period(first || today, today)
       sign = Reports.sign(account)
       begin
         rows = self.class.reports.journal(account, period.from, period.to, mxn: mxn?, text: params[:q])
@@ -141,8 +142,8 @@ module Frijolero
       rows = sort_rows(journal_sums(rows, sign))
       total = rows.each_with_object(Hash.new(0)) { |tx, t| tx[:sum].each { |c, n| t[c] += n } }
       chart = name && chart_data(rows, period, today, sign, name).merge(chart_opening(opening, sign))
-      erb :journal, locals: { period: period, first: first, today: today, error: error, account: account,
-                              rows: rows, sign: sign, total: total, options: options, chart: chart }
+      erb :journal, locals: { period: period, first: first || today, today: today, error: error, empty: first.nil?,
+                              account: account, rows: rows, sign: sign, total: total, options: options, chart: chart }
     end
   end
 end

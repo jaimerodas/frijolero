@@ -18,6 +18,7 @@
     <% if error %>
       <p class="error" role="alert"><%= h.(error) %></p>
     <% else %>
+      <% if empty %><%= erb :_empty_ledger, layout: false %><% end %>
       <div class="columns">
         <div><%= erb :_report_table, layout: false, locals: { title: 'Activos', rows: sections.fetch('Assets', []), currencies: currencies, sign: 1, period: period } %></div>
         <div>

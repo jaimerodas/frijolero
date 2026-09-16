@@ -15,13 +15,17 @@ class ReportsPageTest < Minitest::Test
       @calls = []
     end
 
+    # Set by a test: a ledger with no entries at all.
+    attr_accessor :empty
+
     def first_date
-      Date.new(2024, 12, 1)
+      Date.new(2024, 12, 1) unless empty
     end
 
     def income(from, to, mxn: true)
       @calls << [:income, from, to, mxn]
       raise Frijolero::Reports::Error, error if error
+      return {} if empty
 
       { 'Income:Salary' => { 'MXN' => BigDecimal('-1500') },
         'Expenses:Food:Tacos' => { 'MXN' => BigDecimal('100.5') },
@@ -31,6 +35,7 @@ class ReportsPageTest < Minitest::Test
     def balance(at, mxn: true)
       @calls << [:balance, at, mxn]
       raise Frijolero::Reports::Error, error if error
+      return {} if empty
 
       { 'Assets:Bank' => { 'MXN' => BigDecimal('1100') },
         'Liabilities:Card' => { 'MXN' => BigDecimal('-250') },
@@ -43,6 +48,7 @@ class ReportsPageTest < Minitest::Test
     def journal(prefix, from, to, mxn: true, text: nil)
       @calls << [:journal, prefix, from, to, mxn, text]
       raise Frijolero::Reports::Error, error if error
+      return [] if empty
 
       txns = JOURNAL.map { |tx| tx.merge(postings: postings_for(tx, prefix)) }
       prefix.empty? ? txns : txns.select { |tx| tx[:postings].last[:matched] }
@@ -129,6 +135,55 @@ class ReportsPageTest < Minitest::Test
 
   def app
     Frijolero::App
+  end
+
+  # LEDGER_DIR has no accounts.yaml in these tests, so the ledger has no accounts.
+  def test_an_empty_ledger_says_to_add_the_first_account_on_every_report_page
+    @reports.empty = true
+
+    %w[/reports/income /reports/balance /journal].each do |path|
+      get path
+
+      assert_equal 200, last_response.status, path
+      assert_includes last_response.body,
+                      'El ledger está vacío. <a href="/accounts/new">Da de alta la primera cuenta.</a>', path
+      refute_includes last_response.body, 'Sin movimientos.', path
+    end
+  end
+
+  def test_an_empty_ledger_with_an_account_says_to_upload_a_statement
+    @reports.empty = true
+    with_ledger_dir do |dir|
+      File.write(File.join(dir, 'config', 'accounts.yaml'), "AMEX:\n  beancount_account: Liabilities:AMEX\n")
+
+      get '/reports/income'
+
+      assert_includes last_response.body,
+                      'El ledger no tiene movimientos. <a href="/upload">Sube un estado de cuenta.</a>'
+    end
+  end
+
+  def test_an_empty_ledger_keeps_every_title_row_at_zero
+    @reports.empty = true
+
+    get '/reports/income'
+
+    assert_equal 200, last_response.status
+    ['Ingresos', 'Gastos', 'Utilidad neta'].each do |title|
+      zero = %r{<th scope="row">#{title}</th>\s*<td class="amount" data-label="MXN">0\.00</td>}
+
+      assert_match zero, last_response.body, title
+    end
+  end
+
+  def test_an_empty_ledger_has_no_guide_when_a_query_fails
+    @reports.empty = true
+    @reports.error = 'rledger: boom'
+
+    get '/reports/balance'
+
+    assert_equal 502, last_response.status
+    refute_includes last_response.body, 'El ledger está vacío'
   end
 
   def test_reports_redirects_to_the_income_statement

@@ -8,6 +8,8 @@
     %(<a href="#{h.(journal_href.(row[:name]))}">#{value}</a>)
   end
   root, rows = rows.partition { |row| row[:depth].zero? }
+  # An empty section keeps its title row and reads 0.00, not a bare header.
+  root = [{ name: title, amounts: Hash.new(0) }] if root.empty?
 %>
 <div class="table-wrap">
   <table class="report">
@@ -15,7 +17,7 @@
       <% root.each do |row| %>
         <tr class="root">
           <th scope="row"><%= h.(title) %></th>
-          <% currencies.each do |currency| %><td class="amount" data-label="<%= h.(currency) %>"><%= cell.(row, currency) %></td><% end %>
+          <% currencies.each do |currency| %><td class="amount" data-label="<%= h.(currency) %>"><%= (v = cell.(row, currency)).empty? ? datum(0) : v %></td><% end %>
         </tr>
       <% end %>
       <tr class="cols">

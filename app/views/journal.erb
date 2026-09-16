@@ -40,7 +40,7 @@
       <p class="error" role="alert"><%= h.(error) %></p>
     <% else %>
       <% if rows.empty? %>
-        <p class="note">Sin movimientos.</p>
+        <% if empty %><%= erb :_empty_ledger, layout: false %><% else %><p class="note">Sin movimientos.</p><% end %>
       <% else %>
         <p class="order"><%= sort_link('date', 'Fecha', period) %><% unless account.empty? %><%= sort_link('amount', 'Monto', period) %><% end %></p>
         <ol class="ledger">
