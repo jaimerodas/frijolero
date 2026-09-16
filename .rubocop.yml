@@ -4,13 +4,17 @@ AllCops:
 Style/Documentation:
   Enabled: false
 
+# bin/demo-ledger is a one-shot generator: a merchant catalog and one loop over the
+# months. Its methods are long because the data is, not the logic; it is excluded
+# from the size cops below.
+
 # --- Test files ----------------------------------------------------------
 # Tests are intentionally verbose: arrange/act/assert reads like a
 # specification, and forcing extractions adds ceremony without value.
 # Stubs use singleton-method idioms (TrivialAccessors); test names with
 # HTTP status codes (test_..._on_401) are meaningful (VariableNumber).
 Metrics/BlockLength:
-  Exclude: ['test/**/*']
+  Exclude: ['test/**/*', 'bin/demo-ledger']
 
 Style/TrivialAccessors:
   Exclude: ['test/**/*']
@@ -35,7 +39,7 @@ Naming/VariableNumber:
 #   poll_response           OpenAIClient (loop with three case branches)
 #   run                     entry-point methods (batch loops)
 Metrics/MethodLength:
-  Exclude: ['test/**/*']
+  Exclude: ['test/**/*', 'bin/demo-ledger']
   AllowedMethods:
     - format_transaction
     - transaction_summary
@@ -56,6 +60,7 @@ Metrics/MethodLength:
 # and an options hash would only hide them.
 Metrics/ParameterLists:
   Exclude:
+    - 'bin/demo-ledger'
     - 'lib/converters/account_targets.rb'
     - 'lib/statement.rb'
 
@@ -67,7 +72,7 @@ Naming/MethodParameterName:
   AllowedNames: [as, at, s3, by, cc, db, id, 'if', 'in', io, ip, of, 'on', os, pp, to]
 
 Metrics/AbcSize:
-  Exclude: ['test/**/*']
+  Exclude: ['test/**/*', 'bin/demo-ledger']
   AllowedMethods:
     - format_transaction
     - transaction_summary
@@ -119,3 +124,4 @@ Metrics/ClassLength:
 Metrics/ModuleLength:
   Exclude:
     - 'lib/reports.rb'
+

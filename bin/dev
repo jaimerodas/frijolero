@@ -7,13 +7,21 @@
 set -e
 cd "$(dirname "$0")/.."
 
+# A LEDGER_DIR from the shell wins over .env, main file included, so a demo ledger
+# does not inherit the LEDGER_MAIN_FILE of the real one.
+shell_dir="$LEDGER_DIR"
+shell_main="$LEDGER_MAIN_FILE"
+
 if [ -f .env ]; then
   set -a
   . ./.env
   set +a
 fi
 
-if [ -z "$LEDGER_REPO" ]; then
+if [ -n "$shell_dir" ]; then
+  export LEDGER_DIR="$shell_dir"
+  export LEDGER_MAIN_FILE="${shell_main:-main.beancount}"
+elif [ -z "$LEDGER_REPO" ]; then
   data="${XDG_DATA_HOME:-$HOME/.local/share}/frijolero"
   [ -d "$data/ledger" ] || bin/new-ledger "$data/ledger"
   export LEDGER_DIR="$data/ledger"

@@ -20,6 +20,7 @@ The flow: you upload a PDF. The app finds the account and the period, and you co
 bundle exec rake test && bundle exec rubocop      # both must pass before a commit (bin/test runs both)
 
 bin/dev                                            # local app on http://localhost:3000, password x; reads .env (see .env.example); without LEDGER_REPO it keeps a ledger in ~/.local/share/frijolero
+bin/demo-ledger tmp/demo --persona contractor --income 65000   # a fake ledger to show the app: three Greek-god banks, 24 months, rules, PDFs, job log; then LEDGER_DIR=tmp/demo/ledger bin/dev
 
 kamal deploy                                       # for code changes; needs 1Password unlocked (see Operations)
 kamal app exec --reuse '<cmd>'                     # run a command in the production container
