@@ -4,7 +4,7 @@
 
 - Ruby 4.0.6. La versión está en `.ruby-version`.
 - git. La app lo usa como subproceso para el ledger.
-- Una llave de OpenAI. La extracción es lo que hace la app.
+- Una llave de OpenAI o de Anthropic. La extracción es lo que hace la app.
 - rustledger, solo para los reportes. En la laptop: `brew install rustledger`.
   La app busca `rledger` en el PATH, o en la variable `RLEDGER`. Sin él, todo
   lo demás funciona y la página de reportes muestra el error.
@@ -14,7 +14,9 @@
 1. Instala las gemas con `bundle install`.
 2. Copia `.env.example` a `.env` y pon `OPENAI_API_KEY`. Una subida gasta
    dinero y hace commit al ledger. Sin la llave, la app solo acepta un PDF
-   llamado `Clave YYMM.pdf` y se detiene antes de extraer.
+   llamado `Clave YYMM.pdf` y se detiene antes de extraer. Para usar Claude
+   en lugar de OpenAI, pon `LLM_PROVIDER=anthropic` y `ANTHROPIC_API_KEY`;
+   el modelo va en cada `spec.json` del ledger (ver `docs/ledger.md`).
 3. Corre `bin/dev`. La primera vez crea un ledger en
    `~/.local/share/frijolero/ledger` con `bin/new-ledger`. Ese ledger no tiene
    remoto: cada commit se queda ahí, y los PDF quedan en
@@ -42,8 +44,9 @@ responden sin necesidad de la cookie de sesión.
 | `LEDGER_DIR` | El clon del ledger. Obligatoria. El directorio padre guarda el log de jobs y las subidas. |
 | `LEDGER_MAIN_FILE` | El archivo principal del ledger, relativo a `LEDGER_DIR`. Por defecto, `main.beancount`. Es el único archivo que la app conoce por nombre. |
 | `APP_PASSWORD` | La única credencial. Se verifica en el formulario de login y firma la cookie de sesión que dura 30 días. Cambiar la contraseña cierra todas las sesiones en todos los dispositivos. Obligatoria. |
-| `OPENAI_API_KEY` | Para clasificar y extraer. |
-| `OPENAI_POLL_TIMEOUT` | Segundos de espera para una extracción. Por defecto, 900. |
+| `LLM_PROVIDER` | Quién extrae: `openai` (por defecto) o `anthropic`. |
+| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` | La llave del proveedor elegido. Sin ella, la app solo acepta PDF llamados `Clave YYMM.pdf` y no extrae. |
+| `LLM_TIMEOUT` | Segundos de espera para una extracción. Por defecto, 900. |
 | `S3_ENDPOINT`, `S3_BUCKET`, `S3_KEY_ID`, `S3_KEY` | Un bucket compatible con S3. Los PDF viven ahí. El endpoint es el host, sin `https://`. Sin las cuatro, viven en `pdfs/` junto al ledger y la app los sirve en `/pdfs/`. |
 | `S3_REGION` | La región para la firma. Sin ella, la app la toma del segundo segmento del endpoint, que es lo que B2 y AWS esperan (`s3.us-west-000.backblazeb2.com`). R2 quiere `auto`, Hetzner su ubicación (`fsn1`), DigitalOcean y MinIO `us-east-1`. |
 | `S3_PATH_STYLE` | `1` pone el bucket en la ruta (`endpoint/bucket/llave`) en lugar del host (`bucket.endpoint/llave`). Para MinIO en localhost o un bucket con punto en el nombre. |
@@ -84,7 +87,7 @@ kamal app exec --reuse '<comando>'
 ### Qué necesita un deploy y qué no
 
 Un cambio en el código de esta app necesita un deploy. Un cambio en las
-reglas, en las cuentas, en los prompts o en el modelo de OpenAI es un commit
+reglas, en las cuentas, en los prompts o en el modelo es un commit
 en el repo del ledger. La app lee esos archivos en cada request y en cada job.
 El servidor recibe el cambio en el siguiente job, o de inmediato con este
 comando:

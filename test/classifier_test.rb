@@ -10,20 +10,14 @@ class ClassifierTest < Minitest::Test
   TODAY = Date.new(2026, 9, 5)
 
   class FakeClient
-    attr_reader :uploaded, :requests
+    attr_reader :requests
 
     def initialize(response)
       @response = response
-      @uploaded = []
       @requests = []
     end
 
-    def upload_file(path)
-      @uploaded << path
-      'file-1'
-    end
-
-    def extract_transactions(_file_id, spec)
+    def extract(_path, spec)
       @requests << spec
       @response
     end
@@ -42,7 +36,7 @@ class ClassifierTest < Minitest::Test
                    File.join(dir, 'config', 'prompts', 'classify'))
   end
 
-  def test_known_filename_answers_without_openai_call
+  def test_known_filename_answers_without_a_model_call
     with_ledger_dir do |dir|
       setup_accounts(dir)
       client = FakeClient.new({})
@@ -50,18 +44,17 @@ class ClassifierTest < Minitest::Test
 
       assert_equal 'AMEX', result.account
       assert_equal '2508', result.period
-      assert_nil result.file_id
-      assert_empty client.uploaded
+      assert_empty client.requests
     end
   end
 
-  def test_unknown_looking_filename_goes_to_openai
+  def test_unknown_looking_filename_goes_to_the_model
     with_ledger_dir do |dir|
       setup_accounts(dir)
       client = FakeClient.new({ 'account' => 'unknown', 'period_start' => '2026-08-01', 'period_end' => '2026-08-31' })
       Frijolero::Classifier.new(client: client, today: TODAY).classify('Foo 2508.pdf')
 
-      refute_empty client.uploaded
+      refute_empty client.requests
     end
   end
 
@@ -87,13 +80,12 @@ class ClassifierTest < Minitest::Test
       .each { |(start, finish), period| assert_equal period, classify_period(start, finish), "#{start}..#{finish}" }
   end
 
-  def test_result_carries_file_id_and_period_dates
+  def test_result_carries_the_period_dates
     with_ledger_dir do |dir|
       setup_accounts(dir)
       client = FakeClient.new({ 'account' => 'AMEX', 'period_start' => '2026-08-01', 'period_end' => '2026-08-31' })
       result = Frijolero::Classifier.new(client: client, today: TODAY).classify('Foo.pdf')
 
-      assert_equal 'file-1', result.file_id
       assert_equal '2026-08-01', result.period_start
       assert_equal '2026-08-31', result.period_end
     end

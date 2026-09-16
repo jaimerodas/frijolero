@@ -8,7 +8,7 @@ module Frijolero
     UNKNOWN = 'unknown'
     # The file name did not answer and there is no client to ask.
     class NoClient < StandardError; end
-    Result = Struct.new(:account, :period, :period_start, :period_end, :file_id, keyword_init: true) do
+    Result = Struct.new(:account, :period, :period_start, :period_end, keyword_init: true) do
       def unknown? = account == UNKNOWN
     end
 
@@ -18,33 +18,32 @@ module Frijolero
     end
 
     def classify(pdf_path)
-      filename_result(pdf_path) || classify_via_openai(pdf_path)
+      filename_result(pdf_path) || classify_via_llm(pdf_path)
     end
 
     private
 
-    # A parseable, known filename ("AMEX 2508.pdf") answers without any OpenAI call.
+    # A parseable, known filename ("AMEX 2508.pdf") answers without any model call.
     def filename_result(pdf_path)
       key, period = AccountConfig.parse_filename(pdf_path)
       return nil unless key && AccountConfig.find_config(key)
 
-      Result.new(account: key, period: period, file_id: nil)
+      Result.new(account: key, period: period)
     end
 
-    def classify_via_openai(pdf_path)
+    def classify_via_llm(pdf_path)
       raise NoClient unless @client
 
-      file_id = @client.upload_file(pdf_path)
-      data = @client.extract_transactions(file_id, request_spec)
+      data = @client.extract(pdf_path, request_spec)
       account, period = validate(data)
       Result.new(account: account, period: period, period_start: data['period_start'],
-                 period_end: data['period_end'], file_id: file_id)
+                 period_end: data['period_end'])
     end
 
     # Deep-copies the loaded template (Marshal round trip) so it is not mutated, then fills
     # the account enum and the instructions' account list from accounts.yaml.
     def request_spec
-      spec = Marshal.load(Marshal.dump(Config.openai_prompt_spec('classify')))
+      spec = Marshal.load(Marshal.dump(Config.prompt_spec('classify')))
       descriptions = AccountConfig.descriptions
       spec['format']['schema']['properties']['account']['enum'] = descriptions.keys + [UNKNOWN]
       spec['instructions'] += "#{descriptions.map { |key, desc| "- #{key}: #{desc}" }.join("\n")}\n"

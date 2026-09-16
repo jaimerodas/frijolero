@@ -99,20 +99,12 @@ module Frijolero
         File.join(data_dir, 'pdfs')
       end
 
-      def openai_api_key
-        ENV.fetch('OPENAI_API_KEY', nil)
-      end
+      # Seconds to wait for one extraction: OpenAI's poll deadline (background
+      # responses are kept for about 10 minutes) and Anthropic's read timeout.
+      def llm_timeout = ENV.fetch('LLM_TIMEOUT', 900).to_i
 
-      # Seconds to keep polling a background extraction before giving up. Background
-      # responses are retained by OpenAI for ~10 minutes, so values beyond that risk the
-      # result expiring server-side. Override via OPENAI_POLL_TIMEOUT.
-      def openai_poll_timeout
-        value = ENV.fetch('OPENAI_POLL_TIMEOUT', nil)
-        value ? value.to_i : OpenAIClient::POLL_TIMEOUT_SECONDS
-      end
-
-      # Assembles the inline OpenAI prompt spec from prompts/<type>/ (see PromptSpec).
-      def openai_prompt_spec(type = 'default')
+      # Assembles the prompt spec from prompts/<type>/ (see PromptSpec).
+      def prompt_spec(type = 'default')
         PromptSpec.load(type, prompts_dir)
       end
     end

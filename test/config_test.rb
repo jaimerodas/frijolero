@@ -120,40 +120,16 @@ class ConfigTest < Minitest::Test
     end
   end
 
-  def test_openai_api_key_reads_env
-    with_ledger_dir do
-      old = ENV.fetch('OPENAI_API_KEY', nil)
-      ENV['OPENAI_API_KEY'] = 'test_key_123'
-      assert_equal 'test_key_123', Frijolero::Config.openai_api_key
-    ensure
-      ENV['OPENAI_API_KEY'] = old
-    end
+  def test_llm_timeout_defaults_to_the_constant_and_reads_the_env
+    assert_equal 900, with_env('LLM_TIMEOUT' => nil) { Frijolero::Config.llm_timeout }
+    assert_equal 1500, with_env('LLM_TIMEOUT' => '1500') { Frijolero::Config.llm_timeout }
   end
 
-  def test_openai_poll_timeout_defaults_to_constant
-    with_ledger_dir do
-      old = ENV.delete('OPENAI_POLL_TIMEOUT')
-      assert_equal Frijolero::OpenAIClient::POLL_TIMEOUT_SECONDS, Frijolero::Config.openai_poll_timeout
-    ensure
-      ENV['OPENAI_POLL_TIMEOUT'] = old
-    end
-  end
-
-  def test_openai_poll_timeout_reads_env_override
-    with_ledger_dir do
-      old = ENV.fetch('OPENAI_POLL_TIMEOUT', nil)
-      ENV['OPENAI_POLL_TIMEOUT'] = '1500'
-      assert_equal 1500, Frijolero::Config.openai_poll_timeout
-    ensure
-      ENV['OPENAI_POLL_TIMEOUT'] = old
-    end
-  end
-
-  def test_openai_prompt_spec_assembles_folder_with_wrapped_schema
+  def test_prompt_spec_assembles_folder_with_wrapped_schema
     with_ledger_dir do
       copy_prompt_fixtures
 
-      spec = Frijolero::Config.openai_prompt_spec('bbva')
+      spec = Frijolero::Config.prompt_spec('bbva')
 
       assert_equal 'gpt-test-bbva', spec['model']
       assert_includes spec['instructions'], 'BBVA test instructions'
@@ -164,11 +140,11 @@ class ConfigTest < Minitest::Test
     end
   end
 
-  def test_openai_prompt_spec_accepts_bare_schema
+  def test_prompt_spec_accepts_bare_schema
     with_ledger_dir do
       copy_prompt_fixtures
 
-      spec = Frijolero::Config.openai_prompt_spec('default')
+      spec = Frijolero::Config.prompt_spec('default')
 
       # default fixture's schema.json is a bare JSON schema, inlined as format.schema
       assert_equal 'json_schema', spec['format']['type']
@@ -176,39 +152,39 @@ class ConfigTest < Minitest::Test
     end
   end
 
-  def test_openai_prompt_spec_falls_back_to_default
+  def test_prompt_spec_falls_back_to_default
     with_ledger_dir do
       copy_prompt_fixtures
 
-      spec = Frijolero::Config.openai_prompt_spec('unknown')
+      spec = Frijolero::Config.prompt_spec('unknown')
 
       assert_equal 'gpt-test-default', spec['model']
     end
   end
 
-  def test_openai_prompt_spec_raises_without_default_fallback
+  def test_prompt_spec_raises_without_default_fallback
     with_ledger_dir do
-      error = assert_raises(RuntimeError) { Frijolero::Config.openai_prompt_spec('unknown') }
+      error = assert_raises(RuntimeError) { Frijolero::Config.prompt_spec('unknown') }
       assert_match(/no 'default' fallback/, error.message)
     end
   end
 
-  def test_openai_prompt_spec_raises_when_schema_missing
+  def test_prompt_spec_raises_when_schema_missing
     with_ledger_dir do
       copy_prompt_fixtures
       FileUtils.rm(File.join(Frijolero::Config.prompts_dir, 'default', 'schema.json'))
 
-      error = assert_raises(RuntimeError) { Frijolero::Config.openai_prompt_spec('default') }
+      error = assert_raises(RuntimeError) { Frijolero::Config.prompt_spec('default') }
       assert_match(/Missing prompt file/, error.message)
     end
   end
 
-  def test_openai_prompt_spec_raises_when_spec_keys_missing
+  def test_prompt_spec_raises_when_spec_keys_missing
     with_ledger_dir do
       copy_prompt_fixtures
       File.write(File.join(Frijolero::Config.prompts_dir, 'default', 'spec.json'), '{"model":"x"}')
 
-      error = assert_raises(RuntimeError) { Frijolero::Config.openai_prompt_spec('default') }
+      error = assert_raises(RuntimeError) { Frijolero::Config.prompt_spec('default') }
       assert_match(/missing keys: format/, error.message)
     end
   end

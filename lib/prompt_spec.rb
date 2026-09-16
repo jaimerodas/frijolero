@@ -3,11 +3,12 @@
 require 'json'
 
 module Frijolero
-  # Loads an inline OpenAI prompt definition from prompts/<type>/, assembling the request
-  # spec from spec.json (model + format metadata), instructions.txt, and schema.json. The
+  # Loads a prompt definition from prompts/<type>/, assembling the request spec from
+  # spec.json (model + format metadata), instructions.txt, and schema.json. The
   # schema.json may be either the wrapped block exported from OpenAI ({name, strict, schema})
-  # or a bare JSON schema; both are merged into format. Falls back to the `default` folder
-  # when the requested type has none.
+  # or a bare JSON schema; both are merged into format. Each LLM client turns the spec
+  # into its own request. Falls back to the `default` folder when the requested type
+  # has none.
   class PromptSpec
     def self.load(type, prompts_dir)
       new(type, prompts_dir).load

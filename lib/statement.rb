@@ -5,8 +5,8 @@ require 'fileutils'
 
 module Frijolero
   # One PDF's lifecycle: resolve metadata, extract, save, detail, convert, merge, clean up.
-  # The caller (a background job) usually already knows the account, the period and the
-  # OpenAI file id; the filename is only the fallback.
+  # The caller (a background job) usually already knows the account and the period;
+  # the filename is only the fallback.
   class Statement
     UNPARSEABLE = :unparseable
     NO_ACCOUNT_CONFIG = :no_account_config
@@ -16,14 +16,12 @@ module Frijolero
 
     DRY_RUN = :dry_run
 
-    def initialize(pdf_path, client:, s3: nil, account: nil, period: nil, file_id: nil, overwrite: false,
-                   dry_run: false)
+    def initialize(pdf_path, client:, s3: nil, account: nil, period: nil, overwrite: false, dry_run: false)
       @pdf_path = pdf_path
       @client = client
       @s3 = s3
       @account_name = account
       @date_str = period
-      @file_id = file_id
       @overwrite = overwrite
       @dry_run = dry_run
       @filename = File.basename(pdf_path)
@@ -103,9 +101,8 @@ module Frijolero
     # sitting on disk instead of nothing at all.
     def run_pipeline
       pipeline = Pipeline.for(@account_config)
-      file_id = @file_id || upload_pdf
       back_up_pdf
-      transactions = extract_transactions(file_id, pipeline)
+      transactions = extract_transactions(pipeline)
       pipeline.validate!(transactions)
       discard_local_pdf
 
@@ -114,14 +111,12 @@ module Frijolero
       run_detailer if pipeline.runs_detailer?
       convert_to_beancount(pipeline)
       merge_into_ledger
-      finalize(file_id)
       OK
-    rescue *OpenAIErrorReporter::HANDLED => e
-      OpenAIErrorReporter.handle(e, client: client, file_id: file_id)
+    rescue *LLM::HANDLED => e
+      LLM.report(e)
       ERROR
     rescue StandardError => e
       Log.puts "{{x}} ERROR processing #{@filename}: #{e.message}"
-      OpenAIErrorReporter.cleanup(client, file_id)
       ERROR
     end
 
@@ -142,17 +137,10 @@ module Frijolero
       Log.puts 'Deleted local PDF'
     end
 
-    def upload_pdf
-      file_id = nil
-      elapsed = measure { file_id = client.upload_file(@pdf_path) }
-      Log.puts "Uploaded to OpenAI (#{format_elapsed(elapsed)})"
-      file_id
-    end
-
-    def extract_transactions(file_id, pipeline)
+    def extract_transactions(pipeline)
       transactions = nil
-      spec = pipeline.request_spec(Config.openai_prompt_spec(@account_config['openai_prompt_type'] || 'default'))
-      elapsed = measure { transactions = client.extract_transactions(file_id, spec) }
+      spec = pipeline.request_spec(Config.prompt_spec(@account_config['openai_prompt_type'] || 'default'))
+      elapsed = measure { transactions = client.extract(@pdf_path, spec) }
       Log.puts "Extracted transactions (#{format_elapsed(elapsed)})"
       transactions
     end
@@ -183,12 +171,6 @@ module Frijolero
     def merge_into_ledger
       BeancountMerger.new(files: [output_paths[:beancount]], quiet: true).run
       Log.puts "Merged into: #{Log.short_path(Config.main_file)}"
-    end
-
-    # The job ends here, so the uploaded PDF goes away here too, whether we uploaded it
-    # or the caller did.
-    def finalize(file_id)
-      client.delete_file(file_id)
     end
 
     def measure

@@ -20,6 +20,11 @@ templates="$(cd "$(dirname "$0")/.." && pwd)/templates"
 mkdir -p "$dir"
 cp -R "$templates/ledger/." "$dir"
 cp -R "$templates/prompts" "$dir/config/prompts"
+# The templates name OpenAI models; with Anthropic as the provider, swap them.
+if [ "$LLM_PROVIDER" = anthropic ]; then
+  sed -i.bak 's/"gpt-5.4-mini"/"claude-haiku-4-5"/; s/"gpt-5.5"/"claude-opus-5"/' "$dir"/config/prompts/*/spec.json
+  rm "$dir"/config/prompts/*/spec.json.bak
+fi
 
 git -C "$dir" init -q -b main
 git -C "$dir" add -A

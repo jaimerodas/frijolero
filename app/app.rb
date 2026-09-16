@@ -15,7 +15,7 @@ module Frijolero
       attr_writer :jobs, :client, :s3, :repo, :reports
 
       def jobs = @jobs ||= Jobs.new(log_path: Config.jobs_file).tap(&:start)
-      def client = @client ||= (OpenAIClient.new if Config.openai_api_key)
+      def client = @client ||= LLM.client
       # Any S3 variable set means S3; from_env then names the missing ones. None means disk.
       def s3 = @s3 ||= (S3::ENV_KEYS.any? { |k| ENV.key?(k) } ? S3.from_env : LocalPdfs.new(Config.pdfs_dir))
       def repo = @repo ||= LedgerRepo.new(dir: Config.ledger_dir)

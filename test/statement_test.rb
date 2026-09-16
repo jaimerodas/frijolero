@@ -6,37 +6,26 @@ require 'stringio'
 class StatementTest < Minitest::Test
   include TestHelpers
 
-  # Records what the pipeline asks of OpenAI, and answers with one transaction.
+  # Records what the pipeline asks of the model, and answers with one transaction.
   # `order` is shared with FakeS3, so a test can see which happened first.
   class FakeClient
-    attr_reader :uploads, :extractions, :deletions
+    attr_reader :extractions
     attr_accessor :extract_error, :payload
 
     def initialize(order = [])
       @order = order
-      @uploads = []
       @extractions = []
-      @deletions = []
       @payload = { 'transactions' => [
         { 'date' => '2025-08-03', 'description' => 'X', 'amount' => -10.0, 'currency' => 'MXN' }
       ] }
     end
 
-    def upload_file(path)
-      @uploads << path
-      'file-up'
-    end
-
-    def extract_transactions(file_id, spec)
+    def extract(path, spec)
       @order << :extract
-      @extractions << [file_id, spec]
+      @extractions << [path, spec]
       raise @extract_error if @extract_error
 
       @payload
-    end
-
-    def delete_file(file_id)
-      @deletions << file_id
     end
   end
 
@@ -107,15 +96,6 @@ class StatementTest < Minitest::Test
     end
   end
 
-  def test_deletes_the_uploaded_file_when_it_uploaded_it
-    with_configured_ledger do
-      pdf = pdf_in_temp_dir('AMEX 2508.pdf')
-      Frijolero::Statement.new(pdf, client: @client).process
-
-      assert_equal ['file-up'], @client.deletions
-    end
-  end
-
   def test_account_and_period_arguments_win_over_the_filename
     with_configured_ledger do |dir|
       pdf = pdf_in_temp_dir('upload-abc123.pdf')
@@ -124,17 +104,6 @@ class StatementTest < Minitest::Test
       assert_equal Frijolero::Statement::OK, statement.process
       assert_path_exists json_path(dir)
       assert_path_exists beancount_path(dir)
-    end
-  end
-
-  def test_given_file_id_skips_the_upload_and_is_deleted_at_the_end
-    with_configured_ledger do
-      pdf = pdf_in_temp_dir('AMEX 2508.pdf')
-      Frijolero::Statement.new(pdf, client: @client, file_id: 'file-given').process
-
-      assert_empty @client.uploads
-      assert_equal 'file-given', @client.extractions.first.first
-      assert_equal ['file-given'], @client.deletions
     end
   end
 
@@ -184,13 +153,13 @@ class StatementTest < Minitest::Test
     end
   end
 
-  def test_extraction_error_reports_and_still_deletes_the_file
+  def test_extraction_error_is_reported_and_ends_the_statement
     with_configured_ledger do
-      @client.extract_error = Frijolero::OpenAIClient::APIError.new('boom')
+      @client.extract_error = Frijolero::LLM::APIError.new('boom', status: 500)
       pdf = pdf_in_temp_dir('AMEX 2508.pdf')
 
       assert_equal Frijolero::Statement::ERROR, Frijolero::Statement.new(pdf, client: @client).process
-      assert_equal ['file-up'], @client.deletions
+      assert_includes @sink.string, 'OpenAI returned an error (HTTP 500): boom'
     end
   end
 
@@ -214,6 +183,7 @@ class StatementTest < Minitest::Test
       assert_equal Frijolero::Statement::OK, status
       assert_equal %i[put extract], @order
       assert_equal [['frijolero/accounts/AMEX/AMEX 2508.pdf', pdf]], @s3.calls
+      assert_equal pdf, @client.extractions.first.first
       refute_path_exists pdf
     end
   end
@@ -241,7 +211,6 @@ class StatementTest < Minitest::Test
       assert_equal Frijolero::Statement::ERROR, status
       assert_path_exists pdf
       refute_path_exists json_path(dir)
-      assert_equal ['file-up'], @client.deletions
       assert_includes @sink.string, 'transactions[0] lacks description'
     end
   end
@@ -256,7 +225,6 @@ class StatementTest < Minitest::Test
       assert_equal Frijolero::Statement::ERROR, status
       assert_empty @client.extractions
       assert_path_exists pdf
-      assert_equal ['file-up'], @client.deletions
     end
   end
 
@@ -267,7 +235,6 @@ class StatementTest < Minitest::Test
       assert_equal Frijolero::Statement::DRY_RUN, Frijolero::Statement.new(pdf, client: @client, dry_run: true).process
       refute_path_exists json_path(dir)
       refute_path_exists beancount_path(dir)
-      assert_empty @client.uploads
       assert_empty @client.extractions
     end
   end

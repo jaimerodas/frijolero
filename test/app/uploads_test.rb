@@ -10,31 +10,20 @@ class UploadsTest < Minitest::Test
   include TestHelpers
 
   class FakeClient
-    attr_reader :uploaded, :deleted, :extractions
+    attr_reader :extractions
     attr_accessor :classification
 
     def initialize
-      @uploaded = []
-      @deleted = []
       @extractions = []
       @classification = { 'account' => 'unknown', 'period_start' => nil, 'period_end' => nil }
     end
 
-    def upload_file(path)
-      @uploaded << path
-      'file-1'
-    end
-
-    def extract_transactions(_file_id, spec)
+    def extract(_path, spec)
       name = spec['format']['name']
       @extractions << name
       return @classification if name == 'statement_classification'
 
       { 'transactions' => [{ 'date' => '2025-08-03', 'description' => 'X', 'amount' => -10.0, 'currency' => 'MXN' }] }
-    end
-
-    def delete_file(id)
-      @deleted << id
     end
   end
 
@@ -141,7 +130,7 @@ class UploadsTest < Minitest::Test
 
     assert_equal 303, last_response.status
     assert_equal '/accounts/new', URI(last_response.location).path
-    assert_empty @client.uploaded
+    assert_empty @client.extractions
     assert_empty Dir.glob(File.join(@dir, 'incoming', '*'))
   end
 
@@ -199,7 +188,7 @@ class UploadsTest < Minitest::Test
     assert_equal 200, last_response.status
     assert_match(/value="AMEX"\s+selected/, last_response.body)
     assert_includes last_response.body, 'value="2508"'
-    assert_empty @client.uploaded
+    assert_empty @client.extractions
     assert(Dir.glob(File.join(Frijolero::Config.incoming_dir, '*', '*')).any?)
   end
 
@@ -212,7 +201,7 @@ class UploadsTest < Minitest::Test
     assert_includes last_response.body, 'Estado de cuenta – agosto.pdf'
   end
 
-  def test_unknown_filename_classifies_via_openai
+  def test_unknown_filename_classifies_via_the_model
     @client.classification = { 'account' => 'BBVA', 'period_start' => '2026-07-24', 'period_end' => '2026-08-23' }
 
     post '/upload', pdf: pdf_upload('estado.pdf')
@@ -220,7 +209,6 @@ class UploadsTest < Minitest::Test
     assert_match(/value="BBVA"\s+selected/, last_response.body)
     assert_includes last_response.body, 'value="2608"'
     assert_includes last_response.body, '2026-07-24 a 2026-08-23'
-    assert_match(/name="file_id" value="file-1"/, last_response.body)
     assert_match(/name="period_end" value="2026-08-23"/, last_response.body)
   end
 
@@ -233,7 +221,7 @@ class UploadsTest < Minitest::Test
     assert_includes last_response.body, 'value="2608"'
   end
 
-  def test_known_filename_needs_no_openai_key
+  def test_known_filename_needs_no_model_key
     Frijolero::App.client = nil
     without_env('OPENAI_API_KEY') { post '/upload', pdf: pdf_upload('AMEX 2508.pdf') }
 
@@ -241,7 +229,7 @@ class UploadsTest < Minitest::Test
     assert_match(/value="AMEX"\s+selected/, last_response.body)
   end
 
-  def test_unknown_filename_without_an_openai_key_is_rejected_with_the_variable_name
+  def test_unknown_filename_without_a_model_key_is_rejected_with_the_variable_name
     Frijolero::App.client = nil
     without_env('OPENAI_API_KEY') { post '/upload', pdf: pdf_upload('estado.pdf') }
 
@@ -249,7 +237,7 @@ class UploadsTest < Minitest::Test
     assert_includes last_response.body, 'OPENAI_API_KEY'
   end
 
-  def test_confirm_without_an_openai_key_is_rejected_with_the_variable_name
+  def test_confirm_without_a_model_key_is_rejected_with_the_variable_name
     token = upload_and_extract_token('AMEX 2508.pdf')
     Frijolero::App.client = nil
 
@@ -260,6 +248,17 @@ class UploadsTest < Minitest::Test
     assert_equal 422, last_response.status
     assert_includes last_response.body, 'OPENAI_API_KEY'
     assert_empty Frijolero::App.jobs.all
+  end
+
+  def test_the_missing_variable_is_the_one_of_the_provider_in_use
+    Frijolero::App.client = nil
+
+    with_env('LLM_PROVIDER' => 'anthropic', 'ANTHROPIC_API_KEY' => nil) do
+      post '/upload', pdf: pdf_upload('estado.pdf')
+    end
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, 'ANTHROPIC_API_KEY'
   end
 
   def test_upload_without_a_file_is_rejected
@@ -277,7 +276,7 @@ class UploadsTest < Minitest::Test
   def test_confirm_happy_path_enqueues_and_runs_the_job
     token = upload_and_extract_token('AMEX 2508.pdf')
 
-    post '/upload/confirm', account: 'AMEX', period: '2508', token: token, file_id: '', overwrite: '0'
+    post '/upload/confirm', account: 'AMEX', period: '2508', token: token, overwrite: '0'
 
     assert_equal 303, last_response.status
     job_id = last_response.location[%r{/jobs/(.+)\z}, 1]
@@ -374,7 +373,7 @@ class UploadsTest < Minitest::Test
     assert_equal ['frijolero/accounts/AMEX/AMEX 2508.pdf'], @s3.calls
     assert_equal [:put], @order
     assert_empty Frijolero::App.jobs.all
-    assert_empty @client.uploaded
+    assert_empty @client.extractions
     refute Dir.exist?(File.join(Frijolero::Config.incoming_dir, token))
   end
 

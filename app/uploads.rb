@@ -7,7 +7,7 @@ require 'date'
 module Frijolero
   # Upload a PDF, confirm the classification, enqueue the job.
   class App
-    # No account, no upload: the classifier would spend an OpenAI call and the
+    # No account, no upload: the classifier would spend a model call and the
     # confirm page could not name an account.
     before '/upload*' do
       redirect '/accounts/new', 303 if Config.accounts.empty?
@@ -28,21 +28,20 @@ module Frijolero
         overwrite: params[:overwrite] ? '1' : '0'
       }
     rescue Classifier::NoClient
-      halt 422, 'Falta OPENAI_API_KEY: sin ella, el nombre del archivo tiene que ser "Clave YYMM.pdf"'
+      halt 422, "Falta #{LLM.key_var}: sin ella, el nombre del archivo tiene que ser \"Clave YYMM.pdf\""
     end
 
     post '/upload/confirm' do
-      halt 422, 'Falta OPENAI_API_KEY: la extracción la necesita' unless self.class.client
-      account, period, pdf_path, file_id, overwrite = validate_confirm!
+      halt 422, "Falta #{LLM.key_var}: la extracción la necesita" unless self.class.client
+      account, period, pdf_path, overwrite = validate_confirm!
       period_end = iso_date(params[:period_end])
-      job = enqueue_statement(account: account, period: period, pdf_path: pdf_path,
-                              file_id: file_id, overwrite: overwrite) do
+      job = enqueue_statement(account: account, period: period, pdf_path: pdf_path, overwrite: overwrite) do
         AccountConfig.record_cutoff(account, period_end) if period_end
       end
       redirect "/jobs/#{job.id}", 303
     end
 
-    # Only the PDF, for a statement whose .beancount already exists. No OpenAI, no ledger,
+    # Only the PDF, for a statement whose .beancount already exists. No model, no ledger,
     # no job: the put takes seconds, so it runs in the request.
     post '/upload/backup' do
       account, period = validate_account_and_period!
@@ -79,7 +78,7 @@ module Frijolero
 
     def validate_confirm!
       account, period = validate_account_and_period!
-      [account, period, validate_token!(params[:token]), blank_to_nil(params[:file_id]), params[:overwrite] == '1']
+      [account, period, validate_token!(params[:token]), params[:overwrite] == '1']
     end
 
     def validate_account_and_period!
@@ -112,9 +111,9 @@ module Frijolero
 
     # The collaborators are read here rather than inside the block: the block runs on
     # the worker thread, long after this request is gone.
-    def enqueue_statement(account:, period:, pdf_path:, file_id:, overwrite:, &after)
+    def enqueue_statement(account:, period:, pdf_path:, overwrite:, &after)
       statement = Statement.new(pdf_path, client: self.class.client, s3: self.class.s3, account: account,
-                                          period: period, file_id: file_id, overwrite: overwrite)
+                                          period: period, overwrite: overwrite)
       run_job("#{account} #{period}", statement, File.dirname(pdf_path), &after)
     end
 
