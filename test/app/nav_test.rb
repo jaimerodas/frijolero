@@ -60,6 +60,31 @@ class NavTest < Minitest::Test
     assert_includes last_response.body, '<title>Casa &lt;Rodas&gt;</title>'
   end
 
+  def test_dashboard_without_accounts_points_at_the_new_account_form
+    File.write(File.join(@dir, 'config', 'accounts.yaml'), '')
+
+    get '/'
+
+    assert_includes last_response.body, 'No hay cuentas.'
+    assert_includes last_response.body, 'href="/accounts/new"'
+    refute_includes last_response.body, '<table'
+  end
+
+  def test_accounts_page_without_accounts_says_so
+    File.write(File.join(@dir, 'config', 'accounts.yaml'), '')
+
+    get '/accounts'
+
+    assert_includes last_response.body, 'No hay cuentas.'
+  end
+
+  def test_jobs_page_without_jobs_says_so
+    get '/jobs'
+
+    assert_includes last_response.body, 'Todavía no hay jobs.'
+    refute_includes last_response.body, '<table'
+  end
+
   def test_topbar_has_two_sections
     get '/'
 

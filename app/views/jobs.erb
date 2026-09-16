@@ -10,6 +10,9 @@
   <%= topbar %>
   <main>
     <%= erb :_cuentas, layout: false %>
+    <% if jobs.empty? %>
+    <p>Todavía no hay jobs. Un job nace cuando subes un estado de cuenta.</p>
+    <% else %>
     <div class="table-wrap">
       <table>
         <thead>
@@ -32,6 +35,7 @@
         </tbody>
       </table>
     </div>
+    <% end %>
   </main>
 </body>
 </html>

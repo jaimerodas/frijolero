@@ -112,7 +112,7 @@ module Frijolero
 
     get '/accounts/:account/:yymm/pdf', PERIOD do
       halt 404, 'Cuenta desconocida' unless Config.accounts.key?(params[:account])
-      halt 404, 'Periodo inválido' unless params[:yymm].match?(/\A\d{4}\z/)
+      halt 404, 'B2 no está configurado' unless B2.configured?
 
       redirect self.class.b2.presigned_url(Config.pdf_key(params[:account], params[:yymm])), 302
     end

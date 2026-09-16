@@ -14,10 +14,12 @@
 1. Instala las gemas con `bundle install`.
 2. Copia `.env.example` a `.env` y pon la ruta de tu ledger en `LEDGER_REPO`.
    Las demás líneas son opcionales.
-3. Si quieres ver la página Cuentas o descargar un PDF, llena las variables
-   de B2 en `.env`.
+3. Si quieres guardar los PDF y verlos en la página de cada cuenta, llena
+   las variables de B2 en `.env`. Sin ellas, la página lo dice, y el job de
+   un estado de cuenta falla al intentar guardar el PDF.
 4. Si quieres subir un estado de cuenta, pon `OPENAI_API_KEY` en `.env`.
-   Una subida gasta dinero y hace commit al ledger.
+   Una subida gasta dinero y hace commit al ledger. Sin la llave, la app
+   solo acepta un PDF llamado `Clave YYMM.pdf` y se detiene antes de extraer.
 5. Corre `bin/dev`.
 6. Abre http://localhost:3000. La página te pide la contraseña en un formulario. La contraseña es `x`.
 

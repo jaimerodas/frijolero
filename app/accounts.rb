@@ -50,10 +50,12 @@ module Frijolero
       halt 404, 'Cuenta desconocida' unless Config.accounts.key?(key)
 
       rows = account_pdf_rows(key)
-      erb :account, locals: { key: key, rows: rows, error: nil }
+      erb :account, locals: { key: key, rows: rows, error: nil, notice: nil }
+    rescue B2::Unconfigured => e
+      erb :account, locals: { key: key, rows: [], error: nil, notice: "#{e.message}. Los PDF no se guardan." }
     rescue B2::Error => e
       status 502
-      erb :account, locals: { key: key, rows: [], error: e.message }
+      erb :account, locals: { key: key, rows: [], error: e.message, notice: nil }
     end
 
     get '/accounts/:key/config' do

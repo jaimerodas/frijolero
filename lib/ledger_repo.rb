@@ -16,6 +16,8 @@ module Frijolero
     # A conflict would leave the clone mid-rebase and wedge every later job, so
     # abort and raise instead. The commit stays local, to untangle by hand.
     def pull
+      return unless remote?
+
       git('pull', '--rebase')
     rescue Error
       abort_rebase
@@ -37,12 +39,17 @@ module Frijolero
 
       git('commit', '-m', message)
       pull
-      git('push')
+      git('push') if remote?
       true
     end
     # rubocop:enable Naming/PredicateMethod
 
     private
+
+    # A laptop-only ledger has no remote: the commits stay local.
+    def remote?
+      !git('remote').strip.empty?
+    end
 
     # Every git subprocess must scrub GIT_* env vars: a git hook exports them
     # to children, and they override chdir:, redirecting us at the wrong repo.

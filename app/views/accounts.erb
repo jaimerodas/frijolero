@@ -12,6 +12,9 @@
   <main>
     <%= erb :_cuentas, layout: false %>
 
+    <% if sections.empty? %>
+      <p>No hay cuentas.</p>
+    <% end %>
     <% sections.each do |title, accounts| %>
       <h2><%= title %></h2>
       <div class="table-wrap">

@@ -5,6 +5,8 @@ require 'net/http'
 require 'tempfile'
 
 class B2Test < Minitest::Test
+  include TestHelpers
+
   # The AWS SigV4 examples use virtual-host URLs
   # (https://examplebucket.s3.amazonaws.com/test.txt), so the canonical URI is the
   # key alone. Swapping the one private method that decides the URL style is the
@@ -149,6 +151,15 @@ class B2Test < Minitest::Test
     assert_match(/\A[0-9a-f]{64}\z/, transport.headers['authorization'].split('Signature=').last)
   ensure
     file&.unlink
+  end
+
+  def test_from_env_names_the_missing_variables
+    with_env('B2_ENDPOINT' => nil, 'B2_BUCKET' => 'b', 'B2_KEY_ID' => nil, 'B2_KEY' => nil) do
+      refute_predicate Frijolero::B2, :configured?
+      error = assert_raises(Frijolero::B2::Unconfigured) { Frijolero::B2.from_env }
+      assert_equal 'B2 no está configurado: faltan B2_ENDPOINT, B2_KEY_ID, B2_KEY', error.message
+      assert_kind_of Frijolero::B2::Error, error
+    end
   end
 
   def test_region_is_derived_from_the_endpoint

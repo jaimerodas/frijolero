@@ -41,6 +41,19 @@ class LedgerRepoTest < Minitest::Test
     assert_equal 'Frijolero', run_git(@origin, 'log', '-1', '--format=%an').strip
   end
 
+  # A ledger with no remote is the laptop-only setup: the commit stays local and
+  # nothing raises, so every job and every editor save still works.
+  def test_pull_and_push_are_skipped_without_a_remote
+    local = File.join(@tmp, 'local')
+    run_git(@tmp, 'init', '-q', '-b', 'main', 'local')
+    File.write(File.join(local, 'README'), "solo\n")
+    repo = Frijolero::LedgerRepo.new(dir: local, token: nil)
+
+    assert_nil repo.pull
+    assert repo.commit_and_push('sin remoto')
+    assert_equal 'sin remoto', run_git(local, 'log', '-1', '--format=%s').strip
+  end
+
   def test_head_gives_the_date_and_subject_of_the_last_commit
     repo = Frijolero::LedgerRepo.new(dir: @work, token: nil)
 

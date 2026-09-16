@@ -24,8 +24,9 @@ función están en [el plan](webapp-plan.md#the-laptop-side-the-moneys-function)
 ## Crear un ledger
 
 1. Corre `bin/new-ledger <directorio>`. El script crea los archivos iniciales,
-   copia los prompts y hace el primer commit.
-2. Crea un repo privado en GitHub.
+   copia los prompts y hace el primer commit. Con eso ya puedes correr la app
+   en la laptop: sin remoto, cada commit se queda en tu clon.
+2. Para el servidor, crea un repo privado en GitHub.
 3. Agrega el remoto y haz push:
 
    ```bash
@@ -37,7 +38,8 @@ función están en [el plan](webapp-plan.md#the-laptop-side-the-moneys-function)
    el repo en `/data/ledger`.
 5. Abre `/accounts/new` y da de alta la primera cuenta.
 
-Cada job hace `git pull --rebase` al empezar. Sin un remoto, el job falla.
+Con un remoto, cada job hace `git pull --rebase` al empezar y `git push` al
+terminar. Sin remoto, no hace ninguno de los dos.
 
 ## El layout del repo
 

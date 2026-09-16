@@ -78,6 +78,7 @@ class StatementsTest < Minitest::Test
     assert_includes last_response.body, '<code>Expenses:Food</code>'
     assert_includes last_response.body, 'action="/accounts/AMEX/2508/detail"'
     assert_includes last_response.body, 'Aplicar reglas'
+    with_env(b2_env) { get '/accounts/AMEX/2508' }
     assert_includes last_response.body, 'href="/accounts/AMEX/2508/pdf"'
     assert_includes last_response.body,
                     '<span class="bc-account bc-fixme">Expenses:FIXME</span>'
@@ -140,10 +141,12 @@ class StatementsTest < Minitest::Test
     write_accounts_yaml(extra: "BBVA TDC:\n  beancount_account: \"Assets:BBVA\"\n")
     write_statement('BBVA TDC', '2508', json: { 'transactions' => [] }, beancount: '')
 
-    get '/accounts/BBVA%20TDC/2508'
+    with_env(b2_env) { get '/accounts/BBVA%20TDC/2508' }
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, '/accounts/BBVA%20TDC/2508/pdf'
+    without_env(*Frijolero::B2::ENV_KEYS) { get '/accounts/BBVA%20TDC/2508' }
+    refute_includes last_response.body, 'Descargar PDF'
   end
 
   def test_non_default_pipeline_shows_summary_without_a_transactions_table

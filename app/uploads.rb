@@ -21,9 +21,12 @@ module Frijolero
         accounts: Config.accounts.keys,
         overwrite: params[:overwrite] ? '1' : '0'
       }
+    rescue Classifier::NoClient
+      halt 422, 'Falta OPENAI_API_KEY: sin ella, el nombre del archivo tiene que ser "Clave YYMM.pdf"'
     end
 
     post '/upload/confirm' do
+      halt 422, 'Falta OPENAI_API_KEY: la extracción la necesita' unless self.class.client
       account, period, pdf_path, file_id, overwrite = validate_confirm!
       period_end = iso_date(params[:period_end])
       job = enqueue_statement(account: account, period: period, pdf_path: pdf_path,

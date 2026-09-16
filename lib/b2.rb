@@ -20,6 +20,10 @@ module Frijolero
       end
     end
 
+    # From from_env when ENV_KEYS are not all set; the pages say "B2 no está configurado".
+    class Unconfigured < Error; end
+    ENV_KEYS = %w[B2_ENDPOINT B2_BUCKET B2_KEY_ID B2_KEY].freeze
+
     ALGORITHM = 'AWS4-HMAC-SHA256'
     SERVICE = 's3'
     UNSIGNED_PAYLOAD = 'UNSIGNED-PAYLOAD'
@@ -89,9 +93,13 @@ module Frijolero
     # Credentials never contain whitespace, but a password manager field can: a stray
     # space in B2_KEY once produced "Signature validation failed" and, for large
     # bodies, "IncompleteBody" from B2. Strip it here rather than debug it again.
+    def self.configured? = (ENV_KEYS - ENV.keys).empty?
+
+    # B2_KEY_ID becomes key_id:, and so on.
     def self.from_env
-      new(endpoint: ENV.fetch('B2_ENDPOINT'), bucket: ENV.fetch('B2_BUCKET'),
-          key_id: ENV.fetch('B2_KEY_ID').gsub(/\s/, ''), key: ENV.fetch('B2_KEY').gsub(/\s/, ''))
+      raise Unconfigured, "B2 no está configurado: faltan #{(ENV_KEYS - ENV.keys).join(', ')}" unless configured?
+
+      new(**ENV_KEYS.to_h { |k| [k.delete_prefix('B2_').downcase.to_sym, ENV[k].gsub(/\s/, '')] })
     end
 
     # PUT the local file at `path` under `key`, signed with header authentication.

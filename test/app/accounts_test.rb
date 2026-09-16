@@ -354,6 +354,15 @@ class AccountsTest < Minitest::Test
     assert_includes last_response.body, '/accounts/new'
   end
 
+  def test_account_page_without_b2_says_so_and_still_renders
+    Frijolero::App.b2 = nil
+
+    without_env(*Frijolero::B2::ENV_KEYS) { get '/accounts/AMEX' }
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, 'B2 no está configurado'
+  end
+
   def test_creating_an_account_appends_the_block_the_open_line_and_commits
     post '/accounts/new', new_account_params
 

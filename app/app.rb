@@ -15,7 +15,7 @@ module Frijolero
       attr_writer :jobs, :client, :b2, :repo, :reports
 
       def jobs = @jobs ||= Jobs.new(log_path: Config.jobs_file).tap(&:start)
-      def client = @client ||= OpenAIClient.new
+      def client = @client ||= (OpenAIClient.new if Config.openai_api_key)
       def b2 = @b2 ||= B2.from_env
       def repo = @repo ||= LedgerRepo.new(dir: Config.ledger_dir)
       def reports = @reports ||= Reports

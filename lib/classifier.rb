@@ -6,6 +6,8 @@ module Frijolero
   # Decides which account a statement PDF belongs to and which period it covers.
   class Classifier
     UNKNOWN = 'unknown'
+    # The file name did not answer and there is no client to ask.
+    class NoClient < StandardError; end
     Result = Struct.new(:account, :period, :period_start, :period_end, :file_id, keyword_init: true) do
       def unknown? = account == UNKNOWN
     end
@@ -30,6 +32,8 @@ module Frijolero
     end
 
     def classify_via_openai(pdf_path)
+      raise NoClient unless @client
+
       file_id = @client.upload_file(pdf_path)
       data = @client.extract_transactions(file_id, request_spec)
       account, period = validate(data)

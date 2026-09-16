@@ -38,7 +38,7 @@
 
       <p class="actions">
         <button type="submit" class="primary">Procesar</button>
-        <button type="submit" formaction="/upload/backup">Solo guardar PDF</button>
+        <% if Frijolero::B2.configured? %><button type="submit" formaction="/upload/backup">Solo guardar PDF</button><% end %>
       </p>
     </form>
   </main>
