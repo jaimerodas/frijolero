@@ -16,6 +16,7 @@ class DemoLedgerTest < Minitest::Test
       out, err, status = Open3.capture3(scrubbed_env, SCRIPT, dir, '--months', '3', '--seed', '7')
 
       assert_predicate status, :success?, err
+      assert_includes out, 'semilla 7'
       assert_includes out, 'LEDGER_DIR='
       ledger = File.join(dir, 'ledger')
       periods = (1..3).map { |i| Date.today.prev_month(i).strftime('%y%m') }
@@ -36,6 +37,17 @@ class DemoLedgerTest < Minitest::Test
       assert_equal 2, log.lines.size
       _, _, check = Open3.capture3('rledger', 'check', '--no-cache', File.join(ledger, 'main.beancount'))
       assert_predicate check, :success?
+    end
+  end
+
+  def test_picks_a_seed_and_prints_it
+    skip 'rledger not installed' unless rledger?
+
+    with_temp_dir do |tmp|
+      out, err, status = Open3.capture3(scrubbed_env, SCRIPT, File.join(tmp, 'demo'), '--months', '1')
+
+      assert_predicate status, :success?, err
+      assert_match(/semilla \d+\./, out)
     end
   end
 

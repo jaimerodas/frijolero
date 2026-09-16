@@ -32,8 +32,9 @@ Para enseñar la app sin enseñar tus finanzas, `bin/demo-ledger <dir>` crea un
 ledger inventado: tres cuentas en bancos con nombres de dioses griegos, dos
 años de estados de cuenta, reglas, aserciones de saldo, PDFs de relleno y una
 bitácora. `--persona employee|contractor`, `--income`, `--months` y `--seed`
-cambian la historia. Cada estado de cuenta pasa por el mismo pipeline que un
-job real. Para verlo: `LEDGER_DIR=<dir>/ledger bin/dev`.
+cambian la historia; el script imprime la semilla al terminar, y con `--seed` la
+misma semilla repite el mismo ledger. Cada estado de cuenta pasa por el mismo
+pipeline que un job real. Para verlo: `LEDGER_DIR=<dir>/ledger bin/dev`.
 
 Si quieres los PDF en un bucket en lugar del disco, llena las cuatro
 variables `S3_*` en `.env`. Sirve cualquier almacenamiento compatible con S3:

@@ -6,7 +6,7 @@
 # saldo, PDFs de relleno y una bitácora. Cada estado de cuenta pasa por el mismo
 # detailer, convertidor y merger que un job real, así que la app lo muestra igual.
 #
-# Uso: bin/demo-ledger <dir> [--persona employee|contractor] [--income 40000] [--months 24] [--seed 1]
+# Uso: bin/demo-ledger <dir> [--persona employee|contractor] [--income 40000] [--months 24] [--seed N]
 # Después: LEDGER_DIR=<dir>/ledger bin/dev
 
 require 'optparse'
@@ -20,13 +20,13 @@ require 'fileutils'
 $LOAD_PATH.unshift File.expand_path('../lib', __dir__)
 require 'frijolero'
 
-options = { persona: 'employee', income: 40_000, months: 24, seed: 1 }
+options = { persona: 'employee', income: 40_000, months: 24, seed: Random.new_seed % 100_000 }
 OptionParser.new do |o|
   o.banner = 'uso: bin/demo-ledger <dir> [opciones]'
   o.on('--persona P', %w[employee contractor], 'employee (default) o contractor')
   o.on('--income N', Integer, 'ingreso neto mensual en MXN (default 40000)')
   o.on('--months N', Integer, 'meses de historia, hasta el mes pasado (default 24)')
-  o.on('--seed N', Integer, 'semilla; la misma semilla da el mismo ledger')
+  o.on('--seed N', Integer, 'semilla; la misma semilla da el mismo ledger (default: al azar)')
 end.parse!(into: options)
 DIR = ARGV[0] or abort 'uso: bin/demo-ledger <dir> [opciones]'
 abort "#{DIR} ya existe" if File.exist?(DIR)
@@ -318,5 +318,5 @@ system(git_env, 'git', '-C', ledger, 'add', '-A', exception: true)
 system(git_env, 'git', '-C', ledger, '-c', 'user.name=Frijolero', '-c', 'user.email=frijolero@localhost',
        'commit', '-qm', 'Ledger de demostración', exception: true)
 puts "Ledger de demostración en #{ledger}: #{options[:persona]}, #{options[:income]} MXN al mes, " \
-     "#{months.first.strftime('%Y-%m')} a #{last_month.strftime('%Y-%m')}."
+     "#{months.first.strftime('%Y-%m')} a #{last_month.strftime('%Y-%m')}, semilla #{options[:seed]}."
 puts "Para verlo: LEDGER_DIR=#{ledger} bin/dev"
