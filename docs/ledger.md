@@ -8,20 +8,17 @@ no necesita un deploy.
 
 | Copia | Dónde | Quién escribe |
 |---|---|---|
-| Laptop | Tu clon en la laptop | Tú, con ediciones a mano en fava. La función de fish `moneys` hace pull, corre fava, y hace commit y push al salir con Ctrl-C. |
+| Laptop | Tu clon en la laptop | Tú, con ediciones a mano. Haz pull con rebase antes de cada push. |
 | Servidor | `/data/ledger` en el contenedor | La app. Cada corrida hace pull con rebase al empezar, y commit y push al terminar. Los editores y el diálogo de editar del Diario hacen commit al guardar. |
 | GitHub | origin | Nadie de forma directa. |
 
-Antes de cada push, la app hace pull con rebase otra vez. Así integra un push
-de la laptop que llegó mientras la corrida corría. Si el rebase encuentra un
-conflicto, la app lo aborta y la corrida falla. El commit se queda en el servidor.
+Antes de cada push, la app hace pull con rebase otra vez. Así integra
+cualquier cambio hecho mientras la corrida corría. Si el rebase encuentra un
+conflicto, la app lo aborta y la corrida falla. El commit se queda en el
+servidor.
 
-Fava es opcional: la app tiene su propio editor, el diario y los reportes. El
-autor edita el ledger en fava desde la laptop con la función de fish `moneys`,
-que está en `contrib/` de este repo. `moneys.fish` va en
-`~/.config/fish/functions/` y `moneys.conf.fish` en `~/.config/fish/conf.d/`.
-Pon `MONEYS_REPO` y `MONEYS_FAVA_DIR` en tu `config.fish`. Las pruebas de la
-función están en [el plan](webapp-plan.md#the-laptop-side-the-moneys-function).
+La app tiene su propio editor, reportes y diario. Si editas el ledger a mano en
+la laptop, con fava o con cualquier editor, haz pull con rebase antes del push.
 
 ## Crear un ledger
 

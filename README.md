@@ -36,7 +36,6 @@ uno vacío.
 - [Instalar, correr y desplegar](docs/setup.md)
 - [El ledger: el repo, las cuentas y los prompts](docs/ledger.md)
 - [Las reglas: cómo clasificar las transacciones](docs/rules.md)
-- [El plan y las decisiones de diseño](docs/webapp-plan.md), en inglés
 
 ## Desarrollo
 
