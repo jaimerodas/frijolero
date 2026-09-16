@@ -151,7 +151,7 @@ Cada `openai_prompt_type` apunta a un directorio con tres archivos:
 - `schema.json` es el esquema JSON estricto de la respuesta.
 
 El modelo de `spec.json` tiene que ser del proveedor en `LLM_PROVIDER`: con
-`openai`, uno de OpenAI (`gpt-5.5`); con `anthropic`, uno de Anthropic
+`openai`, uno de OpenAI (`gpt-5.6-sol`); con `anthropic`, uno de Anthropic
 (`claude-opus-5` para extraer, `claude-haiku-4-5` para clasificar).
 `bin/new-ledger` pone los de Anthropic cuando `LLM_PROVIDER=anthropic`. Las
 demás llaves de `spec.json` van tal cual a la API del proveedor: `reasoning`
