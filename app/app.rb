@@ -16,7 +16,8 @@ module Frijolero
 
       def jobs = @jobs ||= Jobs.new(log_path: Config.jobs_file).tap(&:start)
       def client = @client ||= (OpenAIClient.new if Config.openai_api_key)
-      def b2 = @b2 ||= B2.from_env
+      # Any B2 variable set means B2; from_env then names the missing ones. None means disk.
+      def b2 = @b2 ||= (B2::ENV_KEYS.any? { |k| ENV.key?(k) } ? B2.from_env : LocalPdfs.new(Config.pdfs_dir))
       def repo = @repo ||= LedgerRepo.new(dir: Config.ledger_dir)
       def reports = @reports ||= Reports
     end

@@ -50,12 +50,18 @@ module Frijolero
       halt 404, 'Cuenta desconocida' unless Config.accounts.key?(key)
 
       rows = account_pdf_rows(key)
-      erb :account, locals: { key: key, rows: rows, error: nil, notice: nil }
-    rescue B2::Unconfigured => e
-      erb :account, locals: { key: key, rows: [], error: nil, notice: "#{e.message}. Los PDF no se guardan." }
+      erb :account, locals: { key: key, rows: rows, error: nil }
     rescue B2::Error => e
       status 502
-      erb :account, locals: { key: key, rows: [], error: e.message, notice: nil }
+      erb :account, locals: { key: key, rows: [], error: e.message }
+    end
+
+    # A PDF on disk (LocalPdfs#presigned_url). Nothing here when B2 has them.
+    get '/pdfs/*' do
+      file = LocalPdfs.new(Config.pdfs_dir).path(params['splat'].first)
+      halt 404, 'No hay ese PDF' unless file
+
+      send_file file, type: 'application/pdf'
     end
 
     get '/accounts/:key/config' do

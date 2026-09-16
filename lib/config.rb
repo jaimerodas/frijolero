@@ -94,6 +94,11 @@ module Frijolero
         File.join(data_dir, 'incoming')
       end
 
+      # The PDFs when B2 is not set (LocalPdfs).
+      def pdfs_dir
+        File.join(data_dir, 'pdfs')
+      end
+
       def openai_api_key
         ENV.fetch('OPENAI_API_KEY', nil)
       end

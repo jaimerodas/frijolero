@@ -23,7 +23,7 @@
         </p>
       </hgroup>
       <div class="actions">
-        <% if Frijolero::B2.configured? %><a class="button" href="/accounts/<%= account_path %>/<%= h.(period) %>/pdf">Descargar PDF</a><% end %>
+        <a class="button" href="/accounts/<%= account_path %>/<%= h.(period) %>/pdf">Descargar PDF</a>
         <% if rules?(account) && fixme_count.positive? %>
           <form method="post" action="/accounts/<%= account_path %>/<%= h.(period) %>/detail">
             <button type="submit">Aplicar reglas</button>

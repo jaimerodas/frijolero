@@ -7,7 +7,7 @@ Así funciona. Subes un PDF. La app identifica la cuenta y el periodo, y tú
 confirmas. Un job en segundo plano extrae las transacciones con OpenAI, aplica
 las reglas de la cuenta y escribe un archivo `.beancount`. Después incluye el
 archivo en el ledger y hace commit y push. El ledger es un repo de git. Los PDF
-viven en Backblaze B2.
+viven en Backblaze B2, o en disco si no configuras B2.
 
 Necesitas un ledger: un repo de git con un layout fijo. `bin/new-ledger` crea
 uno vacío.
@@ -23,7 +23,7 @@ uno vacío.
   - **Bitácora.** La lista de jobs y la salida de cada uno. Un job que falla
     muestra el error y deja el PDF en el servidor.
 - **Subir.** Subes un PDF y confirmas la cuenta y el periodo. El botón
-  "Solo guardar PDF" guarda el archivo en B2 y no extrae nada.
+  "Solo guardar PDF" guarda el archivo y no extrae nada.
 - **Reportes.** El estado de resultados y el balance general, por año,
   trimestre o mes, en MXN o por moneda.
 - **Estado de cuenta.** Cada estado de cuenta tiene su página. Muestra la lista de

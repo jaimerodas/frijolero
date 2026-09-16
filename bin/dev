@@ -1,7 +1,9 @@
 #!/bin/sh
 # Runs the app on the laptop. Reads .env if it exists (KEY=VALUE lines, see
-# .env.example). The ledger checkout is reached through tmp/dev/ledger, so the
-# job log and the upload directory land in tmp/dev instead of next to the repo.
+# .env.example). Without LEDGER_REPO, the ledger lives in the user's data
+# directory and the first run creates it. With it, the checkout is reached
+# through tmp/dev/ledger, so the job log, the PDFs and the uploads land in
+# tmp/dev instead of next to the repo.
 set -e
 cd "$(dirname "$0")/.."
 
@@ -12,16 +14,18 @@ if [ -f .env ]; then
 fi
 
 if [ -z "$LEDGER_REPO" ]; then
-  echo "bin/dev: pon LEDGER_REPO en .env (la ruta de tu ledger; bin/new-ledger crea uno)" >&2
-  exit 1
+  data="${XDG_DATA_HOME:-$HOME/.local/share}/frijolero"
+  [ -d "$data/ledger" ] || bin/new-ledger "$data/ledger"
+  export LEDGER_DIR="$data/ledger"
+else
+  mkdir -p tmp/dev
+  ln -sfn "$LEDGER_REPO" tmp/dev/ledger
+  export LEDGER_DIR="$PWD/tmp/dev/ledger"
 fi
-mkdir -p tmp/dev
-ln -sfn "$LEDGER_REPO" tmp/dev/ledger
 
-export LEDGER_DIR="$PWD/tmp/dev/ledger"
 export APP_PASSWORD="${APP_PASSWORD:-x}"
 export PORT="${PORT:-3000}"
 export RACK_ENV="${RACK_ENV:-development}"
 
-echo "frijolero on http://localhost:$PORT (password: $APP_PASSWORD, ledger: $LEDGER_REPO)"
+echo "frijolero on http://localhost:$PORT (password: $APP_PASSWORD, ledger: $LEDGER_DIR)"
 exec bundle exec puma -C config/puma.rb config.ru

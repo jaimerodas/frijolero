@@ -246,14 +246,6 @@ class UploadsTest < Minitest::Test
     assert_empty Frijolero::App.jobs.all
   end
 
-  def test_confirm_page_offers_the_pdf_backup_only_with_b2
-    without_env(*Frijolero::B2::ENV_KEYS) { post '/upload', pdf: pdf_upload('AMEX 2508.pdf') }
-    refute_includes last_response.body, 'Solo guardar PDF'
-
-    with_env(b2_env) { post '/upload', pdf: pdf_upload('AMEX 2508.pdf') }
-    assert_includes last_response.body, 'Solo guardar PDF'
-  end
-
   def test_upload_without_a_file_is_rejected
     post '/upload'
 
@@ -350,7 +342,7 @@ class UploadsTest < Minitest::Test
   end
 
   def test_confirm_page_offers_to_save_only_the_pdf
-    with_env(b2_env) { upload_and_extract_token('AMEX 2508.pdf') }
+    upload_and_extract_token('AMEX 2508.pdf')
 
     assert_includes last_response.body, 'formaction="/upload/backup"'
   end
@@ -452,7 +444,7 @@ class UploadsTest < Minitest::Test
   end
 
   def test_pdf_download_redirects_to_b2_presigned_url
-    with_env(b2_env) { get '/accounts/AMEX/2508/pdf' }
+    get '/accounts/AMEX/2508/pdf'
 
     assert_equal 302, last_response.status
     assert_equal 'https://b2.example/frijolero/accounts/AMEX/AMEX%202508.pdf?sig=1', last_response.headers['Location']
@@ -469,7 +461,7 @@ class UploadsTest < Minitest::Test
         beancount_account: "Assets:BBVA"
     YAML
 
-    with_env(b2_env) { get '/accounts/BBVA%20TDC/2508/pdf' }
+    get '/accounts/BBVA%20TDC/2508/pdf'
 
     assert_equal 302, last_response.status
     assert_equal 'https://b2.example/frijolero/accounts/BBVA%20TDC/BBVA%20TDC%202508.pdf?sig=1',
@@ -478,14 +470,14 @@ class UploadsTest < Minitest::Test
   end
 
   def test_pdf_download_returns_404_for_unknown_account
-    with_env(b2_env) { get '/accounts/UNKNOWN/2508/pdf' }
+    get '/accounts/UNKNOWN/2508/pdf'
 
     assert_equal 404, last_response.status
     assert_empty Frijolero::App.b2.calls
   end
 
   def test_pdf_download_returns_404_for_invalid_period
-    with_env(b2_env) { get '/accounts/AMEX/25-08/pdf' }
+    get '/accounts/AMEX/25-08/pdf'
 
     assert_equal 404, last_response.status
     assert_empty Frijolero::App.b2.calls

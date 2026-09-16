@@ -16,7 +16,9 @@ Antes de cada push, la app hace pull con rebase otra vez. Así integra un push
 de la laptop que llegó mientras el job corría. Si el rebase encuentra un
 conflicto, la app lo aborta y el job falla. El commit se queda en el servidor.
 
-La función `moneys` está en `contrib/` de este repo. `moneys.fish` va en
+Fava es opcional: la app tiene su propio editor, el diario y los reportes. El
+autor edita el ledger en fava desde la laptop con la función de fish `moneys`,
+que está en `contrib/` de este repo. `moneys.fish` va en
 `~/.config/fish/functions/` y `moneys.conf.fish` en `~/.config/fish/conf.d/`.
 Pon `MONEYS_REPO` y `MONEYS_FAVA_DIR` en tu `config.fish`. Las pruebas de la
 función están en [el plan](webapp-plan.md#the-laptop-side-the-moneys-function).

@@ -4,29 +4,34 @@
 
 - Ruby 4.0.6. La versión está en `.ruby-version`.
 - git. La app lo usa como subproceso para el ledger.
-- rustledger, para los reportes. En la laptop: `brew install rustledger`.
-  La app busca `rledger` en el PATH, o en la variable `RLEDGER`.
-- Un ledger: un repo de git con el layout de [ledger.md](ledger.md). Si no
-  tienes uno, `bin/new-ledger` lo crea.
+- Una llave de OpenAI. La extracción es lo que hace la app.
+- rustledger, solo para los reportes. En la laptop: `brew install rustledger`.
+  La app busca `rledger` en el PATH, o en la variable `RLEDGER`. Sin él, todo
+  lo demás funciona y la página de reportes muestra el error.
 
 ## Correr en la laptop
 
 1. Instala las gemas con `bundle install`.
-2. Copia `.env.example` a `.env` y pon la ruta de tu ledger en `LEDGER_REPO`.
-   Las demás líneas son opcionales.
-3. Si quieres guardar los PDF y verlos en la página de cada cuenta, llena
-   las variables de B2 en `.env`. Sin ellas, la página lo dice, y el job de
-   un estado de cuenta falla al intentar guardar el PDF.
-4. Si quieres subir un estado de cuenta, pon `OPENAI_API_KEY` en `.env`.
-   Una subida gasta dinero y hace commit al ledger. Sin la llave, la app
-   solo acepta un PDF llamado `Clave YYMM.pdf` y se detiene antes de extraer.
-5. Corre `bin/dev`.
-6. Abre http://localhost:3000. La página te pide la contraseña en un formulario. La contraseña es `x`.
+2. Copia `.env.example` a `.env` y pon `OPENAI_API_KEY`. Una subida gasta
+   dinero y hace commit al ledger. Sin la llave, la app solo acepta un PDF
+   llamado `Clave YYMM.pdf` y se detiene antes de extraer.
+3. Corre `bin/dev`. La primera vez crea un ledger en
+   `~/.local/share/frijolero/ledger` con `bin/new-ledger`. Ese ledger no tiene
+   remoto: cada commit se queda ahí, y los PDF quedan en
+   `~/.local/share/frijolero/pdfs`.
+4. Abre http://localhost:3000. La página te pide la contraseña en un formulario. La contraseña es `x`.
+5. Da de alta la primera cuenta en Cuentas y sube un estado de cuenta.
 
-`bin/dev` lee `.env` y enlaza el ledger en `tmp/dev/ledger`. Así el log de jobs
-y los PDF subidos quedan en `tmp/dev`, y no junto al repo del ledger. La ruta
-`/up`, `/login` y los archivos estáticos (`/style.css`, `/reports.js`) responden
-sin necesidad de la cookie de sesión.
+Si ya tienes un ledger, pon su ruta en `LEDGER_REPO` de `.env`. Entonces
+`bin/dev` lo enlaza en `tmp/dev/ledger`, y el log de jobs, los PDF y las
+subidas quedan en `tmp/dev`, no junto al repo del ledger.
+
+Si quieres los PDF en Backblaze B2 en lugar del disco, llena las cuatro
+variables de B2 en `.env`. Con una sola de ellas puesta, la app asume que
+quieres B2 y la página de la cuenta nombra las que faltan.
+
+La ruta `/up`, `/login` y los archivos estáticos (`/style.css`, `/reports.js`)
+responden sin necesidad de la cookie de sesión.
 
 ## Variables de entorno
 
@@ -37,7 +42,7 @@ sin necesidad de la cookie de sesión.
 | `APP_PASSWORD` | La única credencial. Se verifica en el formulario de login y firma la cookie de sesión que dura 30 días. Cambiar la contraseña cierra todas las sesiones en todos los dispositivos. Obligatoria. |
 | `OPENAI_API_KEY` | Para clasificar y extraer. |
 | `OPENAI_POLL_TIMEOUT` | Segundos de espera para una extracción. Por defecto, 900. |
-| `B2_ENDPOINT`, `B2_BUCKET`, `B2_KEY_ID`, `B2_KEY` | Backblaze B2, compatible con S3. Los PDF viven ahí. |
+| `B2_ENDPOINT`, `B2_BUCKET`, `B2_KEY_ID`, `B2_KEY` | Backblaze B2, compatible con S3. Los PDF viven ahí. Sin las cuatro, viven en `pdfs/` junto al ledger y la app los sirve en `/pdfs/`. |
 | `GIT_TOKEN` | Un token fine-grained de GitHub con permiso de lectura y escritura de contenido en el repo del ledger. Viaja como header HTTP en cada llamada a git. Nunca se escribe en disco. |
 | `PUMA_THREADS` | El tamaño del pool de threads. En producción, 3. |
 | `RLEDGER` | El binario de rustledger. Por defecto, `rledger` en el PATH. |
@@ -88,9 +93,16 @@ El botón "Actualizar" de los reportes hace lo mismo.
 
 ### La imagen en la laptop
 
+Con Docker no necesitas Ruby. El contenedor corre como el usuario `app`, así
+que el directorio que montas en `/data` tiene que ser suyo o abierto a todos.
+Si `/data/ledger` no existe, créalo antes con `bin/new-ledger` o dentro del
+contenedor.
+
 ```bash
 docker build -t frijolero .
-docker run --rm -p 9292:9292 -e APP_PASSWORD=x -e LEDGER_DIR=/data/ledger frijolero
+mkdir -p ~/.local/share/frijolero && chmod 777 ~/.local/share/frijolero
+docker run --rm -p 9292:9292 -v ~/.local/share/frijolero:/data \
+  -e APP_PASSWORD=x -e LEDGER_DIR=/data/ledger -e OPENAI_API_KEY=... frijolero
 ```
 
 ## Un job que falla

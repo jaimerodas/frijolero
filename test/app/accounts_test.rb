@@ -354,13 +354,65 @@ class AccountsTest < Minitest::Test
     assert_includes last_response.body, '/accounts/new'
   end
 
-  def test_account_page_without_b2_says_so_and_still_renders
+  def test_without_b2_variables_the_pdfs_live_on_disk
     Frijolero::App.b2 = nil
+    pdf = File.join(Dir.mktmpdir, 'x.pdf')
+    File.write(pdf, 'pdf')
 
-    without_env(*Frijolero::B2::ENV_KEYS) { get '/accounts/AMEX' }
+    without_env(*Frijolero::B2::ENV_KEYS) do
+      assert_kind_of Frijolero::LocalPdfs, Frijolero::App.b2
+      Frijolero::App.b2.put(Frijolero::Config.pdf_key('AMEX', '2608'), pdf)
+      get '/accounts/AMEX'
+    end
 
     assert_equal 200, last_response.status
-    assert_includes last_response.body, 'B2 no está configurado'
+    assert_includes last_response.body, 'href="/accounts/AMEX/2608/pdf"'
+    assert_path_exists File.join(Frijolero::Config.pdfs_dir, 'frijolero/accounts/AMEX/AMEX 2608.pdf')
+    without_env(*Frijolero::B2::ENV_KEYS) { get '/accounts/AMEX/2608/pdf' }
+    assert_equal 302, last_response.status
+    assert_equal 'http://example.org/pdfs/frijolero/accounts/AMEX/AMEX%202608.pdf', last_response.headers['Location']
+  ensure
+    Frijolero::App.b2 = nil
+  end
+
+  def test_with_every_b2_variable_the_pdfs_go_to_b2
+    Frijolero::App.b2 = nil
+
+    with_env(b2_env) { assert_kind_of Frijolero::B2, Frijolero::App.b2 }
+  ensure
+    Frijolero::App.b2 = nil
+  end
+
+  def test_with_some_b2_variables_the_page_names_the_missing_ones
+    Frijolero::App.b2 = nil
+
+    with_env(b2_env.merge('B2_KEY' => nil)) { get '/accounts/AMEX' }
+
+    assert_equal 502, last_response.status
+    assert_includes last_response.body, 'faltan B2_KEY'
+  ensure
+    Frijolero::App.b2 = nil
+  end
+
+  def test_pdfs_route_serves_a_local_pdf_and_nothing_else
+    Frijolero::App.b2 = nil
+    pdf = File.join(Dir.mktmpdir, 'x.pdf')
+    File.write(pdf, '%PDF-1.4')
+
+    without_env(*Frijolero::B2::ENV_KEYS) do
+      Frijolero::App.b2.put(Frijolero::Config.pdf_key('AMEX', '2608'), pdf)
+      get '/pdfs/frijolero/accounts/AMEX/AMEX%202608.pdf'
+      assert_equal 200, last_response.status
+      assert_equal '%PDF-1.4', last_response.body
+      assert_equal 'application/pdf', last_response.content_type
+
+      get '/pdfs/frijolero/accounts/AMEX/AMEX%202609.pdf'
+      assert_equal 404, last_response.status
+      get '/pdfs/..%2Fx.pdf'
+      assert_equal 404, last_response.status
+    end
+  ensure
+    Frijolero::App.b2 = nil
   end
 
   def test_creating_an_account_appends_the_block_the_open_line_and_commits

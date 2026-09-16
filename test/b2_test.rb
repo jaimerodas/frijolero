@@ -155,10 +155,8 @@ class B2Test < Minitest::Test
 
   def test_from_env_names_the_missing_variables
     with_env('B2_ENDPOINT' => nil, 'B2_BUCKET' => 'b', 'B2_KEY_ID' => nil, 'B2_KEY' => nil) do
-      refute_predicate Frijolero::B2, :configured?
-      error = assert_raises(Frijolero::B2::Unconfigured) { Frijolero::B2.from_env }
+      error = assert_raises(Frijolero::B2::Error) { Frijolero::B2.from_env }
       assert_equal 'B2 no está configurado: faltan B2_ENDPOINT, B2_KEY_ID, B2_KEY', error.message
-      assert_kind_of Frijolero::B2::Error, error
     end
   end
 
