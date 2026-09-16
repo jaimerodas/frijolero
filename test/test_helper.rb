@@ -38,7 +38,7 @@ module TestHelpers
 
   def without_env(*keys, &) = with_env(keys.to_h { |k| [k, nil] }, &)
 
-  def b2_env = Frijolero::B2::ENV_KEYS.to_h { |k| [k, 'x'] }
+  def s3_env = Frijolero::S3::ENV_KEYS.to_h { |k| [k, 'x'] }
 
   def with_ledger_dir
     Dir.mktmpdir do |dir|

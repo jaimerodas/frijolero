@@ -2,7 +2,7 @@
 
 require 'test_helper'
 
-# The stand-in for B2 on a laptop: the same three calls, over one directory.
+# The stand-in for S3 on a laptop: the same three calls, over one directory.
 class LocalPdfsTest < Minitest::Test
   include TestHelpers
 
@@ -24,7 +24,7 @@ class LocalPdfsTest < Minitest::Test
     assert_path_exists @pdf
   end
 
-  def test_list_gives_the_entries_under_a_prefix_in_b2_shape
+  def test_list_gives_the_entries_under_a_prefix_in_s3_shape
     @store.put(KEY, @pdf)
     @store.put('frijolero/accounts/AMEX/AMEX 2608.pdf', @pdf)
 

@@ -51,12 +51,12 @@ module Frijolero
 
       rows = account_pdf_rows(key)
       erb :account, locals: { key: key, rows: rows, error: nil }
-    rescue B2::Error => e
+    rescue S3::Error => e
       status 502
       erb :account, locals: { key: key, rows: [], error: e.message }
     end
 
-    # A PDF on disk (LocalPdfs#presigned_url). Nothing here when B2 has them.
+    # A PDF on disk (LocalPdfs#presigned_url). Nothing here when S3 has them.
     get '/pdfs/*' do
       file = LocalPdfs.new(Config.pdfs_dir).path(params['splat'].first)
       halt 404, 'No hay ese PDF' unless file
@@ -101,10 +101,10 @@ module Frijolero
         { title: "Config de #{key}", action: action, account: key, tab: :config }.merge(extra)
       end
 
-      # The PDFs in B2, plus a `missing` row for each period between the oldest PDF and
+      # The PDFs in S3, plus a `missing` row for each period between the oldest PDF and
       # the newest one that has closed, so the gaps are visible.
       def account_pdf_rows(key)
-        by_period = self.class.b2.list(Config.pdf_prefix(key)).filter_map { |entry| account_pdf_row(key, entry) }.to_h
+        by_period = self.class.s3.list(Config.pdf_prefix(key)).filter_map { |entry| account_pdf_row(key, entry) }.to_h
         periods = by_period.keys | expected_periods(key, by_period.keys.min)
         periods.sort.reverse.map { |period| by_period[period] || { period: period, missing: true } }
       end

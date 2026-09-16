@@ -47,10 +47,10 @@ module Frijolero
     post '/upload/backup' do
       account, period = validate_account_and_period!
       pdf_path = validate_token!(params[:token])
-      self.class.b2.put(Config.pdf_key(account, period), pdf_path)
+      self.class.s3.put(Config.pdf_key(account, period), pdf_path)
       FileUtils.rm_rf(File.dirname(pdf_path))
       redirect "/accounts/#{Rack::Utils.escape_path(account)}", 303
-    rescue B2::Error => e
+    rescue S3::Error => e
       halt 502, "No se pudo guardar el PDF: #{Rack::Utils.escape_html(e.message)}"
     end
 
@@ -113,7 +113,7 @@ module Frijolero
     # The collaborators are read here rather than inside the block: the block runs on
     # the worker thread, long after this request is gone.
     def enqueue_statement(account:, period:, pdf_path:, file_id:, overwrite:, &after)
-      statement = Statement.new(pdf_path, client: self.class.client, b2: self.class.b2, account: account,
+      statement = Statement.new(pdf_path, client: self.class.client, s3: self.class.s3, account: account,
                                           period: period, file_id: file_id, overwrite: overwrite)
       run_job("#{account} #{period}", statement, File.dirname(pdf_path), &after)
     end

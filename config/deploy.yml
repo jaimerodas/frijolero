@@ -1,6 +1,7 @@
 # The deployment of the author. To deploy your own copy, change: the host under
-# servers.web.hosts, proxy.host, image, registry.username, and B2_ENDPOINT and
-# B2_BUCKET under env.clear. The secrets come from .kamal/secrets.
+# servers.web.hosts, proxy.host, image, registry.username, and S3_ENDPOINT and
+# S3_BUCKET under env.clear (any S3-compatible bucket; S3_REGION and S3_PATH_STYLE
+# when the provider needs them, see docs/setup.md). The secrets come from .kamal/secrets.
 service: frijolero
 image: jaimerodas/frijolero
 
@@ -37,13 +38,13 @@ env:
     LEDGER_DIR: /data/ledger
     LEDGER_MAIN_FILE: moneys.beancount
     PUMA_THREADS: "3"
-    B2_ENDPOINT: s3.us-west-000.backblazeb2.com
-    B2_BUCKET: rodas-app-backups
+    S3_ENDPOINT: s3.us-west-000.backblazeb2.com
+    S3_BUCKET: rodas-app-backups
   secret:
     - OPENAI_API_KEY
     - APP_PASSWORD
-    - B2_KEY_ID
-    - B2_KEY
+    - S3_KEY_ID
+    - S3_KEY
     - GIT_TOKEN
 
 aliases:

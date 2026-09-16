@@ -4,7 +4,7 @@ require 'fileutils'
 require 'rack/utils'
 
 module Frijolero
-  # Where the PDFs go when B2 is not set: the three calls the app makes on B2,
+  # Where the PDFs go when no bucket is set: the three calls the app makes on S3,
   # over one directory. `presigned_url` is the app's own /pdfs route.
   class LocalPdfs
     def initialize(dir)

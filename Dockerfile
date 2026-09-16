@@ -13,7 +13,7 @@ ENV RACK_ENV="production" \
     BUNDLE_WITHOUT="development:test" \
     MALLOC_ARENA_MAX="2"
 
-# git: LedgerRepo shells out to it. ca-certificates: HTTPS to OpenAI, B2 and GitHub.
+# git: LedgerRepo shells out to it. ca-certificates: HTTPS to OpenAI, S3 and GitHub.
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y git ca-certificates && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives

@@ -49,7 +49,7 @@ module Frijolero
     helpers do
       # `?period=` picks the span (see Period); anything else means the current year.
       # The block gets the period and returns the flat rows. A Reports::Error renders
-      # the same page with the message, like a B2 failure on an account page.
+      # the same page with the message, like an S3 failure on an account page.
       def report_locals
         today = Date.today
         first = self.class.reports.first_date

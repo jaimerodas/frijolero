@@ -8,9 +8,14 @@ require 'time'
 require 'cgi'
 
 module Frijolero
-  # Backblaze B2 through its S3-compatible API, signed with SigV4 by hand.
-  # No aws-sdk: the signature is sixty lines and the droplet has 1 GB of RAM.
-  class B2
+  # Any S3-compatible object store (Backblaze B2, AWS, Cloudflare R2, Hetzner,
+  # DigitalOcean Spaces, MinIO), signed with SigV4 by hand. No aws-sdk: the
+  # signature is sixty lines and the droplet has 1 GB of RAM.
+  #
+  # Virtual-hosted URLs (bucket.endpoint/key) by default, which every provider
+  # accepts; path-style (endpoint/bucket/key) is for MinIO on localhost and any
+  # bucket with a dot in its name, which breaks the TLS wildcard.
+  class S3
     class Error < StandardError
       attr_reader :status
 
@@ -20,7 +25,7 @@ module Frijolero
       end
     end
 
-    ENV_KEYS = %w[B2_ENDPOINT B2_BUCKET B2_KEY_ID B2_KEY].freeze
+    ENV_KEYS = %w[S3_ENDPOINT S3_BUCKET S3_KEY_ID S3_KEY].freeze
 
     ALGORITHM = 'AWS4-HMAC-SHA256'
     SERVICE = 's3'
@@ -29,7 +34,7 @@ module Frijolero
     RESERVED = /[^A-Za-z0-9\-_.~]/
 
     # Regex parsing of the ListBucketResult XML: there is no XML gem in the bundle.
-    # A nested collaborator, same as Transport, keeps this off B2 itself.
+    # A nested collaborator, same as Transport, keeps this off S3 itself.
     class ListParser
       CONTENTS = %r{<Contents>(.*?)</Contents>}m
 
@@ -64,7 +69,7 @@ module Frijolero
         response = client(uri).request(request)
         return response if response.is_a?(Net::HTTPSuccess)
 
-        raise Error.new("B2 #{verb} #{uri.path} failed (#{response.code}): #{response.body}",
+        raise Error.new("S3 #{verb} #{uri.path} failed (#{response.code}): #{response.body}",
                         status: response.code.to_i)
       end
 
@@ -76,27 +81,31 @@ module Frijolero
       end
     end
 
-    # Both are test seams. They are writers rather than constructor keywords because
-    # seven keyword arguments trips Metrics/ParameterLists.
-    attr_writer :transport, :now
+    # transport and now are test seams; path_style is set by from_env. They are
+    # writers rather than constructor keywords because six trips Metrics/ParameterLists.
+    attr_writer :transport, :now, :path_style
 
     def initialize(endpoint:, bucket:, key_id:, key:, region: nil)
       @endpoint = endpoint
       @bucket = bucket
       @key_id = key_id
       @key = key
+      # B2 and AWS name the region in the host (s3.us-west-000.backblazeb2.com);
+      # R2 wants "auto", Hetzner its location, DigitalOcean and MinIO us-east-1.
       @region = region || endpoint.split('.')[1]
     end
 
     # Credentials never contain whitespace, but a password manager field can: a stray
-    # space in B2_KEY once produced "Signature validation failed" and, for large
+    # space in S3_KEY once produced "Signature validation failed" and, for large
     # bodies, "IncompleteBody" from B2. Strip it here rather than debug it again.
-    # B2_KEY_ID becomes key_id:, and so on. Names the missing variables when some are set.
+    # S3_KEY_ID becomes key_id:, and so on. Names the missing variables when some are set.
+    # S3_REGION and S3_PATH_STYLE are optional.
     def self.from_env
       missing = ENV_KEYS - ENV.keys
-      raise Error, "B2 no está configurado: faltan #{missing.join(', ')}" unless missing.empty?
+      raise Error, "S3 no está configurado: faltan #{missing.join(', ')}" unless missing.empty?
 
-      new(**ENV_KEYS.to_h { |k| [k.delete_prefix('B2_').downcase.to_sym, ENV[k].gsub(/\s/, '')] })
+      new(**ENV_KEYS.to_h { |k| [k.delete_prefix('S3_').downcase.to_sym, ENV[k].gsub(/\s/, '')] },
+          region: ENV.fetch('S3_REGION', nil)).tap { |s3| s3.path_style = ENV['S3_PATH_STYLE'] == '1' }
     end
 
     # PUT the local file at `path` under `key`, signed with header authentication.
@@ -143,11 +152,11 @@ module Frijolero
       now.call.strftime('%Y%m%dT%H%M%SZ')
     end
 
-    def host_and_path(key)
-      [@endpoint, "/#{encode_path("#{@bucket}/#{key}")}"]
-    end
+    def host = @path_style ? @endpoint : "#{@bucket}.#{@endpoint}"
 
-    def bucket_host_and_path = [@endpoint, "/#{uri_encode(@bucket)}"]
+    def host_and_path(key) = [host, "/#{encode_path(@path_style ? "#{@bucket}/#{key}" : key)}"]
+
+    def bucket_host_and_path = [host, @path_style ? "/#{uri_encode(@bucket)}" : '/']
 
     def presign_params(date, expires_in)
       { 'X-Amz-Algorithm' => ALGORITHM,

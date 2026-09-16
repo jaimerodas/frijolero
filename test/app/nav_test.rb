@@ -8,7 +8,7 @@ class NavTest < Minitest::Test
   include Rack::Test::Methods
   include TestHelpers
 
-  class FakeB2
+  class FakeS3
     def list(_prefix) = []
   end
 
@@ -25,13 +25,13 @@ class NavTest < Minitest::Test
     beancount = Frijolero::Config.statement_path('AMEX', '2608', 'beancount')
     FileUtils.mkdir_p(File.dirname(beancount))
     File.write(beancount, '')
-    Frijolero::App.b2 = FakeB2.new
+    Frijolero::App.s3 = FakeS3.new
     Frijolero::App.jobs = Frijolero::Jobs.new(log_path: File.join(@dir, 'jobs.jsonl'))
   end
 
   def teardown
     @previous_ledger_dir ? ENV['LEDGER_DIR'] = @previous_ledger_dir : ENV.delete('LEDGER_DIR')
-    Frijolero::App.b2 = nil
+    Frijolero::App.s3 = nil
     Frijolero::App.jobs = nil
     FileUtils.remove_entry(@dir)
   end

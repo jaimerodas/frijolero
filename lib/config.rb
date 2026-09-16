@@ -60,14 +60,14 @@ module Frijolero
         File.join(ledger_dir, 'accounts', account_key, "#{account_key} #{period}.#{ext}")
       end
 
-      # The B2 bucket mirrors the ledger's own layout, so one key formula serves both
+      # The S3 bucket mirrors the ledger's own layout, so one key formula serves both
       # the upload and the signed download. Spaces stay literal here; percent-encoding
-      # is the signer's job (B2#host_and_path).
+      # is the signer's job (S3#host_and_path).
       # The bucket is shared with other apps, so every key lives under frijolero/.
-      B2_PREFIX = 'frijolero'
+      S3_PREFIX = 'frijolero'
 
       def pdf_prefix(account_key)
-        "#{B2_PREFIX}/accounts/#{account_key}/"
+        "#{S3_PREFIX}/accounts/#{account_key}/"
       end
 
       def pdf_key(account_key, period)
@@ -94,7 +94,7 @@ module Frijolero
         File.join(data_dir, 'incoming')
       end
 
-      # The PDFs when B2 is not set (LocalPdfs).
+      # The PDFs when S3 is not set (LocalPdfs).
       def pdfs_dir
         File.join(data_dir, 'pdfs')
       end

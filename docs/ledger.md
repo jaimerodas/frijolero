@@ -70,7 +70,7 @@ muestra en cada página y en la de entrada; si no, dice Frijolero.
 Si el repo tiene un `account_opens.beancount`, los opens van ahí en lugar del
 archivo principal.
 
-En B2, los PDF viven en `frijolero/accounts/<Key>/<Key> YYMM.pdf`. El bucket
+En el bucket, los PDF viven en `frijolero/accounts/<Key>/<Key> YYMM.pdf`. El bucket
 puede ser compartido con otras apps, porque todo va bajo el prefijo
 `frijolero/`.
 

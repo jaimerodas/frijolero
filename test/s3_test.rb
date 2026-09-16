@@ -4,24 +4,8 @@ require 'test_helper'
 require 'net/http'
 require 'tempfile'
 
-class B2Test < Minitest::Test
+class S3Test < Minitest::Test
   include TestHelpers
-
-  # The AWS SigV4 examples use virtual-host URLs
-  # (https://examplebucket.s3.amazonaws.com/test.txt), so the canonical URI is the
-  # key alone. Swapping the one private method that decides the URL style is the
-  # smallest honest way to replay them.
-  class VirtualHostB2 < Frijolero::B2
-    private
-
-    def host_and_path(key)
-      ["examplebucket.#{@endpoint}", "/#{encode_path(key)}"]
-    end
-
-    def bucket_host_and_path
-      ["examplebucket.#{@endpoint}", '/']
-    end
-  end
 
   # Same shape as the FakeHttp in openai_client_test.rb.
   class FakeHttp
@@ -59,16 +43,17 @@ class B2Test < Minitest::Test
   EMPTY_SHA256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
 
   def aws_docs_client
-    client = VirtualHostB2.new(endpoint: 's3.amazonaws.com', bucket: 'examplebucket',
+    client = Frijolero::S3.new(endpoint: 's3.amazonaws.com', bucket: 'examplebucket',
                                key_id: AWS_KEY_ID, key: AWS_SECRET, region: 'us-east-1')
     client.now = -> { Time.utc(2013, 5, 24) }
     client
   end
 
-  def b2(now: Time.utc(2026, 9, 5, 14, 30, 5))
-    client = Frijolero::B2.new(endpoint: 's3.us-west-004.backblazeb2.com', bucket: 'my-bucket',
+  def s3(now: Time.utc(2026, 9, 5, 14, 30, 5), path_style: false)
+    client = Frijolero::S3.new(endpoint: 's3.us-west-004.backblazeb2.com', bucket: 'my-bucket',
                                key_id: 'KEYID', key: 'SECRET')
     client.now = -> { now }
+    client.path_style = path_style
     client
   end
 
@@ -99,21 +84,27 @@ class B2Test < Minitest::Test
   end
 
   def test_space_in_key_is_encoded_as_percent_20
-    url = b2.presigned_url('accounts/AMEX/AMEX 2508.pdf')
+    url = s3.presigned_url('accounts/AMEX/AMEX 2508.pdf')
 
-    assert_includes url, 'https://s3.us-west-004.backblazeb2.com/my-bucket/accounts/AMEX/AMEX%202508.pdf?'
+    assert_includes url, 'https://my-bucket.s3.us-west-004.backblazeb2.com/accounts/AMEX/AMEX%202508.pdf?'
     refute_includes url, '+'
   end
 
+  def test_path_style_puts_the_bucket_in_the_path
+    url = s3(path_style: true).presigned_url('accounts/AMEX/AMEX 2508.pdf')
+
+    assert_includes url, 'https://s3.us-west-004.backblazeb2.com/my-bucket/accounts/AMEX/AMEX%202508.pdf?'
+  end
+
   # The signature in the URL must be the one a canonical request built with %20 produces:
-  # if the path and the canonical URI ever disagreed, B2 would reject the download.
+  # if the path and the canonical URI ever disagreed, S3 would reject the download.
   def test_space_in_key_signature_is_derived_from_the_percent_20_canonical_uri
-    client = b2
+    client = s3
     url = client.presigned_url('accounts/AMEX/AMEX 2508.pdf')
     query, signature = url.split('?').last.split('&X-Amz-Signature=')
     request = client.send(:canonical_request, 'GET',
-                          '/my-bucket/accounts/AMEX/AMEX%202508.pdf', query,
-                          { 'host' => 's3.us-west-004.backblazeb2.com' }, 'UNSIGNED-PAYLOAD')
+                          '/accounts/AMEX/AMEX%202508.pdf', query,
+                          { 'host' => 'my-bucket.s3.us-west-004.backblazeb2.com' }, 'UNSIGNED-PAYLOAD')
     expected = client.send(:signature,
                            client.send(:string_to_sign, '20260905T143005Z', request), '20260905')
 
@@ -121,14 +112,14 @@ class B2Test < Minitest::Test
   end
 
   def test_unreserved_characters_stay_literal_and_others_are_encoded
-    client = b2
+    client = s3
 
     assert_equal 'a-b_c.d~e', client.send(:uri_encode, 'a-b_c.d~e')
     assert_equal '%28x%29', client.send(:uri_encode, '(x)')
   end
 
   def test_put_signs_the_request_and_hands_it_to_the_transport
-    client = b2(now: Time.utc(2026, 9, 5, 10, 0, 0))
+    client = s3(now: Time.utc(2026, 9, 5, 10, 0, 0))
     transport = FakeTransport.new
     client.transport = transport
     file = Tempfile.new(['statement', '.pdf'])
@@ -138,7 +129,7 @@ class B2Test < Minitest::Test
 
     client.put('accounts/AMEX/AMEX 2508.pdf', file.path)
 
-    assert_equal 'https://s3.us-west-004.backblazeb2.com/my-bucket/accounts/AMEX/AMEX%202508.pdf',
+    assert_equal 'https://my-bucket.s3.us-west-004.backblazeb2.com/accounts/AMEX/AMEX%202508.pdf',
                  transport.uri.to_s
     assert_equal Digest::SHA256.hexdigest(File.binread(file.path)),
                  transport.headers['x-amz-content-sha256']
@@ -154,25 +145,25 @@ class B2Test < Minitest::Test
   end
 
   def test_from_env_names_the_missing_variables
-    with_env('B2_ENDPOINT' => nil, 'B2_BUCKET' => 'b', 'B2_KEY_ID' => nil, 'B2_KEY' => nil) do
-      error = assert_raises(Frijolero::B2::Error) { Frijolero::B2.from_env }
-      assert_equal 'B2 no está configurado: faltan B2_ENDPOINT, B2_KEY_ID, B2_KEY', error.message
+    with_env('S3_ENDPOINT' => nil, 'S3_BUCKET' => 'b', 'S3_KEY_ID' => nil, 'S3_KEY' => nil) do
+      error = assert_raises(Frijolero::S3::Error) { Frijolero::S3.from_env }
+      assert_equal 'S3 no está configurado: faltan S3_ENDPOINT, S3_KEY_ID, S3_KEY', error.message
     end
   end
 
   def test_region_is_derived_from_the_endpoint
-    assert_includes b2.presigned_url('x.pdf'), '%2Fus-west-004%2Fs3%2F'
+    assert_includes s3.presigned_url('x.pdf'), '%2Fus-west-004%2Fs3%2F'
   end
 
   def test_explicit_region_overrides_the_endpoint
-    client = Frijolero::B2.new(endpoint: 's3.us-west-004.backblazeb2.com', bucket: 'my-bucket',
+    client = Frijolero::S3.new(endpoint: 's3.us-west-004.backblazeb2.com', bucket: 'my-bucket',
                                key_id: 'KEYID', key: 'SECRET', region: 'eu-central-003')
 
     assert_includes client.presigned_url('x.pdf'), '%2Feu-central-003%2Fs3%2F'
   end
 
   def test_presigned_url_expires_in_ten_minutes_by_default
-    assert_includes b2.presigned_url('x.pdf'), 'X-Amz-Expires=600&'
+    assert_includes s3.presigned_url('x.pdf'), 'X-Amz-Expires=600&'
   end
 
   # Vector: "GET Bucket (List Objects) Version 2".
@@ -190,14 +181,14 @@ class B2Test < Minitest::Test
   end
 
   def test_list_sends_a_signed_get_with_the_prefix_in_the_query
-    client = b2
+    client = s3
     transport = FakeTransport.new
     transport.get_response = '<ListBucketResult></ListBucketResult>'
     client.transport = transport
 
     client.list('frijolero/accounts/AMEX/')
 
-    assert_equal 'https://s3.us-west-004.backblazeb2.com/my-bucket' \
+    assert_equal 'https://my-bucket.s3.us-west-004.backblazeb2.com/' \
                  '?list-type=2&prefix=frijolero%2Faccounts%2FAMEX%2F', transport.uri.to_s
     assert_equal EMPTY_SHA256, transport.headers['x-amz-content-sha256']
     assert_equal '20260905T143005Z', transport.headers['x-amz-date']
@@ -222,7 +213,7 @@ class B2Test < Minitest::Test
     XML
     transport = FakeTransport.new
     transport.get_response = body
-    client = b2
+    client = s3
     client.transport = transport
 
     entries = client.list('frijolero/accounts/')
@@ -239,7 +230,7 @@ class B2Test < Minitest::Test
     response = make_response(Net::HTTPOK, '200', '<ListBucketResult></ListBucketResult>')
 
     result = Net::HTTP.stub(:new, FakeHttp.new(response)) do
-      Frijolero::B2::Transport.new.get(URI('https://example.com/b?list-type=2'), {})
+      Frijolero::S3::Transport.new.get(URI('https://example.com/b?list-type=2'), {})
     end
 
     assert_equal '<ListBucketResult></ListBucketResult>', result
@@ -249,22 +240,22 @@ class B2Test < Minitest::Test
     response = make_response(Net::HTTPForbidden, '403', '<Error>AccessDenied</Error>')
 
     error = Net::HTTP.stub(:new, FakeHttp.new(response)) do
-      assert_raises(Frijolero::B2::Error) do
-        Frijolero::B2::Transport.new.get(URI('https://example.com/b?list-type=2'), {})
+      assert_raises(Frijolero::S3::Error) do
+        Frijolero::S3::Transport.new.get(URI('https://example.com/b?list-type=2'), {})
       end
     end
 
     assert_equal 403, error.status
     assert_includes error.message, 'AccessDenied'
-    assert_includes error.message, 'B2 GET'
+    assert_includes error.message, 'S3 GET'
   end
 
   def test_transport_raises_error_with_status_on_failure
     response = make_response(Net::HTTPForbidden, '403', '<Error>SignatureDoesNotMatch</Error>')
 
     error = Net::HTTP.stub(:new, FakeHttp.new(response)) do
-      assert_raises(Frijolero::B2::Error) do
-        Frijolero::B2::Transport.new.put(URI('https://example.com/b/k.pdf'), 'body', {})
+      assert_raises(Frijolero::S3::Error) do
+        Frijolero::S3::Transport.new.put(URI('https://example.com/b/k.pdf'), 'body', {})
       end
     end
 
@@ -276,24 +267,31 @@ class B2Test < Minitest::Test
     response = make_response(Net::HTTPOK, '200', '')
 
     result = Net::HTTP.stub(:new, FakeHttp.new(response)) do
-      Frijolero::B2::Transport.new.put(URI('https://example.com/b/k.pdf'), 'body', {})
+      Frijolero::S3::Transport.new.put(URI('https://example.com/b/k.pdf'), 'body', {})
     end
 
     assert_same response, result
   end
 
   def test_from_env_strips_whitespace_from_credentials
-    env = { 'B2_ENDPOINT' => 's3.us-west-000.backblazeb2.com', 'B2_BUCKET' => 'b',
-            'B2_KEY_ID' => ' 000abc ', 'B2_KEY' => "K000 abc\n" }
-    old = env.keys.to_h { |k| [k, ENV.fetch(k, nil)] }
-    env.each { |k, v| ENV[k] = v }
+    env = { 'S3_ENDPOINT' => 's3.us-west-000.backblazeb2.com', 'S3_BUCKET' => 'b',
+            'S3_KEY_ID' => ' 000abc ', 'S3_KEY' => "K000 abc\n" }
 
-    b2 = Frijolero::B2.from_env
+    s3 = with_env(env) { Frijolero::S3.from_env }
 
-    assert_equal '000abc', b2.instance_variable_get(:@key_id)
-    assert_equal 'K000abc', b2.instance_variable_get(:@key)
-  ensure
-    old.each { |k, v| v.nil? ? ENV.delete(k) : ENV[k] = v }
+    assert_equal '000abc', s3.instance_variable_get(:@key_id)
+    assert_equal 'K000abc', s3.instance_variable_get(:@key)
+  end
+
+  # R2, Hetzner, DigitalOcean and MinIO do not name the region in the host.
+  def test_from_env_takes_the_region_and_the_url_style
+    env = { 'S3_ENDPOINT' => 'account.r2.cloudflarestorage.com', 'S3_BUCKET' => 'b',
+            'S3_KEY_ID' => 'k', 'S3_KEY' => 's', 'S3_REGION' => 'auto', 'S3_PATH_STYLE' => '1' }
+
+    url = with_env(env) { Frijolero::S3.from_env }.presigned_url('x.pdf')
+
+    assert_includes url, 'https://account.r2.cloudflarestorage.com/b/x.pdf?'
+    assert_includes url, '%2Fauto%2Fs3%2F'
   end
 
   private

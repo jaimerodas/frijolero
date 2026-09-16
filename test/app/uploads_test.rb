@@ -39,8 +39,8 @@ class UploadsTest < Minitest::Test
   end
 
   # The bucket and the clone. Both append to one shared `order` array, which is what
-  # lets a test assert that the PDF reached B2 between the pull and the push.
-  class FakeB2
+  # lets a test assert that the PDF reached S3 between the pull and the push.
+  class FakeS3
     attr_reader :calls
     attr_accessor :put_error
 
@@ -51,11 +51,11 @@ class UploadsTest < Minitest::Test
 
     def presigned_url(key, **)
       @calls << key
-      "https://b2.example/#{key.gsub(' ', '%20')}?sig=1"
+      "https://s3.example/#{key.gsub(' ', '%20')}?sig=1"
     end
 
     def put(key, _path, **)
-      raise Frijolero::B2::Error.new(@put_error, status: 500) if @put_error
+      raise Frijolero::S3::Error.new(@put_error, status: 500) if @put_error
 
       @order << :put
       @calls << key
@@ -107,10 +107,10 @@ class UploadsTest < Minitest::Test
     Frijolero::App.jobs = Frijolero::Jobs.new(log_path: File.join(@dir, 'jobs.jsonl'))
     @client = FakeClient.new
     @order = []
-    @b2 = FakeB2.new(@order)
+    @s3 = FakeS3.new(@order)
     @repo = FakeRepo.new(@order)
     Frijolero::App.client = @client
-    Frijolero::App.b2 = @b2
+    Frijolero::App.s3 = @s3
     Frijolero::App.repo = @repo
     Frijolero::Log.sink = StringIO.new
   end
@@ -119,7 +119,7 @@ class UploadsTest < Minitest::Test
     restore_env('LEDGER_DIR', @previous_ledger_dir)
     Frijolero::App.jobs = nil
     Frijolero::App.client = nil
-    Frijolero::App.b2 = nil
+    Frijolero::App.s3 = nil
     Frijolero::App.repo = nil
     Frijolero::Log.sink = $stdout
     FileUtils.remove_entry(@dir)
@@ -293,7 +293,7 @@ class UploadsTest < Minitest::Test
   end
 
   # The order is the durability property: pull before anything is written, the PDF in
-  # B2 before the extraction is paid for, the push only once a statement landed.
+  # S3 before the extraction is paid for, the push only once a statement landed.
   def test_the_job_pulls_saves_the_pdf_and_pushes_in_that_order
     token = upload_and_extract_token('AMEX 2508.pdf')
     post '/upload/confirm', account: 'AMEX', period: '2508', token: token, overwrite: '0'
@@ -302,7 +302,7 @@ class UploadsTest < Minitest::Test
 
     assert_equal %i[pull put commit_and_push], @order
     assert_equal ['AMEX 2508'], @repo.messages
-    assert_equal ['frijolero/accounts/AMEX/AMEX 2508.pdf'], @b2.calls
+    assert_equal ['frijolero/accounts/AMEX/AMEX 2508.pdf'], @s3.calls
   end
 
   # A clone that cannot pull is a clone that cannot push either, so there is no point
@@ -363,24 +363,24 @@ class UploadsTest < Minitest::Test
     assert_includes last_response.body, 'formaction="/upload/backup"'
   end
 
-  # For a statement whose .beancount already exists: the PDF lands in B2 and nothing else moves.
-  def test_backup_puts_the_pdf_in_b2_without_a_job
+  # For a statement whose .beancount already exists: the PDF lands in S3 and nothing else moves.
+  def test_backup_puts_the_pdf_in_s3_without_a_job
     token = upload_and_extract_token('AMEX 2508.pdf')
 
     post '/upload/backup', account: 'AMEX', period: '2508', token: token
 
     assert_equal 303, last_response.status
     assert_equal '/accounts/AMEX', URI(last_response.location).path
-    assert_equal ['frijolero/accounts/AMEX/AMEX 2508.pdf'], @b2.calls
+    assert_equal ['frijolero/accounts/AMEX/AMEX 2508.pdf'], @s3.calls
     assert_equal [:put], @order
     assert_empty Frijolero::App.jobs.all
     assert_empty @client.uploaded
     refute Dir.exist?(File.join(Frijolero::Config.incoming_dir, token))
   end
 
-  def test_backup_keeps_the_upload_when_b2_fails
+  def test_backup_keeps_the_upload_when_s3_fails
     token = upload_and_extract_token('AMEX 2508.pdf')
-    @b2.put_error = 'boom'
+    @s3.put_error = 'boom'
 
     post '/upload/backup', account: 'AMEX', period: '2508', token: token
 
@@ -395,7 +395,7 @@ class UploadsTest < Minitest::Test
     post '/upload/backup', account: 'HSBC', period: '2508', token: token
 
     assert_equal 422, last_response.status
-    assert_empty @b2.calls
+    assert_empty @s3.calls
   end
 
   def test_failed_statement_keeps_the_upload_for_a_retry
@@ -459,12 +459,12 @@ class UploadsTest < Minitest::Test
     assert_includes last_response.body, 'AMEX 2508'
   end
 
-  def test_pdf_download_redirects_to_b2_presigned_url
+  def test_pdf_download_redirects_to_s3_presigned_url
     get '/accounts/AMEX/2508/pdf'
 
     assert_equal 302, last_response.status
-    assert_equal 'https://b2.example/frijolero/accounts/AMEX/AMEX%202508.pdf?sig=1', last_response.headers['Location']
-    assert_equal ['frijolero/accounts/AMEX/AMEX 2508.pdf'], Frijolero::App.b2.calls
+    assert_equal 'https://s3.example/frijolero/accounts/AMEX/AMEX%202508.pdf?sig=1', last_response.headers['Location']
+    assert_equal ['frijolero/accounts/AMEX/AMEX 2508.pdf'], Frijolero::App.s3.calls
   end
 
   def test_pdf_download_with_account_containing_space
@@ -480,23 +480,23 @@ class UploadsTest < Minitest::Test
     get '/accounts/BBVA%20TDC/2508/pdf'
 
     assert_equal 302, last_response.status
-    assert_equal 'https://b2.example/frijolero/accounts/BBVA%20TDC/BBVA%20TDC%202508.pdf?sig=1',
+    assert_equal 'https://s3.example/frijolero/accounts/BBVA%20TDC/BBVA%20TDC%202508.pdf?sig=1',
                  last_response.headers['Location']
-    assert_equal ['frijolero/accounts/BBVA TDC/BBVA TDC 2508.pdf'], Frijolero::App.b2.calls
+    assert_equal ['frijolero/accounts/BBVA TDC/BBVA TDC 2508.pdf'], Frijolero::App.s3.calls
   end
 
   def test_pdf_download_returns_404_for_unknown_account
     get '/accounts/UNKNOWN/2508/pdf'
 
     assert_equal 404, last_response.status
-    assert_empty Frijolero::App.b2.calls
+    assert_empty Frijolero::App.s3.calls
   end
 
   def test_pdf_download_returns_404_for_invalid_period
     get '/accounts/AMEX/25-08/pdf'
 
     assert_equal 404, last_response.status
-    assert_empty Frijolero::App.b2.calls
+    assert_empty Frijolero::App.s3.calls
   end
 
   private

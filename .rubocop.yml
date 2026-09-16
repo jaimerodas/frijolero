@@ -63,12 +63,12 @@ Metrics/ParameterLists:
     - 'lib/converters/account_targets.rb'
     - 'lib/statement.rb'
 
-# `b2` is what the class (Frijolero::B2) and the collaborator are called everywhere
+# `s3` is what the class (Frijolero::S3) and the collaborator are called everywhere
 # else, so it is the name the keyword argument has to have. The rest of the list is
 # the cop's own default, which must be repeated because AllowedNames replaces it
 # (`io` in particular is the converters' `run_to(io)`).
 Naming/MethodParameterName:
-  AllowedNames: [as, at, b2, by, cc, db, id, 'if', 'in', io, ip, of, 'on', os, pp, to]
+  AllowedNames: [as, at, s3, by, cc, db, id, 'if', 'in', io, ip, of, 'on', os, pp, to]
 
 Metrics/AbcSize:
   Exclude: ['test/**/*']

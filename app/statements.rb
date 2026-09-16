@@ -113,7 +113,7 @@ module Frijolero
     get '/accounts/:account/:yymm/pdf', PERIOD do
       halt 404, 'Cuenta desconocida' unless Config.accounts.key?(params[:account])
 
-      redirect self.class.b2.presigned_url(Config.pdf_key(params[:account], params[:yymm])), 302
+      redirect self.class.s3.presigned_url(Config.pdf_key(params[:account], params[:yymm])), 302
     end
 
     post '/accounts/:account/:yymm/detail', PERIOD do

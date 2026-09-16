@@ -20,7 +20,7 @@ class AccountsTest < Minitest::Test
     end
   end
 
-  class FakeB2
+  class FakeS3
     attr_reader :prefixes
     attr_accessor :entries, :error
 
@@ -31,7 +31,7 @@ class AccountsTest < Minitest::Test
 
     def list(prefix)
       @prefixes << prefix
-      raise Frijolero::B2::Error.new(@error, status: 403) if @error
+      raise Frijolero::S3::Error.new(@error, status: 403) if @error
 
       @entries
     end
@@ -63,15 +63,15 @@ class AccountsTest < Minitest::Test
     YAML
 
     @repo = FakeRepo.new
-    @b2 = FakeB2.new
+    @s3 = FakeS3.new
     Frijolero::App.repo = @repo
-    Frijolero::App.b2 = @b2
+    Frijolero::App.s3 = @s3
   end
 
   def teardown
     restore_env('LEDGER_DIR', @previous_ledger_dir)
     Frijolero::App.repo = nil
-    Frijolero::App.b2 = nil
+    Frijolero::App.s3 = nil
     FileUtils.remove_entry(@dir)
   end
 
@@ -162,7 +162,7 @@ class AccountsTest < Minitest::Test
   end
 
   def test_account_page_lists_pdfs_newest_period_first
-    @b2.entries = [
+    @s3.entries = [
       { key: 'frijolero/accounts/BBVA TDC/BBVA TDC 2507.pdf', size: 120_000, last_modified: Time.new(2025, 8, 1) },
       { key: 'frijolero/accounts/BBVA TDC/BBVA TDC 2508.pdf', size: 130_000, last_modified: Time.new(2025, 9, 1) },
       { key: 'frijolero/accounts/BBVA TDC/AMEX 2508.pdf', size: 140_000, last_modified: Time.new(2025, 9, 1) }
@@ -174,7 +174,7 @@ class AccountsTest < Minitest::Test
     get '/accounts/BBVA%20TDC'
 
     assert_equal 200, last_response.status
-    assert_equal ['frijolero/accounts/BBVA TDC/'], @b2.prefixes
+    assert_equal ['frijolero/accounts/BBVA TDC/'], @s3.prefixes
     assert_operator last_response.body.index('agosto 2025'), :<, last_response.body.index('julio 2025')
     assert_includes last_response.body, '/accounts/BBVA%20TDC/2508/pdf'
     assert_includes last_response.body, '/accounts/BBVA%20TDC/2507/pdf'
@@ -184,7 +184,7 @@ class AccountsTest < Minitest::Test
   end
 
   def test_account_page_fills_missing_periods_up_to_the_last_closed_one
-    @b2.entries = [
+    @s3.entries = [
       { key: 'frijolero/accounts/AMEX/AMEX 2604.pdf', size: 120_000, last_modified: Time.new(2026, 5, 1) },
       { key: 'frijolero/accounts/AMEX/AMEX 2606.pdf', size: 130_000, last_modified: Time.new(2026, 7, 1) }
     ]
@@ -203,7 +203,7 @@ class AccountsTest < Minitest::Test
   end
 
   def test_account_page_keeps_a_pdf_newer_than_the_last_closed_period
-    @b2.entries = [{ key: 'frijolero/accounts/AMEX/AMEX 2609.pdf', size: 1, last_modified: Time.new(2026, 9, 5) }]
+    @s3.entries = [{ key: 'frijolero/accounts/AMEX/AMEX 2609.pdf', size: 1, last_modified: Time.new(2026, 9, 5) }]
 
     Date.stub(:today, Date.new(2026, 9, 6)) { get '/accounts/AMEX' }
 
@@ -217,7 +217,7 @@ class AccountsTest < Minitest::Test
         beancount_account: "Liabilities:Amex"
         cutoff_day: 10
     YAML
-    @b2.entries = [{ key: 'frijolero/accounts/AMEX/AMEX 2605.pdf', size: 1, last_modified: Time.new(2026, 6, 1) }]
+    @s3.entries = [{ key: 'frijolero/accounts/AMEX/AMEX 2605.pdf', size: 1, last_modified: Time.new(2026, 6, 1) }]
 
     # Closed on Aug 10, so the newest statement is July's; August has not closed yet.
     Date.stub(:today, Date.new(2026, 9, 6)) { get '/accounts/AMEX' }
@@ -228,7 +228,7 @@ class AccountsTest < Minitest::Test
   end
 
   def test_account_page_with_no_pdfs
-    @b2.entries = []
+    @s3.entries = []
 
     get '/accounts/AMEX'
 
@@ -236,8 +236,8 @@ class AccountsTest < Minitest::Test
     assert_includes last_response.body, 'No hay PDFs de esta cuenta'
   end
 
-  def test_account_page_shows_a_b2_error
-    @b2.error = 'boom'
+  def test_account_page_shows_a_s3_error
+    @s3.error = 'boom'
 
     get '/accounts/AMEX'
 
@@ -354,53 +354,53 @@ class AccountsTest < Minitest::Test
     assert_includes last_response.body, '/accounts/new'
   end
 
-  def test_without_b2_variables_the_pdfs_live_on_disk
-    Frijolero::App.b2 = nil
+  def test_without_s3_variables_the_pdfs_live_on_disk
+    Frijolero::App.s3 = nil
     pdf = File.join(Dir.mktmpdir, 'x.pdf')
     File.write(pdf, 'pdf')
 
-    without_env(*Frijolero::B2::ENV_KEYS) do
-      assert_kind_of Frijolero::LocalPdfs, Frijolero::App.b2
-      Frijolero::App.b2.put(Frijolero::Config.pdf_key('AMEX', '2608'), pdf)
+    without_env(*Frijolero::S3::ENV_KEYS) do
+      assert_kind_of Frijolero::LocalPdfs, Frijolero::App.s3
+      Frijolero::App.s3.put(Frijolero::Config.pdf_key('AMEX', '2608'), pdf)
       get '/accounts/AMEX'
     end
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, 'href="/accounts/AMEX/2608/pdf"'
     assert_path_exists File.join(Frijolero::Config.pdfs_dir, 'frijolero/accounts/AMEX/AMEX 2608.pdf')
-    without_env(*Frijolero::B2::ENV_KEYS) { get '/accounts/AMEX/2608/pdf' }
+    without_env(*Frijolero::S3::ENV_KEYS) { get '/accounts/AMEX/2608/pdf' }
     assert_equal 302, last_response.status
     assert_equal 'http://example.org/pdfs/frijolero/accounts/AMEX/AMEX%202608.pdf', last_response.headers['Location']
   ensure
-    Frijolero::App.b2 = nil
+    Frijolero::App.s3 = nil
   end
 
-  def test_with_every_b2_variable_the_pdfs_go_to_b2
-    Frijolero::App.b2 = nil
+  def test_with_every_s3_variable_the_pdfs_go_to_s3
+    Frijolero::App.s3 = nil
 
-    with_env(b2_env) { assert_kind_of Frijolero::B2, Frijolero::App.b2 }
+    with_env(s3_env) { assert_kind_of Frijolero::S3, Frijolero::App.s3 }
   ensure
-    Frijolero::App.b2 = nil
+    Frijolero::App.s3 = nil
   end
 
-  def test_with_some_b2_variables_the_page_names_the_missing_ones
-    Frijolero::App.b2 = nil
+  def test_with_some_s3_variables_the_page_names_the_missing_ones
+    Frijolero::App.s3 = nil
 
-    with_env(b2_env.merge('B2_KEY' => nil)) { get '/accounts/AMEX' }
+    with_env(s3_env.merge('S3_KEY' => nil)) { get '/accounts/AMEX' }
 
     assert_equal 502, last_response.status
-    assert_includes last_response.body, 'faltan B2_KEY'
+    assert_includes last_response.body, 'faltan S3_KEY'
   ensure
-    Frijolero::App.b2 = nil
+    Frijolero::App.s3 = nil
   end
 
   def test_pdfs_route_serves_a_local_pdf_and_nothing_else
-    Frijolero::App.b2 = nil
+    Frijolero::App.s3 = nil
     pdf = File.join(Dir.mktmpdir, 'x.pdf')
     File.write(pdf, '%PDF-1.4')
 
-    without_env(*Frijolero::B2::ENV_KEYS) do
-      Frijolero::App.b2.put(Frijolero::Config.pdf_key('AMEX', '2608'), pdf)
+    without_env(*Frijolero::S3::ENV_KEYS) do
+      Frijolero::App.s3.put(Frijolero::Config.pdf_key('AMEX', '2608'), pdf)
       get '/pdfs/frijolero/accounts/AMEX/AMEX%202608.pdf'
       assert_equal 200, last_response.status
       assert_equal '%PDF-1.4', last_response.body
@@ -412,7 +412,7 @@ class AccountsTest < Minitest::Test
       assert_equal 404, last_response.status
     end
   ensure
-    Frijolero::App.b2 = nil
+    Frijolero::App.s3 = nil
   end
 
   def test_creating_an_account_appends_the_block_the_open_line_and_commits

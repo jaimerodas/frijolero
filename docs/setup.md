@@ -26,9 +26,11 @@ Si ya tienes un ledger, pon su ruta en `LEDGER_REPO` de `.env`. Entonces
 `bin/dev` lo enlaza en `tmp/dev/ledger`, y el log de jobs, los PDF y las
 subidas quedan en `tmp/dev`, no junto al repo del ledger.
 
-Si quieres los PDF en Backblaze B2 en lugar del disco, llena las cuatro
-variables de B2 en `.env`. Con una sola de ellas puesta, la app asume que
-quieres B2 y la página de la cuenta nombra las que faltan.
+Si quieres los PDF en un bucket en lugar del disco, llena las cuatro
+variables `S3_*` en `.env`. Sirve cualquier almacenamiento compatible con S3:
+Backblaze B2, AWS, Cloudflare R2, Hetzner, DigitalOcean Spaces, MinIO. Con una
+sola de ellas puesta, la app asume que quieres el bucket y la página de la
+cuenta nombra las que faltan.
 
 La ruta `/up`, `/login` y los archivos estáticos (`/style.css`, `/reports.js`)
 responden sin necesidad de la cookie de sesión.
@@ -42,12 +44,14 @@ responden sin necesidad de la cookie de sesión.
 | `APP_PASSWORD` | La única credencial. Se verifica en el formulario de login y firma la cookie de sesión que dura 30 días. Cambiar la contraseña cierra todas las sesiones en todos los dispositivos. Obligatoria. |
 | `OPENAI_API_KEY` | Para clasificar y extraer. |
 | `OPENAI_POLL_TIMEOUT` | Segundos de espera para una extracción. Por defecto, 900. |
-| `B2_ENDPOINT`, `B2_BUCKET`, `B2_KEY_ID`, `B2_KEY` | Backblaze B2, compatible con S3. Los PDF viven ahí. Sin las cuatro, viven en `pdfs/` junto al ledger y la app los sirve en `/pdfs/`. |
+| `S3_ENDPOINT`, `S3_BUCKET`, `S3_KEY_ID`, `S3_KEY` | Un bucket compatible con S3. Los PDF viven ahí. El endpoint es el host, sin `https://`. Sin las cuatro, viven en `pdfs/` junto al ledger y la app los sirve en `/pdfs/`. |
+| `S3_REGION` | La región para la firma. Sin ella, la app la toma del segundo segmento del endpoint, que es lo que B2 y AWS esperan (`s3.us-west-000.backblazeb2.com`). R2 quiere `auto`, Hetzner su ubicación (`fsn1`), DigitalOcean y MinIO `us-east-1`. |
+| `S3_PATH_STYLE` | `1` pone el bucket en la ruta (`endpoint/bucket/llave`) en lugar del host (`bucket.endpoint/llave`). Para MinIO en localhost o un bucket con punto en el nombre. |
 | `GIT_TOKEN` | Un token fine-grained de GitHub con permiso de lectura y escritura de contenido en el repo del ledger. Viaja como header HTTP en cada llamada a git. Nunca se escribe en disco. |
 | `PUMA_THREADS` | El tamaño del pool de threads. En producción, 3. |
 | `RLEDGER` | El binario de rustledger. Por defecto, `rledger` en el PATH. |
 
-Si una llave de B2 trae un espacio, la app lo quita. Un espacio en 1Password
+Si una llave de S3 trae un espacio, la app lo quita. Un espacio en 1Password
 produjo una vez el error `Signature validation failed`.
 
 ## Desplegar

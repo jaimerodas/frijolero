@@ -12,12 +12,12 @@ module Frijolero
     set :static_cache_control, [:no_cache]
 
     class << self
-      attr_writer :jobs, :client, :b2, :repo, :reports
+      attr_writer :jobs, :client, :s3, :repo, :reports
 
       def jobs = @jobs ||= Jobs.new(log_path: Config.jobs_file).tap(&:start)
       def client = @client ||= (OpenAIClient.new if Config.openai_api_key)
-      # Any B2 variable set means B2; from_env then names the missing ones. None means disk.
-      def b2 = @b2 ||= (B2::ENV_KEYS.any? { |k| ENV.key?(k) } ? B2.from_env : LocalPdfs.new(Config.pdfs_dir))
+      # Any S3 variable set means S3; from_env then names the missing ones. None means disk.
+      def s3 = @s3 ||= (S3::ENV_KEYS.any? { |k| ENV.key?(k) } ? S3.from_env : LocalPdfs.new(Config.pdfs_dir))
       def repo = @repo ||= LedgerRepo.new(dir: Config.ledger_dir)
       def reports = @reports ||= Reports
     end

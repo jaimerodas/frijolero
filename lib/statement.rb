@@ -16,11 +16,11 @@ module Frijolero
 
     DRY_RUN = :dry_run
 
-    def initialize(pdf_path, client:, b2: nil, account: nil, period: nil, file_id: nil, overwrite: false,
+    def initialize(pdf_path, client:, s3: nil, account: nil, period: nil, file_id: nil, overwrite: false,
                    dry_run: false)
       @pdf_path = pdf_path
       @client = client
-      @b2 = b2
+      @s3 = s3
       @account_name = account
       @date_str = period
       @file_id = file_id
@@ -98,7 +98,7 @@ module Frijolero
       Log.puts "  Beancount: #{Log.short_path(beancount_path)} (modified #{mtime})"
     end
 
-    # The order is the point. B2 has the PDF before we pay for an extraction, and the
+    # The order is the point. S3 has the PDF before we pay for an extraction, and the
     # local copy outlives everything that can fail, so a failed job leaves a retry
     # sitting on disk instead of nothing at all.
     def run_pipeline
@@ -125,18 +125,18 @@ module Frijolero
       ERROR
     end
 
-    # Without a B2 client (the CLI, and every test that does not ask for one) there is
+    # Without a S3 client (the CLI, and every test that does not ask for one) there is
     # nowhere to put the PDF and so nothing to delete either: the file stays put.
     def back_up_pdf
-      return unless @b2
+      return unless @s3
 
       key = Config.pdf_key(@account_name, @date_str)
-      @b2.put(key, @pdf_path)
+      @s3.put(key, @pdf_path)
       Log.puts "Saved PDF: #{key}"
     end
 
     def discard_local_pdf
-      return unless @b2
+      return unless @s3
 
       File.delete(@pdf_path)
       Log.puts 'Deleted local PDF'
