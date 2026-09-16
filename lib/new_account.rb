@@ -13,8 +13,11 @@ module Frijolero
     FIELDS = %w[key description beancount_account openai_prompt_type cutoff_day opened_on].freeze
 
     class << self
-      # The prompt directories in the ledger, minus the classifier's, default first.
+      # The prompt directories in the ledger, minus the classifier's, default first. Empty
+      # when the ledger has none (an adopted ledger before bin/new-ledger ran on it).
       def prompt_types
+        return [] unless Dir.exist?(Config.prompts_dir)
+
         (Dir.children(Config.prompts_dir) - ['classify']).sort_by { |t| [t == 'default' ? 0 : 1, t] }
       end
 

@@ -28,7 +28,7 @@ module Frijolero
     # accounts and stay on the whole-file editor.
     get '/accounts/new' do
       values = { 'openai_prompt_type' => 'default', 'opened_on' => Date.today.iso8601 }
-      erb :account_new, locals: { values: values, prompt_types: NewAccount.prompt_types, error: nil }
+      erb :account_new, locals: new_account_locals(values, nil)
     end
 
     post '/accounts/new' do
@@ -42,7 +42,14 @@ module Frijolero
       redirect '/upload', 303
     rescue NewAccount::Invalid => e
       status 422
-      erb :account_new, locals: { values: values, prompt_types: NewAccount.prompt_types, error: e.message }
+      erb :account_new, locals: new_account_locals(values, e.message)
+    end
+
+    # The form's locals. The datalist offers the accounts the ledger already opens that can
+    # receive statements, so an adopted ledger's accounts are picked, not retyped.
+    def new_account_locals(values, error)
+      { values: values, prompt_types: NewAccount.prompt_types, error: error,
+        ledger_accounts: LedgerAccounts.all.grep(/\A(Assets|Liabilities):/) }
     end
 
     get '/accounts/:key' do

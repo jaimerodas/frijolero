@@ -27,7 +27,9 @@ función están en [el plan](webapp-plan.md#the-laptop-side-the-moneys-function)
 
 1. Corre `bin/new-ledger <directorio>`. El script crea los archivos iniciales,
    copia los prompts y hace el primer commit. Con eso ya puedes correr la app
-   en la laptop: sin remoto, cada commit se queda en tu clon.
+   en la laptop: sin remoto, cada commit se queda en tu clon. Sobre un ledger
+   que ya existe, el mismo script agrega solo lo que falta (ver
+   [setup.md](setup.md#si-ya-tienes-un-ledger)).
 2. Para el servidor, crea un repo privado en GitHub.
 3. Agrega el remoto y haz push:
 

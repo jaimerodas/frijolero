@@ -31,6 +31,14 @@ else
   export LEDGER_DIR="$PWD/tmp/dev/ledger"
 fi
 
+main="$LEDGER_DIR/${LEDGER_MAIN_FILE:-main.beancount}"
+if [ ! -f "$main" ]; then
+  echo "No existe $main." >&2
+  echo "Si tu archivo principal tiene otro nombre, pon LEDGER_MAIN_FILE en .env. Archivos .beancount en el ledger:" >&2
+  ls "$LEDGER_DIR"/*.beancount >&2 2>/dev/null || echo "  ninguno: corre bin/new-ledger \"$LEDGER_DIR\"" >&2
+  exit 1
+fi
+
 export APP_PASSWORD="${APP_PASSWORD:-x}"
 export PORT="${PORT:-3000}"
 export RACK_ENV="${RACK_ENV:-development}"

@@ -15,6 +15,9 @@
     <% if error %>
       <p class="error" role="alert"><%= h.(error) %></p>
     <% end %>
+    <% if prompt_types.empty? %>
+      <p class="error" role="alert">El ledger no tiene <code>config/prompts/</code>. Corre <code>bin/new-ledger &lt;ruta del ledger&gt;</code> en la laptop, que agrega lo que falta, y haz push. Ver <a href="https://github.com/jaimerodas/frijolero/blob/main/docs/setup.md#si-ya-tienes-un-ledger">docs/setup.md</a>.</p>
+    <% end %>
     <form method="post" action="/accounts/new">
       <label for="key">Clave</label>
       <input type="text" id="key" name="key" value="<%= v.('key') %>" required autofocus>
@@ -25,8 +28,9 @@
       <p class="note">Lo que lee el clasificador para reconocer el estado de cuenta</p>
 
       <label for="beancount_account">Cuenta Beancount</label>
-      <input type="text" id="beancount_account" name="beancount_account" value="<%= v.('beancount_account') %>"
+      <input type="text" id="beancount_account" name="beancount_account" value="<%= v.('beancount_account') %>" list="ledger-accounts"
              pattern="(Assets|Liabilities|Equity|Income|Expenses)(:[A-Z][A-Za-z0-9-]*)+" placeholder="Assets:Banco" required>
+      <datalist id="ledger-accounts"><% ledger_accounts.each do |account| %><option value="<%= h.(account) %>"><% end %></datalist>
       <p class="note">Empieza con <code>Assets</code> (una cuenta de banco), <code>Liabilities</code> (una tarjeta de crédito), <code>Income</code>, <code>Expenses</code> o <code>Equity</code>. Cada nivel va después de dos puntos, con mayúscula inicial, sin espacios ni acentos: <code>Assets:BBVA:Cheques</code>.</p>
 
       <label for="openai_prompt_type">Tipo de prompt</label>
@@ -44,7 +48,7 @@
       <label for="opened_on">Fecha de apertura</label>
       <input type="date" id="opened_on" name="opened_on" value="<%= v.('opened_on') %>" required>
 
-      <p class="actions"><button type="submit" class="primary">Crear</button> <a class="button" href="/accounts">Cancelar</a></p>
+      <p class="actions"><button type="submit" class="primary"<%= ' disabled' if prompt_types.empty? %>>Crear</button> <a class="button" href="/accounts">Cancelar</a></p>
     </form>
   </main>
 </body>

@@ -1,7 +1,8 @@
 #!/bin/sh
-# Crea un ledger para Frijolero: los archivos iniciales, los prompts y un
-# primer commit. Después agrega un remoto y haz push. Cada job hace
-# `git pull --rebase`, así que el ledger necesita un remoto.
+# Crea un ledger para Frijolero, o prepara uno que ya existe. Agrega lo que
+# falte: config/accounts.yaml, config/rules/, config/prompts/, accounts/ y, si
+# el directorio no tiene ningún .beancount, main.beancount. Nunca toca un
+# archivo que ya está. Hace git init si hace falta y un commit con lo agregado.
 #
 # Uso: bin/new-ledger <directorio>
 set -e
@@ -11,26 +12,46 @@ if [ -z "$dir" ]; then
   echo "uso: bin/new-ledger <directorio>" >&2
   exit 1
 fi
-if [ -e "$dir" ]; then
-  echo "$dir ya existe" >&2
-  exit 1
-fi
 
 templates="$(cd "$(dirname "$0")/.." && pwd)/templates"
+new=1
+[ -d "$dir" ] && new=0
 mkdir -p "$dir"
-cp -R "$templates/ledger/." "$dir"
-cp -R "$templates/prompts" "$dir/config/prompts"
-# The templates name OpenAI models; with Anthropic as the provider, swap them.
-if [ "$LLM_PROVIDER" = anthropic ]; then
-  sed -i.bak 's/"gpt-5.4-mini"/"claude-haiku-4-5"/; s/"gpt-5.6-sol"/"claude-opus-5"/' "$dir"/config/prompts/*/spec.json
-  rm "$dir"/config/prompts/*/spec.json.bak
+
+# An existing ledger keeps its own main file, whatever its name.
+main=$(cd "$dir" && ls -- *.beancount 2>/dev/null | head -1)
+[ -n "$main" ] || { cp "$templates/ledger/main.beancount" "$dir/"; main=main.beancount; }
+# One file at a time: `cp -n` exits 1 on macOS when it skips a file.
+(cd "$templates/ledger" && find . -type f ! -name main.beancount) | while read -r file; do
+  [ -e "$dir/$file" ] || { mkdir -p "$dir/$(dirname "$file")"; cp "$templates/ledger/$file" "$dir/$file"; }
+done
+mkdir -p "$dir/config/prompts"
+for type in "$templates"/prompts/*/; do
+  type=$(basename "$type")
+  [ -d "$dir/config/prompts/$type" ] && continue
+  cp -R "$templates/prompts/$type" "$dir/config/prompts/$type"
+  # The templates name OpenAI models; with Anthropic as the provider, swap them.
+  if [ "$LLM_PROVIDER" = anthropic ]; then
+    sed -i.bak 's/"gpt-5.4-mini"/"claude-haiku-4-5"/; s/"gpt-5.6-sol"/"claude-opus-5"/' "$dir/config/prompts/$type/spec.json"
+    rm "$dir/config/prompts/$type/spec.json.bak"
+  fi
+done
+
+[ -d "$dir/.git" ] || git -C "$dir" init -q -b main
+git -C "$dir" add -- config accounts .gitignore "$main"
+if git -C "$dir" diff --cached --quiet; then
+  echo "$dir ya tiene todo: nada que agregar."
+  exit 0
 fi
+if [ "$new" = 1 ]; then message="Ledger nuevo"; else message="Configuración de Frijolero"; fi
+git -C "$dir" -c user.name=Frijolero -c user.email=frijolero@localhost commit -qm "$message"
 
-git -C "$dir" init -q -b main
-git -C "$dir" add -A
-git -C "$dir" -c user.name=Frijolero -c user.email=frijolero@localhost commit -qm "Ledger nuevo"
-
-echo "Ledger creado en $dir. Sin remoto, los commits se quedan aquí."
+if [ "$new" = 1 ]; then
+  echo "Ledger creado en $dir. Sin remoto, los commits se quedan aquí."
+else
+  echo "Ledger preparado en $dir: commit \"$message\"."
+  [ "$main" = main.beancount ] || echo "Tu archivo principal es $main: pon LEDGER_MAIN_FILE=$main en .env y en el servidor."
+fi
 echo "Para tenerlo en GitHub y en un servidor, agrega un remoto y haz push:"
 echo "  git -C \"$dir\" remote add origin <url>"
 echo "  git -C \"$dir\" push -u origin main"

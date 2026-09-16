@@ -41,7 +41,7 @@ config/          deploy.yml, puma.rb
 test/            mirrors app/ and lib/; fixtures/ holds sample statements and test prompts
 ```
 
-The ledger repo is a private repo on GitHub. `CLAUDE.local.md`, git-ignored, holds its URL, the laptop path, the droplet, the host and the 1Password item. `bin/new-ledger` creates a ledger from `templates/`. The repo has three copies:
+The ledger repo is a private repo on GitHub. `CLAUDE.local.md`, git-ignored, holds its URL, the laptop path, the droplet, the host and the 1Password item. `bin/new-ledger` creates a ledger from `templates/`, or adds the missing `config/` files to an existing one without touching the rest; `bin/dev` stops before puma when the main file is missing. The repo has three copies:
 
 | Copy | Path | Who writes |
 |---|---|---|

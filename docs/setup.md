@@ -26,9 +26,27 @@
    `ANTHROPIC_API_KEY`; el modelo va en cada `spec.json` del ledger (ver
    `docs/ledger.md`).
 
-Si ya tienes un ledger, pon su ruta en `LEDGER_REPO` de `.env`. Entonces
-`bin/dev` lo enlaza en `tmp/dev/ledger`, y el log de jobs, los PDF y las
-subidas quedan en `tmp/dev`, no junto al repo del ledger.
+### Si ya tienes un ledger
+
+Un ledger de Beancount que ya existe sirve tal cual. Frijolero le agrega
+`config/` y no toca lo demás.
+
+1. Corre `bin/new-ledger <ruta de tu ledger>`. Agrega lo que falte:
+   `config/accounts.yaml`, `config/rules/`, `config/prompts/` y `accounts/`.
+   No toca ningún archivo que ya está. Si el directorio no es un repo de git,
+   hace `git init`. Hace un commit con lo que agregó.
+2. Pon la ruta en `LEDGER_REPO` de `.env`. `bin/dev` la enlaza en
+   `tmp/dev/ledger`, y el log de jobs, los PDF y las subidas quedan en
+   `tmp/dev`, no junto al repo del ledger.
+3. Si tu archivo principal no se llama `main.beancount`, pon su nombre en
+   `LEDGER_MAIN_FILE` de `.env`. Sin eso, `bin/dev` se detiene y lista los
+   archivos `.beancount` que ve.
+4. Da de alta cada cuenta que recibe estados de cuenta en Cuentas. El campo
+   de la cuenta Beancount ofrece las cuentas de activo y pasivo que tu ledger
+   ya abre.
+
+Si abres Cuentas antes del paso 1, la página lo dice y el botón de crear
+está apagado.
 
 Para enseñar la app sin enseñar tus finanzas, `bin/demo-ledger <dir>` crea un
 ledger inventado: tres cuentas en bancos con nombres de dioses griegos, dos

@@ -502,6 +502,32 @@ class AccountsTest < Minitest::Test
     assert_includes last_response.body, 'Para un banco o una tarjeta, <code>default</code>'
   end
 
+  def test_new_account_form_offers_the_ledgers_asset_and_liability_accounts
+    make_prompt_types('default')
+    File.write(File.join(@dir, 'main.beancount'), <<~BEAN)
+      2020-01-01 open Assets:Banco:Nomina
+      2020-01-01 open Liabilities:TDC:Banorte
+      2020-01-01 open Expenses:Comida
+    BEAN
+
+    get '/accounts/new'
+
+    assert_includes last_response.body, 'list="ledger-accounts"'
+    assert_includes last_response.body, '<option value="Assets:Banco:Nomina">'
+    assert_includes last_response.body, '<option value="Liabilities:TDC:Banorte">'
+    refute_includes last_response.body, 'Expenses:Comida'
+  end
+
+  def test_new_account_form_without_prompts_points_to_the_docs
+    get '/accounts/new'
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, 'config/prompts'
+    assert_includes last_response.body, 'bin/new-ledger'
+    assert_includes last_response.body, 'docs/setup.md'
+    assert_includes last_response.body, '<button type="submit" class="primary" disabled>'
+  end
+
   private
 
   def make_prompt_types(*types)
