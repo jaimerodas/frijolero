@@ -101,12 +101,12 @@ class NavTest < Minitest::Test
     assert_includes last_response.body, '<a class="button primary" href="/upload">Subir estado de cuenta</a>'
   end
 
-  def test_without_accounts_the_cta_is_the_first_account_in_red_and_the_upload_page_hides_it
+  def test_without_accounts_the_cta_is_the_first_account_in_ink_and_the_upload_page_hides_it
     File.delete(File.join(@dir, 'config', 'accounts.yaml'))
 
     get '/'
 
-    assert_includes last_response.body, '<a class="button primary red" href="/accounts/new">Dar de alta una cuenta</a>'
+    assert_includes last_response.body, '<a class="button primary ink" href="/accounts/new">Dar de alta una cuenta</a>'
     refute_includes last_response.body, 'href="/upload"'
 
     get '/accounts/new'

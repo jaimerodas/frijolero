@@ -4,9 +4,9 @@
       <% if request&.path_info == href %><h1><%= label %></h1><% else %><a href="<%= href %>"><%= label %></a><% end %>
     <% end %>
   </nav>
-  <%# Without an account there is nothing to upload to, so the one button is the first account, in red. %>
+  <%# Without an account there is nothing to upload to, so the one button is the first account, in ink. %>
   <% if Frijolero::Config.accounts.empty? %>
-    <% unless request&.path_info == '/accounts/new' %><a class="button primary red" href="/accounts/new">Dar de alta una cuenta</a><% end %>
+    <% unless request&.path_info == '/accounts/new' %><a class="button primary ink" href="/accounts/new">Dar de alta una cuenta</a><% end %>
   <% else %>
     <% unless request&.path_info == '/upload' %><a class="button primary" href="/upload">Subir estado de cuenta</a><% end %>
   <% end %>
