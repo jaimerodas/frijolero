@@ -33,11 +33,15 @@
       <input type="hidden" name="period_end" value="<%= h.(result.period_end) %>">
       <input type="hidden" name="overwrite" value="<%= h.(overwrite) %>">
 
-      <p class="note">Revisa antes de procesar: la extracción cuesta dinero.</p>
+      <% if self.class.client %>
+        <p class="note">Revisa antes de procesar: la extracción cuesta dinero.</p>
+      <% else %>
+        <p class="error" role="alert">Falta <code><%= Frijolero::LLM.key_var %></code>: sin ella la app solo guarda el PDF.</p>
+      <% end %>
 
       <p class="actions">
-        <button type="submit" class="primary">Procesar</button>
-        <button type="submit" formaction="/upload/backup">Solo guardar PDF</button>
+        <% if self.class.client %><button type="submit" class="primary">Procesar</button><% end %>
+        <button type="submit"<%= ' class="primary"' unless self.class.client %> formaction="/upload/backup">Solo guardar PDF</button>
       </p>
     </form>
   </main>

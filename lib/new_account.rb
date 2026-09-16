@@ -13,9 +13,9 @@ module Frijolero
     FIELDS = %w[key description beancount_account openai_prompt_type cutoff_day opened_on].freeze
 
     class << self
-      # The prompt directories in the ledger, minus the classifier's.
+      # The prompt directories in the ledger, minus the classifier's, default first.
       def prompt_types
-        Dir.children(Config.prompts_dir).sort - ['classify']
+        (Dir.children(Config.prompts_dir) - ['classify']).sort_by { |t| [t == 'default' ? 0 : 1, t] }
       end
 
       # [key, entry, opened_on] from the form, or Invalid with the message for the form.

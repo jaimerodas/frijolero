@@ -35,6 +35,7 @@
           <option value="<%= h.(type) %>"<%= ' selected' if type == values['openai_prompt_type'] %>><%= h.(type) %></option>
         <% end %>
       </select>
+      <p class="note">Para un banco o una tarjeta, <code>default</code>. Los demás son los prompts especiales de <code>config/prompts/</code> del ledger.</p>
 
       <label for="cutoff_day">Día de corte</label>
       <input type="number" id="cutoff_day" name="cutoff_day" value="<%= v.('cutoff_day') %>" min="1" max="31">

@@ -123,18 +123,19 @@ module Frijolero
       halt 404 unless account.match?(/\A[A-Za-z0-9:-]*\z/)
 
       today = Date.today
-      first = self.class.reports.first_date
-      period = report_period(first || today, today)
       sign = Reports.sign(account)
       begin
+        first = self.class.reports.first_date
+        period = report_period(first || today, today)
         rows = self.class.reports.journal(account, period.from, period.to, mxn: mxn?, text: params[:q])
         options = chart_options(rows, account)
         name = chart_name(options)
         # The balance line is the one chart that needs more than the page's rows.
         opening = self.class.reports.opening(account, period.from, period.to, mxn: mxn?) if name == 'balance'
-        error = nil
       rescue Reports::Error => e
+        # first_date can be the call that fails (no rledger), so `first` and `period` may be unset here.
         status 502
+        period ||= report_period(today, today)
         rows = []
         options = name = opening = nil
         error = e.message

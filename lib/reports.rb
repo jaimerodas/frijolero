@@ -185,8 +185,8 @@ module Frijolero
     def capture(*)
       out, err, status = Open3.capture3(Config.rledger, *)
       [out, err, status.exitstatus]
-    rescue Errno::ENOENT => e
-      raise Error, e.message
+    rescue Errno::ENOENT
+      raise Error, "rustledger no está instalado (#{Config.rledger}): brew install rustledger, o pon RLEDGER"
     end
 
     # One row per account and per ancestor, in tree order, with the parents

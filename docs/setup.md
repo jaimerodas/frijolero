@@ -12,17 +12,19 @@
 ## Correr en la laptop
 
 1. Instala las gemas con `bundle install`.
-2. Copia `.env.example` a `.env` y pon `OPENAI_API_KEY`. Una subida gasta
-   dinero y hace commit al ledger. Sin la llave, la app solo acepta un PDF
-   llamado `Clave YYMM.pdf` y se detiene antes de extraer. Para usar Claude
-   en lugar de OpenAI, pon `LLM_PROVIDER=anthropic` y `ANTHROPIC_API_KEY`;
-   el modelo va en cada `spec.json` del ledger (ver `docs/ledger.md`).
-3. Corre `bin/dev`. La primera vez crea un ledger en
+2. Corre `bin/dev`. No necesita `.env` para arrancar. La primera vez crea un ledger en
    `~/.local/share/frijolero/ledger` con `bin/new-ledger`. Ese ledger no tiene
    remoto: cada commit se queda ahí, y los PDF quedan en
    `~/.local/share/frijolero/pdfs`.
-4. Abre http://localhost:3000. La página te pide la contraseña en un formulario. La contraseña es `x`.
-5. Da de alta la primera cuenta en Cuentas y sube un estado de cuenta.
+3. Abre http://localhost:3000. La página te pide la contraseña en un formulario. La contraseña es `x`.
+4. Da de alta la primera cuenta en Cuentas.
+5. Para subir un estado de cuenta, copia `.env.example` a `.env`, pon
+   `OPENAI_API_KEY` y vuelve a correr `bin/dev`. Una subida gasta dinero y
+   hace commit al ledger. Sin la llave, la página de subir lo dice: la app
+   solo guarda un PDF llamado `Clave YYMM.pdf` y no extrae nada. Para usar
+   Claude en lugar de OpenAI, pon `LLM_PROVIDER=anthropic` y
+   `ANTHROPIC_API_KEY`; el modelo va en cada `spec.json` del ledger (ver
+   `docs/ledger.md`).
 
 Si ya tienes un ledger, pon su ruta en `LEDGER_REPO` de `.env`. Entonces
 `bin/dev` lo enlaza en `tmp/dev/ledger`, y el log de jobs, los PDF y las

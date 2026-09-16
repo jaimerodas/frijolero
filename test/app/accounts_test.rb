@@ -493,6 +493,15 @@ class AccountsTest < Minitest::Test
     assert_rejected 'Tipo de prompt desconocido'
   end
 
+  def test_new_account_form_puts_default_first_and_explains_it
+    make_prompt_types('alpaca', 'default', 'multi')
+
+    get '/accounts/new'
+
+    assert_match(/<option value="default" selected>.*<option value="alpaca">/m, last_response.body)
+    assert_includes last_response.body, 'Para un banco o una tarjeta, <code>default</code>'
+  end
+
   private
 
   def make_prompt_types(*types)

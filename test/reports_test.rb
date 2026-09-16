@@ -41,6 +41,16 @@ class ReportsTest < Minitest::Test
     assert_equal BigDecimal('-74655.50'), rows['Equity:Opening-Balances']['USD']
   end
 
+  def test_a_missing_rledger_names_the_install_command
+    with_env('RLEDGER' => '/nonexistent/rledger') do
+      with_ledger_dir do
+        error = assert_raises(Reports::Error) { Reports.first_date }
+        assert_includes error.message, 'brew install rustledger'
+        assert_includes error.message, 'RLEDGER'
+      end
+    end
+  end
+
   def test_first_date_reads_the_scalar_row_in_either_shape
     with_rledger(%(echo '{"rows": [{"first": "2024-12-01"}]}')) do
       assert_equal Date.new(2024, 12, 1), Reports.first_date

@@ -250,6 +250,30 @@ class UploadsTest < Minitest::Test
     assert_empty Frijolero::App.jobs.all
   end
 
+  def test_upload_page_without_a_model_key_says_so_before_the_upload
+    Frijolero::App.client = nil
+    without_env('OPENAI_API_KEY') { get '/upload' }
+
+    assert_includes last_response.body, 'OPENAI_API_KEY'
+    assert_includes last_response.body, 'Clave YYMM.pdf'
+  end
+
+  def test_upload_page_with_a_model_key_has_no_warning
+    get '/upload'
+
+    refute_includes last_response.body, 'OPENAI_API_KEY'
+  end
+
+  def test_confirm_page_without_a_model_key_offers_only_to_save_the_pdf
+    Frijolero::App.client = nil
+    without_env('OPENAI_API_KEY') { post '/upload', pdf: pdf_upload('AMEX 2508.pdf') }
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, 'OPENAI_API_KEY'
+    refute_includes last_response.body, '>Procesar<'
+    assert_includes last_response.body, 'Solo guardar PDF'
+  end
+
   def test_the_missing_variable_is_the_one_of_the_provider_in_use
     Frijolero::App.client = nil
 

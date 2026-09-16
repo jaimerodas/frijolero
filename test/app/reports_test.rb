@@ -19,6 +19,8 @@ class ReportsPageTest < Minitest::Test
     attr_accessor :empty
 
     def first_date
+      raise Frijolero::Reports::Error, error if error
+
       Date.new(2024, 12, 1) unless empty
     end
 
