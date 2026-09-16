@@ -25,9 +25,14 @@ module Frijolero
       # Every rule that applies, in the order their fields should be merged:
       # all `start_with` patterns in YAML order, then all `include` patterns.
       # A later rule overwrites the fields it sets and leaves the rest alone.
+      # Whitespace is collapsed to single spaces first, the same as
+      # Converters::Default does when it writes the narration, so a rule reads
+      # the same against the JSON (where a model may keep the PDF's line breaks)
+      # and against the .beancount file.
       def matches_for(description:, amount:)
         return [] unless description
 
+        description = description.gsub(/\s+/, ' ').strip
         MATCHERS.flat_map do |section, matcher|
           winning_rules(@config[section], description, amount, &matcher)
         end

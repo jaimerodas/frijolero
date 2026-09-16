@@ -112,6 +112,20 @@ class DetailerRulesTest < Minitest::Test
     assert_empty rules(config).matches_for(description: 'NETFLIX MX', amount: -149)
   end
 
+  # The models return a BBVA description as the statement's lines, joined with
+  # newlines; the converter writes it into Beancount with single spaces. A rule is
+  # written the way the .beancount reads, and must match the JSON the same way.
+  def test_matches_across_the_line_breaks_of_a_description
+    config = { 'start_with' => { 'SPEI ENVIADO INBURSA 0206326gas' => { 'payee' => 'Roler' } },
+               'include' => { 'CUENTA: BMOV' => { 'narration' => 'Pago TDC' } } }
+
+    gas = rules(config).matches_for(description: "SPEI ENVIADO INBURSA\n0206326gas depa\nReferencia 1", amount: -911.54)
+    card = rules(config).matches_for(description: "PAGO TARJETA DE CREDITO\n  CUENTA: BMOV", amount: -1)
+
+    assert_equal 'Roler', gas.first['payee']
+    assert_equal 'Pago TDC', card.first['narration']
+  end
+
   def test_returns_nothing_for_a_missing_description
     config = { 'start_with' => { 'NETFLIX' => { 'payee' => 'Netflix' } } }
 
