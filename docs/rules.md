@@ -51,7 +51,7 @@ Hay dos secciones. `start_with` compara el inicio de la descripción.
 
 La app aplica todas las reglas que coinciden, en este orden: las de
 `start_with` en el orden del archivo, y después las de `include`. Una regla
-posterior sobreescribe solo los campos que define. Así una regla de `include`
+posterior sobrescribe solo los campos que define. Así una regla de `include`
 puede poner la cuenta y dejar el `payee` de una regla de `start_with`.
 
 La única condición es `when.amount`. Compara el monto exacto, con signo. Un
@@ -59,15 +59,15 @@ cargo es negativo.
 
 ## Cuándo corren las reglas
 
-El job las aplica una vez, después de la extracción y antes de escribir el
-archivo `.beancount`. Si la cuenta no tiene archivo de reglas, el job no
+La corrida las aplica una vez, después de la extracción y antes de escribir el
+archivo `.beancount`. Si la cuenta no tiene archivo de reglas, la corrida no
 aplica nada.
 
 El botón "Aplicar reglas" de la página del estado de cuenta las aplica otra
 vez sobre el archivo `.beancount` que ya existe. Ese paso toca solo las
-transacciones que siguen en `Expenses:FIXME`, y el botón aparece solo cuando
-queda alguna y la cuenta ya tiene archivo de reglas. Una transacción que ya tiene cuenta no cambia, así una edición a
-mano está a salvo. Una transacción con la bandera `!` es invisible para las
+transacciones que siguen en `Expenses:FIXME`. El botón aparece solo cuando
+queda alguna y la cuenta tiene archivo de reglas. Una transacción que ya tiene
+cuenta no cambia. Así una edición a mano está a salvo. Una transacción con la bandera `!` es invisible para las
 reglas. Si algo cambió, la app hace commit. Si no, no.
 
 ## El editor
@@ -76,8 +76,8 @@ reglas. Si algo cambió, la app hace commit. Si no, no.
 reglas" abre un resumen de este formato. Al lado, la lista de cuentas que el
 ledger ya abre o que otra regla ya nombra, para copiar el nombre en lugar de
 inventarlo. Al guardar, la app valida el YAML y
-prueba una llamada al motor de reglas. Un archivo inválido no se guarda. Un
-archivo válido se guarda con el commit `rules <Key>`.
+prueba una llamada al motor de reglas. La app no guarda un archivo inválido. Guarda
+un archivo válido con el commit `rules <Key>`.
 
 ## Hacer una regla desde una transacción
 

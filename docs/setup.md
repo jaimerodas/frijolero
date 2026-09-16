@@ -23,7 +23,7 @@
    hace commit al ledger. Sin la llave, la página de subir lo dice: la app
    solo guarda un PDF llamado `Clave YYMM.pdf` y no extrae nada. Para usar
    Claude en lugar de OpenAI, pon `LLM_PROVIDER=anthropic` y
-   `ANTHROPIC_API_KEY`; el modelo va en cada `spec.json` del ledger (ver
+   `ANTHROPIC_API_KEY`. El modelo va en cada `spec.json` del ledger (ver
    `docs/ledger.md`).
 
 ### Si ya tienes un ledger
@@ -36,7 +36,7 @@ Un ledger de Beancount que ya existe sirve tal cual. Frijolero le agrega
    No toca ningún archivo que ya está. Si el directorio no es un repo de git,
    hace `git init`. Hace un commit con lo que agregó.
 2. Pon la ruta en `LEDGER_REPO` de `.env`. `bin/dev` la enlaza en
-   `tmp/dev/ledger`, y el log de jobs, los PDF y las subidas quedan en
+   `tmp/dev/ledger`, y el log de corridas, los PDF y las subidas quedan en
    `tmp/dev`, no junto al repo del ledger.
 3. Si tu archivo principal no se llama `main.beancount`, pon su nombre en
    `LEDGER_MAIN_FILE` de `.env`. Sin eso, `bin/dev` se detiene y lista los
@@ -52,9 +52,9 @@ Para enseñar la app sin enseñar tus finanzas, `bin/demo-ledger <dir>` crea un
 ledger inventado: tres cuentas en bancos con nombres de dioses griegos, dos
 años de estados de cuenta, reglas, aserciones de saldo, PDFs de relleno y una
 bitácora. `--persona employee|contractor`, `--income`, `--months` y `--seed`
-cambian la historia; el script imprime la semilla al terminar, y con `--seed` la
-misma semilla repite el mismo ledger. Cada estado de cuenta pasa por el mismo
-pipeline que un job real. Para verlo: `LEDGER_DIR=<dir>/ledger bin/dev`.
+cambian la historia. El script imprime la semilla al terminar. Con `--seed` y
+la misma semilla, el script repite el mismo ledger. Cada estado de cuenta pasa por el mismo
+pipeline que una corrida real. Para verlo: `LEDGER_DIR=<dir>/ledger bin/dev`.
 
 Si quieres los PDF en un bucket en lugar del disco, llena las cuatro
 variables `S3_*` en `.env`. Sirve cualquier almacenamiento compatible con S3:
@@ -69,7 +69,7 @@ responden sin necesidad de la cookie de sesión.
 
 | Variable | Uso |
 |---|---|
-| `LEDGER_DIR` | El clon del ledger. Obligatoria. El directorio padre guarda el log de jobs y las subidas. |
+| `LEDGER_DIR` | El clon del ledger. Obligatoria. El directorio padre guarda el log de corridas y las subidas. |
 | `LEDGER_MAIN_FILE` | El archivo principal del ledger, relativo a `LEDGER_DIR`. Por defecto, `main.beancount`. Es el único archivo que la app conoce por nombre. |
 | `APP_PASSWORD` | La única credencial. Se verifica en el formulario de login y firma la cookie de sesión que dura 30 días. Cambiar la contraseña cierra todas las sesiones en todos los dispositivos. Obligatoria. |
 | `LLM_PROVIDER` | Quién extrae: `openai` (por defecto) o `anthropic`. |
@@ -90,7 +90,7 @@ produjo una vez el error `Signature validation failed`.
 La app corre en un servidor con Kamal 2. `config/deploy.yml` es el deploy del
 autor: el servidor, el host, la imagen, el volumen `/data` y el límite de
 memoria. Para tu copia, cambia los valores que nombra el comentario al inicio
-del archivo. La imagen se construye en tu máquina para amd64 y se sube a un
+del archivo. Kamal construye la imagen en tu máquina para amd64 y la sube a un
 registro de contenedores.
 
 `.kamal/secrets` pide los secretos a 1Password con el CLI `op` en cada deploy.
@@ -116,8 +116,8 @@ kamal app exec --reuse '<comando>'
 
 Un cambio en el código de esta app necesita un deploy. Un cambio en las
 reglas, en las cuentas, en los prompts o en el modelo es un commit
-en el repo del ledger. La app lee esos archivos en cada request y en cada job.
-El servidor recibe el cambio en el siguiente job, o de inmediato con este
+en el repo del ledger. La app lee esos archivos en cada request y en cada corrida.
+El servidor recibe el cambio en la siguiente corrida, o de inmediato con este
 comando:
 
 ```bash
@@ -128,8 +128,8 @@ El botón "Actualizar" de los reportes hace lo mismo.
 
 ### La imagen en la laptop
 
-Con Docker no necesitas Ruby. El contenedor corre como el usuario `app`, así
-que el directorio que montas en `/data` tiene que ser suyo o abierto a todos.
+Con Docker no necesitas Ruby. El contenedor corre como el usuario `app`. El
+directorio que montas en `/data` debe ser de ese usuario o abierto a todos.
 Si `/data/ledger` no existe, créalo antes con `bin/new-ledger` o dentro del
 contenedor.
 
@@ -140,8 +140,8 @@ docker run --rm -p 9292:9292 -v ~/.local/share/frijolero:/data \
   -e APP_PASSWORD=x -e LEDGER_DIR=/data/ledger -e OPENAI_API_KEY=... frijolero
 ```
 
-## Un job que falla
+## Una corrida que falla
 
-La página del job muestra la salida completa. El PDF se queda en
+La página de la corrida muestra la salida completa. El PDF se queda en
 `/data/incoming/<hex>/` en el servidor. No hay reintento. Sube el PDF otra
 vez. Los directorios de las subidas fallidas se acumulan. Nada los borra.

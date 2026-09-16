@@ -1,7 +1,7 @@
 # El ledger
 
 El ledger es tu repo de git, privado. Guarda las transacciones, la configuración de las cuentas, las reglas y los prompts. La
-app lee la configuración en cada request y en cada job. Un cambio en el ledger
+app lee la configuración en cada request y en cada corrida. Un cambio en el ledger
 no necesita un deploy.
 
 ## Las tres copias
@@ -9,12 +9,12 @@ no necesita un deploy.
 | Copia | Dónde | Quién escribe |
 |---|---|---|
 | Laptop | Tu clon en la laptop | Tú, con ediciones a mano en fava. La función de fish `moneys` hace pull, corre fava, y hace commit y push al salir con Ctrl-C. |
-| Servidor | `/data/ledger` en el contenedor | La app. Cada job hace pull con rebase al empezar, y commit y push al terminar. Los editores y el diálogo de editar del Diario hacen commit al guardar. |
+| Servidor | `/data/ledger` en el contenedor | La app. Cada corrida hace pull con rebase al empezar, y commit y push al terminar. Los editores y el diálogo de editar del Diario hacen commit al guardar. |
 | GitHub | origin | Nadie de forma directa. |
 
 Antes de cada push, la app hace pull con rebase otra vez. Así integra un push
-de la laptop que llegó mientras el job corría. Si el rebase encuentra un
-conflicto, la app lo aborta y el job falla. El commit se queda en el servidor.
+de la laptop que llegó mientras la corrida corría. Si el rebase encuentra un
+conflicto, la app lo aborta y la corrida falla. El commit se queda en el servidor.
 
 Fava es opcional: la app tiene su propio editor, el diario y los reportes. El
 autor edita el ledger en fava desde la laptop con la función de fish `moneys`,
@@ -42,7 +42,7 @@ función están en [el plan](webapp-plan.md#the-laptop-side-the-moneys-function)
    el repo en `/data/ledger`.
 5. Abre `/accounts/new` y da de alta la primera cuenta.
 
-Con un remoto, cada job hace `git pull --rebase` al empezar y `git push` al
+Con un remoto, cada corrida hace `git pull --rebase` al empezar y `git push` al
 terminar. Sin remoto, no hace ninguno de los dos.
 
 ## El layout del repo
@@ -62,12 +62,12 @@ del estado de cuenta. Un estado de AMEX del 4 de agosto al 3 de septiembre es
 
 `main.beancount` es el único archivo que la app conoce por nombre
 (`LEDGER_MAIN_FILE` lo cambia). La app le agrega un `open` cuando das de alta
-una cuenta y un `include` cuando procesa un estado de cuenta, y los reportes
+una cuenta, y un `include` cuando procesa un estado de cuenta. Los reportes
 lo leen con rustledger. Las transacciones sueltas, los precios y las
 aserciones de saldo van ahí también, o en archivos aparte con su propio
 `include`. A Beancount no le importa en qué archivo está cada entrada.
-Si el archivo principal tiene `option "title"`, ese es el nombre que la app
-muestra en cada página y en la de entrada; si no, dice Frijolero.
+Si el archivo principal tiene `option "title"`, la app muestra ese nombre en
+cada página y en la de entrada. Si no, muestra Frijolero.
 
 Si el repo tiene un `account_opens.beancount`, los opens van ahí en lugar del
 archivo principal.
@@ -109,21 +109,21 @@ Old Card:
   closed: true
 ```
 
-| Llave | Uso |
+| Campo | Uso |
 |---|---|
-| `beancount_account` | La cuenta de Beancount donde se registran las transacciones. |
+| `beancount_account` | La cuenta de Beancount donde la app registra las transacciones. |
 | `openai_prompt_type` | El directorio de `config/prompts/` que extrae este tipo de estado de cuenta. |
-| `converter_type` | El pipeline: `cetes_directo`, `fintual`, `alpaca` (o `plata`, su nombre viejo) o `multi`. Sin esta llave, el pipeline es Default. Solo Default y Multi usan reglas. |
-| `accounts` | Solo Multi. Un estado de cuenta que cubre varias cuentas del mismo banco, cada una en su sección "Movimientos de <nombre>". Mapea el nombre impreso a la cuenta de Beancount. Cada movimiento se registra desde la cuenta de su sección. Un traspaso entre esas cuentas aparece dos veces, una por sección. Una regla que mande una fila a la otra cuenta del mismo estado de cuenta la marca como la que se queda, y la fila espejo, con la misma fecha y el monto opuesto en esa otra cuenta, se descarta. |
+| `converter_type` | El pipeline: `cetes_directo`, `fintual`, `alpaca` (o `plata`, su nombre viejo) o `multi`. Sin este campo, el pipeline es Default. Solo Default y Multi usan reglas. |
+| `accounts` | Solo Multi. Un estado de cuenta que cubre varias cuentas del mismo banco, cada una en su sección "Movimientos de <nombre>". Mapea el nombre impreso a la cuenta de Beancount. La app registra cada movimiento desde la cuenta de su sección. Un traspaso entre esas cuentas aparece dos veces, una por sección. Una regla puede mandar una fila a la otra cuenta del mismo estado de cuenta. Esa fila es la que se queda. La app descarta su espejo: la fila de la otra cuenta con la misma fecha y el monto opuesto. |
 | `description` | La pista que recibe el clasificador. Si falta, usa la clave. |
-| `cutoff_day` | El día del mes en que cierra el estado de cuenta. Sin esta llave, el último día del mes. El job lo llena la primera vez que ve un periodo impreso, y nunca lo sobreescribe. |
+| `cutoff_day` | El día del mes en que cierra el estado de cuenta. Sin este campo, el último día del mes. La corrida lo llena la primera vez que ve un periodo impreso, y nunca lo sobrescribe. |
 | `closed` | Con `true`, la cuenta sale del dashboard y del clasificador. Su historial sigue en su página, bajo Cuentas. |
 
 Los pipelines CetesDirecto, Fintual y Alpaca registran intereses, impuestos y
-ganancias en otras cuentas. Estas llaves las nombran. Cada una es opcional.
+ganancias en otras cuentas. Estos campos las nombran. Cada una es opcional.
 Sin ella, la transacción va a `Income:FIXME` o `Expenses:FIXME`.
 
-| Llave | Pipelines | Uso |
+| Campo | Pipelines | Uso |
 |---|---|---|
 | `counterpart_account` | CetesDirecto, Fintual | La cuenta de donde sale el efectivo y a donde vuelve. Por ejemplo, tu cuenta de banco. |
 | `interest_account` | Los tres | Intereses. |
@@ -142,7 +142,7 @@ Edita el bloque de una cuenta en `/accounts/<Key>/config`. Ese editor guarda
 solo ese bloque, así los comentarios del resto del archivo sobreviven. Edita
 todo el archivo en `/accounts/yaml`. Da de alta una cuenta del pipeline
 Default en `/accounts/new`. Las cuentas de los otros pipelines necesitan más
-cuentas de Beancount, así que se dan de alta en `/accounts/yaml`.
+cuentas de Beancount. Dalas de alta en `/accounts/yaml`.
 
 ## config/prompts/\<tipo\>/
 
@@ -152,14 +152,14 @@ Cada `openai_prompt_type` apunta a un directorio con tres archivos:
 - `instructions.txt` es el prompt del sistema.
 - `schema.json` es el esquema JSON estricto de la respuesta.
 
-El modelo de `spec.json` tiene que ser del proveedor en `LLM_PROVIDER`: con
-`openai`, uno de OpenAI (`gpt-5.6-sol`); con `anthropic`, uno de Anthropic
-(`claude-opus-5` para extraer, `claude-haiku-4-5` para clasificar).
-`bin/new-ledger` pone los de Anthropic cuando `LLM_PROVIDER=anthropic`. Las
-demás llaves de `spec.json` van tal cual a la API del proveedor: `reasoning`
-es de OpenAI; `max_tokens`, `thinking` y `output_config` son de Anthropic. El
-esquema es el mismo para los dos; Anthropic exige `additionalProperties: false`
-en cada objeto, que los esquemas estrictos de OpenAI ya traen.
+El modelo de `spec.json` debe ser del proveedor en `LLM_PROVIDER`. Con
+`openai`, uno de OpenAI (`gpt-5.6-sol`). Con `anthropic`, uno de Anthropic
+(`claude-opus-5` para extraer, `claude-haiku-4-5` para clasificar). Si
+`LLM_PROVIDER=anthropic`, `bin/new-ledger` pone los de Anthropic. Los demás
+campos de `spec.json` van tal cual a la API del proveedor. `reasoning` es de
+OpenAI. `max_tokens`, `thinking` y `output_config` son de Anthropic. El esquema
+es el mismo para los dos. Anthropic exige `additionalProperties: false` en cada
+objeto, y los esquemas estrictos de OpenAI ya lo traen.
 
 El directorio `classify` es el prompt que lee la cuenta y el periodo de un PDF
 subido. La app llena su lista de cuentas desde `accounts.yaml` en cada
@@ -175,7 +175,7 @@ directorio más ahí. Un cambio en un prompt es un commit en el ledger.
 
 El pipeline `alpaca` lee los estados de cuenta mensuales de Alpaca, la casa de
 bolsa detrás de varios asesores. `payee` en el bloque de la cuenta es el nombre
-que lleva cada transacción; sin él, "Alpaca". El pipeline abre y cierra las
+que lleva cada transacción. Sin él, "Alpaca". El pipeline abre y cierra las
 cuentas de cada commodity por sí mismo, con `"FIFO"`. No declares esas cuentas
 en `account_opens.beancount`. Si una posición se cierra y vuelve a abrir en
 un mes posterior, `bean-check` reporta una colisión. Borra el `close` anterior

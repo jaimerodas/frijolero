@@ -4,7 +4,7 @@ Frijolero es una app web para la contabilidad personal. Convierte los estados
 de cuenta en PDF de bancos, tarjetas y casas de bolsa en archivos de Beancount.
 
 Así funciona. Subes un PDF. La app identifica la cuenta y el periodo, y tú
-confirmas. Un job en segundo plano extrae las transacciones con OpenAI, aplica
+confirmas. Una corrida en segundo plano extrae las transacciones con OpenAI, aplica
 las reglas de la cuenta y escribe un archivo `.beancount`. Después incluye el
 archivo en el ledger y hace commit y push. El ledger es un repo de git. Los PDF
 viven en Backblaze B2, o en disco si no configuras B2.
@@ -20,7 +20,7 @@ uno vacío.
   - **Cuentas.** Las cuentas del ledger, los PDF de cada una y los periodos
     que faltan. Desde aquí editas la configuración de una cuenta o das de alta
     una cuenta nueva.
-  - **Bitácora.** La lista de jobs y la salida de cada uno. Un job que falla
+  - **Bitácora.** La lista de corridas y la salida de cada una. Una corrida que falla
     muestra el error y deja el PDF en el servidor.
 - **Subir.** Subes un PDF y confirmas la cuenta y el periodo. El botón
   "Solo guardar PDF" guarda el archivo y no extrae nada.
