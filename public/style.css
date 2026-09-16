@@ -373,6 +373,9 @@ button, .button {
 button:hover, .button:hover { background: color-mix(in oklab, var(--ink) 8%, var(--bg)); }
 .primary { color: var(--on-blue); background: var(--blue); border-color: var(--blue); }
 .primary:hover { background: color-mix(in oklab, var(--blue) 88%, var(--ink)); }
+/* The first-account button. Black type: white on NASA red is 3.6:1, black is 5.8:1. */
+.primary.red { color: #000; background: var(--red); border-color: var(--red); }
+.primary.red:hover { background: color-mix(in oklab, var(--red) 88%, #000); }
 
 /* Code blocks */
 pre {

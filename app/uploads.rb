@@ -7,6 +7,12 @@ require 'date'
 module Frijolero
   # Upload a PDF, confirm the classification, enqueue the job.
   class App
+    # No account, no upload: the classifier would spend an OpenAI call and the
+    # confirm page could not name an account.
+    before '/upload*' do
+      redirect '/accounts/new', 303 if Config.accounts.empty?
+    end
+
     get '/upload' do
       erb :upload
     end

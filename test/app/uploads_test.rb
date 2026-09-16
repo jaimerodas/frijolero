@@ -129,6 +129,22 @@ class UploadsTest < Minitest::Test
     Frijolero::App
   end
 
+  def test_without_accounts_every_upload_route_goes_to_the_new_account_form_and_never_calls_openai
+    File.delete(File.join(@dir, 'config', 'accounts.yaml'))
+
+    get '/upload'
+
+    assert_equal 303, last_response.status
+    assert_equal '/accounts/new', URI(last_response.location).path
+
+    post '/upload', pdf: pdf_upload('AMEX 2508.pdf')
+
+    assert_equal 303, last_response.status
+    assert_equal '/accounts/new', URI(last_response.location).path
+    assert_empty @client.uploaded
+    assert_empty Dir.glob(File.join(@dir, 'incoming', '*'))
+  end
+
   def test_dashboard_shows_accounts_and_periods
     get '/'
 
