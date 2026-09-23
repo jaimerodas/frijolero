@@ -30,11 +30,10 @@ module Frijolero
           @removed_total ||= removals.sum { |entry| (-entry.quantity) * entry.price }
         end
 
-        def removed_legs
-          removals.map do |entry|
-            Leg.new(symbol: entry.symbol, quantity: entry.quantity,
-                    total: (-entry.quantity) * entry.price)
-          end
+        # The rows that take shares out, as printed: they carry the symbol and the
+        # negative quantity, and the cost stays open for the booking method.
+        def removals
+          @removals ||= @entries.select { |entry| entry.quantity.negative? }
         end
 
         def added_legs
@@ -61,10 +60,6 @@ module Frijolero
         end
 
         private
-
-        def removals
-          @removals ||= @entries.select { |entry| entry.quantity.negative? }
-        end
 
         def additions
           @additions ||= @entries.select { |entry| entry.quantity.positive? }

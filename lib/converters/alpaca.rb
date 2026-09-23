@@ -179,7 +179,7 @@ module Frijolero
       # Removals first: they read as the "before" side, and leaving the cost open
       # lets the account's booking method pick the lots being rebased.
       def write_action_legs(action)
-        action.removed_legs.each { |leg| write_units(leg.symbol, leg.quantity, '{}') }
+        action.removals.each { |entry| write_units(entry.symbol, entry.quantity, '{}') }
         action.added_legs.each do |leg|
           write_units(leg.symbol, leg.quantity, "{{#{money(leg.total)} #{@currency}}}")
         end

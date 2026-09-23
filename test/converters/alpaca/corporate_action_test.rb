@@ -75,10 +75,10 @@ class AlpacaCorporateActionTest < Minitest::Test
     assert_equal action.removed_total, action.added_legs.sum(&:total)
   end
 
-  def test_removed_legs_keep_their_negative_quantities
+  def test_removals_keep_their_negative_quantities
     action = build(leg('NFLX', '-5', '480.46'), leg('NFLX', '50', '48.05'))
 
-    assert_equal [BigDecimal('-5')], action.removed_legs.map(&:quantity)
+    assert_equal [BigDecimal('-5')], action.removals.map(&:quantity)
   end
 
   def test_collects_the_statement_descriptions_for_the_audit_comment

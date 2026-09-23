@@ -16,10 +16,10 @@ module Frijolero
       #   otherwise                already held, still held      -> leave alone
       #
       # An exited position drops out of the Holdings table rather than appearing with
-      # a zero, so absence there is what stands in for a closing count of zero. The
-      # `moved` guard is what keeps that from firing on a symbol the statement only
-      # mentions in passing — a dividend for a position sold in an earlier month
-      # carries no quantity and must not read as an exit.
+      # a zero, so absence there is what stands in for a closing count of zero. Only
+      # symbols that moved are considered, which keeps that from firing on a symbol
+      # the statement only mentions in passing — a dividend for a position sold in an
+      # earlier month carries no quantity and must not read as an exit.
       class Positions
         include Amounts
 
@@ -29,29 +29,25 @@ module Frijolero
         end
 
         def opened
-          symbols.select { |symbol| moved?(symbol) && opening(symbol).zero? }
+          symbols.select { |symbol| opening(symbol).zero? }
         end
 
         def closed
-          symbols.select { |symbol| moved?(symbol) && closing(symbol).zero? }
+          symbols.select { |symbol| closing(symbol).zero? }
         end
 
         private
 
         def symbols
-          @symbols ||= (closings.keys + movements.keys).uniq.sort
+          @symbols ||= movements.keys.sort
         end
 
         def opening(symbol)
-          closing(symbol) - movements.fetch(symbol, BigDecimal(0))
+          closing(symbol) - movements[symbol]
         end
 
         def closing(symbol)
           closings.fetch(symbol, BigDecimal(0))
-        end
-
-        def moved?(symbol)
-          movements.key?(symbol)
         end
 
         def closings
