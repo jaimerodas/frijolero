@@ -131,20 +131,20 @@ module Frijolero
     # ERROR (recoverable: upload again) or the job raises (fix the key or the credit).
     POLICIES = {
       InsufficientQuotaError => [false, lambda { |e|
-        ["{{x}} #{provider.name} rejected the request: out of credits.", "    Detail: #{e.message}"]
+        ["✗ #{provider.name} rejected the request: out of credits.", "    Detail: #{e.message}"]
       }],
       AuthenticationError => [false, lambda { |e|
-        ["{{x}} #{provider.name} rejected the API key. Check #{key_var}.", "    Detail: #{e.message}"]
+        ["✗ #{provider.name} rejected the API key. Check #{key_var}.", "    Detail: #{e.message}"]
       }],
       RateLimitError => [true, lambda { |e|
-        ["{{x}} #{provider.name} rate limit hit, try again in a few seconds.", "    Detail: #{e.message}"]
+        ["✗ #{provider.name} rate limit hit, try again in a few seconds.", "    Detail: #{e.message}"]
       }],
       NetworkError => [true, lambda { |e|
-        ["{{x}} Network error calling #{provider.name}: #{e.message}", '    Check your internet connection.']
+        ["✗ Network error calling #{provider.name}: #{e.message}", '    Check your internet connection.']
       }],
       APIError => [true, lambda { |e|
         status = e.status ? " (HTTP #{e.status})" : ''
-        ["{{x}} #{provider.name} returned an error#{status}: #{e.message}"]
+        ["✗ #{provider.name} returned an error#{status}: #{e.message}"]
       }]
     }.freeze
 

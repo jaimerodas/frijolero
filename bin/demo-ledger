@@ -306,7 +306,7 @@ second_try = Time.iso8601(jobs.last[:started_at])
 failed = jobs.last.merge(id: SecureRandom.hex(8), status: 'failed', error: 'RuntimeError: Statement terminó con error',
                          started_at: (second_try - 600).iso8601, finished_at: (second_try - 540).iso8601,
                          output: "Extracted transactions: rate limited by OpenAI (429)\n" \
-                                 "{{x}} ERROR processing #{jobs.last[:label]}.pdf")
+                                 "✗ ERROR processing #{jobs.last[:label]}.pdf")
 jobs.insert(-2, failed)
 FileUtils.mkdir_p(Config.data_dir)
 File.write(Config.jobs_file, "#{jobs.map { JSON.generate(it) }.join("\n")}\n")

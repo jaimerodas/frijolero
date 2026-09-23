@@ -26,7 +26,7 @@ module Frijolero
     def process
       @account_config = Config.accounts[@account_name]
       unless @account_config
-        Log.puts "{{x}} #{@filename}: No account configuration found for '#{@account_name}'"
+        Log.puts "✗ #{@filename}: No account configuration found for '#{@account_name}'"
         return NO_ACCOUNT_CONFIG
       end
 
@@ -53,7 +53,7 @@ module Frijolero
       json, beancount = output_paths.values_at(:json, :beancount)
       return false unless File.exist?(json) || File.exist?(beancount)
 
-      Log.puts '{{!}} Existing files, not overwriting:'
+      Log.puts '! Existing files, not overwriting:'
       { 'JSON' => json, 'Beancount' => beancount }.select { |_, path| File.exist?(path) }.each do |label, path|
         Log.puts "  #{label}: #{Log.short_path(path)} (modified #{File.mtime(path).strftime('%Y-%m-%d %H:%M')})"
       end
@@ -80,7 +80,7 @@ module Frijolero
       LLM.report(e)
       ERROR
     rescue StandardError => e
-      Log.puts "{{x}} ERROR processing #{@filename}: #{e.message}"
+      Log.puts "✗ ERROR processing #{@filename}: #{e.message}"
       ERROR
     end
 
@@ -116,7 +116,7 @@ module Frijolero
         stats = Detailer.new(output_paths[:json], yaml_path).run
         Log.detailer_stats(stats)
       else
-        Log.puts '{{i}} No detailer config found, skipping enrichment'
+        Log.puts 'ℹ No detailer config found, skipping enrichment'
       end
     end
 

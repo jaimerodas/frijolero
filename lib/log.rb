@@ -3,30 +3,17 @@
 module Frijolero
   # Plain-line output for the pipeline. The web app points `sink` at a job log.
   module Log
-    GLYPHS = { '{{x}}' => '✗', '{{v}}' => '✓', '{{i}}' => 'ℹ', '{{!}}' => '!', '{{?}}' => '?', '{{*}}' => '*' }.freeze
-
     @sink = $stdout
 
     class << self
       attr_accessor :sink
 
       def puts(msg = '')
-        sink.puts(fmt(msg))
+        sink.puts(msg)
       end
 
-      # Replaces the old glyph markup and strips any other {{color:...}} markers.
-      def fmt(msg)
-        GLYPHS.reduce(msg.to_s) { |s, (k, v)| s.gsub(k, v) }.gsub(/\{\{\w+:(.*?)\}\}/, '\1')
-      end
-
-      # Relative to the ledger when the path is inside it, else with the home as ~.
-      def short_path(path)
-        ledger = ENV.fetch('LEDGER_DIR', nil)
-        return path.delete_prefix("#{ledger}/") if ledger && path.start_with?("#{ledger}/")
-
-        home = Dir.home
-        path.start_with?(home) ? path.sub(home, '~') : path
-      end
+      # Relative to the ledger, where every path the pipeline logs lives.
+      def short_path(path) = path.delete_prefix("#{Config.ledger_dir}/")
 
       def format_number(number)
         int_part, dec_part = format('%.2f', number).split('.')
