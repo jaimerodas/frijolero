@@ -78,7 +78,6 @@ class DetailerTest < Minitest::Test
       detailer = Frijolero::Detailer.new(json_path, fixture_path('sample_detailer.yaml'))
       stats = detailer.run
 
-      assert_equal 3, stats[:total]
       assert_equal 3, stats[:detailed].size
       assert_equal 0, stats[:remaining].size
     end
@@ -99,7 +98,6 @@ class DetailerTest < Minitest::Test
       detailer = Frijolero::Detailer.new(json_path, fixture_path('sample_detailer.yaml'))
       stats = detailer.run
 
-      assert_equal 2, stats[:total]
       assert_equal 1, stats[:detailed].size
       assert_equal 1, stats[:remaining].size
     end

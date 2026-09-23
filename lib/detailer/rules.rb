@@ -18,6 +18,11 @@ module Frijolero
         new(YAML.load_file(config_path))
       end
 
+      # The fields a list of matches sets, a later rule overwriting what it sets.
+      def self.merge(matched)
+        matched.reduce({}) { |fields, rule| fields.merge(rule.slice('payee', 'narration', 'account').compact) }
+      end
+
       def initialize(config)
         @config = config || {}
       end
@@ -52,7 +57,7 @@ module Frijolero
 
       def normalize(rules)
         case rules
-        when Array then rules
+        when Array then rules.grep(Hash)
         when Hash then [rules]
         else []
         end

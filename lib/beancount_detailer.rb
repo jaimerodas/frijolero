@@ -61,20 +61,8 @@ module Frijolero
 
     def detail(transaction, matched, posting_index, stats)
       entry = summarize(transaction)
-      fields = merge(matched)
-      fields[:posting_index] = posting_index
-      transaction.apply(**fields)
+      transaction.apply(**Detailer::Rules.merge(matched).transform_keys(&:to_sym), posting_index: posting_index)
       stats[:detailed] << entry
-    end
-
-    # Same truthy-guard merge as Detailer#apply_rules: a later rule overwrites
-    # the fields it sets and leaves the others alone.
-    def merge(matched)
-      matched.each_with_object({}) do |rule, fields|
-        fields[:payee] = rule['payee'] if rule['payee']
-        fields[:narration] = rule['narration'] if rule['narration']
-        fields[:account] = rule['account'] if rule['account']
-      end
     end
 
     # String keys so Log.detailer_stats and Log.transaction_summary work unchanged.

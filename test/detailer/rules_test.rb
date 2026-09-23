@@ -41,6 +41,21 @@ class DetailerRulesTest < Minitest::Test
     assert_equal [{ 'payee' => 'Bank' }, { 'account' => 'Expenses:Transportation' }], matched
   end
 
+  def test_merge_lets_a_later_rule_overwrite_only_the_fields_it_sets
+    merged = Frijolero::Detailer::Rules.merge([{ 'payee' => 'Bank', 'account' => 'Expenses:Bank' },
+                                               { 'account' => 'Expenses:Transportation', 'narration' => nil,
+                                                 'when' => { 'amount' => -120 } }])
+
+    assert_equal({ 'payee' => 'Bank', 'account' => 'Expenses:Transportation' }, merged)
+  end
+
+  def test_skips_a_list_entry_that_is_not_a_rule
+    matched = rules('start_with' => { 'UBER' => ['oops', { 'payee' => 'Uber' }] })
+              .matches_for(description: 'UBER TRIP', amount: -120.0)
+
+    assert_equal [{ 'payee' => 'Uber' }], matched
+  end
+
   def test_returns_multiple_patterns_from_the_same_section_in_yaml_order
     config = {
       'start_with' => {
