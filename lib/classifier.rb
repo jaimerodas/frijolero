@@ -26,7 +26,7 @@ module Frijolero
     # A parseable, known filename ("AMEX 2508.pdf") answers without any model call.
     def filename_result(pdf_path)
       key, period = AccountConfig.parse_filename(pdf_path)
-      return nil unless key && AccountConfig.find_config(key)
+      return nil unless key && Config.accounts[key]
 
       Result.new(account: key, period: period)
     end

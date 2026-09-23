@@ -5,10 +5,6 @@ require 'date'
 module Frijolero
   module AccountConfig
     class << self
-      def accounts
-        Config.accounts
-      end
-
       # Parses a filename to extract account key and period.
       #   "AMEX Aeromexico 2508.pdf" => ["AMEX Aeromexico", "2508"]
       # The period is the last word (4 digits); everything before the single
@@ -22,32 +18,15 @@ module Frijolero
         [match[1], match[2]]
       end
 
-      # Finds account config by exact key.
-      def find_config(account_key)
-        return nil unless account_key
-
-        accounts[account_key]
-      end
-
-      # Returns the rules file path for an account key.
-      def rules_path(account_key)
-        Config.rules_path(account_key)
-      end
-
-      # Returns a list of available account names for error messages
-      def available_accounts
-        accounts.keys
-      end
-
-      # {key => description} for the classifier. Falls back to the key itself
-      # so an account without a description still appears in the list.
       # Accounts that still receive statements. A closed account keeps its key so
       # its history (pages, rules, PDFs) still resolves, but it leaves the
       # dashboard and the classifier's choices.
       def active
-        accounts.reject { |_key, config| config['closed'] }
+        Config.accounts.reject { |_key, config| config['closed'] }
       end
 
+      # {key => description} for the classifier. Falls back to the key itself
+      # so an account without a description still appears in the list.
       def descriptions
         active.to_h { |key, config| [key, config['description'] || key] }
       end
@@ -57,7 +36,7 @@ module Frijolero
       # day of the month. A value already in the file is never replaced, so a hand
       # edit wins.
       def record_cutoff(account_key, period_end)
-        config = find_config(account_key)
+        config = Config.accounts[account_key]
         return if config.nil? || config.key?('cutoff_day')
 
         last_day = Date.new(period_end.year, period_end.month, -1)

@@ -24,7 +24,7 @@ module Frijolero
 
     # The account can be gone by the time the job runs: its first step is a pull.
     def process
-      @account_config = AccountConfig.find_config(@account_name)
+      @account_config = Config.accounts[@account_name]
       unless @account_config
         Log.puts "{{x}} #{@filename}: No account configuration found for '#{@account_name}'"
         return NO_ACCOUNT_CONFIG
