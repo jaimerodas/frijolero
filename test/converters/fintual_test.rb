@@ -111,24 +111,6 @@ class FintualConverterTest < Minitest::Test
     assert_includes io.string, '2026-03-31 price PORTMAN_E10F  1.334367 MXN'
   end
 
-  def test_raises_without_input
-    assert_raises ArgumentError do
-      Frijolero::Converters::Fintual.convert(input: nil, account: 'Test')
-    end
-  end
-
-  def test_raises_without_account
-    assert_raises ArgumentError do
-      Frijolero::Converters::Fintual.convert(input: 'test.json', account: nil)
-    end
-  end
-
-  def test_initializer_raises_without_input
-    assert_raises ArgumentError do
-      Frijolero::Converters::Fintual.new(input: nil, account: 'Test')
-    end
-  end
-
   def test_initializer_raises_without_account
     assert_raises ArgumentError do
       Frijolero::Converters::Fintual.new(input: 'test.json', account: nil)

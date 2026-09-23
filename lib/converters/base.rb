@@ -5,35 +5,22 @@ require 'json'
 module Frijolero
   module Converters
     class Base
-      def self.convert(**)
-        new(**).convert
+      # Built before the file opens, so a missing account never truncates the output.
+      def self.convert(output:, **)
+        converter = new(**)
+        File.open(output, 'w') { |io| converter.run_to(io) }
       end
 
-      def initialize(input:, account:, output: nil)
-        raise ArgumentError, 'input file required' unless input
+      # accounts.yaml is edited by hand: a block without beancount_account must not
+      # become postings with no account.
+      def initialize(input:, account:)
         raise ArgumentError, 'account required' unless account
 
         @input = input
         @account = account
-        @output = output
-      end
-
-      def convert
-        out_path = @output || derived_output_path
-        File.open(out_path, 'w') { |io| run_to(io) }
-        out_path
-      end
-
-      def run_to(_io)
-        raise NotImplementedError, "#{self.class} must implement #run_to(io)"
       end
 
       private
-
-      def derived_output_path
-        File.expand_path(File.join(File.dirname(@input), '..',
-                                   "#{File.basename(@input, '.json')}.beancount"))
-      end
 
       def load_json
         JSON.parse(File.read(@input, encoding: 'UTF-8'))

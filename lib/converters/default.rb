@@ -11,9 +11,8 @@ module Frijolero
 
       # `sources` maps a row's `account` label to the account it posts from; a row
       # without a known label posts from `account`.
-      def initialize(expense_account: DEFAULT_EXPENSE_ACCOUNT, sources: {}, **)
+      def initialize(sources: {}, **)
         super(**)
-        @expense_account = expense_account
         @sources = sources
       end
 
@@ -29,7 +28,7 @@ module Frijolero
         narration_provided = transaction['narration']
         amount = transaction.fetch('amount').to_f
         currency = transaction['currency'] || 'MXN'
-        expense = transaction['expense_account'] || @expense_account
+        expense = transaction['expense_account'] || DEFAULT_EXPENSE_ACCOUNT
 
         lines = [header_line(date, transaction['payee'], narration_provided || description)]
         lines << %(  source_desc: "#{description}") if narration_provided

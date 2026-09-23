@@ -207,50 +207,6 @@ class PipelineTest < Minitest::Test
     assert_equal Frijolero::Converters::AccountTargets::DEFAULT_GAINS, captured[:targets].gains
   end
 
-  def test_default_convert_accepts_account_override
-    captured = nil
-    Frijolero::Converters::Default.stub(:convert, ->(**kwargs) { captured = kwargs }) do
-      pipeline = Frijolero::Pipeline::Default.new('beancount_account' => 'Liabilities:Amex')
-      pipeline.convert(json_path: '/in.json', output: '/out.beancount', account: 'Override:Account')
-    end
-    assert_equal 'Override:Account', captured[:account]
-  end
-
-  def test_default_convert_passes_expense_account_when_set
-    captured = nil
-    Frijolero::Converters::Default.stub(:convert, ->(**kwargs) { captured = kwargs }) do
-      pipeline = Frijolero::Pipeline::Default.new('beancount_account' => 'Liabilities:Amex')
-      pipeline.convert(json_path: '/in.json', output: '/out.beancount', expense_account: 'Expenses:Custom')
-    end
-    assert_equal 'Expenses:Custom', captured[:expense_account]
-  end
-
-  def test_default_convert_omits_expense_account_when_nil
-    captured = nil
-    Frijolero::Converters::Default.stub(:convert, ->(**kwargs) { captured = kwargs }) do
-      pipeline = Frijolero::Pipeline::Default.new('beancount_account' => 'Liabilities:Amex')
-      pipeline.convert(json_path: '/in.json', output: '/out.beancount')
-    end
-    refute captured.key?(:expense_account)
-  end
-
-  def test_cetes_directo_convert_accepts_account_override
-    captured = nil
-    Frijolero::Converters::CetesDirecto.stub(:convert, ->(**kwargs) { captured = kwargs }) do
-      pipeline = Frijolero::Pipeline::CetesDirecto.new('beancount_account' => 'Assets:Cetes')
-      pipeline.convert(json_path: '/in.json', output: '/out.beancount', account: 'Override:Cetes')
-    end
-    assert_equal 'Override:Cetes', captured[:account]
-  end
-
-  def test_strategies_ignore_unknown_kwargs
-    Frijolero::Converters::CetesDirecto.stub(:convert, ->(**) {}) do
-      pipeline = Frijolero::Pipeline::CetesDirecto.new('beancount_account' => 'Assets:Cetes')
-      # expense_account is meaningless for CetesDirecto, must not raise
-      pipeline.convert(json_path: '/in.json', output: '/out.beancount', expense_account: 'ignored')
-    end
-  end
-
   # --- validate! ---------------------------------------------------------
 
   def test_validate_rejects_a_payload_that_is_not_an_object

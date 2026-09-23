@@ -102,24 +102,6 @@ class CetesDirectoConverterTest < Minitest::Test
     assert_includes io.string, '2026-03-01 balance Assets:Investments:CETESDirecto  91,200.10 MXN'
   end
 
-  def test_raises_without_input
-    assert_raises ArgumentError do
-      Frijolero::Converters::CetesDirecto.convert(input: nil, account: 'Test')
-    end
-  end
-
-  def test_raises_without_account
-    assert_raises ArgumentError do
-      Frijolero::Converters::CetesDirecto.convert(input: 'test.json', account: nil)
-    end
-  end
-
-  def test_initializer_raises_without_input
-    assert_raises ArgumentError do
-      Frijolero::Converters::CetesDirecto.new(input: nil, account: 'Test')
-    end
-  end
-
   def test_initializer_raises_without_account
     assert_raises ArgumentError do
       Frijolero::Converters::CetesDirecto.new(input: 'test.json', account: nil)

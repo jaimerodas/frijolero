@@ -392,15 +392,9 @@ class AlpacaConverterTest < Minitest::Test
     assert_includes io.string, '2025-11-25 * "Alpaca" "Buy VGK"'
   end
 
-  def test_raises_without_input
-    assert_raises ArgumentError do
-      Frijolero::Converters::Alpaca.convert(input: nil, account: 'Test')
-    end
-  end
-
   def test_raises_without_account
     assert_raises ArgumentError do
-      Frijolero::Converters::Alpaca.convert(input: 'test.json', account: nil)
+      Frijolero::Converters::Alpaca.new(input: 'test.json', account: nil)
     end
   end
 

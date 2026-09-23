@@ -79,10 +79,8 @@ module Frijolero
         "Found #{list.size} transactions#{Log.transaction_summary(list)}"
       end
 
-      def convert(json_path:, output: nil, account: beancount_account, expense_account: nil, **)
-        kwargs = { input: json_path, account: account, output: output }
-        kwargs[:expense_account] = expense_account if expense_account
-        Converters::Default.convert(**kwargs)
+      def convert(json_path:, output:)
+        Converters::Default.convert(input: json_path, account: beancount_account, output: output)
       end
     end
 
@@ -112,9 +110,9 @@ module Frijolero
         end
       end
 
-      def convert(json_path:, output: nil, account: beancount_account, **)
+      def convert(json_path:, output:)
         drop_mirrors(json_path)
-        Converters::Default.convert(input: json_path, account: account, output: output, sources: accounts)
+        Converters::Default.convert(input: json_path, account: beancount_account, output: output, sources: accounts)
       end
 
       private
@@ -159,10 +157,10 @@ module Frijolero
         "Found #{list.size} movements"
       end
 
-      def convert(json_path:, output: nil, account: beancount_account, **)
+      def convert(json_path:, output:)
         Converters::CetesDirecto.convert(
           input: json_path,
-          account: account,
+          account: beancount_account,
           output: output,
           targets: Converters::AccountTargets.from_config(@account_config)
         )
@@ -185,10 +183,10 @@ module Frijolero
         "Found #{list.size} transactions"
       end
 
-      def convert(json_path:, output: nil, account: beancount_account, **)
+      def convert(json_path:, output:)
         Converters::Fintual.convert(
           input: json_path,
-          account: account,
+          account: beancount_account,
           output: output,
           targets: Converters::AccountTargets.from_config(@account_config)
         )
@@ -220,10 +218,10 @@ module Frijolero
         "Found #{parts.join(', ')}"
       end
 
-      def convert(json_path:, output: nil, account: beancount_account, **)
+      def convert(json_path:, output:)
         Converters::Alpaca.convert(
           input: json_path,
-          account: account,
+          account: beancount_account,
           output: output,
           targets: Converters::AccountTargets.from_config(@account_config)
         )
