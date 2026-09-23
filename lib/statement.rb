@@ -169,7 +169,7 @@ module Frijolero
     end
 
     def merge_into_ledger
-      BeancountMerger.new(files: [output_paths[:beancount]], quiet: true).run
+      BeancountMerger.merge(output_paths[:beancount])
       Log.puts "Merged into: #{Log.short_path(Config.main_file)}"
     end
 

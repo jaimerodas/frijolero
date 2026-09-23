@@ -46,7 +46,6 @@ Metrics/MethodLength:
     - handle_sell
     - run_pipeline
     - execute
-    - process_one
     - raise_error_for
     - run
     - poll_response

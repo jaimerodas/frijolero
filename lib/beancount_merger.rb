@@ -1,84 +1,16 @@
 # frozen_string_literal: true
 
 module Frijolero
-  class BeancountMerger
-    def initialize(files:, output: nil, dry_run: false, quiet: false)
-      @files = files
-      @output = output || Config.main_file
-      @dry_run = dry_run
-      @quiet = quiet
-    end
+  # Puts a statement's file into the ledger: `include "<path>"` at the end of the
+  # main file, relative to its directory, unless the main file already has it.
+  module BeancountMerger
+    def self.merge(file)
+      main = File.expand_path(Config.main_file)
+      relative = Pathname(File.expand_path(file)).relative_path_from(File.dirname(main)).to_s
+      line = /^include\s+"#{Regexp.escape(relative)}"\s*$/
+      return if File.exist?(main) && File.foreach(main).any? { |existing| existing.match?(line) }
 
-    def run
-      validate!
-
-      existing_includes = read_existing_includes
-      total_entries = @files.sum { |file| process_one(file, existing_includes) }
-      report_totals(total_entries)
-    end
-
-    private
-
-    def process_one(file, existing_includes)
-      entries = count_entries(file)
-      basename = File.basename(file)
-      relative_path = relative_include_path(file)
-
-      if existing_includes.include?(relative_path)
-        puts "Skipped (already included): #{basename}" unless @quiet
-      elsif @dry_run
-        puts "Would add include: #{relative_path} (#{entries} entries)" unless @quiet
-      else
-        File.open(@output, 'a') { |out| out.puts "include \"#{relative_path}\"" }
-        puts "Merged: #{basename} (#{entries} entries)" unless @quiet
-      end
-
-      entries
-    end
-
-    def report_totals(total_entries)
-      return if @quiet
-
-      puts
-      if @dry_run
-        puts "Dry run complete. Would merge #{total_entries} entries from #{@files.size} file(s)."
-      else
-        puts "Done. Merged #{total_entries} entries from #{@files.size} file(s) into #{@output}"
-      end
-    end
-
-    def validate!
-      raise ArgumentError, 'No input files provided' if @files.empty?
-      unless @output
-        raise ArgumentError,
-              'Output file not specified. Set LEDGER_DIR (and optionally LEDGER_MAIN_FILE) or use -o'
-      end
-
-      @files.each do |file|
-        raise ArgumentError, "File not found: #{file}" unless File.exist?(file)
-      end
-    end
-
-    def count_entries(file)
-      File.readlines(file).count { |line| line.match?(/^\d{4}-\d{2}-\d{2}\s+\*/) }
-    end
-
-    def relative_include_path(file)
-      Pathname(File.expand_path(file))
-        .relative_path_from(Pathname(File.dirname(File.expand_path(@output))))
-        .to_s
-    end
-
-    def read_existing_includes
-      return Set.new unless @output && File.exist?(@output)
-
-      includes = Set.new
-      File.readlines(@output).each do |line|
-        if (match = line.match(/^include\s+"(.+)"\s*$/))
-          includes.add(match[1])
-        end
-      end
-      includes
+      File.open(main, 'a') { |out| out.puts %(include "#{relative}") }
     end
   end
 end

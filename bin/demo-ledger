@@ -214,7 +214,7 @@ def statement(key, period, rows, uploaded_on)
   File.write(json, JSON.pretty_generate({ 'transactions' => rows.sort_by { it['date'] } }))
   stats = Frijolero::Detailer.new(json, Config.rules_path(key)).run
   Frijolero::Pipeline.for(Config.accounts[key]).convert(json_path: json, output: beancount)
-  Frijolero::BeancountMerger.new(files: [beancount], quiet: true).run
+  Frijolero::BeancountMerger.merge(beancount)
   write_pdf(key, period)
   output = ["Extracted transactions (#{RNG.rand(20.0..90.0).round(1)}s)",
             "Saved JSON: #{Frijolero::Log.short_path(json)}",
