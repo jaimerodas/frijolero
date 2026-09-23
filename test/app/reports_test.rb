@@ -47,13 +47,34 @@ class ReportsPageTest < Minitest::Test
         Frijolero::Reports::CONVERSIONS => { 'MXN' => BigDecimal('-10') } }
     end
 
-    def journal(prefix, from, to, mxn: true, text: nil)
-      @calls << [:journal, prefix, from, to, mxn, text]
+    # Set by a test: the journal's transactions in ledger order, instead of JOURNAL.
+    attr_writer :rows
+
+    def journal(prefix, from, to, mxn: true, ids: nil)
+      @calls << [:journal, prefix, from, to, mxn]
       raise Frijolero::Reports::Error, error if error
       return [] if empty
 
-      txns = JOURNAL.map { |tx| tx.merge(postings: postings_for(tx, prefix)) }
-      prefix.empty? ? txns : txns.select { |tx| tx[:postings].last[:matched] }
+      txns = transactions(prefix)
+      ids ? txns.select { |tx| ids.include?(tx[:id]) } : txns
+    end
+
+    # The contract: one entry per transaction, only its matched postings.
+    def journal_index(prefix, from, to, mxn: true, text: nil)
+      @calls << [:journal_index, prefix, from, to, mxn, text]
+      raise Frijolero::Reports::Error, error if error
+      return [] if empty
+
+      transactions(prefix).map do |tx|
+        tx.slice(:id, :date, :payee).merge(postings: tx[:postings].select { |p| p[:matched] })
+      end
+    end
+
+    # Ids by position, as rledger numbers them in ledger order, so a test's copies stay distinct.
+    def transactions(prefix)
+      txns = @rows || JOURNAL.map { |tx| tx.merge(postings: postings_for(tx, prefix)) }
+                             .select { |tx| prefix.empty? || tx[:postings].last[:matched] }
+      txns.each_with_index.map { |tx, i| tx.merge(id: i) }
     end
 
     # The balance before the period, in the ledger's sign: a card owes 250.
@@ -443,15 +464,102 @@ class ReportsPageTest < Minitest::Test
     rows = @reports.journal('Expenses', nil, nil)
     rows.first[:postings] = [{ account: 'Expenses:Compras', amount: { 'MXN' => BigDecimal('-150') }, matched: true },
                              { account: 'Expenses:Compras', amount: { 'MXN' => BigDecimal('150') }, matched: true }]
-    @reports.define_singleton_method(:journal) { |*| [rows.first] }
+    @reports.rows = [rows.first]
     get '/journal', account: 'Expenses'
 
     assert_includes last_response.body, '<data value="0.0">0.00 MXN</data>'
   end
 
+  # 450 compras of 150 on one day, n0 to n449 in ledger order: three pages, the last with 50.
+  def journal_rows_on_three_pages
+    first = @reports.journal('Expenses', nil, nil).first
+    @reports.rows = Array.new(450) { |i| first.merge(narration: "n#{i}") }
+  end
+
+  def shown(body) = body.scan(%r{</strong>: (n\d+)<}).flatten
+
+  def test_journal_shows_two_hundred_transactions_per_page
+    journal_rows_on_three_pages
+    get '/journal', account: 'Expenses'
+
+    assert_equal (0...200).map { |i| "n#{i}" }, shown(last_response.body)
+  end
+
+  def test_journal_page_param_shows_that_slice_of_the_order
+    journal_rows_on_three_pages
+    get '/journal', account: 'Expenses', page: '3'
+
+    assert_equal (400...450).map { |i| "n#{i}" }, shown(last_response.body)
+  end
+
+  def test_journal_count_and_total_cover_every_page
+    journal_rows_on_three_pages
+    get '/journal', account: 'Expenses', page: '2'
+
+    assert_includes last_response.body, '<span class="count">450 movimientos</span>'
+    assert_includes last_response.body, '<data value="67500.0">67,500.00 MXN</data>'
+  end
+
+  def test_journal_chart_covers_every_page
+    journal_rows_on_three_pages
+    get '/journal', account: 'Expenses', chart: 'history'
+
+    json = last_response.body[%r{<script type="application/json" id="chart-data">(.*?)</script>}m, 1]
+    assert_equal 450, JSON.parse(json)['postings'].size
+  end
+
+  def test_journal_fetches_only_the_transactions_of_the_page
+    journal_rows_on_three_pages
+    seen = nil
+    fake = @reports
+    real = fake.method(:journal)
+    fake.define_singleton_method(:journal) { |*args, **kw| (seen = kw[:ids]) && real.call(*args, **kw) }
+    get '/journal', account: 'Expenses', page: '3'
+
+    assert_equal (400...450).to_a, seen
+  end
+
+  def test_journal_page_links_keep_the_filter_and_the_sort
+    journal_rows_on_three_pages
+    get '/journal', account: 'Expenses', q: 'n', sort: 'date-asc', page: '2'
+    period = "period=#{Date.today.year}"
+    nav = last_response.body[%r{<nav class="pages".*?</nav>}m]
+
+    assert_includes nav, %(href="/journal?#{period}&amp;account=Expenses&amp;q=n&amp;sort=date-asc" rel="prev")
+    assert_includes nav,
+                    %(href="/journal?#{period}&amp;account=Expenses&amp;q=n&amp;sort=date-asc&amp;page=3" rel="next")
+    assert_includes nav, 'Página 2 de 3'
+  end
+
+  def test_journal_first_and_last_pages_link_only_one_way
+    journal_rows_on_three_pages
+    get '/journal', account: 'Expenses'
+    refute_includes last_response.body, 'rel="prev"'
+    assert_includes last_response.body, 'rel="next"'
+
+    get '/journal', account: 'Expenses', page: '3'
+    assert_includes last_response.body, 'rel="prev"'
+    refute_includes last_response.body, 'rel="next"'
+  end
+
+  def test_journal_one_page_has_no_page_links
+    get '/journal', account: 'Expenses'
+
+    refute_includes last_response.body, 'class="pages"'
+  end
+
+  def test_journal_page_out_of_range_or_not_a_number_clamps
+    journal_rows_on_three_pages
+    get '/journal', account: 'Expenses', page: '99'
+    assert_equal 'n400', shown(last_response.body).first
+
+    get '/journal', account: 'Expenses', page: 'x'
+    assert_equal 'n0', shown(last_response.body).first
+  end
+
   def test_journal_count_has_a_thousands_separator
     rows = @reports.journal('Expenses', nil, nil)
-    @reports.define_singleton_method(:journal) { |*| rows * 1000 }
+    @reports.rows = rows * 1000
     get '/journal', account: 'Expenses'
 
     assert_includes last_response.body, '<span class="count">2,000 movimientos</span>'
@@ -464,7 +572,7 @@ class ReportsPageTest < Minitest::Test
     rows << rows.first.merge(date: Date.new(2026, 7, 25), narration: 'chicle',
                              postings: [{ account: 'Expenses:Compras', amount: { 'MXN' => BigDecimal('10') },
                                           matched: true }])
-    @reports.define_singleton_method(:journal) { |*| rows }
+    @reports.rows = rows
   end
 
   def order_of(body) = %w[compra Nómina chicle segunda].sort_by { |word| body.index(word) || body.size }
@@ -472,7 +580,7 @@ class ReportsPageTest < Minitest::Test
   def test_journal_lists_the_newest_first_and_keeps_the_ledger_order_within_a_day
     rows = @reports.journal('', nil, nil)
     rows << rows.first.merge(narration: 'segunda')
-    @reports.define_singleton_method(:journal) { |*| rows }
+    @reports.rows = rows
     get '/journal'
 
     assert_equal %w[Nómina compra segunda chicle], order_of(last_response.body)
@@ -523,7 +631,7 @@ class ReportsPageTest < Minitest::Test
     assert_includes body, '<a href="/journal?period=2026" aria-current="true">Fecha ▴</a>'
     refute_includes body, 'Monto'
 
-    @reports.define_singleton_method(:journal) { |*| [] }
+    @reports.rows = []
     get '/journal', account: 'Expenses'
     refute_includes last_response.body, 'class="order"'
   end
@@ -914,19 +1022,21 @@ class ReportsPageTest < Minitest::Test
     to = Date.new(Date.today.year, 12, 31)
     get '/journal', account: 'Expenses:Food'
 
-    assert_equal [:journal, 'Expenses:Food', from, to, true, nil], @reports.calls.last
+    assert_includes @reports.calls, [:journal_index, 'Expenses:Food', from, to, true, nil]
   end
 
   def test_journal_calls_the_query_with_the_search_text
     get '/journal', q: 'uber'
 
-    assert_equal 'uber', @reports.calls.last[5]
+    assert_equal 'uber', @reports.calls.assoc(:journal_index)[5]
   end
 
   def test_journal_calls_the_query_with_the_currency_choice
     get '/journal', mxn: '0'
 
-    assert_equal false, @reports.calls.last[4]
+    queries = @reports.calls.select { |call| %i[journal_index journal].include?(call.first) }
+
+    assert_equal([false, false], queries.map { |call| call[4] })
   end
 
   def test_an_account_with_a_quote_or_a_space_is_rejected_before_the_query_runs

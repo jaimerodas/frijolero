@@ -182,14 +182,14 @@ class ReportsTest < Minitest::Test
     assert_includes seen, 'SELECT id, date, flag, payee, narration, filename, lineno, account,'
   end
 
-  def test_journal_text_clause_is_escaped_when_given
-    seen = journal_bql('', Date.new(2026, 8, 1), Date.new(2026, 8, 31), text: "uber's")
+  def test_journal_index_text_clause_is_escaped_when_given
+    seen = index_bql('', Date.new(2026, 8, 1), Date.new(2026, 8, 31), text: "uber's")
 
     assert_includes seen, "AND (payee ~ 'uber.s' OR narration ~ 'uber.s')"
   end
 
-  def test_journal_has_no_text_clause_when_blank
-    seen = journal_bql('', Date.new(2026, 8, 1), Date.new(2026, 8, 31), text: '   ')
+  def test_journal_index_has_no_text_clause_when_blank
+    seen = index_bql('Expenses', Date.new(2026, 8, 1), Date.new(2026, 8, 31), text: '   ')
 
     refute_includes seen, 'payee ~'
   end
@@ -203,6 +203,77 @@ class ReportsTest < Minitest::Test
 
     assert_includes seen, 'position AS amount'
     refute_includes seen, 'CONVERT'
+  end
+
+  def test_journal_bql_fetches_only_the_given_ids
+    seen = journal_bql('', Date.new(2026, 8, 1), Date.new(2026, 8, 31), ids: [4, 7])
+
+    assert_includes seen, 'AND id IN (4, 7)'
+  end
+
+  def test_journal_with_no_ids_runs_no_query
+    rows = Reports.stub(:run, ->(_) { flunk 'ran a query' }) do
+      Reports.journal('', Date.new(2026, 8, 1), Date.new(2026, 8, 31), ids: [])
+    end
+
+    assert_empty rows
+  end
+
+  def test_journal_entries_carry_their_id
+    rows = with_rledger("cat #{fixture_path('report/journal.json')}") do
+      Reports.journal('', Date.new(2026, 8, 1), Date.new(2026, 8, 1))
+    end
+
+    assert_equal([1, 2, 3], rows.map { |r| r[:id] })
+  end
+
+  def index_bql(*, **)
+    seen = nil
+    Reports.stub(:run, ->(bql) { seen = bql and '{"rows": []}' }) { Reports.journal_index(*, **) }
+    seen
+  end
+
+  def test_journal_index_selects_only_the_matched_postings
+    seen = index_bql('Expenses:Food', Date.new(2026, 8, 1), Date.new(2026, 8, 31), text: 'uber')
+
+    assert_includes seen, "SELECT id, date, payee, account, CONVERT(position, 'MXN', 2026-08-31) AS amount"
+    assert_includes seen, "AND account ~ '^Expenses:Food(:|$)'"
+    assert_includes seen, "AND (payee ~ 'uber' OR narration ~ 'uber')"
+  end
+
+  def test_journal_index_without_an_account_is_one_row_per_transaction
+    seen = index_bql('', Date.new(2026, 8, 1), Date.new(2026, 8, 31))
+
+    assert_equal 'SELECT id, date WHERE date >= 2026-08-01 AND date <= 2026-08-31 GROUP BY id, date', seen
+  end
+
+  def test_journal_index_groups_matched_postings_by_transaction
+    json = {
+      columns: %w[id date payee account amount],
+      rows: [[1, '2026-08-01', 'Uber', 'Expenses:Food:Delivery', { 'currency' => 'MXN', 'number' => '500.58' }],
+             [1, '2026-08-01', 'Uber', 'Expenses:Food:Tips', { 'currency' => 'MXN', 'number' => '50' }],
+             [2, '2026-08-02', nil, 'Expenses:Food', { 'currency' => 'MXN', 'number' => '20' }]]
+    }.to_json
+
+    index = with_rledger("echo '#{json}'") do
+      Reports.journal_index('Expenses:Food', Date.new(2026, 8, 1), Date.new(2026, 8, 3))
+    end
+
+    assert_equal([1, 2], index.map { |e| e[:id] })
+    assert_equal Date.new(2026, 8, 1), index.first[:date]
+    assert_equal 'Uber', index.first[:payee]
+    assert_equal [{ account: 'Expenses:Food:Delivery', amount: { 'MXN' => BigDecimal('500.58') }, matched: true },
+                  { account: 'Expenses:Food:Tips', amount: { 'MXN' => BigDecimal('50') }, matched: true }],
+                 index.first[:postings]
+  end
+
+  def test_journal_index_without_an_account_has_no_postings
+    json = { columns: %w[id date], rows: [[1, '2026-08-01'], [2, '2026-08-02']] }.to_json
+
+    index = with_rledger("echo '#{json}'") { Reports.journal_index('', Date.new(2026, 8, 1), Date.new(2026, 8, 3)) }
+
+    assert_equal [{ id: 1, date: Date.new(2026, 8, 1), payee: nil, postings: [] },
+                  { id: 2, date: Date.new(2026, 8, 2), payee: nil, postings: [] }], index
   end
 
   def test_journal_groups_rows_into_transactions_with_postings_in_ledger_order

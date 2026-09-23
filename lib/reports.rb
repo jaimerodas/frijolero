@@ -59,12 +59,41 @@ module Frijolero
 
     # One entry per transaction with a posting under `prefix` ('' keeps every
     # transaction, every posting unmatched), each with all of its postings,
-    # unmatched ones first. `text` is escaped through `bql_text`.
-    def journal(prefix, from, to, mxn: true, text: nil)
-      bql = journal_query(from, to, mxn: mxn, text: text)
-      rows = JSON.parse(run(bql)).fetch('rows').map { |row| journal_row(row) }
+    # unmatched ones first.
+    # `ids` limits it to those transactions, the journal's page, which the
+    # index already filtered by text; [] runs no query.
+    def journal(prefix, from, to, mxn: true, ids: nil)
+      return [] if ids == []
+
+      bql = journal_query(from, to, mxn: mxn)
+      bql += " AND id IN (#{ids.join(', ')})" if ids
+      rows = table(bql).map { |row| journal_row(row) }
       rows.group_by { |row| row[:id] }.values.filter_map { |postings| journal_transaction(prefix, postings) }
     end
+
+    # Every transaction of the journal, light: its id, date, payee and only the
+    # postings under `prefix`, all matched. The page counts, totals, sorts and
+    # charts these, then fetches its own transactions whole through `journal`.
+    # With '' there are no postings and no payee.
+    def journal_index(prefix, from, to, mxn: true, text: nil)
+      table(journal_index_query(prefix, from, to, mxn, text)).group_by(&:first).map do |id, postings|
+        _, date, payee = postings.first
+        { id: id, date: Date.iso8601(date), payee: payee,
+          postings: postings.filter_map { |p| { account: p[3], amount: amount(p[4]), matched: true } if p[3] } }
+      end
+    end
+
+    # `prefix` is validated by the route before it gets here, as in `opening`.
+    def journal_index_query(prefix, from, to, mxn, text)
+      where = journal_where(from, to, text)
+      return "SELECT id, date WHERE #{where} GROUP BY id, date" if prefix.empty?
+
+      "SELECT id, date, payee, account, #{journal_amount(to, mxn)} AS amount WHERE #{where} " \
+        "AND account ~ '^#{prefix}(:|$)'"
+    end
+
+    # The rows of a query as arrays in column order, from either shape.
+    def table(bql) = JSON.parse(run(bql)).fetch('rows').map { |row| row.is_a?(Hash) ? row.values : row }
 
     # The balance of `prefix` (the account and its subtree) the day before `from`,
     # {currency => BigDecimal} in the ledger's sign; with `mxn`, at the closing
@@ -79,24 +108,31 @@ module Frijolero
 
     # No account clause: a transaction's other postings are needed too, so the
     # prefix filter runs in Ruby once the rows are grouped.
-    def journal_query(from, to, mxn:, text:)
-      amount = mxn ? "CONVERT(position, 'MXN', #{to.iso8601})" : 'position'
-      bql = "SELECT id, date, flag, payee, narration, filename, lineno, account, #{amount} AS amount " \
-            "WHERE date >= #{from.iso8601} AND date <= #{to.iso8601}"
-      bql += " AND (payee ~ '#{bql_text(text)}' OR narration ~ '#{bql_text(text)}')" if text && !text.strip.empty?
-      bql
+    def journal_query(from, to, mxn:)
+      "SELECT id, date, flag, payee, narration, filename, lineno, account, #{journal_amount(to, mxn)} AS amount " \
+        "WHERE #{journal_where(from, to, nil)}"
     end
 
-    # A journal row, either shape: {id, ...} or a positional array in column order.
+    def journal_amount(to, mxn) = mxn ? "CONVERT(position, 'MXN', #{to.iso8601})" : 'position'
+
+    def journal_where(from, to, text)
+      where = "date >= #{from.iso8601} AND date <= #{to.iso8601}"
+      where += " AND (payee ~ '#{bql_text(text)}' OR narration ~ '#{bql_text(text)}')" if text && !text.strip.empty?
+      where
+    end
+
+    # A journal row in column order (`table` flattens either shape).
     # `lineno` is the posting's line; LedgerEdit walks back from it to the header.
     def journal_row(row)
-      columns = %w[id date flag payee narration filename lineno account amount]
-      id, date, flag, payee, narration, file, line, account, amount_value =
-        row.is_a?(Hash) ? row.values_at(*columns) : row
-      units = amount_value['units'] || amount_value
+      id, date, flag, payee, narration, file, line, account, amount_value = row
       { id: id, date: Date.iso8601(date), flag: flag, payee: payee, narration: narration,
-        file: ledger_file(file), line: line, account: account,
-        amount: { units['currency'] => BigDecimal(units['number']) } }
+        file: ledger_file(file), line: line, account: account, amount: amount(amount_value) }
+    end
+
+    # {currency => BigDecimal} from a position ({units: ...}) or a CONVERT amount.
+    def amount(value)
+      units = value['units'] || value
+      { units['currency'] => BigDecimal(units['number']) }
     end
 
     # One transaction from its grouped rows, or nil when none of its postings
@@ -108,7 +144,7 @@ module Frijolero
       return nil unless prefix.empty? || postings.any? { |p| p[:matched] }
 
       matched, unmatched = postings.partition { |p| p[:matched] }
-      rows.first.slice(:date, :flag, :payee, :narration, :file, :line).merge(postings: unmatched + matched)
+      rows.first.slice(:id, :date, :flag, :payee, :narration, :file, :line).merge(postings: unmatched + matched)
     end
 
     # The account itself or anything under it. '' matches nothing: Expenses:Foo never covers Expenses:Food.

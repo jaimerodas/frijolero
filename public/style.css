@@ -230,6 +230,9 @@ dialog .code { margin-bottom: 0; }
 .order a { color: var(--muted); text-decoration: none; }
 .order a[aria-current] { color: var(--ink); }
 .order a:hover { text-decoration: underline; }
+.pages { display: flex; justify-content: center; align-items: center; gap: 1.5rem; margin: 0.5rem 0 1rem; font-size: 0.875rem; color: var(--muted); }
+.pages a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; }
+.pages a:hover { text-decoration: underline; }
 
 /* Section title: the page names of a section as one heading pair, the current one heavy and
    the other a light link at the same size. Under it, one row: time on the left, currency on the right. */

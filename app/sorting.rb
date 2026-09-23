@@ -4,6 +4,7 @@ module Frijolero
   # The order of the journal: `?sort=`, newest first by default. Reopens App.
   class App
     SORTS = %w[date-desc date-asc amount-desc amount-asc].freeze
+    JOURNAL_PAGE = 200
     # A report sort: `name-asc` (the default), `name-desc`, or `<currency>-asc|desc`, a column of the table.
     REPORT_SORT = /\A(name|[A-Z][A-Z0-9'._-]*)-(asc|desc)\z/
 
@@ -62,6 +63,45 @@ module Frijolero
           value = sort.start_with?('amount') ? tx[:sum].values.first || 0 : tx[:date].jd
           [desc ? -value : value, -tx[:date].jd, i]
         end.map(&:first)
+      end
+    end
+
+    helpers do
+      # Every transaction of the journal with only its matched postings, summed
+      # and sorted: the count, the total, the order and the charts read it, and
+      # the page fetches its own transactions whole.
+      def journal_index(account, period, sign)
+        index = self.class.reports.journal_index(account, period.from, period.to, mxn: mxn?, text: params[:q])
+        sort_rows(journal_sums(index, sign))
+      end
+
+      def journal_total(index)
+        index.each_with_object(Hash.new(0)) { |tx, total| tx[:sum].each { |c, n| total[c] += n } }
+      end
+
+      # `?page=` clamped to 1..pages, and pages, at least 1.
+      def journal_page(count)
+        pages = [(count + JOURNAL_PAGE - 1) / JOURNAL_PAGE, 1].max
+        [params[:page].to_i.clamp(1, pages), pages]
+      end
+
+      # The page of the sorted index, fetched whole, in its order and with its sums.
+      def journal_page_rows(index, account, period)
+        page, = journal_page(index.size)
+        shown = index.slice((page - 1) * JOURNAL_PAGE, JOURNAL_PAGE)
+        whole = journal_whole(account, period, shown.map { |tx| tx[:id] })
+        shown.filter_map { |tx| whole[tx[:id]]&.merge(sum: tx[:sum]) }
+      end
+
+      # Those transactions with every posting, by id.
+      def journal_whole(account, period, ids)
+        self.class.reports.journal(account, period.from, period.to, mxn: mxn?, ids: ids).to_h { |tx| [tx[:id], tx] }
+      end
+
+      # A link to another page of the same journal; page 1 is the bare query. HTML.
+      def journal_page_link(period, number, label, rel)
+        href = "/journal?#{report_query(period)}#{"&page=#{number}" if number > 1}"
+        %(<a href="#{Rack::Utils.escape_html(href)}" rel="#{rel}">#{label}</a>)
       end
     end
   end

@@ -16,7 +16,7 @@
     <header class="page-head">
       <hgroup>
         <h2 class="account"><%= account.empty? ? 'Todas las cuentas' : account_links(account, period) %></h2>
-        <% if !error && !rows.empty? %><p class="net"><span class="count"><%= thousands(rows.size) %> movimientos</span><% unless account.empty? %><% total.each do |currency, amount| %><data value="<%= amount.to_s('F') %>"><%= datum(amount) %> <%= h.(currency) %></data><% end %><% end %></p><% end %>
+        <% if !error && count.positive? %><p class="net"><span class="count"><%= thousands(count) %> movimientos</span><% unless account.empty? %><% total.each do |currency, amount| %><data value="<%= amount.to_s('F') %>"><%= datum(amount) %> <%= h.(currency) %></data><% end %><% end %></p><% end %>
       </hgroup>
       <% unless error %>
         <form method="get" action="/journal" role="search">
@@ -39,7 +39,7 @@
     <% if error %>
       <p class="error" role="alert"><%= h.(error) %></p>
     <% else %>
-      <% if rows.empty? %>
+      <% if count.zero? %>
         <% if empty %><%= erb :_empty_ledger, layout: false %><% else %><p class="note">Sin movimientos.</p><% end %>
       <% else %>
         <p class="order"><%= sort_link('date', 'Fecha', period) %><% unless account.empty? %><%= sort_link('amount', 'Monto', period) %><% end %></p>
@@ -64,6 +64,14 @@
             </li>
           <% end %>
         </ol>
+        <% page, pages = journal_page(count) %>
+        <% if pages > 1 %>
+          <nav class="pages" aria-label="Páginas">
+            <% if page > 1 %><%= journal_page_link(period, page - 1, '‹ Anterior', 'prev') %><% end %>
+            <span>Página <%= page %> de <%= pages %></span>
+            <% if page < pages %><%= journal_page_link(period, page + 1, 'Siguiente ›', 'next') %><% end %>
+          </nav>
+        <% end %>
       <% end %>
     <% end %>
 

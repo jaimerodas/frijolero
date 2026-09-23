@@ -127,24 +127,24 @@ module Frijolero
       begin
         first = self.class.reports.first_date
         period = report_period(first || today, today)
-        rows = self.class.reports.journal(account, period.from, period.to, mxn: mxn?, text: params[:q])
-        options = chart_options(rows, account)
+        index = journal_index(account, period, sign)
+        options = chart_options(index, account)
         name = chart_name(options)
-        # The balance line is the one chart that needs more than the page's rows.
+        # The balance line is the one chart that needs more than the index.
         opening = self.class.reports.opening(account, period.from, period.to, mxn: mxn?) if name == 'balance'
+        rows = journal_page_rows(index, account, period)
       rescue Reports::Error => e
         # first_date can be the call that fails (no rledger), so `first` and `period` may be unset here.
         status 502
         period ||= report_period(today, today)
-        rows = []
+        index = rows = []
         options = name = opening = nil
         error = e.message
       end
-      rows = sort_rows(journal_sums(rows, sign))
-      total = rows.each_with_object(Hash.new(0)) { |tx, t| tx[:sum].each { |c, n| t[c] += n } }
-      chart = name && chart_data(rows, period, today, sign, name).merge(chart_opening(opening, sign))
+      chart = name && chart_data(index, period, today, sign, name).merge(chart_opening(opening, sign))
       erb :journal, locals: { period: period, first: first || today, today: today, error: error, empty: first.nil?,
-                              account: account, rows: rows, sign: sign, total: total, options: options, chart: chart }
+                              account: account, rows: rows, count: index.size,
+                              sign: sign, total: journal_total(index), options: options, chart: chart }
     end
   end
 end
