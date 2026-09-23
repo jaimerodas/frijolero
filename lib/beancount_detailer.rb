@@ -10,68 +10,42 @@ module Frijolero
   # makes the run idempotent: a transaction detailed on one pass no longer posts
   # to FIXME, so the next pass skips it and the file comes out byte-identical.
   class BeancountDetailer
-    def initialize(file, config_path, expense_account: Converters::Default::DEFAULT_EXPENSE_ACCOUNT)
+    FIXME = Converters::Default::DEFAULT_EXPENSE_ACCOUNT
+
+    def initialize(file, config_path)
       @file = file
       @config_path = config_path
-      @expense_account = expense_account
     end
 
-    attr_reader :file, :expense_account
-
-    def run(dry_run: false)
-      blocks = Beancount::Parser.parse(file)
-      rules = Detailer::Rules.load(@config_path)
-      stats = { total: 0, detailed: [], remaining: [], skipped: [] }
-
-      transactions(blocks).each { |transaction| classify(transaction, rules, stats) }
-      write(blocks) unless dry_run || stats[:detailed].empty?
-
-      stats
+    # How many transactions the rules classified, and how many still post to FIXME.
+    def run
+      blocks = Beancount::Parser.parse(@file)
+      candidates = detailable(blocks)
+      matches = matches(candidates, Detailer::Rules.load(@config_path))
+      matches.each { |transaction, matched| apply(transaction, matched) }
+      File.write(@file, blocks.flat_map { |block| block[:lines] }.join, encoding: 'UTF-8') unless matches.empty?
+      { detailed: matches.size, remaining: candidates.size - matches.size }
     end
 
     private
 
-    # A `!` transaction is one someone flagged by hand: the rules never touch it.
-    def transactions(blocks)
+    # Parsed transactions with exactly one FIXME posting. None means it is classified
+    # already, by hand or by an earlier run; more than one leaves no way to tell which
+    # one a rule meant. A `!` transaction is one someone flagged by hand: never touched.
+    def detailable(blocks)
       blocks.filter_map { |block| Beancount::Transaction.new(block) if block[:type] == :transaction }
-            .reject { |transaction| transaction.flag == '!' }
+            .select { |t| t.parsed? && t.flag != '!' && t.postings_to(FIXME).size == 1 }
     end
 
-    def classify(transaction, rules, stats)
-      stats[:total] += 1
-      targets = transaction.postings_to(@expense_account)
-      return if targets.empty? # already categorized by hand — never clobber it
-
-      bucket(transaction, targets, rules, stats)
+    # {transaction => the rules that match it}, for the ones some rule matches.
+    def matches(candidates, rules)
+      candidates.to_h { |t| [t, rules.matches_for(description: t.description, amount: t.amount)] }
+                .reject { |_, matched| matched.empty? }
     end
 
-    def bucket(transaction, targets, rules, stats)
-      return stats[:skipped] << summarize(transaction) unless detailable?(transaction, targets)
-
-      matched = rules.matches_for(description: transaction.description, amount: transaction.amount)
-      return stats[:remaining] << summarize(transaction) if matched.empty?
-
-      detail(transaction, matched, targets.first[:index], stats)
-    end
-
-    # More than one FIXME posting leaves no way to tell which one the rule meant.
-    def detailable?(transaction, targets)
-      transaction.parsed? && targets.size == 1
-    end
-
-    def detail(transaction, matched, posting_index, stats)
-      entry = summarize(transaction)
-      transaction.apply(**Detailer::Rules.merge(matched).transform_keys(&:to_sym), posting_index: posting_index)
-      stats[:detailed] << entry
-    end
-
-    # String keys so Log.detailer_stats and Log.transaction_summary work unchanged.
-    def summarize(transaction)
-      { 'description' => transaction.description, 'amount' => transaction.amount }
-    end
-
-    def write(blocks)
-      File.write(file, blocks.flat_map { |block| block[:lines] }.join, encoding: 'UTF-8')
+    def apply(transaction, matched)
+      transaction.apply(**Detailer::Rules.merge(matched).transform_keys(&:to_sym),
+                        posting_index: transaction.postings_to(FIXME).first[:index])
     end
   end
 end

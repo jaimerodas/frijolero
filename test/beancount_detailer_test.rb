@@ -29,14 +29,14 @@ class BeancountDetailerTest < Minitest::Test
 
   # Writes `ledger` and `rules` into a temp dir, runs the detailer, and yields
   # the resulting stats plus the file's contents.
-  def detail(ledger: LEDGER, rules: DETAILER, dry_run: false)
+  def detail(ledger: LEDGER, rules: DETAILER)
     with_temp_dir do |dir|
       ledger_path = File.join(dir, 'BBVA_2601.beancount')
       rules_path = File.join(dir, 'bbva.yaml')
       File.write(ledger_path, ledger)
       File.write(rules_path, YAML.dump(rules))
 
-      stats = Frijolero::BeancountDetailer.new(ledger_path, rules_path).run(dry_run: dry_run)
+      stats = Frijolero::BeancountDetailer.new(ledger_path, rules_path).run
       return yield(stats, File.read(ledger_path, encoding: 'UTF-8'), ledger_path)
     end
   end
@@ -49,7 +49,7 @@ class BeancountDetailerTest < Minitest::Test
           Expenses:Food:Groceries
       BEANCOUNT
 
-      assert_equal 2, stats[:detailed].size
+      assert_equal 2, stats[:detailed]
     end
   end
 
@@ -60,11 +60,8 @@ class BeancountDetailerTest < Minitest::Test
       assert_includes content, '2026-01-16 * "HIPER LUMEN DEL VALLE | Tarjeta adicional ****8549"'
       assert_includes content, '  Expenses:Casa:Despensa'
       refute_includes content, 'Hiper Lumen'
-      assert_equal 1, stats[:detailed].size
-      # Not merely "left alone" — it must be recognized as already handled.
-      # Without the guard it lands in :skipped and the content assertions above
-      # still pass, so this is what actually pins the guard down.
-      assert_empty stats[:skipped]
+      # Not merely "left alone": it counts as neither detailed nor remaining.
+      assert_equal({ detailed: 1, remaining: 1 }, stats)
     end
   end
 
@@ -80,7 +77,7 @@ class BeancountDetailerTest < Minitest::Test
       stats = Frijolero::BeancountDetailer.new(ledger_path, rules_path).run
 
       assert_equal after_first, File.read(ledger_path, encoding: 'UTF-8')
-      assert_empty stats[:detailed]
+      assert_equal 0, stats[:detailed]
     end
   end
 
@@ -101,9 +98,9 @@ class BeancountDetailerTest < Minitest::Test
       after_first = File.read(ledger_path, encoding: 'UTF-8')
       second = Frijolero::BeancountDetailer.new(ledger_path, rules_path).run
 
-      assert_equal 1, stats[:detailed].size
+      assert_equal 1, stats[:detailed]
       assert_includes after_first, '  Expenses:FIXME'
-      assert_equal 1, second[:detailed].size, 'still on FIXME, so it is matched again'
+      assert_equal 1, second[:detailed], 'still on FIXME, so it is matched again'
       assert_equal after_first, File.read(ledger_path, encoding: 'UTF-8')
     end
   end
@@ -116,9 +113,7 @@ class BeancountDetailerTest < Minitest::Test
           Expenses:FIXME
       BEANCOUNT
 
-      remaining = stats[:remaining].map { |t| t['description'] }
-
-      assert_equal ['REST ALDO S GELATO | Tarjeta adicional ****8549'], remaining
+      assert_equal 1, stats[:remaining]
     end
   end
 
@@ -180,8 +175,7 @@ class BeancountDetailerTest < Minitest::Test
 
     detail(ledger: ledger) do |stats, content|
       assert_equal ledger, content
-      assert_equal 1, stats[:skipped].size
-      assert_empty stats[:detailed]
+      assert_equal({ detailed: 0, remaining: 0 }, stats)
     end
   end
 
@@ -195,7 +189,7 @@ class BeancountDetailerTest < Minitest::Test
 
     detail(ledger: ledger) do |stats, content|
       assert_equal ledger, content
-      assert_equal 1, stats[:skipped].size
+      assert_equal({ detailed: 0, remaining: 0 }, stats)
     end
   end
 
@@ -210,8 +204,7 @@ class BeancountDetailerTest < Minitest::Test
 
     detail(ledger: ledger) do |stats, content|
       assert_includes content, '2026-01-16 ! "HIPER LUMEN DEL VALLE | revisar"'
-      assert_equal 3, stats[:total]
-      assert_equal 2, stats[:detailed].size
+      assert_equal({ detailed: 2, remaining: 1 }, stats)
     end
   end
 
@@ -227,15 +220,7 @@ class BeancountDetailerTest < Minitest::Test
     detail(ledger: ledger) do |stats, content|
       assert_includes content, 'option "title" "Ledger"'
       assert_includes content, '2026-01-01 open Liabilities:BBVA'
-      assert_equal 3, stats[:total]
-    end
-  end
-
-  def test_dry_run_reports_matches_without_touching_the_file
-    detail(dry_run: true) do |stats, content|
-      assert_equal LEDGER, content
-      assert_equal 2, stats[:detailed].size
-      assert_equal 1, stats[:remaining].size
+      assert_equal({ detailed: 2, remaining: 1 }, stats)
     end
   end
 
@@ -251,15 +236,6 @@ class BeancountDetailerTest < Minitest::Test
 
       assert_equal before, File.mtime(ledger_path)
       assert_equal LEDGER, File.read(ledger_path)
-    end
-  end
-
-  def test_reports_amounts_so_the_ui_can_summarize_them
-    detail do |stats, _content|
-      amounts = stats[:detailed].map { |t| t['amount'] }
-
-      assert_equal [BigDecimal('-800'), BigDecimal('-6')], amounts
-      refute_empty Frijolero::Log.transaction_summary(stats[:detailed])
     end
   end
 end
