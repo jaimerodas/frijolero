@@ -63,15 +63,9 @@ module Frijolero
         end
       end
 
+      # `amount` is the only condition; any other key never holds.
       def conditions_met?(conditions, amount)
-        return true unless conditions
-
-        conditions.all? do |field, expected|
-          case field
-          when 'amount' then same_amount?(amount, expected)
-          else false
-          end
-        end
+        conditions.nil? || conditions.all? { |field, expected| field == 'amount' && same_amount?(amount, expected) }
       end
 
       def same_amount?(actual, expected)
