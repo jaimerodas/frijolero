@@ -26,13 +26,6 @@ class ConfigTest < Minitest::Test
     end
   end
 
-  def test_report_file_is_the_main_file
-    with_ledger_dir do |dir|
-      ENV['LEDGER_MAIN_FILE'] = 'moneys.beancount'
-      assert_equal File.join(dir, 'moneys.beancount'), Frijolero::Config.report_file
-    end
-  end
-
   def test_account_opens_file_is_the_main_file_by_default
     with_ledger_dir do |dir|
       assert_equal File.join(dir, 'main.beancount'), Frijolero::Config.account_opens_file

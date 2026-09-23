@@ -161,8 +161,7 @@ module Frijolero
     # The earliest transaction, for the `all` period and the period menu.
     # A ledger with no transactions yet answers nil, and the pages say so.
     def first_date
-      row = JSON.parse(run('SELECT MIN(date) AS first')).fetch('rows').first
-      value = row.is_a?(Hash) ? row['first'] : row&.first
+      value = table('SELECT MIN(date) AS first').dig(0, 0)
       Date.iso8601(value) unless value.to_s.empty?
     end
 
@@ -178,15 +177,13 @@ module Frijolero
     end
 
     def query(bql)
-      # 0.22 prints each row as {account, total}; 0.24 as [account, total].
-      JSON.parse(run(bql)).fetch('rows').to_h do |row|
-        account, total = row.is_a?(Hash) ? row.values_at('account', 'total') : row
+      table(bql).to_h do |account, total|
         [account, total['positions'].to_h { |p| [p['currency'], BigDecimal(p['number'])] }]
       end
     end
 
     def run(bql)
-      out, err, code = capture('query', '--no-cache', '-q', '-f', 'json', Config.report_file, bql)
+      out, err, code = capture('query', '--no-cache', '-q', '-f', 'json', Config.main_file, bql)
       return out if code.zero?
 
       raise Error, err.strip.empty? ? "rledger salió con #{code}" : err.strip
@@ -200,7 +197,7 @@ module Frijolero
     # {code:, message:, file:, line:} per error, the file relative to the ledger.
     # Without `--no-cache` the binary would leave a cache file in the clone.
     def check
-      out, err, code = capture('check', '--no-cache', Config.report_file)
+      out, err, code = capture('check', '--no-cache', Config.main_file)
       return [] if code.zero?
 
       errors = (out + err).scan(CHECK_RE).map do |c, m, f, l|

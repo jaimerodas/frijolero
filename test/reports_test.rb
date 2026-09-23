@@ -41,6 +41,13 @@ class ReportsTest < Minitest::Test
     assert_equal BigDecimal('-74655.50'), rows['Equity:Opening-Balances']['USD']
   end
 
+  def test_query_reads_the_row_objects_of_rledger_0_22
+    json = { rows: [{ account: 'Assets:BBVA', total: { positions: [{ currency: 'MXN', number: '1.50' }] } }] }.to_json
+    rows = with_rledger("echo '#{json}'") { Reports.query('SELECT account') }
+
+    assert_equal({ 'Assets:BBVA' => { 'MXN' => BigDecimal('1.50') } }, rows)
+  end
+
   def test_a_missing_rledger_names_the_install_command
     with_env('RLEDGER' => '/nonexistent/rledger') do
       with_ledger_dir do
@@ -386,7 +393,7 @@ class ReportsTest < Minitest::Test
         assert_empty Reports.check
       end
 
-      assert_equal ['check', '--no-cache', Frijolero::Config.report_file], seen
+      assert_equal ['check', '--no-cache', Frijolero::Config.main_file], seen
     end
   end
 

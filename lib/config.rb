@@ -30,8 +30,6 @@ module Frijolero
         File.exist?(separate) ? separate : main_file
       end
 
-      def report_file = main_file
-
       # The brand and the default page title: the ledger's own `option "title"`,
       # or the app's name. Read on each call, like `accounts`.
       def title
