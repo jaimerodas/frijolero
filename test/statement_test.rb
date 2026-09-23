@@ -39,7 +39,7 @@ class StatementTest < Minitest::Test
       @calls = []
     end
 
-    def put(key, path, **)
+    def put(key, path)
       @order << :put
       @calls << [key, path]
       raise @error if @error

@@ -43,7 +43,7 @@ class UploadsTest < Minitest::Test
       "https://s3.example/#{key.gsub(' ', '%20')}?sig=1"
     end
 
-    def put(key, _path, **)
+    def put(key, _path)
       raise Frijolero::S3::Error.new(@put_error, status: 500) if @put_error
 
       @order << :put

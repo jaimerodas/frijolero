@@ -109,10 +109,10 @@ module Frijolero
     end
 
     # PUT the local file at `path` under `key`, signed with header authentication.
-    def put(key, path, content_type: 'application/pdf')
+    def put(key, path)
       body = File.binread(path)
       host, uri_path = host_and_path(key)
-      headers = { 'content-type' => content_type, 'host' => host,
+      headers = { 'content-type' => 'application/pdf', 'host' => host,
                   'x-amz-content-sha256' => hex(body), 'x-amz-date' => amz_date }
       headers['authorization'] = authorization('PUT', uri_path, '', headers)
       transport.put(URI("https://#{host}#{uri_path}"), body, headers)
