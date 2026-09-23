@@ -60,7 +60,6 @@ Metrics/MethodLength:
 Metrics/ParameterLists:
   Exclude:
     - 'bin/demo-ledger'
-    - 'lib/converters/account_targets.rb'
     - 'lib/statement.rb'
 
 # `s3` is what the class (Frijolero::S3) and the collaborator are called everywhere

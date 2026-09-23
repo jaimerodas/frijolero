@@ -14,8 +14,6 @@ module Frijolero
         'interest' => :handle_interest
       }.freeze
 
-      DEFAULT_GAINS_ACCOUNT = AccountTargets::DEFAULT_GAINS
-
       def initialize(targets: AccountTargets.new, **)
         super(**)
         @targets = targets

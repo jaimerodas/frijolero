@@ -122,7 +122,8 @@ class PipelineTest < Minitest::Test
         'gains_account' => 'Income:Gains:Plata',
         'fees_account' => 'Expenses:Fees:Plata',
         'payee' => 'Plata',
-        'withholding_account' => 'Expenses:Taxes:Withholding:USA'
+        'withholding_account' => 'Expenses:Taxes:Withholding:USA',
+        'opening_account' => 'Equity:Opening'
       )
       pipeline.convert(json_path: '/in.json', output: '/out.beancount')
     end
@@ -133,6 +134,7 @@ class PipelineTest < Minitest::Test
     assert_equal 'Expenses:Fees:Plata', captured[:targets].fees
     assert_equal 'Plata', captured[:targets].payee
     assert_equal 'Expenses:Taxes:Withholding:USA', captured[:targets].withholding
+    assert_equal 'Equity:Opening', captured[:targets].opening
   end
 
   def test_beancount_account_pulled_from_config
