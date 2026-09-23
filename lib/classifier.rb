@@ -40,10 +40,10 @@ module Frijolero
                  period_end: data['period_end'])
     end
 
-    # Deep-copies the loaded template (Marshal round trip) so it is not mutated, then fills
-    # the account enum and the instructions' account list from accounts.yaml.
+    # The template, read fresh on each call, with the account enum and the
+    # instructions' account list filled from accounts.yaml.
     def request_spec
-      spec = Marshal.load(Marshal.dump(Config.prompt_spec('classify')))
+      spec = Config.prompt_spec('classify')
       descriptions = AccountConfig.descriptions
       spec['format']['schema']['properties']['account']['enum'] = descriptions.keys + [UNKNOWN]
       spec['instructions'] += "#{descriptions.map { |key, desc| "- #{key}: #{desc}" }.join("\n")}\n"
