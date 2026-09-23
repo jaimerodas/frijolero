@@ -11,6 +11,10 @@ module Frijolero
     # like -5.55e-17, which Ruby renders in scientific notation and Beancount's
     # parser rejects outright.
     module Amounts
+      # "1234567.80" → "1,234,567.80": commas in the first run of digits. The
+      # converters, the job log and the pages all group thousands with this.
+      def self.group(text) = text.to_s.sub(/\d+/) { |whole| whole.reverse.scan(/\d{1,3}/).join(',').reverse }
+
       private
 
       # Statement figures arrive as strings with thousands separators, or as nil.
@@ -22,17 +26,13 @@ module Frijolero
 
       # 1234567.8 → "1,234,567.80". Beancount reads the commas.
       def money(value)
-        group(format('%.2f', to_d(value)))
+        Amounts.group(format('%.2f', to_d(value)))
       end
 
       # Share counts, rendered without a trailing ".0" and never in exponent form.
       def number(value)
         decimal = to_d(value)
-        group(decimal.frac.zero? ? decimal.to_i.to_s : decimal.to_s('F'))
-      end
-
-      def group(text)
-        text.sub(/\d+/) { |whole| whole.reverse.scan(/\d{1,3}/).join(',').reverse }
+        Amounts.group(decimal.frac.zero? ? decimal.to_i.to_s : decimal.to_s('F'))
       end
     end
   end

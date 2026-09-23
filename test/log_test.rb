@@ -26,26 +26,6 @@ class LogTest < Minitest::Test
     with_ledger_dir { assert_equal '/tmp/file.txt', Frijolero::Log.short_path('/tmp/file.txt') }
   end
 
-  def test_format_number_with_commas
-    assert_equal '12,345.67', Frijolero::Log.format_number(12_345.67)
-  end
-
-  def test_format_number_small
-    assert_equal '890.12', Frijolero::Log.format_number(890.12)
-  end
-
-  def test_format_number_large
-    assert_equal '1,234,567.89', Frijolero::Log.format_number(1_234_567.89)
-  end
-
-  def test_format_number_zero
-    assert_equal '0.00', Frijolero::Log.format_number(0)
-  end
-
-  def test_format_number_rounds_to_two_decimals
-    assert_equal '100.46', Frijolero::Log.format_number(100.456)
-  end
-
   def test_puts_writes_to_the_sink
     Frijolero::Log.puts('✗ done')
     assert_equal "✗ done\n", @sink.string

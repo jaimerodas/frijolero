@@ -15,12 +15,6 @@ module Frijolero
       # Relative to the ledger, where every path the pipeline logs lives.
       def short_path(path) = path.delete_prefix("#{Config.ledger_dir}/")
 
-      def format_number(number)
-        int_part, dec_part = format('%.2f', number).split('.')
-        int_with_commas = int_part.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse
-        "#{int_with_commas}.#{dec_part}"
-      end
-
       def detailer_stats(stats)
         puts "#{stats[:detailed].size} detailed#{transaction_summary(stats[:detailed])}"
         puts "#{stats[:remaining].size} remaining#{transaction_summary(stats[:remaining])}"
@@ -40,7 +34,7 @@ module Frijolero
 
       def format_summary_part(label, transactions, &)
         total = transactions.sum(&)
-        "#{transactions.size} #{label} (#{format_number(total)})"
+        "#{transactions.size} #{label} (#{Converters::Amounts.group(format('%.2f', total))})"
       end
     end
   end

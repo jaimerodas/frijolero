@@ -41,16 +41,14 @@ module Frijolero
         "#{Period::MONTHS[period[2, 2].to_i - 1]} 20#{period[0, 2]}"
       end
 
-      # 1234 → '1,234'. Display only.
-      def thousands(count)
-        count.to_s.gsub(/\B(?=(\d{3})+\z)/, ',')
-      end
+      # 1234 → '1,234', '5276.79' → '5,276.79'. Display only.
+      def thousands(number) = Converters::Amounts.group(number)
 
       # -1234.5 → '-1,234.50', 5276.79 → '+5,276.79'. Display only.
       def money(amount)
         return '' if amount.nil?
 
-        "#{amount.negative? ? '-' : '+'}#{format('%.2f', amount.abs).sub(/\d+/) { thousands(it) }}"
+        "#{amount.negative? ? '-' : '+'}#{thousands(format('%.2f', amount.abs))}"
       end
 
       # Merchant first, the rest second: BBVA appends '; Fecha de cargo: …', AMEX appends ' RFC… /REF…'.
