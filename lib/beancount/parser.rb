@@ -3,7 +3,6 @@
 module Frijolero
   module Beancount
     module Parser
-      MARKER_RE = /^; === (Start|End): .+ ===$/
       TRANSACTION_RE = /^\d{4}-\d{2}-\d{2}\s+[*!]/
       INDENTED_RE = /^\s+\S/
 
@@ -22,10 +21,9 @@ module Frijolero
 
       def self.parse_next_block(lines, idx)
         line = lines[idx]
-        return [marker_block(line), idx + 1] if line.match?(MARKER_RE)
         return parse_transaction(lines, idx) if line.match?(TRANSACTION_RE)
 
-        [other_block(line), idx + 1]
+        [{ type: :other, lines: [line] }, idx + 1]
       end
 
       def self.parse_transaction(lines, start_idx)
@@ -49,14 +47,6 @@ module Frijolero
 
       def self.continuation?(line)
         line.match?(INDENTED_RE) || line.strip.empty?
-      end
-
-      def self.marker_block(line)
-        { type: :marker, lines: [line] }
-      end
-
-      def self.other_block(line)
-        { type: :other, lines: [line] }
       end
     end
   end
