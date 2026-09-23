@@ -22,8 +22,6 @@ module Frijolero
       def reports = @reports ||= Reports
     end
 
-    MONTHS = Period::MONTHS
-
     helpers do
       # The <head> every page shares. `refresh` adds a meta refresh in seconds.
       def head(title = Config.title, refresh: nil)
@@ -40,7 +38,7 @@ module Frijolero
 
       # 'YYMM' → 'agosto 2026'. URLs and file names keep YYMM.
       def period_name(period)
-        "#{MONTHS[period[2, 2].to_i - 1]} 20#{period[0, 2]}"
+        "#{Period::MONTHS[period[2, 2].to_i - 1]} 20#{period[0, 2]}"
       end
 
       # 1234 → '1,234'. Display only.

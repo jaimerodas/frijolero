@@ -193,7 +193,7 @@ class AccountsTest < Minitest::Test
 
     body = last_response.body
     assert_equal 200, last_response.status
-    months = Frijolero::App::MONTHS.join('|')
+    months = Frijolero::Period::MONTHS.join('|')
     expected = ['agosto 2026', 'julio 2026', 'junio 2026', 'mayo 2026', 'abril 2026']
     assert_equal expected, body.scan(/(?:#{months}) 20\d\d/)
     assert_equal 3, body.scan('falta').size

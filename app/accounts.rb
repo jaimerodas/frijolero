@@ -38,7 +38,7 @@ module Frijolero
       yaml = NewAccount.append_block(File.read(Config.accounts_file), key, entry)
       File.write(Config.accounts_file, yaml)
       NewAccount.add_open_line(Config.account_opens_file, opened_on, entry['beancount_account'])
-      commit_config("cuenta #{key}")
+      self.class.repo.commit_and_push("cuenta #{key}")
       redirect '/upload', 303
     rescue NewAccount::Invalid => e
       status 422

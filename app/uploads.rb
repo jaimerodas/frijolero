@@ -98,10 +98,6 @@ module Frijolero
       File.join(dir, files.first)
     end
 
-    def blank_to_nil(value)
-      value.to_s.strip.empty? ? nil : value
-    end
-
     # The printed period end is optional: the filename shortcut has none.
     def iso_date(value)
       Date.iso8601(value.to_s)

@@ -48,11 +48,6 @@ module Frijolero
         halt 404, 'Esta cuenta no usa reglas' unless rules?(params[:account])
       end
 
-      # Every editor save ends the same way: the ledger repo commits and pushes.
-      def commit_config(message)
-        self.class.repo.commit_and_push(message)
-      end
-
       # The statement page sends its own path with "Hacer regla", so the editor
       # can offer the way back and the save can return there. Nothing else is honoured.
       def back_path
@@ -105,7 +100,7 @@ module Frijolero
       def save_config!(path, content, message)
         FileUtils.mkdir_p(File.dirname(path))
         File.write(path, content)
-        commit_config(message)
+        self.class.repo.commit_and_push(message)
       end
     end
   end

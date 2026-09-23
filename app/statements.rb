@@ -65,7 +65,6 @@ module Frijolero
       account = params[:account]
       period = params[:yymm]
       halt 404, 'Cuenta desconocida' unless Config.accounts.key?(account)
-      halt 404, 'Periodo inválido' unless period.match?(/\A\d{4}\z/)
 
       paths = statement_paths(account, period)
       halt 404, 'No existe ese estado de cuenta' unless File.exist?(paths[:beancount])
@@ -119,7 +118,6 @@ module Frijolero
     post '/accounts/:account/:yymm/detail', PERIOD do
       account, period = params.values_at(:account, :yymm)
       halt 404, 'Cuenta desconocida' unless Config.accounts.key?(account)
-      halt 404, 'Periodo inválido' unless period.match?(/\A\d{4}\z/)
       beancount = statement_paths(account, period)[:beancount]
       halt 404, 'No existe ese estado de cuenta' unless File.exist?(beancount)
       halt 404, 'Esta cuenta no usa reglas' unless rules?(account)
