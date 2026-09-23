@@ -1,5 +1,4 @@
 <%
-  h = ->(s) { Rack::Utils.escape_html(s.to_s) }
   account, _, period = job.label.rpartition(' ')
 %>
 <!DOCTYPE html>
@@ -11,18 +10,18 @@
   <%= topbar %>
   <main>
     <%= erb :_cuentas, layout: false %>
-    <h1><%= h.(job.label) %></h1>
-    <p class="meta"><span class="status <%= h.(job.status) %>"><%= h.(job.status) %></span></p>
+    <h1><%= h(job.label) %></h1>
+    <p class="meta"><span class="status <%= h(job.status) %>"><%= h(job.status) %></span></p>
 
     <% if job.error %>
-      <p class="error" role="alert"><%= h.(job.error) %></p>
+      <p class="error" role="alert"><%= h(job.error) %></p>
     <% end %>
 
     <% if job.status == 'ok' %>
-      <p class="actions"><a class="button" href="/accounts/<%= Rack::Utils.escape_path(account) %>/<%= h.(period) %>">Ver estado de cuenta</a></p>
+      <p class="actions"><a class="button" href="/accounts/<%= Rack::Utils.escape_path(account) %>/<%= h(period) %>">Ver estado de cuenta</a></p>
     <% end %>
 
-    <pre><%= h.(job.output) %></pre>
+    <pre><%= h(job.output) %></pre>
   </main>
 </body>
 </html>

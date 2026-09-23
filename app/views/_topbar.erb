@@ -3,7 +3,7 @@
   sections = { 'Estados de cuenta' => %w[/ /upload /jobs /accounts], 'Reportes' => %w[/reports /journal] }
 %>
 <header class="topbar">
-  <a class="brand" href="/"><%= Rack::Utils.escape_html(Frijolero::Config.title) %></a>
+  <a class="brand" href="/"><%= h(Frijolero::Config.title) %></a>
   <nav aria-label="Secciones">
     <% sections.each do |label, prefixes| %>
       <a href="<%= prefixes.first %>"<% if prefixes.any? { |p| path == p || path.start_with?("#{p}/") } %> aria-current="page"<% end %>><%= label %></a>

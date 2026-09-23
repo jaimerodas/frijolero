@@ -1,6 +1,3 @@
-<%
-  h = ->(s) { Rack::Utils.escape_html(s.to_s) }
-%>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -16,16 +13,16 @@
     <header class="page-head">
       <hgroup>
         <h2 class="account"><%= account.empty? ? 'Todas las cuentas' : account_links(account, period) %></h2>
-        <% if !error && count.positive? %><p class="net"><span class="count"><%= thousands(count) %> movimientos</span><% unless account.empty? %><% total.each do |currency, amount| %><data value="<%= amount.to_s('F') %>"><%= datum(amount) %> <%= h.(currency) %></data><% end %><% end %></p><% end %>
+        <% if !error && count.positive? %><p class="net"><span class="count"><%= thousands(count) %> movimientos</span><% unless account.empty? %><% total.each do |currency, amount| %><data value="<%= amount.to_s('F') %>"><%= datum(amount) %> <%= h(currency) %></data><% end %><% end %></p><% end %>
       </hgroup>
       <% unless error %>
         <form method="get" action="/journal" role="search">
-          <input type="hidden" name="account" value="<%= h.(account) %>">
-          <input type="hidden" name="period" value="<%= h.(period.param) %>">
+          <input type="hidden" name="account" value="<%= h(account) %>">
+          <input type="hidden" name="period" value="<%= h(period.param) %>">
           <% unless mxn? %><input type="hidden" name="mxn" value="0"><% end %>
-          <% unless params[:sort].to_s.empty? %><input type="hidden" name="sort" value="<%= h.(params[:sort]) %>"><% end %>
+          <% unless params[:sort].to_s.empty? %><input type="hidden" name="sort" value="<%= h(params[:sort]) %>"><% end %>
           <% if options %><select name="chart" aria-label="Gráficas"><option value="">Gráficas…</option><% Frijolero::App::CHARTS.each do |name, label| %><option value="<%= name %>"<% unless options[name] %> disabled<% end %><% if chart && chart[:chart] == name %> selected<% end %>><%= label %></option><% end %></select><% end %>
-          <input type="search" name="q" value="<%= h.(params[:q]) %>" aria-label="Buscar" placeholder="Beneficiario o descripción">
+          <input type="search" name="q" value="<%= h(params[:q]) %>" aria-label="Buscar" placeholder="Beneficiario o descripción">
           <button type="submit">Buscar</button>
         </form>
       <% end %>
@@ -37,7 +34,7 @@
     <% end %>
 
     <% if error %>
-      <p class="error" role="alert"><%= h.(error) %></p>
+      <p class="error" role="alert"><%= h(error) %></p>
     <% else %>
       <% if count.zero? %>
         <% if empty %><%= erb :_empty_ledger, layout: false %><% else %><p class="note">Sin movimientos.</p><% end %>
@@ -48,16 +45,16 @@
             <% link = journal_statement_link(tx[:file]) %>
             <% sum = tx[:sum] %>
             <li class="txn">
-              <time datetime="<%= h.(tx[:date].iso8601) %>"><button type="button" class="edit" data-file="<%= h.(tx[:file]) %>" data-line="<%= h.(tx[:line]) %>"<% if link %> data-statement="<%= link %>"<% end %>><%= h.(tx[:date].iso8601) %></button></time>
+              <time datetime="<%= h(tx[:date].iso8601) %>"><button type="button" class="edit" data-file="<%= h(tx[:file]) %>" data-line="<%= h(tx[:line]) %>"<% if link %> data-statement="<%= link %>"<% end %>><%= h(tx[:date].iso8601) %></button></time>
               <details>
                 <summary>
-                  <% unless sum.empty? %><span class="sum"><% sum.each do |currency, amount| %><data<% if amount.negative? %> class="debit"<% end %> value="<%= amount.to_s('F') %>"><%= datum(amount) %> <%= h.(currency) %></data><% end %></span><% end %>
-                  <span class="line"><% if tx[:payee] %><strong><%= h.(tx[:payee]) %></strong><% unless tx[:narration].to_s.empty? %>: <% end %><% end %><%= h.(tx[:narration]) %><% if tx[:flag] == '!' %> <span class="flag">!</span><% end %></span>
+                  <% unless sum.empty? %><span class="sum"><% sum.each do |currency, amount| %><data<% if amount.negative? %> class="debit"<% end %> value="<%= amount.to_s('F') %>"><%= datum(amount) %> <%= h(currency) %></data><% end %></span><% end %>
+                  <span class="line"><% if tx[:payee] %><strong><%= h(tx[:payee]) %></strong><% unless tx[:narration].to_s.empty? %>: <% end %><% end %><%= h(tx[:narration]) %><% if tx[:flag] == '!' %> <span class="flag">!</span><% end %></span>
                 </summary>
                 <ul class="postings">
                   <% tx[:postings].each do |p| %>
                     <% currency, number = p[:amount].first %>
-                    <li<% if p[:matched] %> class="matched"<% end %>><code><%= account_links(p[:account], period) %></code><data value="<%= number.to_s('F') %>"><%= datum(number) %> <%= h.(currency) %></data></li>
+                    <li<% if p[:matched] %> class="matched"<% end %>><code><%= account_links(p[:account], period) %></code><data value="<%= number.to_s('F') %>"><%= datum(number) %> <%= h(currency) %></data></li>
                   <% end %>
                 </ul>
               </details>

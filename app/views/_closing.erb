@@ -1,10 +1,9 @@
 <%# The closing line of a report: the same root row as a table's head, on its own. %>
-<% h = ->(s) { Rack::Utils.escape_html(s.to_s) } %>
-<table class="report closing" aria-label="<%= h.(title) %>">
+<table class="report closing" aria-label="<%= h(title) %>">
   <thead>
     <tr class="root">
-      <th scope="row"><%= h.(title) %></th>
-      <% currencies.each do |currency| %><td class="amount" data-label="<%= h.(currency) %>"><%= datum(net[currency]) %></td><% end %>
+      <th scope="row"><%= h(title) %></th>
+      <% currencies.each do |currency| %><td class="amount" data-label="<%= h(currency) %>"><%= datum(net[currency]) %></td><% end %>
     </tr>
   </thead>
 </table>

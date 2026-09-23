@@ -1,5 +1,4 @@
 <%
-  h = ->(s) { Rack::Utils.escape_html(s.to_s) }
   net = currencies.to_h do |currency|
     [currency, %w[Assets Liabilities].sum { |root| sections.fetch(root, []).first&.dig(:amounts, currency) || 0 }]
   end
@@ -16,7 +15,7 @@
     <%= erb :_report_toolbar, layout: false, locals: { period: period, first: first, today: today } %>
 
     <% if error %>
-      <p class="error" role="alert"><%= h.(error) %></p>
+      <p class="error" role="alert"><%= h(error) %></p>
     <% else %>
       <% if empty %><%= erb :_empty_ledger, layout: false %><% end %>
       <div class="columns">

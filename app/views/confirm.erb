@@ -1,6 +1,3 @@
-<%
-  h = ->(s) { Rack::Utils.escape_html(s.to_s) }
-%>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -10,9 +7,9 @@
   <%= topbar %>
   <main>
     <%= erb :_cuentas, layout: false %>
-    <h1><%= h.(filename) %></h1>
+    <h1><%= h(filename) %></h1>
     <% if result.period_start && result.period_end %>
-      <p class="meta">Periodo impreso: <%= h.(result.period_start) %> a <%= h.(result.period_end) %></p>
+      <p class="meta">Periodo impreso: <%= h(result.period_start) %> a <%= h(result.period_end) %></p>
     <% end %>
 
     <form method="post" action="/upload/confirm">
@@ -20,18 +17,18 @@
       <select id="account" name="account" required>
         <option value=""></option>
         <% accounts.each do |account| %>
-          <option value="<%= h.(account) %>" <%= 'selected' if !result.unknown? && account == result.account %>>
-            <%= h.(account) %>
+          <option value="<%= h(account) %>" <%= 'selected' if !result.unknown? && account == result.account %>>
+            <%= h(account) %>
           </option>
         <% end %>
       </select>
 
       <label for="period">Periodo (YYMM)</label>
-      <input type="text" id="period" name="period" pattern="\d{4}" required value="<%= h.(result.period) %>">
+      <input type="text" id="period" name="period" pattern="\d{4}" required value="<%= h(result.period) %>">
 
-      <input type="hidden" name="token" value="<%= h.(token) %>">
-      <input type="hidden" name="period_end" value="<%= h.(result.period_end) %>">
-      <input type="hidden" name="overwrite" value="<%= h.(overwrite) %>">
+      <input type="hidden" name="token" value="<%= h(token) %>">
+      <input type="hidden" name="period_end" value="<%= h(result.period_end) %>">
+      <input type="hidden" name="overwrite" value="<%= h(overwrite) %>">
 
       <% if self.class.client %>
         <p class="note">Revisa antes de procesar: la extracción cuesta dinero.</p>

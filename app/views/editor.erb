@@ -1,5 +1,4 @@
 <%
-  h = ->(s) { Rack::Utils.escape_html(s.to_s) }
   accounts = tab == :rules ? Frijolero::LedgerAccounts.all : nil
 %>
 <!DOCTYPE html>
@@ -11,14 +10,14 @@
   <%= topbar %>
   <main>
     <%= erb :_cuentas, layout: false %>
-    <% if account %><%= erb :_account, layout: false, locals: { account: account, tab: tab } %><% else %><h1><%= h.(title) %></h1><% end %>
+    <% if account %><%= erb :_account, layout: false, locals: { account: account, tab: tab } %><% else %><h1><%= h(title) %></h1><% end %>
     <% if notice %>
-      <p class="notice"><%= h.(notice) %></p>
+      <p class="notice"><%= h(notice) %></p>
     <% end %>
     <% if error %>
-      <p class="error" role="alert"><%= h.(error) %></p>
+      <p class="error" role="alert"><%= h(error) %></p>
     <% end %>
-    <% if back %><p><a href="<%= h.(back) %>">Volver al estado de cuenta</a></p><% end %>
+    <% if back %><p><a href="<%= h(back) %>">Volver al estado de cuenta</a></p><% end %>
     <% if accounts %>
       <details class="help">
         <summary>Cómo escribir reglas</summary>
@@ -41,16 +40,16 @@ include:
       </details>
     <% end %>
     <div class="<%= 'rules-editor' if accounts %>">
-    <form method="post" action="<%= h.(action) %>">
-      <% if back %><input type="hidden" name="back" value="<%= h.(back) %>"><% end %>
+    <form method="post" action="<%= h(action) %>">
+      <% if back %><input type="hidden" name="back" value="<%= h(back) %>"><% end %>
       <label for="content">Contenido</label>
-      <textarea id="content" name="content" rows="30" spellcheck="false"><%= h.(content) %></textarea>
+      <textarea id="content" name="content" rows="30" spellcheck="false"><%= h(content) %></textarea>
       <p class="actions"><button type="submit" class="primary">Guardar</button></p>
     </form>
     <% if accounts %>
       <aside>
         <h2>Cuentas del ledger</h2>
-        <ul><% accounts.each do |a| %><li><%= h.(a) %></li><% end %></ul>
+        <ul><% accounts.each do |a| %><li><%= h(a) %></li><% end %></ul>
       </aside>
     <% end %>
     </div>

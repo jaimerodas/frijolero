@@ -35,6 +35,9 @@ module Frijolero
         erb :_topbar, layout: false
       end
 
+      # Text into HTML, escaped. Every view writes its values through this.
+      def h(text) = Rack::Utils.escape_html(text.to_s)
+
       # 'YYMM' → 'agosto 2026'. URLs and file names keep YYMM.
       def period_name(period)
         "#{MONTHS[period[2, 2].to_i - 1]} 20#{period[0, 2]}"

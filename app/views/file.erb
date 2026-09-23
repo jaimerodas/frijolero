@@ -1,5 +1,4 @@
 <%
-  h = ->(s) { Rack::Utils.escape_html(s.to_s) }
   key, period = statement
 %>
 <!DOCTYPE html>
@@ -13,12 +12,12 @@
   <main>
     <%= erb :_cuentas, layout: false %>
     <div class="code-head">
-      <h1 class="file"><%= h.(file) %></h1>
-      <% if key %><a href="/accounts/<%= Rack::Utils.escape_path(key) %>/<%= h.(period) %>">Ver estado de cuenta</a><% end %>
+      <h1 class="file"><%= h(file) %></h1>
+      <% if key %><a href="/accounts/<%= Rack::Utils.escape_path(key) %>/<%= h(period) %>">Ver estado de cuenta</a><% end %>
       <button type="button" class="edit-file">Editar</button>
     </div>
     <% if notice %>
-      <p class="notice"><%= h.(notice) %></p>
+      <p class="notice"><%= h(notice) %></p>
     <% end %>
     <%= erb :_code, layout: false, locals: { file: file, text: text } %>
   </main>
