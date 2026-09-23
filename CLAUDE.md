@@ -109,7 +109,7 @@ Views are standalone ERB pages in Spanish. There is no layout. Each page renders
 
 ### `Statement`
 
-`Statement` owns one PDF. The steps, in order: resolve account and period (arguments first, file name as fallback). Refuse if the outputs exist and `overwrite` is false. **Put the PDF in S3.** Extract (the PDF goes inline, base64, in one request; the classifier sent it once already, and that is fine). **Run `pipeline.validate!`.** Delete the local PDF. Save the JSON. Detail (Default pipeline only, and only if a rules file exists). Convert. Merge.
+`Statement` owns one PDF. The job gives it the account and the period. The steps, in order: find the account in `accounts.yaml` (a pull can remove it after the confirm). Refuse if the outputs exist and `overwrite` is false. **Put the PDF in S3.** Extract (the PDF goes inline, base64, in one request; the classifier sent it once already, and that is fine). **Run `pipeline.validate!`.** Delete the local PDF. Save the JSON. Detail (Default pipeline only, and only if a rules file exists). Convert. Merge.
 
 The order protects the PDF. S3 has it before the paid step. The local copy survives each failure. Errors go through `LLM.report`, a policy table with one entry per `LLM::Error` subclass: a recoverable one (rate limit, network, API) is logged and the result is `ERROR`, so the job fails with that status in its message; a bad key or no credit is logged and re-raised.
 

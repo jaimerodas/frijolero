@@ -82,28 +82,20 @@ class StatementTest < Minitest::Test
   def beancount_path(dir) = File.join(dir, 'accounts', 'AMEX', 'AMEX 2508.beancount')
   def main_file(dir) = File.read(File.join(dir, 'main.beancount'))
 
+  def statement(pdf, account: 'AMEX', period: '2508', **)
+    Frijolero::Statement.new(pdf, client: @client, s3: @s3, account: account, period: period, **)
+  end
+
   # --- tests -------------------------------------------------------------
 
-  def test_processes_a_statement_named_after_its_account_and_period
+  def test_processes_a_statement_into_the_account_and_period_it_is_given
     with_configured_ledger do |dir|
-      pdf = pdf_in_temp_dir('AMEX 2508.pdf')
+      pdf = pdf_in_temp_dir('upload-abc123.pdf')
 
-      assert_equal Frijolero::Statement::OK, Frijolero::Statement.new(pdf, client: @client).process
+      assert_equal Frijolero::Statement::OK, statement(pdf).process
       assert_path_exists json_path(dir)
       assert_path_exists beancount_path(dir)
       assert_includes main_file(dir), 'include "accounts/AMEX/AMEX 2508.beancount"'
-      assert_path_exists pdf
-    end
-  end
-
-  def test_account_and_period_arguments_win_over_the_filename
-    with_configured_ledger do |dir|
-      pdf = pdf_in_temp_dir('upload-abc123.pdf')
-      statement = Frijolero::Statement.new(pdf, client: @client, account: 'AMEX', period: '2508')
-
-      assert_equal Frijolero::Statement::OK, statement.process
-      assert_path_exists json_path(dir)
-      assert_path_exists beancount_path(dir)
     end
   end
 
@@ -113,7 +105,7 @@ class StatementTest < Minitest::Test
       File.write(beancount_path(dir), 'sentinel')
       pdf = pdf_in_temp_dir('AMEX 2508.pdf')
 
-      status = Frijolero::Statement.new(pdf, client: @client).process
+      status = statement(pdf).process
 
       assert_equal Frijolero::Statement::OVERWRITE_DECLINED, status
       assert_equal 'sentinel', File.read(beancount_path(dir))
@@ -128,7 +120,7 @@ class StatementTest < Minitest::Test
       File.write(beancount_path(dir), 'sentinel')
       pdf = pdf_in_temp_dir('AMEX 2508.pdf')
 
-      status = Frijolero::Statement.new(pdf, client: @client, overwrite: true).process
+      status = statement(pdf, overwrite: true).process
 
       assert_equal Frijolero::Statement::OK, status
       refute_equal 'sentinel', File.read(beancount_path(dir))
@@ -138,18 +130,10 @@ class StatementTest < Minitest::Test
   def test_unknown_account_stops_before_the_client
     with_configured_ledger do
       pdf = pdf_in_temp_dir('NOPE 2508.pdf')
-      status = Frijolero::Statement.new(pdf, client: @client).process
+      status = statement(pdf, account: 'NOPE').process
 
       assert_equal Frijolero::Statement::NO_ACCOUNT_CONFIG, status
       assert_empty @client.extractions
-    end
-  end
-
-  def test_unparseable_filename_without_account_and_period
-    with_configured_ledger do
-      pdf = pdf_in_temp_dir('upload-abc123.pdf')
-
-      assert_equal Frijolero::Statement::UNPARSEABLE, Frijolero::Statement.new(pdf, client: @client).process
     end
   end
 
@@ -158,7 +142,7 @@ class StatementTest < Minitest::Test
       @client.extract_error = Frijolero::LLM::APIError.new('boom', status: 500)
       pdf = pdf_in_temp_dir('AMEX 2508.pdf')
 
-      assert_equal Frijolero::Statement::ERROR, Frijolero::Statement.new(pdf, client: @client).process
+      assert_equal Frijolero::Statement::ERROR, statement(pdf).process
       assert_includes @sink.string, 'OpenAI returned an error (HTTP 500): boom'
     end
   end
@@ -166,7 +150,7 @@ class StatementTest < Minitest::Test
   def test_reprocessing_does_not_duplicate_the_include_line
     with_configured_ledger do |dir|
       pdf = pdf_in_temp_dir('AMEX 2508.pdf')
-      2.times { Frijolero::Statement.new(pdf, client: @client, overwrite: true).process }
+      2.times { statement(pdf, overwrite: true).process }
 
       assert_equal 1, main_file(dir).scan('include "accounts/AMEX/AMEX 2508.beancount"').size
     end
@@ -178,24 +162,13 @@ class StatementTest < Minitest::Test
     with_configured_ledger do
       pdf = pdf_in_temp_dir('AMEX 2508.pdf')
 
-      status = Frijolero::Statement.new(pdf, client: @client, s3: @s3).process
+      status = statement(pdf).process
 
       assert_equal Frijolero::Statement::OK, status
       assert_equal %i[put extract], @order
       assert_equal [['frijolero/accounts/AMEX/AMEX 2508.pdf', pdf]], @s3.calls
       assert_equal pdf, @client.extractions.first.first
       refute_path_exists pdf
-    end
-  end
-
-  # The CLI passes no s3:, and it must not delete the user's own file.
-  def test_without_s3_nothing_is_uploaded_and_the_pdf_stays
-    with_configured_ledger do
-      pdf = pdf_in_temp_dir('AMEX 2508.pdf')
-
-      assert_equal Frijolero::Statement::OK, Frijolero::Statement.new(pdf, client: @client).process
-      assert_path_exists pdf
-      assert_empty @s3.calls
     end
   end
 
@@ -206,7 +179,7 @@ class StatementTest < Minitest::Test
       @client.payload = { 'transactions' => [{ 'date' => 'x' }] }
       pdf = pdf_in_temp_dir('AMEX 2508.pdf')
 
-      status = Frijolero::Statement.new(pdf, client: @client, s3: @s3).process
+      status = statement(pdf).process
 
       assert_equal Frijolero::Statement::ERROR, status
       assert_path_exists pdf
@@ -220,22 +193,11 @@ class StatementTest < Minitest::Test
       @s3.error = Frijolero::S3::Error.new('boom', status: 500)
       pdf = pdf_in_temp_dir('AMEX 2508.pdf')
 
-      status = Frijolero::Statement.new(pdf, client: @client, s3: @s3).process
+      status = statement(pdf).process
 
       assert_equal Frijolero::Statement::ERROR, status
       assert_empty @client.extractions
       assert_path_exists pdf
-    end
-  end
-
-  def test_dry_run_writes_nothing_and_calls_no_client
-    with_configured_ledger do |dir|
-      pdf = pdf_in_temp_dir('AMEX 2508.pdf')
-
-      assert_equal Frijolero::Statement::DRY_RUN, Frijolero::Statement.new(pdf, client: @client, dry_run: true).process
-      refute_path_exists json_path(dir)
-      refute_path_exists beancount_path(dir)
-      assert_empty @client.extractions
     end
   end
 
@@ -260,7 +222,7 @@ class StatementTest < Minitest::Test
       ] }
       pdf = pdf_in_temp_dir('Plata Banco 2608.pdf')
 
-      assert_equal Frijolero::Statement::OK, Frijolero::Statement.new(pdf, client: @client).process
+      assert_equal Frijolero::Statement::OK, statement(pdf, account: 'Plata Banco', period: '2608').process
 
       spec = @client.extractions.first.last
       assert_equal ['Plata Cuenta', 'Ahorro Flexible'],

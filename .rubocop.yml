@@ -111,7 +111,6 @@ Metrics/AbcSize:
 Metrics/ClassLength:
   Exclude:
     - 'test/**/*'
-    - 'lib/statement.rb'
     - 'lib/converters/fintual.rb'
     - 'lib/converters/alpaca.rb'
     # App: routes are a table; each handler is a few lines.

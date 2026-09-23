@@ -4,67 +4,40 @@ require 'json'
 require 'fileutils'
 
 module Frijolero
-  # One PDF's lifecycle: resolve metadata, extract, save, detail, convert, merge, clean up.
-  # The caller (a background job) usually already knows the account and the period;
-  # the filename is only the fallback.
+  # One PDF's lifecycle: extract, save, detail, convert, merge, clean up. The job
+  # knows the account and the period from the confirm page.
   class Statement
-    UNPARSEABLE = :unparseable
     NO_ACCOUNT_CONFIG = :no_account_config
     OVERWRITE_DECLINED = :overwrite_declined
     OK = :ok
     ERROR = :error
 
-    DRY_RUN = :dry_run
-
-    def initialize(pdf_path, client:, s3: nil, account: nil, period: nil, overwrite: false, dry_run: false)
+    def initialize(pdf_path, client:, s3:, account:, period:, overwrite: false)
       @pdf_path = pdf_path
       @client = client
       @s3 = s3
       @account_name = account
       @date_str = period
       @overwrite = overwrite
-      @dry_run = dry_run
       @filename = File.basename(pdf_path)
     end
 
+    # The account can be gone by the time the job runs: its first step is a pull.
     def process
-      status = load_metadata
-      return status unless status == OK
+      @account_config = AccountConfig.find_config(@account_name)
+      unless @account_config
+        Log.puts "{{x}} #{@filename}: No account configuration found for '#{@account_name}'"
+        return NO_ACCOUNT_CONFIG
+      end
 
       Log.puts "== Processing: #{@filename}"
       Log.puts "Account: #{@account_name}"
-      process_pdf
-    end
-
-    private
-
-    attr_reader :client
-
-    def process_pdf
-      if @dry_run
-        Log.puts '{{i}} [DRY RUN] Would process this file'
-        return DRY_RUN
-      end
-
       return OVERWRITE_DECLINED if blocked_by_existing?
 
       run_pipeline
     end
 
-    def load_metadata
-      @account_name, @date_str = AccountConfig.parse_filename(@pdf_path) unless @account_name && @date_str
-
-      unless @account_name && @date_str
-        Log.puts "{{x}} #{@filename}: Could not parse filename format"
-        return UNPARSEABLE
-      end
-
-      @account_config = AccountConfig.find_config(@account_name)
-      return OK if @account_config
-
-      Log.puts "{{x}} #{@filename}: No account configuration found for '#{@account_name}'"
-      NO_ACCOUNT_CONFIG
-    end
+    private
 
     def output_paths
       @output_paths ||= {
@@ -81,19 +54,10 @@ module Frijolero
       return false unless File.exist?(json) || File.exist?(beancount)
 
       Log.puts '{{!}} Existing files, not overwriting:'
-      show_existing_json_info(json) if File.exist?(json)
-      show_existing_beancount_info(beancount) if File.exist?(beancount)
+      { 'JSON' => json, 'Beancount' => beancount }.select { |_, path| File.exist?(path) }.each do |label, path|
+        Log.puts "  #{label}: #{Log.short_path(path)} (modified #{File.mtime(path).strftime('%Y-%m-%d %H:%M')})"
+      end
       true
-    end
-
-    def show_existing_json_info(json_path)
-      mtime = File.mtime(json_path).strftime('%Y-%m-%d %H:%M')
-      Log.puts "  JSON: #{Log.short_path(json_path)} (modified #{mtime})"
-    end
-
-    def show_existing_beancount_info(beancount_path)
-      mtime = File.mtime(beancount_path).strftime('%Y-%m-%d %H:%M')
-      Log.puts "  Beancount: #{Log.short_path(beancount_path)} (modified #{mtime})"
     end
 
     # The order is the point. S3 has the PDF before we pay for an extraction, and the
@@ -120,28 +84,22 @@ module Frijolero
       ERROR
     end
 
-    # Without a S3 client (the CLI, and every test that does not ask for one) there is
-    # nowhere to put the PDF and so nothing to delete either: the file stays put.
     def back_up_pdf
-      return unless @s3
-
       key = Config.pdf_key(@account_name, @date_str)
       @s3.put(key, @pdf_path)
       Log.puts "Saved PDF: #{key}"
     end
 
     def discard_local_pdf
-      return unless @s3
-
       File.delete(@pdf_path)
       Log.puts 'Deleted local PDF'
     end
 
     def extract_transactions(pipeline)
-      transactions = nil
       spec = pipeline.request_spec(Config.prompt_spec(@account_config['openai_prompt_type'] || 'default'))
-      elapsed = measure { transactions = client.extract(@pdf_path, spec) }
-      Log.puts "Extracted transactions (#{format_elapsed(elapsed)})"
+      start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      transactions = @client.extract(@pdf_path, spec)
+      Log.puts "Extracted transactions (#{(Process.clock_gettime(Process::CLOCK_MONOTONIC) - start).round}s)"
       transactions
     end
 
@@ -171,20 +129,6 @@ module Frijolero
     def merge_into_ledger
       BeancountMerger.merge(output_paths[:beancount])
       Log.puts "Merged into: #{Log.short_path(Config.main_file)}"
-    end
-
-    def measure
-      start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      yield
-      Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
-    end
-
-    def format_elapsed(seconds)
-      return "#{seconds.round(1)}s" if seconds < 60
-
-      mins = (seconds / 60).floor
-      secs = (seconds % 60).round(1)
-      "#{mins}m #{secs}s"
     end
   end
 end
