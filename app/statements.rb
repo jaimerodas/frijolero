@@ -17,13 +17,14 @@ module Frijolero
     PERIOD = { mustermann_opts: { capture: { yymm: /\d{4}/ } } }.freeze
 
     helpers do
-      # Beancount text → one `span.line#L<n>` per line, colored. The lines are
-      # split on "\n" with the trailing empty one kept, the same as the editor's
-      # render in public/editor.js, which has the JS copy of BEANCOUNT_TOKEN.
-      def beancount_html(text)
-        lines = text.split("\n", -1)
-        lines = [''] if lines.empty?
-        lines.each_with_index.map { |line, i| %(<span class="line" id="L#{i + 1}">#{beancount_line(line)}</span>) }.join
+      # Beancount text → one `span.line#L<n>` per line, colored, split on "\n" with the trailing
+      # empty one kept, as editor.js does. The lines of a directive with an error get `.err`.
+      def beancount_html(text, errors = [])
+        lines = text.empty? ? [''] : text.split("\n", -1)
+        lines.zip(error_lines(lines, errors)).each_with_index.map do |(line, error), i|
+          title = error && %( title="#{h("#{error[:code]} #{error[:message]}")}")
+          %(<span class="line#{' err' if error}" id="L#{i + 1}"#{title}>#{beancount_line(line)}</span>)
+        end.join
       end
     end
 

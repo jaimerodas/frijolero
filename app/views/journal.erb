@@ -36,29 +36,43 @@
     <% if error %>
       <p class="error" role="alert"><%= h(error) %></p>
     <% else %>
-      <% if count.zero? %>
+      <% if rows.empty? %>
         <% if empty %><%= erb :_empty_ledger, layout: false %><% else %><p class="note">Sin movimientos.</p><% end %>
       <% else %>
         <p class="order"><%= sort_link('date', 'Fecha', period) %><% unless account.empty? %><%= sort_link('amount', 'Monto', period) %><% end %></p>
         <ol class="ledger">
           <% rows.each do |tx| %>
-            <% link = journal_statement_link(tx[:file]) %>
-            <% sum = tx[:sum] %>
-            <li class="txn">
-              <time datetime="<%= h(tx[:date].iso8601) %>"><button type="button" class="edit" data-file="<%= h(tx[:file]) %>" data-line="<%= h(tx[:line]) %>"<% if link %> data-statement="<%= link %>"<% end %>><%= h(tx[:date].iso8601) %></button></time>
-              <details>
-                <summary>
-                  <% unless sum.empty? %><span class="sum"><% sum.each do |currency, amount| %><data<% if amount.negative? %> class="debit"<% end %> value="<%= amount.to_s('F') %>"><%= datum(amount) %> <%= h(currency) %></data><% end %></span><% end %>
-                  <span class="line"><% if tx[:payee] %><strong><%= h(tx[:payee]) %></strong><% unless tx[:narration].to_s.empty? %>: <% end %><% end %><%= h(tx[:narration]) %><% if tx[:flag] == '!' %> <span class="flag">!</span><% end %></span>
-                </summary>
-                <ul class="postings">
-                  <% tx[:postings].each do |p| %>
-                    <% currency, number = p[:amount].first %>
-                    <li<% if p[:matched] %> class="matched"<% end %>><code><%= account_links(p[:account], period) %></code><data value="<%= number.to_s('F') %>"><%= datum(number) %> <%= h(currency) %></data></li>
-                  <% end %>
-                </ul>
-              </details>
-            </li>
+            <% if tx[:balance] %>
+              <% err = tx[:file] && row_error(tx[:file], tx[:line]) %>
+              <li class="balance<%= ' err' if err %>">
+                <time datetime="<%= h(tx[:date].iso8601) %>"><% if tx[:file] %><button type="button" class="edit" data-file="<%= h(tx[:file]) %>" data-line="<%= h(tx[:line]) %>"<% if (link = journal_statement_link(tx[:file])) %> data-statement="<%= link %>"<% end %>><%= h(tx[:date].iso8601) %></button><% else %><%= h(tx[:date].iso8601) %><% end %></time>
+                <div class="entry">
+                  <div><span class="status <%= err ? 'failed' : 'ok' %>">Saldo</span> <code><%= account_links(tx[:account], period) %></code></div>
+                  <% if err %><p class="why"><% if (gap = balance_gap(err)) %>No cuadra: <%= h(gap) %>.<% else %><%= h(err[:code]) %> <%= h(err[:message]) %><% end %></p><% end %>
+                </div>
+                <% tx[:amount].each do |currency, amount| %><data value="<%= amount.to_s('F') %>"><%= datum(amount) %> <%= h(currency) %></data><% end %>
+              </li>
+            <% else %>
+              <% link = journal_statement_link(tx[:file]) %>
+              <% sum = tx[:sum] %>
+              <% err = row_error(tx[:file], tx[:line]) %>
+              <li class="txn<%= ' err' if err %>">
+                <time datetime="<%= h(tx[:date].iso8601) %>"><button type="button" class="edit" data-file="<%= h(tx[:file]) %>" data-line="<%= h(tx[:line]) %>"<% if link %> data-statement="<%= link %>"<% end %>><%= h(tx[:date].iso8601) %></button></time>
+                <details>
+                  <summary>
+                    <% unless sum.empty? %><span class="sum"><% sum.each do |currency, amount| %><data<% if amount.negative? %> class="debit"<% end %> value="<%= amount.to_s('F') %>"><%= datum(amount) %> <%= h(currency) %></data><% end %></span><% end %>
+                    <span class="line"><% if tx[:payee] %><strong><%= h(tx[:payee]) %></strong><% unless tx[:narration].to_s.empty? %>: <% end %><% end %><%= h(tx[:narration]) %><% if tx[:flag] == '!' %> <span class="flag">!</span><% end %></span>
+                    <% if err %><span class="status failed"><%= h(err[:code]) %> <%= h(err[:message]) %></span><% end %>
+                  </summary>
+                  <ul class="postings">
+                    <% tx[:postings].each do |p| %>
+                      <% currency, number = p[:amount].first %>
+                      <li<% if p[:matched] %> class="matched"<% end %>><code><%= account_links(p[:account], period) %></code><data value="<%= number.to_s('F') %>"><%= datum(number) %> <%= h(currency) %></data></li>
+                    <% end %>
+                  </ul>
+                </details>
+              </li>
+            <% end %>
           <% end %>
         </ol>
         <% page, pages = journal_page(count) %>

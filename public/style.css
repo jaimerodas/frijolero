@@ -7,6 +7,8 @@
   --red: #fc3d21;
   --blue: light-dark(#0b3d91, #7aa2ff);
   --on-blue: light-dark(#ffffff, #000000);
+  /* Black on NASA red is 5.9:1 in both schemes; white would be 3.6:1. */
+  --on-red: #000000;
   --credit: light-dark(#1a7f37, #3fb950);
   --debit: light-dark(#b3410f, #ff8a5b);
   /* The four steps of the treemap, largest tile first. On paper the top is ink; on the dark ground it stops at a
@@ -163,8 +165,8 @@ a.rules { font-size: 0.875rem; margin-left: 0.5rem; color: var(--muted); }
 .ledger .postings li { display: contents; }
 .ledger .postings code { font-size: inherit; overflow-wrap: anywhere; }
 .ledger .postings .matched { color: var(--muted); }
-.ledger .postings a, .note a, .account a { color: inherit; text-decoration: none; }
-.ledger .postings a:hover, .note a:hover, .account a:hover { text-decoration: underline; }
+.ledger :is(.postings, .balance) a, .note a, .account a { color: inherit; text-decoration: none; }
+.ledger :is(.postings, .balance) a:hover, .note a:hover, .account a:hover { text-decoration: underline; }
 /* The date of an entry is its one action, the edit dialog: a quiet blue text control
    that looks like a link, in the mono of the date. The 2rem tap height overlaps the
    row padding through the negative margin, so the row stays as tall as its text. */
@@ -419,7 +421,7 @@ pre {
 }
 .code:not(.editing) .line:last-child:empty { display: none; }
 .code .line:is(.err, :target) { background: color-mix(in oklab, var(--red) 12%, var(--bg)); }
-.code .line:is(.err, :target)::before { color: var(--red); font-weight: 600; }
+.code .line:is(.err, :target)::before { color: var(--red); }
 .code textarea {
   position: absolute;
   inset: 0;
@@ -448,11 +450,10 @@ body:has(.code.editing) .edit-file { display: none; }
 /* The tab labels carry the form label margins, so the button takes the same ones to sit level with them. */
 .tablist .edit-file { margin: 1.25rem 0 0.375rem auto; }
 .bc-date, .bc-comment { color: var(--muted); }
-.bc-flag { font-weight: 600; }
 .bc-warn, pre .debit { color: var(--debit); }
 pre .credit { color: var(--credit); }
 .bc-account { color: var(--blue); }
-.bc-fixme { color: var(--red); font-weight: 600; }
+.bc-fixme { color: var(--red); }
 details { margin-block: 1.5rem; }
 summary { cursor: pointer; font-weight: 600; }
 
@@ -515,3 +516,62 @@ summary { cursor: pointer; font-weight: 600; }
   .ledger .txn .sum { float: right; margin-left: 1rem; }
   .ledger .postings { clear: both; }
 }
+
+/* Errores del ledger: the badge and /errors. NASA red marks (the ■), ink carries the words:
+   red text is 3.6:1 on paper. Mono stays at a loaded weight, never a synthetic bold. */
+/* The count in a red disc; the link around it keeps the 44px target, and a ring, not the
+   underline, marks it as the current page. */
+.topbar nav a.errors { justify-content: center; min-width: 2.75rem; text-decoration: none; }
+.topbar nav a.errors span {
+  min-width: 1.625rem;
+  padding: 0 0.375rem;
+  box-sizing: border-box;
+  border-radius: 0.8125rem;
+  background: var(--red);
+  color: var(--on-red);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.625rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.topbar nav a.errors:is(:hover, [aria-current]) span { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ink); }
+.ledger-errors h2 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 1rem; margin: 2rem 0 0; }
+.ledger-errors .path { font-family: var(--mono); font-size: 1rem; font-weight: 400; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
+.ledger-errors .path:hover { text-decoration: underline; }
+.ledger-errors h2 a + a { font-size: 0.875rem; font-weight: 400; }
+.ledger-errors ul { list-style: none; margin: 0; padding: 0; }
+.ledger-errors li { padding-block: 0.5rem; padding-left: 1.1rem; text-indent: -1.1rem; }
+.ledger-errors li + li { border-top: 1px solid var(--rule); }
+.ledger-errors li::before { content: "■" / ""; display: inline-block; width: 1.1rem; text-indent: 0; font-size: 0.75em; color: var(--red); }
+.ledger-errors li code { color: var(--muted); }
+.ledger-errors li a { margin-left: 0.5rem; font-size: 0.875rem; }
+
+/* Editor: sugerencias de cuentas */
+.code .suggestions {
+  position: absolute;
+  z-index: 1;
+  margin: 0;
+  padding: 0.25rem 0;
+  min-width: 12rem;
+  max-height: 12rem;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--bg);
+  border: 1px solid var(--ink);
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  /* Back by its padding and border, so each name sits under the word being typed. */
+  margin-left: calc(-0.75rem - 1px);
+}
+.code .suggestions li { padding: 0.125rem 0.75rem; cursor: pointer; }
+.code .suggestions li[aria-selected="true"] { background: var(--blue); color: var(--on-blue); }
+
+/* Diario: saldos y errores. The glyph of a balance, and the ■ of an error line, sit in the
+   column of a transaction's ▸, so the words line up; the glyph is the color, the words ink. */
+.ledger > li.err { background: color-mix(in oklab, var(--red) 12%, var(--bg)); }
+.ledger :is(.balance, summary) .status { color: var(--ink); font-weight: 400; }
+.ledger :is(.balance, summary) .status::before { display: inline-block; width: 1.1rem; margin: 0; color: var(--red); }
+.ledger .balance .status.ok::before { color: var(--credit); }
+.ledger summary .status.failed { display: block; grid-column: 1 / -1; margin-top: 0.25rem; white-space: normal; overflow-wrap: anywhere; }
+.ledger .why { margin: 0.25rem 0 0; padding-left: 1.1rem; }

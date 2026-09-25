@@ -8,7 +8,7 @@ class ReportsPageTest < Minitest::Test
   include TestHelpers
 
   class FakeReports
-    attr_reader :calls
+    attr_reader :calls, :checks
     attr_accessor :error, :opening_error
 
     def initialize
@@ -85,6 +85,18 @@ class ReportsPageTest < Minitest::Test
       { 'MXN' => BigDecimal('-250') }
     end
 
+    # Set by a test: the balance assertions shown. Unset means none, like a
+    # period with no balance directives.
+    attr_writer :balance_rows
+
+    def balances(prefix, from, to)
+      @calls << [:balances, prefix, from, to]
+      raise Frijolero::Reports::Error, error if error
+      return [] if empty
+
+      (@balance_rows || []).select { |b| matched?(b, prefix) }
+    end
+
     # The contract: matched postings flagged and sorted last.
     def postings_for(txn, prefix)
       txn[:postings].map { |p| p.merge(matched: matched?(p, prefix)) }.sort_by { |p| p[:matched] ? 1 : 0 }
@@ -94,14 +106,14 @@ class ReportsPageTest < Minitest::Test
       !prefix.empty? && (posting[:account] == prefix || posting[:account].start_with?("#{prefix}:"))
     end
 
-    # What the edit dialog's save will find. Set by the test; [] means clean.
-    # Counted apart from `calls`: every page's topbar may run it too.
+    # What the check finds. Set by the test: a list ([] means clean), or a lambda
+    # that reads the ledger, as rledger does, for a save that checks before and after
+    # its write. Counted apart from `calls`: every page's topbar may run it too.
     attr_accessor :check_errors
-    attr_reader :checks
 
     def check
       @checks = checks.to_i + 1
-      check_errors || []
+      (check_errors.respond_to?(:call) ? check_errors.call : check_errors) || []
     end
 
     JOURNAL = [
@@ -567,6 +579,113 @@ class ReportsPageTest < Minitest::Test
     assert_includes last_response.body, '<span class="count">2,000 movimientos</span>'
   end
 
+  # A balance dated the same day as the account's only transaction (compra, 2026-07-05).
+  def with_amex_balance
+    @reports.balance_rows = [{ date: Date.new(2026, 7, 5), account: 'Liabilities:AMEX',
+                               amount: { 'MXN' => BigDecimal('-150.00') },
+                               file: 'accounts/AMEX/AMEX 2607.beancount', line: 1 }]
+  end
+
+  def test_balance_rows_appear_with_an_account_and_a_date_sort
+    with_amex_balance
+    get '/journal', account: 'Liabilities:AMEX'
+
+    assert_includes last_response.body, '<span class="status ok">Saldo</span>'
+    assert_match %r{<li class="balance">.*<data value="-150.0">-150.00 MXN</data>\s*</li>}m, last_response.body
+    assert_includes @reports.calls,
+                    [:balances, 'Liabilities:AMEX', Date.new(Date.today.year, 1, 1), Date.new(Date.today.year, 12, 31)]
+  end
+
+  def test_balance_rows_are_absent_without_an_account_with_a_search_or_with_an_amount_sort
+    with_amex_balance
+
+    get '/journal'
+    refute_includes last_response.body, '<li class="balance'
+    refute_includes @reports.calls.map(&:first), :balances
+
+    get '/journal', account: 'Liabilities:AMEX', q: 'amazon'
+    refute_includes last_response.body, '<li class="balance'
+
+    get '/journal', account: 'Liabilities:AMEX', sort: 'amount-desc'
+    refute_includes last_response.body, '<li class="balance'
+  end
+
+  def ledger_list(body) = body[%r{<ol class="ledger">.*?</ol>}m]
+
+  def test_balance_sits_before_its_day_in_date_asc_and_after_it_in_date_desc
+    with_amex_balance
+
+    get '/journal', account: 'Liabilities:AMEX', sort: 'date-asc'
+    list = ledger_list(last_response.body)
+    assert_operator list.index('<li class="balance'), :<, list.index('compra')
+
+    get '/journal', account: 'Liabilities:AMEX'
+    list = ledger_list(last_response.body)
+    assert_operator list.index('compra'), :<, list.index('<li class="balance')
+  end
+
+  def test_balances_do_not_change_the_count_or_the_total
+    @reports.balance_rows = [{ date: Date.new(2026, 7, 5), account: 'Expenses',
+                               amount: { 'MXN' => BigDecimal('99999') }, file: nil, line: nil }]
+    get '/journal', account: 'Expenses'
+
+    assert_includes last_response.body,
+                    '<span class="count">2 movimientos</span><data value="5150.0">5,150.00 MXN</data>'
+  end
+
+  # `count` rows, one per day from 2026-01-01: with 250, page 1 (desc) holds the 200
+  # newest, page 2 the 50 oldest. One balance lands inside each page, one after the
+  # newest day and one before the oldest, so both boundary pages take one extra.
+  def journal_rows_across_many_dates(count)
+    first = @reports.journal('Expenses', nil, nil).first
+    @reports.rows = Array.new(count) { |i| first.merge(narration: "n#{i}", date: Date.new(2026, 1, 1) + i) }
+  end
+
+  def test_balances_split_across_pages_by_date
+    journal_rows_across_many_dates(250)
+    @reports.balance_rows = [
+      { date: Date.new(2026, 1, 1) + 260, account: 'Expenses', amount: { 'MXN' => BigDecimal('10') },
+        file: nil, line: nil },
+      { date: Date.new(2026, 1, 1) + 120, account: 'Expenses', amount: { 'MXN' => BigDecimal('20') },
+        file: nil, line: nil },
+      { date: Date.new(2026, 1, 1) + 20, account: 'Expenses', amount: { 'MXN' => BigDecimal('30') },
+        file: nil, line: nil },
+      { date: Date.new(2026, 1, 1) - 5, account: 'Expenses', amount: { 'MXN' => BigDecimal('40') },
+        file: nil, line: nil }
+    ]
+
+    get '/journal', account: 'Expenses'
+    page1 = ledger_list(last_response.body)
+
+    get '/journal', account: 'Expenses', page: '2'
+    page2 = ledger_list(last_response.body)
+
+    assert_equal 2, page1.scan('<li class="balance').size
+    assert_equal 2, page2.scan('<li class="balance').size
+    assert_includes page1, '10.00 MXN'
+    assert_includes page1, '20.00 MXN'
+    assert_includes page2, '30.00 MXN'
+    assert_includes page2, '40.00 MXN'
+  end
+
+  def test_transaction_and_balance_rows_in_error_are_marked_with_the_message
+    @reports.check_errors = [
+      { code: 'E1001', message: 'Cuenta sin abrir', file: 'accounts/AMEX/AMEX 2607.beancount', line: 10, end_line: 15 },
+      { code: 'E2001', message: 'Balance failed for Liabilities:AMEX: expected -150.00 MXN, got -425.50 MXN',
+        file: 'accounts/AMEX/AMEX 2607.beancount', line: 1, end_line: 2 }
+    ]
+    with_amex_balance
+    get '/journal', account: 'Liabilities:AMEX'
+    body = last_response.body
+
+    assert_includes body, '<li class="txn err">'
+    assert_includes body, '<span class="status failed">E1001 Cuenta sin abrir</span>'
+    assert_includes body, '<li class="balance err">'
+    assert_includes body, '<span class="status failed">Saldo</span>'
+    assert_includes body, '<p class="why">No cuadra: el ledger suma -425.50 MXN, ' \
+                          '275.50 menos que el saldo de -150.00.</p>'
+  end
+
   # Three Expenses rows: compra (2026-07-05, 150), Nómina (07-20, 5000) and a
   # third one whose date and amount order differently, chicle (07-25, 10).
   def journal_rows_with_chicle
@@ -931,15 +1050,16 @@ class ReportsPageTest < Minitest::Test
 
       assert_equal 204, last_response.status
       assert_includes File.read(path), "  Expenses:Casa\n"
-      assert_equal 1, @reports.checks
+      assert_equal 2, @reports.checks
       assert_equal 'Edición AMEX 2607: 2026-07-05 AMAZON', @repo.messages.first.lines.first.chomp
     end
   end
 
   def test_an_edit_that_fails_the_check_is_422_with_the_errors_and_leaves_the_file
     with_statement do |path|
-      @reports.check_errors = [{ code: 'E1001', message: 'Account Expenses:Casa was never opened',
-                                 file: 'accounts/AMEX/AMEX 2607.beancount', line: 1 }]
+      casa = { code: 'E1001', message: 'Account Expenses:Casa was never opened',
+               file: 'accounts/AMEX/AMEX 2607.beancount', line: 1 }
+      @reports.check_errors = -> { File.read(path).include?('Casa') ? [casa] : [] }
       original = STATEMENT.lines[0..2].join
       post '/edit', file: 'accounts/AMEX/AMEX 2607.beancount', line: 2, original: original,
                     content: original.sub('Compras', 'Casa')

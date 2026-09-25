@@ -132,7 +132,7 @@ module Frijolero
         name = chart_name(options)
         # The balance line is the one chart that needs more than the index.
         opening = self.class.reports.opening(account, period.from, period.to, mxn: mxn?) if name == 'balance'
-        rows = journal_page_rows(index, account, period)
+        rows = journal_page_rows(index, account, period, journal_balances(account, period))
       rescue Reports::Error => e
         # first_date can be the call that fails (no rledger), so `first` and `period` may be unset here.
         status 502

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%= head('Errores') %>
+</head>
+<body>
+  <%= topbar %>
+  <main>
+    <h1>Errores del ledger</h1>
+    <% if errors.nil? %>
+      <p class="error">No se pudo revisar el ledger: rustledger falló.</p>
+    <% elsif errors.empty? %>
+      <p class="status ok">Sin errores.</p>
+    <% else %>
+      <% errors.group_by { |e| e[:file] }.sort.each do |file, file_errors| %>
+        <section class="ledger-errors">
+          <h2>
+            <a class="path" href="/files/<%= Rack::Utils.escape_path(file) %>"><%= h(file) %></a>
+            <% if (statement = journal_statement_link(file)) %><a href="<%= statement %>">Ver estado de cuenta</a><% end %>
+          </h2>
+          <ul>
+            <% file_errors.sort_by { |e| e[:line] }.each do |error| %>
+              <li>
+                <code><%= h(error[:code]) %></code> <% if (gap = balance_gap(error)) %>Saldo de <%= h(balance_account(error)) %>: <%= h(gap) %>.<% else %><%= h(error[:message]) %><% end %>
+                <a href="/files/<%= Rack::Utils.escape_path(file) %>#L<%= error[:line] %>">línea <%= error[:line] %></a>
+                <% if (journal = balance_journal_link(error)) %><a href="<%= journal %>">Ver en el diario</a><% end %>
+              </li>
+            <% end %>
+          </ul>
+        </section>
+      <% end %>
+    <% end %>
+  </main>
+</body>
+</html>

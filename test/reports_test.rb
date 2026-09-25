@@ -431,6 +431,47 @@ class ReportsTest < Minitest::Test
     end
   end
 
+  def test_balances_zips_the_two_queries_and_filters_by_prefix
+    seen = []
+    amounts = { rows: [
+      ['2026-01-31', 'Assets:BBVA', { 'currency' => 'MXN', 'number' => '100.00' }],
+      ['2026-01-31', 'Assets:Other', { 'currency' => 'MXN', 'number' => '50.00' }]
+    ] }.to_json
+    locations = { rows: [
+      ['2026-01-31', '/data/ledger/main.beancount', 10],
+      ['2026-01-31', '/data/ledger/main.beancount', 20]
+    ] }.to_json
+    rows = with_ledger_dir do
+      Reports.stub(:capture, lambda { |*args|
+        seen << args.last
+        out = args.last.include?('#balances') ? amounts : locations
+        [out, '', 0]
+      }) { Reports.balances('Assets:BBVA', Date.new(2026, 1, 1), Date.new(2026, 1, 31)) }
+    end
+
+    assert_includes seen.first,
+                    'SELECT date, account, amount FROM #balances WHERE date >= 2026-01-01 AND date <= 2026-01-31'
+    assert_includes seen.last,
+                    "SELECT date, filename, lineno FROM #entries WHERE type = 'balance' " \
+                    'AND date >= 2026-01-01 AND date <= 2026-01-31'
+    assert_equal [{ date: Date.new(2026, 1, 31), account: 'Assets:BBVA', amount: { 'MXN' => BigDecimal('100.00') },
+                    file: '/data/ledger/main.beancount', line: 10 }], rows
+  end
+
+  def test_balances_drops_the_location_on_a_date_mismatch
+    amounts = { rows: [['2026-01-31', 'Assets:BBVA', { 'currency' => 'MXN', 'number' => '100.00' }]] }.to_json
+    locations = { rows: [['2026-02-01', '/data/ledger/main.beancount', 10]] }.to_json
+    rows = with_ledger_dir do
+      Reports.stub(:capture, lambda { |*args|
+        out = args.last.include?('#balances') ? amounts : locations
+        [out, '', 0]
+      }) { Reports.balances('Assets:BBVA', Date.new(2026, 1, 1), Date.new(2026, 2, 28)) }
+    end
+
+    assert_equal [{ date: Date.new(2026, 1, 31), account: 'Assets:BBVA', amount: { 'MXN' => BigDecimal('100.00') },
+                    file: nil, line: nil }], rows
+  end
+
   def test_bql_text_escapes_regex_metacharacters_and_quotes
     assert_equal 'foo\\.bar', Reports.bql_text('foo.bar')
     assert_equal 'o.brien', Reports.bql_text("o'brien")

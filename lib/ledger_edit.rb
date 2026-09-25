@@ -53,7 +53,7 @@ module Frijolero
 
     # Replaces the block with `edited` and returns the text written, or raises
     # Stale when the block no longer reads as `original`, and Invalid when the
-    # ledger does not check clean afterwards, with the file put back either way.
+    # edit adds errors to the ledger, with the file put back either way.
     def save(original:, edited:)
       lines = read
       first, last = locate(lines)
@@ -105,15 +105,31 @@ module Frijolero
       [first, last]
     end
 
-    # Writes `after`, and puts `before` back unless the whole ledger checks clean.
+    # Writes `after`, and puts `before` back if the ledger then has errors beyond
+    # the `known` ones, so a ledger with errors can still be fixed one edit at a time.
     # ponytail: no lock against the job worker; the rules editor has none either.
     def replace(before, after)
-      File.write(@path, after)
-      errors = @checker.check
-      raise Invalid, errors unless errors.empty?
-    rescue StandardError
-      File.write(@path, before)
-      raise
+      known = @checker.check
+      begin
+        File.write(@path, after)
+        errors = added(known, @checker.check)
+        raise Invalid, errors unless errors.empty?
+      rescue StandardError
+        File.write(@path, before)
+        raise
+      end
+    end
+
+    # The errors of `after` beyond those of `before`, matched by code and file: the
+    # line and the amounts in a message move with the edit, so they are not compared.
+    def added(before, after)
+      left = before.map { |e| e.values_at(:code, :file) }.tally
+      after.reject do |e|
+        key = e.values_at(:code, :file)
+        next false unless left[key].to_i.positive?
+
+        left[key] -= 1
+      end
     end
 
     def crlf(text)

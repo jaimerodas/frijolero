@@ -22,18 +22,19 @@ class LedgerEditTest < Minitest::Test
   ERROR = { code: 'E1001', message: 'Account Expenses:Nope was never opened',
             file: 'accounts/AMEX/AMEX 2607.beancount', line: 1 }.freeze
 
-  # A checker that answers with a fixed list and remembers whether it ran.
+  # A checker that answers with each list in turn, the last one from then on, and
+  # counts its calls. A save checks twice: before its write and after it.
   class Checker
     attr_reader :calls
 
-    def initialize(errors = [])
-      @errors = errors
+    def initialize(*answers)
+      @answers = answers.empty? ? [[]] : answers
       @calls = 0
     end
 
     def check
       @calls += 1
-      @errors
+      @answers[[@calls, @answers.size].min - 1]
     end
   end
 
@@ -148,7 +149,9 @@ class LedgerEditTest < Minitest::Test
 
   def test_save_of_the_whole_file_restores_it_when_the_check_fails
     with_ledger do |dir|
-      assert_raises(LedgerEdit::Invalid) { edit(nil, checker: Checker.new([ERROR])).save(original: LEDGER, edited: 'x') }
+      assert_raises(LedgerEdit::Invalid) do
+        edit(nil, checker: Checker.new([], [ERROR])).save(original: LEDGER, edited: 'x')
+      end
       assert_equal LEDGER, File.read(statement_path(dir))
     end
   end
@@ -167,15 +170,43 @@ class LedgerEditTest < Minitest::Test
 
   def test_save_restores_the_file_when_the_check_fails
     with_ledger do |dir|
-      checker = Checker.new([ERROR])
+      checker = Checker.new([], [ERROR])
       error = assert_raises(LedgerEdit::Invalid) do
         edit(2, checker: checker).save(original: LEDGER.lines[0..2].join,
                                        edited: "2026-08-01 * \"x\"\n  Expenses:Nope  1 MXN\n")
       end
 
-      assert_equal 1, checker.calls
+      assert_equal 2, checker.calls
       assert_equal [ERROR], error.errors
       assert_equal 'E1001 Account Expenses:Nope was never opened (accounts/AMEX/AMEX 2607.beancount:1)', error.message
+      assert_equal LEDGER, File.read(statement_path(dir))
+    end
+  end
+
+  # A duplicate removed while another statement's balance still fails: the balance
+  # error stays, with a new line and a new amount in its message, and that is fine.
+  BALANCE = { code: 'E2001', message: 'Balance failed for Assets:Plata: expected 1 MXN, got 3 MXN',
+              file: 'balances.beancount', line: 4 }.freeze
+
+  def test_save_keeps_an_edit_that_leaves_the_errors_the_ledger_already_had
+    with_ledger do |dir|
+      checker = Checker.new([ERROR, BALANCE], [ERROR.merge(line: 2), BALANCE.merge(message: 'got 2 MXN', line: 3)])
+      edited = LEDGER.lines[0..2].join.sub('Tolls', 'Casetas')
+      edit(2, checker: checker).save(original: LEDGER.lines[0..2].join, edited: edited)
+
+      assert_includes File.read(statement_path(dir)), 'Expenses:Transportation:Casetas'
+    end
+  end
+
+  def test_save_refuses_only_the_errors_the_edit_adds
+    with_ledger do |dir|
+      added = BALANCE.merge(message: 'Balance failed for Assets:Otra: expected 1 MXN, got 2 MXN')
+      checker = Checker.new([BALANCE], [BALANCE, added])
+      error = assert_raises(LedgerEdit::Invalid) do
+        edit(2, checker: checker).save(original: LEDGER.lines[0..2].join, edited: "2026-08-01 * \"x\"\n")
+      end
+
+      assert_equal [added], error.errors
       assert_equal LEDGER, File.read(statement_path(dir))
     end
   end

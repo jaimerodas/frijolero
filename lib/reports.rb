@@ -158,6 +158,31 @@ module Frijolero
       Regexp.escape(text).gsub("'", '.')
     end
 
+    # The balance assertions in [from, to], filtered to `prefix` and its subtree, like the
+    # journal (`prefix` is validated by the route before it gets here). `#balances` has the
+    # amount but no location; `#entries` has the location but no account for a balance, so
+    # this zips the two queries, which come back in the same order (measured: 479 rows each,
+    # dates equal pairwise). A pair whose dates differ drops the location only, so the row
+    # shows with no edit button.
+    # ponytail: assumes the two queries stay in lockstep; rustledger gives no shared id to join on.
+    def balances(prefix, from, to)
+      amounts = table("SELECT date, account, amount FROM #balances WHERE date >= #{from.iso8601} " \
+                      "AND date <= #{to.iso8601}")
+      locations = table("SELECT date, filename, lineno FROM #entries WHERE type = 'balance' " \
+                        "AND date >= #{from.iso8601} AND date <= #{to.iso8601}")
+      amounts.zip(locations).filter_map { |row, location| balance_row(prefix, row, location) }
+    end
+
+    def balance_row(prefix, row, location)
+      date, account, amount_value = row
+      return nil unless journal_matches?(prefix, account)
+
+      loc_date, file, line = location
+      located = loc_date == date
+      { date: Date.iso8601(date), account: account, amount: amount(amount_value),
+        file: located ? ledger_file(file) : nil, line: located ? line : nil }
+    end
+
     # The earliest transaction, for the `all` period and the period menu.
     # A ledger with no transactions yet answers nil, and the pages say so.
     def first_date
