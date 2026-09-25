@@ -389,25 +389,28 @@ class ReportsTest < Minitest::Test
   def test_check_is_empty_when_the_ledger_is_clean
     with_ledger_dir do
       seen = nil
-      Reports.stub(:capture, ->(*args) { seen = args and ['✓ No errors found', '', 0] }) do
+      clean = { diagnostics: [], error_count: 0 }.to_json
+      Reports.stub(:capture, ->(*args) { seen = args and [clean, '', 0] }) do
         assert_empty Reports.check
       end
 
-      assert_equal ['check', '--no-cache', Frijolero::Config.main_file], seen
+      assert_equal ['check', '--no-cache', '-f', 'json', Frijolero::Config.main_file], seen
     end
   end
 
-  def test_check_lists_each_error_with_its_code_message_and_relative_location
+  def test_check_lists_each_error_once_with_its_relative_location_and_leaves_warnings_out
     with_symlinked_ledger_dir do |real|
-      out = File.read(fixture_path('report/check_errors.txt')).gsub('/data/ledger', real)
+      out = File.read(fixture_path('report/check_errors.json')).gsub('/data/ledger', real)
       errors = Reports.stub(:capture, ->(*) { [out, '', 1] }) { Reports.check }
 
       assert_equal [{ code: 'E1001', message: 'Account Expenses:Transportation:Tollz was never opened',
-                      file: 'accounts/AMEX/AMEX 2607.beancount', line: 325 }], errors
+                      file: 'accounts/AMEX/AMEX 2607.beancount', line: 325, end_line: 328 },
+                    { code: 'P0012', message: 'parse error: unexpected input',
+                      file: 'main.beancount', line: 8, end_line: 11 }], errors
     end
   end
 
-  def test_check_raises_when_the_output_has_no_error_blocks
+  def test_check_raises_with_stderr_when_the_output_is_not_json
     with_ledger_dir do
       error = Reports.stub(:capture, ->(*) { ['', 'cannot read moneys.beancount', 1] }) do
         assert_raises(Reports::Error) { Reports.check }

@@ -189,23 +189,22 @@ module Frijolero
       raise Error, err.strip.empty? ? "rledger salió con #{code}" : err.strip
     end
 
-    # One line per error block that `rledger check` prints: the code, the `x`
-    # line and the `,-[file:line:col]` line under it. The file is relative to the ledger.
-    CHECK_RE = /^(?<code>[A-Z]\d{4})\n\n\s+x (?<message>.*)\n\s+,-\[(?<file>.*?):(?<line>\d+):\d+\]/
-
     # `rledger check` over the whole ledger: [] when it is clean, else one
-    # {code:, message:, file:, line:} per error, the file relative to the ledger.
-    # Without `--no-cache` the binary would leave a cache file in the clone.
+    # {code:, message:, file:, line:, end_line:} per error, the file relative to the
+    # ledger. `line` is the directive's first line and `end_line` the first line past
+    # it (blank lines after it included). Warnings are left out, and a parse error
+    # that rledger reports twice is listed once. Without `--no-cache` the binary
+    # would leave a cache file in the clone.
     def check
-      out, err, code = capture('check', '--no-cache', Config.main_file)
-      return [] if code.zero?
+      out, err, code = capture('check', '--no-cache', '-f', 'json', Config.main_file)
+      JSON.parse(out).fetch('diagnostics').select { |d| d['severity'] == 'error' }.map { |d| check_error(d) }.uniq
+    rescue JSON::ParserError, KeyError
+      raise Error, err.strip.empty? ? "rledger salió con #{code}" : err.strip
+    end
 
-      errors = (out + err).scan(CHECK_RE).map do |c, m, f, l|
-        { code: c, message: m, file: ledger_file(f), line: l.to_i }
-      end
-      raise Error, (out + err).strip if errors.empty?
-
-      errors
+    def check_error(diagnostic)
+      code, message, file, line, end_line = diagnostic.values_at('code', 'message', 'file', 'line', 'end_line')
+      { code: code, message: message, file: ledger_file(file), line: line, end_line: end_line }
     end
 
     # A file rledger printed, relative to the ledger. rledger resolves symlinks, and

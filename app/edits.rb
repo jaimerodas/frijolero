@@ -11,11 +11,11 @@ module Frijolero
     end
 
     # One transaction as text, by file and line, or the whole file without a
-    # line: {first, last, text}.
+    # line: {first, last, text, errors}, the errors that start inside it.
     get '/edit' do
       block = ledger_edit.block
       content_type :json
-      JSON.generate(block)
+      JSON.generate(block.merge(errors: errors_in(params[:file], block[:first], block[:last])))
     rescue LedgerEdit::NotFound
       halt 404, 'No existe esa transacción'
     end

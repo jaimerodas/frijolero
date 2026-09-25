@@ -95,10 +95,12 @@ class ReportsPageTest < Minitest::Test
     end
 
     # What the edit dialog's save will find. Set by the test; [] means clean.
+    # Counted apart from `calls`: every page's topbar may run it too.
     attr_accessor :check_errors
+    attr_reader :checks
 
     def check
-      @calls << [:check]
+      @checks = checks.to_i + 1
       check_errors || []
     end
 
@@ -890,7 +892,24 @@ class ReportsPageTest < Minitest::Test
 
       assert_equal 200, last_response.status
       assert_includes last_response.content_type, 'application/json'
-      assert_equal({ 'first' => 1, 'last' => 3, 'text' => STATEMENT.lines[0..2].join }, JSON.parse(last_response.body))
+      assert_equal({ 'first' => 1, 'last' => 3, 'text' => STATEMENT.lines[0..2].join, 'errors' => [] },
+                   JSON.parse(last_response.body))
+    end
+  end
+
+  def test_edit_answers_with_the_errors_that_start_inside_the_block
+    with_statement do
+      inside = { code: 'E1001', message: 'Account Expenses:Compras was never opened',
+                 file: 'accounts/AMEX/AMEX 2607.beancount', line: 1, end_line: 4 }
+      later = inside.merge(line: 5, end_line: 8)
+      @reports.check_errors = [inside, later, inside.merge(file: 'main.beancount')]
+      get '/edit', file: 'accounts/AMEX/AMEX 2607.beancount', line: 2
+
+      assert_equal [inside.transform_keys(&:to_s)], JSON.parse(last_response.body)['errors']
+
+      get '/edit', file: 'accounts/AMEX/AMEX 2607.beancount'
+
+      assert_equal [inside, later].map { |e| e.transform_keys(&:to_s) }, JSON.parse(last_response.body)['errors']
     end
   end
 
@@ -912,7 +931,7 @@ class ReportsPageTest < Minitest::Test
 
       assert_equal 204, last_response.status
       assert_includes File.read(path), "  Expenses:Casa\n"
-      assert_includes @reports.calls, [:check]
+      assert_equal 1, @reports.checks
       assert_equal 'Edición AMEX 2607: 2026-07-05 AMAZON', @repo.messages.first.lines.first.chomp
     end
   end
@@ -940,7 +959,7 @@ class ReportsPageTest < Minitest::Test
       get '/edit', file: 'accounts/AMEX/AMEX 2607.beancount'
 
       assert_equal 200, last_response.status
-      assert_equal({ 'first' => 1, 'last' => 7, 'text' => STATEMENT }, JSON.parse(last_response.body))
+      assert_equal({ 'first' => 1, 'last' => 7, 'text' => STATEMENT, 'errors' => [] }, JSON.parse(last_response.body))
     end
   end
 

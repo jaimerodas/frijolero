@@ -78,7 +78,8 @@ function editor(form) {
   }
 
   // `original` is what the save compares against, so it is the text as the server gave it.
-  function open(text, start = 1) {
+  // `found` are the errors the ledger already has inside `text`, marked from the start.
+  function open(text, start = 1, found = []) {
     first = start;
     form.elements.original.value = text;
     textarea.value = text;
@@ -86,7 +87,7 @@ function editor(form) {
     form.classList.add('editing');
     textarea.hidden = false;
     actions.hidden = false;
-    showErrors([]);
+    showErrors(found);
     dialog?.showModal();
     textarea.focus();
   }
@@ -137,7 +138,8 @@ if (form) {
   document.querySelector('button.edit-file')?.addEventListener('click', async () => {
     const response = await fetch(`/edit?${new URLSearchParams({ file: form.elements.file.value })}`).catch(() => null);
     if (!response?.ok) return ed.showErrors([response ? await response.text() : 'Sin conexión']);
-    ed.open((await response.json()).text);
+    const block = await response.json();
+    ed.open(block.text, 1, block.errors);
   });
 
   // The journal: the date of an entry opens the dialog with that one transaction.
@@ -152,7 +154,7 @@ if (form) {
     const link = form.closest('dialog').querySelector('.statement');
     link.textContent = file;
     if (statement) link.href = statement; else link.removeAttribute('href');
-    ed.open(block.text, block.first);
+    ed.open(block.text, block.first, block.errors);
     if (!response?.ok) ed.showErrors([response ? await response.text() : 'Sin conexión']);
   });
 }
