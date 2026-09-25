@@ -38,6 +38,7 @@ function editor(form) {
   const actions = form.querySelector('.actions');
   const dialog = form.closest('dialog');
   let first = 1;
+  let found = [];
 
   function render(text) {
     pre.style.counterReset = `line ${first - 1}`;
@@ -78,9 +79,11 @@ function editor(form) {
   }
 
   // `original` is what the save compares against, so it is the text as the server gave it.
-  // `found` are the errors the ledger already has inside `text`, marked from the start.
-  function open(text, start = 1, found = []) {
+  // `errors` are the ones the ledger already has inside `text`, marked from the start
+  // and again after Cancelar.
+  function open(text, start = 1, errors = []) {
     first = start;
+    found = errors;
     form.elements.original.value = text;
     textarea.value = text;
     render(text);
@@ -97,7 +100,7 @@ function editor(form) {
     form.classList.remove('editing');
     textarea.hidden = true;
     actions.hidden = true;
-    showErrors([]);
+    showErrors(found);
     dialog?.close();
   }
 
