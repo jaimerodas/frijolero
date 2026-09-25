@@ -421,7 +421,7 @@ pre {
 }
 .code:not(.editing) .line:last-child:empty { display: none; }
 .code .line:is(.err, :target) { background: color-mix(in oklab, var(--red) 12%, var(--bg)); }
-.code .line:is(.err, :target)::before { color: var(--red); }
+.code .line:is(.err, :target)::before { color: var(--red); font-weight: 600; }
 .code textarea {
   position: absolute;
   inset: 0;
@@ -450,10 +450,11 @@ body:has(.code.editing) .edit-file { display: none; }
 /* The tab labels carry the form label margins, so the button takes the same ones to sit level with them. */
 .tablist .edit-file { margin: 1.25rem 0 0.375rem auto; }
 .bc-date, .bc-comment { color: var(--muted); }
+.bc-flag { font-weight: 600; }
 .bc-warn, pre .debit { color: var(--debit); }
 pre .credit { color: var(--credit); }
 .bc-account { color: var(--blue); }
-.bc-fixme { color: var(--red); }
+.bc-fixme { color: var(--red); font-weight: 600; }
 details { margin-block: 1.5rem; }
 summary { cursor: pointer; font-weight: 600; }
 
