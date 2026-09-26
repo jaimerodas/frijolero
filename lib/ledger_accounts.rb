@@ -1,16 +1,10 @@
 # frozen_string_literal: true
 
 module Frijolero
-  # Every account the ledger opens or a rule names, for the list beside the rules editor,
-  # and the ones a posting can use, for the autocomplete.
+  # The accounts a posting can use, for the autocomplete and the new-account form.
   module LedgerAccounts
     OPEN = /^\d{4}-\d{2}-\d{2} open (\S+)/
     CLOSE = /^\d{4}-\d{2}-\d{2} close (\S+)/
-    RULE = /account:\s*['"]?([A-Z][\w:-]+)/
-
-    def self.all
-      (text.scan(OPEN) + text.scan(RULE)).flatten.uniq.sort
-    end
 
     # Opened and not closed: a name only a rule uses, or a closed account, would fail the
     # ledger check. ponytail: an account closed and opened again counts as closed.

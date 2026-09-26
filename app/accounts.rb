@@ -49,7 +49,7 @@ module Frijolero
     # receive statements, so an adopted ledger's accounts are picked, not retyped.
     def new_account_locals(values, error)
       { values: values, prompt_types: NewAccount.prompt_types, error: error,
-        ledger_accounts: LedgerAccounts.all.grep(/\A(Assets|Liabilities):/) }
+        ledger_accounts: LedgerAccounts.active.grep(/\A(Assets|Liabilities):/) }
     end
 
     get '/accounts/:key' do

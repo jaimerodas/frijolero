@@ -18,7 +18,7 @@ class LedgerAccountsTest < Minitest::Test
       FileUtils.mkdir_p(File.join(dir, 'accounts'))
       File.write(File.join(dir, 'accounts', 'x.beancount'), "2020-01-01 open Assets:Glob\n")
 
-      assert_equal %w[Assets:Glob Assets:Main Liabilities:TDC], Frijolero::LedgerAccounts.all
+      assert_equal %w[Assets:Glob Assets:Main Liabilities:TDC], Frijolero::LedgerAccounts.active
     end
   end
 
@@ -35,7 +35,6 @@ class LedgerAccountsTest < Minitest::Test
       File.write(File.join(dir, 'config', 'rules', 'Bank.yaml'), "include:\n  BOOK: { account: Expenses:Books }\n")
 
       assert_equal %w[Assets:Bank], Frijolero::LedgerAccounts.active
-      assert_includes Frijolero::LedgerAccounts.all, 'Expenses:Books'
     end
   end
 end

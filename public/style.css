@@ -407,7 +407,6 @@ pre {
   line-height: 1.5;
   white-space: normal;
 }
-.code pre { counter-reset: line; }
 .code .line { display: block; position: relative; min-height: 1lh; white-space: pre-wrap; overflow-wrap: anywhere; }
 .code .line::before {
   counter-increment: line;
@@ -426,6 +425,7 @@ pre {
    Backgrounds and inset shadows only: nothing here may change a line's height. An error's red
    band, below, wins over the blue one. */
 .code pre {
+  counter-reset: line;
   --gutter: calc(1rem + 4ch);
   background: linear-gradient(to right, var(--gutter-bg) var(--gutter),
     var(--rule) var(--gutter) calc(var(--gutter) + 1px), var(--bg) calc(var(--gutter) + 1px));

@@ -88,7 +88,7 @@ module Frijolero
       # The key as YAML writes a value, quoted only when it must be; as a key Psych would switch
       # to the `? key` form past 128 characters, and a BBVA description often is longer.
       def rule_entry(description)
-        key = YAML.dump(description, line_width: -1).delete_prefix('--- ').delete_suffix("\n").delete_suffix("\n...")
+        key = YAML.dump(description, line_width: -1).delete_prefix('--- ').chomp
         "  #{key}:\n    payee:\n    narration:\n    account: \n"
       end
 

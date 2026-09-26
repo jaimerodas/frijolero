@@ -107,18 +107,6 @@ function matchAccounts(word, accounts) {
   return scored.slice(0, 8).map((s) => s.account);
 }
 
-// The line under the caret gets `.current` while the textarea has the focus; returns the
-// marker, for a caller that redraws the pre without an input event.
-function currentLine(textarea, pre) {
-  const mark = () => {
-    pre.querySelector('.line.current')?.classList.remove('current');
-    if (document.activeElement !== textarea) return;
-    pre.children[textarea.value.slice(0, textarea.selectionStart).split('\n').length - 1]?.classList.add('current');
-  };
-  for (const type of ['input', 'keyup', 'click', 'focus', 'blur']) textarea.addEventListener(type, mark);
-  return mark;
-}
-
 let autocompleteId = 0;
 
 // The account suggestion list floating over `textarea`, under the word being typed, in the
@@ -126,7 +114,7 @@ let autocompleteId = 0;
 // `accounts` comes from a `script.accounts` next to it; `spot` says where a word is an account;
 // `accepted` runs after a pick (the Beancount editor redraws its colored copy).
 function accountAutocomplete(textarea, spot, accepted = () => {}) {
-  const accounts = JSON.parse(textarea.parentElement.closest('form').querySelector('script.accounts')?.textContent || '[]');
+  const accounts = JSON.parse(textarea.form.querySelector('script.accounts')?.textContent || '[]');
   const id = `ac${autocompleteId++}`;
   const list = document.createElement('ul');
   list.className = 'suggestions';
@@ -216,6 +204,28 @@ function accountAutocomplete(textarea, spot, accepted = () => {}) {
   return { handleKey };
 }
 
+// A textarea laid over a numbered pre, the layout of every editor here: the pre is redrawn
+// from the textarea with `paint` on each line, numbered from `first`; the line under the caret
+// gets `.current` while the textarea has the focus; and the account list opens where `spot`
+// says. Returns `draw(text, first)` and the list's key handler, which a keydown asks first.
+function codeSurface(textarea, pre, paint, spot) {
+  let first = 1;
+  function mark() {
+    pre.querySelector('.line.current')?.classList.remove('current');
+    if (document.activeElement !== textarea) return;
+    pre.children[textarea.value.slice(0, textarea.selectionStart).split('\n').length - 1]?.classList.add('current');
+  }
+  function draw(text = textarea.value, start = first) {
+    first = start;
+    pre.style.counterReset = `line ${first - 1}`;
+    pre.innerHTML = text.split('\n').map((line, i) => `<span class="line" id="L${first + i}">${paint(line)}</span>`).join('');
+    mark();
+  }
+  textarea.addEventListener('input', () => draw());
+  for (const type of ['keyup', 'click', 'focus', 'blur']) textarea.addEventListener(type, mark);
+  return { draw, mark, handleKey: accountAutocomplete(textarea, spot, () => draw()).handleKey };
+}
+
 // Wires one form.code. `open(text, first)` puts `text` in the editor, numbered from file
 // line `first`, so an error's line maps to the same `#L<n>` on a whole file and on a block.
 function editor(form) {
@@ -224,13 +234,9 @@ function editor(form) {
   const errors = form.querySelector('.errors');
   const actions = form.querySelector('.actions');
   const dialog = form.closest('dialog');
+  const surface = codeSurface(textarea, pre, highlight, BEANCOUNT_SPOT);
   let first = 1;
   let found = [];
-
-  function render(text) {
-    pre.style.counterReset = `line ${first - 1}`;
-    pre.innerHTML = text.split('\n').map((line, i) => `<span class="line" id="L${first + i}">${highlight(line)}</span>`).join('');
-  }
 
   // Puts the caret at the start of file line n.
   function goTo(n) {
@@ -274,7 +280,7 @@ function editor(form) {
     found = errors;
     form.elements.original.value = text;
     textarea.value = text;
-    render(text);
+    surface.draw(text, first);
     form.classList.add('editing');
     textarea.hidden = false;
     actions.hidden = false;
@@ -283,8 +289,10 @@ function editor(form) {
     textarea.focus();
   }
 
+  // Blurred first, so the redraw marks no current line in read mode.
   function close() {
-    render(form.elements.original.value);
+    textarea.blur();
+    surface.draw(form.elements.original.value);
     form.classList.remove('editing');
     textarea.hidden = true;
     actions.hidden = true;
@@ -294,19 +302,14 @@ function editor(form) {
 
   form.querySelector('button[value="cancel"]').addEventListener('click', close);
 
-  const accounts = accountAutocomplete(textarea, BEANCOUNT_SPOT, () => { render(textarea.value); mark(); });
-
-  textarea.addEventListener('input', () => render(textarea.value));
-  const mark = currentLine(textarea, pre);
-
   // Tab indents two spaces, as a posting needs; ⌘S or Ctrl+S saves. The account list, when
   // it shows, gets first refusal on Tab/Escape/the arrows.
   textarea.addEventListener('keydown', (event) => {
-    if (accounts.handleKey(event)) return;
+    if (surface.handleKey(event)) return;
     if (event.key === 'Tab') {
       event.preventDefault();
       textarea.setRangeText('  ', textarea.selectionStart, textarea.selectionEnd, 'end');
-      render(textarea.value);
+      surface.draw();
     } else if (event.key === 's' && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
       form.requestSubmit();
@@ -360,27 +363,22 @@ if (form) {
 // with the same list after `account:`. With no list, Tab keeps its native job of moving the focus.
 const rules = document.querySelector('form.rules-editor textarea');
 if (rules) {
-  const surface = document.createElement('div');
+  const box = document.createElement('div');
   const pre = document.createElement('pre');
-  surface.className = 'surface';
-  rules.before(surface);
-  surface.append(pre, rules);
+  box.className = 'surface';
+  rules.before(box);
+  box.append(pre, rules);
   rules.form.classList.add('code', 'editing');
-  const render = () => {
-    pre.innerHTML = rules.value.split('\n').map((line, i) => `<span class="line" id="L${i + 1}">${escape(line)}</span>`).join('');
-  };
-  render();
-  rules.addEventListener('input', render);
-  const mark = currentLine(rules, pre);
-  const accounts = accountAutocomplete(rules, RULES_SPOT, () => { render(); mark(); });
-  rules.addEventListener('keydown', (event) => accounts.handleKey(event));
+  const surface = codeSurface(rules, pre, escape, RULES_SPOT);
+  surface.draw();
+  rules.addEventListener('keydown', (event) => surface.handleKey(event));
 
   // "Hacer regla" leaves the caret after the new entry's `account: `, with its line in view.
   if (rules.dataset.caret) {
     const at = Number(rules.dataset.caret);
     rules.focus({ preventScroll: true });
     rules.setSelectionRange(at, at);
-    mark();
+    surface.mark();
     pre.children[rules.value.slice(0, at).split('\n').length - 1]?.scrollIntoView({ block: 'center' });
   }
 }
