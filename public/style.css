@@ -10,7 +10,10 @@
   /* The code editors: the numbers' column, and the caret's line in a blue tint. On black a
      percentage mix vanishes, so each scheme has its own value, set by eye. */
   --gutter-bg: light-dark(#f5f5f5, #141414);
+  --gutter-alt: light-dark(#ebebeb, #1f1f1f);
   --current-line: light-dark(#e9eef7, #172238);
+  /* A line or a journal row in error: the same red band everywhere. */
+  --error-line: light-dark(#fde8e4, #3a130d);
   /* Black on NASA red is 5.9:1 in both schemes; white would be 3.6:1. */
   --on-red: #000000;
   --credit: light-dark(#1a7f37, #3fb950);
@@ -401,39 +404,45 @@ pre {
 .code .surface { position: relative; }
 .code pre, .code textarea {
   margin: 0;
-  padding: 1rem 1rem 1rem calc(1rem + 5ch);
+  padding: 0 1rem 0 calc(1rem + 5ch);
   font-family: var(--mono);
   font-size: 0.875rem;
   line-height: 1.5;
   white-space: normal;
 }
 .code .line { display: block; position: relative; min-height: 1lh; white-space: pre-wrap; overflow-wrap: anywhere; }
-.code .line::before {
-  counter-increment: line;
-  content: counter(line);
-  position: absolute;
-  right: calc(100% + 1.5ch);
-  width: 3ch;
-  text-align: right;
-  color: var(--muted);
-  user-select: none;
-}
-.code:not(.editing) .line:last-child:empty { display: none; }
-/* Where you are. The numbers get a column of their own: a faint ink tint and a hairline before
-   the text. A hairline over each dated line sets every directive apart. While editing, the
-   caret's line takes a blue tint, blue being what answers the pointer, and its number turns ink.
-   Backgrounds and inset shadows only: nothing here may change a line's height. An error's red
-   band, below, wins over the blue one. */
+/* Where you are. The numbers get a column of their own, a tint and a hairline before the text,
+   and each number's cell spans the gutter and its line's full height, every other one a shade
+   darker, so a wrapped line reads as one. While editing, the caret's line takes a blue tint,
+   blue being what answers the pointer, across the gutter too, and its number turns ink; an
+   error's red band, below, wins over it. Backgrounds and shadows only: nothing here may change
+   a line's height. */
 .code pre {
   counter-reset: line;
   --gutter: calc(1rem + 4ch);
   background: linear-gradient(to right, var(--gutter-bg) var(--gutter),
     var(--rule) var(--gutter) calc(var(--gutter) + 1px), var(--bg) calc(var(--gutter) + 1px));
 }
-.code .line:has(> .bc-date) { box-shadow: inset 0 1px var(--rule); }
-.code .line.current { background: var(--current-line); }
+.code .line::before {
+  counter-increment: line;
+  content: counter(line);
+  position: absolute;
+  inset: 0 calc(100% + 1ch) 0 auto;
+  width: var(--gutter);
+  padding-right: 0.5ch;
+  box-sizing: border-box;
+  text-align: right;
+  color: var(--muted);
+  user-select: none;
+}
+.code .line:nth-child(even)::before { background: var(--gutter-alt); }
+.code:not(.editing) .line:last-child:empty { display: none; }
+/* The band reaches back over the hairline and the gap to meet its gutter cell. */
+.code .line.current { --band: var(--current-line); }
+.code .line:is(.err, :target) { --band: var(--error-line); }
+.code .line:is(.current, .err, :target) { background: var(--band); box-shadow: -1ch 0 var(--band); }
+.code .line:is(.current, .err, :target)::before { background: var(--band); }
 .code .line.current::before { color: var(--ink); }
-.code .line:is(.err, :target) { background: color-mix(in oklab, var(--red) 12%, var(--bg)); }
 .code .line:is(.err, :target)::before { color: var(--red); font-weight: 600; }
 .code textarea {
   position: absolute;
@@ -583,7 +592,7 @@ summary { cursor: pointer; font-weight: 600; }
 
 /* Diario: saldos y errores. The glyph of a balance, and the ■ of an error line, sit in the
    column of a transaction's ▸, so the words line up; the glyph is the color, the words ink. */
-.ledger > li.err { background: color-mix(in oklab, var(--red) 12%, var(--bg)); }
+.ledger > li.err { background: var(--error-line); }
 .ledger :is(.balance, summary) .status { color: var(--ink); font-weight: 400; }
 .ledger :is(.balance, summary) .status::before { display: inline-block; width: 1.1rem; margin: 0; color: var(--red); }
 .ledger .balance .status.ok::before { color: var(--credit); }
