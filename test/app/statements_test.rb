@@ -399,6 +399,17 @@ class StatementsTest < Minitest::Test
     assert_includes last_response.body, '<script type="application/json" class="accounts">["Expenses:Food"]</script>'
   end
 
+  # The gutter fits three digits; a file past line 999 widens it for its own numbers.
+  def test_the_gutter_widens_only_past_line_999
+    write_statement('AMEX', '2508', json: { 'transactions' => [] }, beancount: "; x\n" * 998)
+    get '/accounts/AMEX/2508'
+    assert_includes last_response.body, '<div class="surface"><pre>'
+
+    write_statement('AMEX', '2508', json: { 'transactions' => [] }, beancount: "; x\n" * 999)
+    get '/accounts/AMEX/2508'
+    assert_includes last_response.body, '<div class="surface" style="--digits: 4"><pre>'
+  end
+
   def test_row_whose_source_posting_has_no_amount_takes_it_from_the_other_side
     write_statement('AMEX', '2508',
                     json: { 'transactions' => [] },

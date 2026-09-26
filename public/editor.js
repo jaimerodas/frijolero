@@ -211,7 +211,8 @@ function accountAutocomplete(textarea, spot, accepted = () => {}) {
 }
 
 // A textarea laid over a numbered pre, the layout of every editor here: the pre is redrawn
-// from the textarea with `paint` on each line, numbered from `first`; the line under the caret
+// from the textarea with `paint` on each line, numbered from `first`, the gutter as wide as the
+// last number (`--digits`, three at least); the line under the caret
 // gets `.current` while the textarea has the focus; and the account list opens where `spot`
 // says. Returns `draw(text, first)` and the list's key handler, which a keydown asks first.
 function codeSurface(textarea, pre, paint, spot) {
@@ -223,8 +224,10 @@ function codeSurface(textarea, pre, paint, spot) {
   }
   function draw(text = textarea.value, start = first) {
     first = start;
+    const lines = text.split('\n');
+    pre.parentElement.style.setProperty('--digits', Math.max(3, String(first + lines.length - 1).length));
     pre.style.counterReset = `line ${first - 1}`;
-    pre.innerHTML = text.split('\n').map((line, i) => `<span class="line" id="L${first + i}">${paint(line)}</span>`).join('');
+    pre.innerHTML = lines.map((line, i) => `<span class="line" id="L${first + i}">${paint(line)}</span>`).join('');
     mark();
   }
   textarea.addEventListener('input', () => draw());
