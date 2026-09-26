@@ -71,6 +71,10 @@ module Frijolero
       account = params[:account]
       period = params[:yymm]
       halt 404, 'Cuenta desconocida' unless Config.accounts.key?(account)
+      # The period menu submits ?period= to the page it is on, and lands on the same view of that statement.
+      if params[:period].to_s.match?(/\A\d{4}\z/) && params[:period] != period
+        redirect "/accounts/#{Rack::Utils.escape_path(account)}/#{params[:period]}#{'/beancount' if params[:view]}"
+      end
 
       paths = statement_paths(account, period)
       halt 404, 'No existe ese estado de cuenta' unless File.exist?(paths[:beancount])
@@ -89,7 +93,7 @@ module Frijolero
         summary: data && pipeline.summary(data),
         rows: rows,
         totals: rows && StatementRows.totals(rows),
-        neighbours: statement_neighbours(account, period),
+        periods: Config.statement_periods(account),
         fixme_count: beancount.scan(/^\s+Expenses:FIXME\b/).size,
         beancount: beancount,
         file: paths[:beancount].delete_prefix("#{File.expand_path(Config.ledger_dir)}/"),
@@ -98,15 +102,6 @@ module Frijolero
     end
 
     helpers do
-      # [previous, next] periods that have a `.beancount` for this account, nil at each end.
-      def statement_neighbours(account, period)
-        dir = File.dirname(Config.statement_path(account, period, 'beancount'))
-        name = /\A#{Regexp.escape(account)} (\d{4})\.beancount\z/
-        periods = Dir.children(dir).filter_map { |file| name.match(file)&.[](1) }.sort
-        index = periods.index(period)
-        [(periods[index - 1] if index.positive?), periods[index + 1]]
-      end
-
       def statement_notice
         return "#{params[:detailed]} clasificadas, #{params[:remaining]} sin clasificar" if params[:detailed]
         return 'Guardado' if params[:saved]

@@ -3,8 +3,8 @@
   tabs = { statements: [base, 'Estados'], config: ["#{base}/config", 'Configuración'] }
   tabs[:rules] = ["#{base}/rules", 'Reglas'] if rules?(account)
 %>
-<h1><%= h(account) %></h1>
-<div class="toolbar">
+<div class="account-head">
+  <h1><%= h(account) %></h1>
   <nav class="tabs" aria-label="Páginas de <%= h(account) %>">
     <% tabs.each do |key, (href, label)| %>
       <a href="<%= href %>"<% if key == tab %> aria-current="true"<% end %>><%= label %></a>

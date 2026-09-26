@@ -1,7 +1,9 @@
 <div class="title">
   <nav aria-label="Estados de cuenta">
+    <% path = request&.path_info.to_s %>
+    <%# A page under Cuentas or Bitácora has its own h1, so the name stays a link, marked current. %>
     <% { '/' => 'Recientes', '/accounts' => 'Cuentas', '/jobs' => 'Bitácora' }.each do |href, label| %>
-      <% if request&.path_info == href %><h1><%= label %></h1><% else %><a href="<%= href %>"><%= label %></a><% end %>
+      <% if path == href %><h1><%= label %></h1><% else %><a href="<%= href %>"<% if href != '/' && path.start_with?("#{href}/") %> aria-current="true"<% end %>><%= label %></a><% end %>
     <% end %>
   </nav>
   <%# Without an account there is nothing to upload to, so the one button is the first account, in ink. %>

@@ -134,8 +134,19 @@ class NavTest < Minitest::Test
     get '/accounts/new'
 
     assert_includes last_response.body, '<a href="/">Recientes</a>'
-    assert_includes last_response.body, '<a href="/accounts">Cuentas</a>'
     assert_includes last_response.body, '<h1>Nueva cuenta</h1>'
+  end
+
+  # A page under one of the three keeps it marked: the page has its own h1, so the name stays a link.
+  def test_pages_under_cuentas_and_bitacora_keep_their_name_current
+    job = Frijolero::App.jobs.push(label: 'AMEX 2608') { nil }
+    { '/accounts/new' => %w[/accounts Cuentas], '/accounts/AMEX/2608/beancount/edit' => %w[/accounts Cuentas],
+      "/jobs/#{job.id}" => %w[/jobs Bitácora] }.each do |path, (href, label)|
+      get path
+
+      assert_includes last_response.body, %(<a href="#{href}" aria-current="true">#{label}</a>), path
+      assert_includes last_response.body, '<a href="/">Recientes</a>', path
+    end
   end
 
   def test_upload_page_has_the_title_row_without_the_upload_button
@@ -157,17 +168,17 @@ class NavTest < Minitest::Test
       body = last_response.body
       assert_equal 200, last_response.status, path
       assert_equal ['<h1>AMEX</h1>'], body.scan(%r{<h1>.*?</h1>}), path
-      assert_includes body, '<a href="/accounts">Cuentas</a>', path
+      assert_includes body, '<a href="/accounts" aria-current="true">Cuentas</a>', path
       assert_includes body, %(<a href="#{TAB_HREFS[tab]}" aria-current="true">#{tab}</a>), path
-      # The topbar's section and the account's tab; a statement's own view links are a level below.
-      assert_equal 2, body.sub(%r{<nav class="tablist".*?</nav>}m, '').scan('aria-current=').size, path
+      # The topbar's section, Cuentas and the account's tab; a statement's own view links are a level below.
+      assert_equal 3, body.sub(%r{<nav [^>]*"Vistas">.*?</nav>}m, '').scan('aria-current=').size, path
     end
   end
 
-  def test_statement_page_has_the_period_as_subtitle
+  def test_statement_page_has_the_period_in_its_menu
     get '/accounts/AMEX/2608'
 
-    assert_includes last_response.body, 'agosto 2026<span aria-hidden="true">&rsaquo;</span></h2>'
+    assert_includes last_response.body, '<option value="2608" selected>agosto 2026</option>'
     assert_includes last_response.body, '<title>AMEX agosto 2026</title>'
   end
 

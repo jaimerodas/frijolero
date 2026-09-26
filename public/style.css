@@ -123,6 +123,9 @@ a.rules { font-size: 0.875rem; margin-left: 0.5rem; color: var(--muted); }
 
 /* Statement: one entry per transaction. Date, body, amount; on phones the body drops below. */
 .ledger { list-style: none; margin: 0 0 2rem; padding: 0; }
+/* A statement's Beancount text, with Editar in its top-right corner over the first line's end. */
+.code-box { position: relative; margin-top: 1rem; }
+.code-box > .edit-file { position: absolute; top: 1px; right: 1px; z-index: 1; padding-inline: 0.5rem; background: var(--bg); }
 .ledger > li {
   display: grid;
   grid-template-columns: 6.5rem 1fr auto;
@@ -132,8 +135,8 @@ a.rules { font-size: 0.875rem; margin-left: 0.5rem; color: var(--muted); }
 }
 .ledger time, .ledger data { font-family: var(--mono); font-size: 0.9375rem; white-space: nowrap; }
 .ledger data { text-align: right; font-variant-numeric: tabular-nums; }
-.ledger data.credit { color: var(--credit); }
-.ledger data.debit { color: var(--debit); }
+:is(.ledger, .net) data.credit { color: var(--credit); }
+:is(.ledger, .net) data.debit { color: var(--debit); }
 .ledger .entry { min-width: 0; overflow-wrap: anywhere; }
 .ledger .tail { color: var(--muted); font-size: 0.875rem; }
 .ledger .posting code { color: var(--blue); }
@@ -211,25 +214,31 @@ dialog .code { margin-bottom: 0; }
 .report.closing tr.root th, .report.closing tr.root td { padding-block: 0.5rem; }
 .report.closing td.amount { width: 1%; }
 .report.closing td.amount::after { content: " " attr(data-label); font-family: var(--sans); font-size: 0.8125rem; font-weight: 400; color: var(--muted); }
-/* Page head, under the toolbar of the journal and the tabs of an account: the subject
-   as the subtitle of the page (the journal's account in the mono of the postings, each
-   segment a link to its prefix; the statement's period between ‹ › to its neighbours),
-   under it, smaller, the count and the totals it adds up to, and the controls at the
-   right, centered on the two lines. */
+/* Page head, under the journal's toolbar: the account as the subtitle of the page, in
+   the mono of the postings, each segment a link to its prefix, under it, smaller, the
+   count and the total it adds up to, and the controls at the right, centered on the two
+   lines. A statement puts its count line at the right of its toolbar instead. */
 .page-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 2rem; margin-block: 1.25rem 0; }
 .page-head h2 { margin: 0; padding: 0; border: 0; font-size: 1.25rem; font-weight: 500; }
 .page-head .account { font-family: var(--mono); overflow-wrap: anywhere; }
-.page-head .period { display: flex; align-items: center; }
-.page-head .period :is(a, span) { display: inline-flex; justify-content: center; align-items: center; width: 2rem; min-height: 2.75rem; text-decoration: none; color: var(--ink); }
-.page-head .period span { color: var(--rule); }
-.page-head .period a:first-child, .page-head .period span:first-child { margin-left: -0.5rem; }
 .page-head form { display: flex; gap: 0.5rem; margin: 0; }
-.page-head .actions { margin: 0; }
 .page-head input[type="search"] { width: 16rem; }
 .page-head hgroup { margin: 0; }
 .net { display: flex; flex-wrap: wrap; gap: 0 1rem; margin: 0; font-family: var(--mono); font-size: 0.9375rem; font-weight: 500; }
 .net .count { font-family: var(--sans); font-weight: 400; color: var(--muted); }
 .net .status { font-family: var(--sans); font-weight: 400; }
+/* A statement's ⓘ: a ring with an i beside the count. On hover or focus (a tap on a phone) the debit and
+   credit sums per currency hang under it in a flat callout ruled in ink. The ring's hit area is 44 px and
+   reaches down to the callout, so the pointer keeps the hover on the way there. */
+.net .info { position: relative; display: inline-flex; align-items: center; margin-left: -0.5rem; }
+.net .info button { all: unset; position: relative; display: inline-flex; justify-content: center; align-items: center; box-sizing: border-box; width: 1.125rem; height: 1.125rem; border: 1.5px solid currentColor; border-radius: 50%; font: 600 0.75rem/1 var(--sans); color: var(--muted); cursor: help; }
+.net .info button::after { content: ""; position: absolute; inset: -0.8125rem; }
+.net .info button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.net .info:is(:hover, :focus-within) button { color: var(--ink); }
+.net .panel { display: none; position: absolute; top: calc(100% + 0.5rem); left: 50%; translate: -50% 0; z-index: 2; grid-template-columns: auto auto; gap: 0.25rem 1.5rem; padding: 0.75rem 1rem; background: var(--bg); border: 1px solid var(--ink); white-space: nowrap; }
+.net .info:is(:hover, :focus-within) .panel { display: grid; }
+.net .panel data { text-align: right; font-variant-numeric: tabular-nums; }
+.net form { font-family: var(--sans); font-weight: 400; }
 /* Order line: Fecha over the dates, Monto over the amounts; the active key in ink with its glyph. */
 .order { display: flex; justify-content: space-between; margin: 0.25rem 0 0; padding-bottom: 0.25rem; border-bottom: 1px solid var(--rule); font-size: 0.875rem; }
 .order a { color: var(--muted); text-decoration: none; }
@@ -247,31 +256,40 @@ dialog .code { margin-bottom: 0; }
 .title h1 { margin: 0; box-shadow: inset 0 -2px var(--ink); }
 .title nav a { font-weight: 400; color: var(--muted); text-decoration: none; }
 .title nav a:hover { color: var(--ink); text-decoration: underline; }
+/* A page under one of them (an account, a job) has its own h1, so the name stays a link, drawn as the current one. */
+.title nav a[aria-current] { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px var(--ink); }
 /* The button is as tall as the page names beside it, so a section with a button keeps the height of one without. */
 .title .primary { box-sizing: border-box; align-self: flex-start; min-height: 2.25rem; margin-left: auto; padding-inline: 0.75rem; font-size: 0.9375rem; }
-/* A page under the section: its own h1 under the title row; an account puts its tabs under the h1. */
+/* A page under the section: its own h1 under the title row. An account's tabs share the h1's row, at the
+   right, their marks on its thin rule; a statement's toolbar hangs from that rule. */
 .title + h1 { margin-top: 1.5rem; }
+.account-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 2rem; margin-top: 1.5rem; border-bottom: 1px solid var(--rule); }
+.account-head h1 { margin: 0; }
+.account-head + .toolbar { border-top: 0; }
 .toolbar + h2 { margin-top: 1.5rem; }
 .ledger-head { display: flex; gap: 0.75rem; margin: 0 0 0 auto; font-size: 0.875rem; }
-.ledger-head button { all: unset; cursor: pointer; color: var(--blue); }
-.ledger-head button:hover { text-decoration: underline; }
-.ledger-head button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+:is(.ledger-head, .net form) button { all: unset; cursor: pointer; color: var(--blue); }
+:is(.ledger-head, .net form) button:hover { text-decoration: underline; }
+:is(.ledger-head, .net form) button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.net form button { display: inline-flex; align-items: center; min-height: 2.75rem; }
 .toolbar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 0 2rem;
   border-block: 1px solid var(--rule);
 }
-.toolbar .tabs, .chart .tabs { display: flex; gap: 1rem; }
+:is(.toolbar, .chart, .account-head) .tabs { display: flex; gap: 1rem; }
 .chart .tabs button { all: unset; font-family: var(--sans); cursor: pointer; }
 .chart .tabs button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-:is(.toolbar, .chart, .page-head) .tabs :is(a, button) { display: inline-flex; align-items: center; min-height: 2.75rem; color: var(--muted); text-decoration: none; }
-:is(.toolbar, .chart, .page-head) .tabs :is(a, button):hover { color: var(--ink); text-decoration: underline; }
-:is(.toolbar, .chart, .page-head) .tabs :is(a[aria-current], button[aria-pressed="true"]) { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px var(--ink); }
+:is(.toolbar, .chart, .page-head, .account-head) .tabs :is(a, button) { display: inline-flex; align-items: center; min-height: 2.75rem; color: var(--muted); text-decoration: none; }
+:is(.toolbar, .chart, .page-head, .account-head) .tabs :is(a, button):hover { color: var(--ink); text-decoration: underline; }
+:is(.toolbar, .chart, .page-head, .account-head) .tabs :is(a[aria-current], button[aria-pressed="true"]) { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px var(--ink); }
 .toolbar .period { display: flex; align-items: center; gap: 0.25rem; margin: 0; }
 .toolbar .period a, .toolbar .period span[aria-hidden] { display: inline-flex; justify-content: center; align-items: center; width: 2rem; min-height: 2.75rem; font-size: 1.25rem; text-decoration: none; color: var(--ink); }
 .toolbar .period span[aria-hidden] { color: var(--rule); }
 .toolbar .period select { font-family: var(--mono); font-size: 0.9375rem; padding-block: 0.375rem; }
 .toolbar .period .note { margin-left: 0.5rem; font-family: var(--mono); font-size: 0.875rem; white-space: nowrap; }
-.toolbar .currency { margin-left: auto; }
+.toolbar :is(.currency, .net) { margin-left: auto; }
+/* A statement's toolbar opens with its ‹, so the glyph, not its box, sits on the content edge. */
+.toolbar > .period:first-child > :first-child { margin-left: -0.5rem; }
 
 /* The chart block under the journal head: bucket tabs, then one figure per currency. charts.js sets no colors.
    A bar over a month, quarter or year is a link to that period; the tooltip follows the pointer. */
@@ -315,13 +333,6 @@ dialog .code { margin-bottom: 0; }
 .chart .flow:hover { stroke-opacity: 0.45; }
 .chart.sankey a[href]:is(:hover, :focus-visible) .tile { fill: var(--ink); }
 .chart.sankey a[href]:is(:hover, :focus-visible) .label { fill: var(--blue); }
-
-/* A statement's views: links, one URL each. The row is the statement's sort line: small,
-   muted but the current one, the thin rule under it. */
-.tablist { display: flex; gap: 1rem; margin-top: 0.25rem; border-bottom: 1px solid var(--rule); font-size: 0.875rem; }
-.tablist a:not(.edit-file) { display: inline-flex; align-items: center; min-height: 2rem; color: var(--muted); text-decoration: none; }
-.tablist a:not(.edit-file):hover { color: var(--ink); }
-.tablist a[aria-current] { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px var(--ink); }
 
 /* Login: the cover of the manual, the wordmark alone on white */
 body.login { min-height: 100dvh; display: grid; align-content: center; }
@@ -469,8 +480,6 @@ pre {
 .edit-file:hover { text-decoration: underline; }
 body:has(.code.editing) .edit-file { display: none; }
 .edit-file:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-/* The tab labels carry the form label margins, so the button takes the same ones to sit level with them. */
-.tablist .edit-file { margin-left: auto; }
 .bc-date, .bc-comment, .bc-key { color: var(--muted); }
 .bc-flag, .bc-pattern { font-weight: 600; }
 .bc-warn, pre .debit { color: var(--debit); }
@@ -496,11 +505,12 @@ summary { cursor: pointer; font-weight: 600; }
   td.amount { text-align: left; }
   td .button, td button { margin-top: 0.25rem; }
   /* Navigation centered: brand, sections, report names, each toolbar row. Data stays left. */
-  .topbar, .title, .toolbar { justify-content: center; }
+  .topbar, .title, .toolbar, .account-head { justify-content: center; }
   .topbar .brand { flex-basis: 100%; justify-content: center; margin-right: 0; }
   .toolbar { gap: 0 1.5rem; }
-  .toolbar .tabs, .toolbar .period, .chart .tabs { flex-basis: 100%; justify-content: center; }
-  .toolbar .currency, .ledger-head, .title .primary { margin-left: 0; }
+  :is(.toolbar, .account-head) .tabs, .toolbar :is(.period, .net), .chart .tabs { flex-basis: 100%; justify-content: center; }
+  .toolbar :is(.currency, .net), .ledger-head, .title .primary { margin-left: 0; }
+  .toolbar .net { min-height: 2.75rem; align-content: center; }
   .title .primary { min-height: 2.75rem; }
   .title nav { flex: 1 0 100%; flex-wrap: nowrap; gap: 0; }
   .title nav h1, .title nav a { flex: 1 1 0; justify-content: center; align-items: center; padding: 0.5rem; text-align: center; }

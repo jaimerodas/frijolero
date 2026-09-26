@@ -67,6 +67,8 @@ class StatementsTest < Minitest::Test
     assert_equal 200, last_response.status
     refute_includes last_response.body, 'DEL JSON'
     assert_includes last_response.body, '3 movimientos'
+    # The debit and credit sums wait behind the ⓘ; the line itself is the count and the status.
+    assert_match(/id="totals" role="tooltip">.*2 cargos.*1 abono/m, last_response.body)
     assert_includes last_response.body, '2 cargos</span><data class="debit" value="-150.0">-150.00 MXN'
     assert_includes last_response.body, '1 abono</span><data class="credit" value="75.0">+75.00 MXN'
     assert_includes last_response.body, '1 sin clasificar'
@@ -79,10 +81,26 @@ class StatementsTest < Minitest::Test
     assert_includes last_response.body, '<code>Expenses:Food</code>'
     assert_includes last_response.body, 'action="/accounts/AMEX/2508/detail"'
     assert_includes last_response.body, 'Aplicar reglas'
-    assert_includes last_response.body, 'href="/accounts/AMEX/2508/pdf"'
 
     get '/accounts/AMEX/2508/beancount'
     assert_includes last_response.body, '<span class="bc-account bc-fixme">Expenses:FIXME</span>'
+  end
+
+  # One bar: the period, the views with the PDF as the last one, and the count, the status and its fix at the right.
+  def test_the_statement_head_is_one_bar
+    write_statement('AMEX', '2508', json: {}, beancount: STATEMENT_TEXT.sub('Expenses:Food', 'Expenses:FIXME'))
+    write_rules('AMEX', 'start_with' => {})
+
+    get '/accounts/AMEX/2508'
+
+    body = last_response.body
+    refute_includes body, 'class="page-head"'
+    bar = body[/<div class="toolbar">.*?(?=<section id="entries">)/m]
+    assert_includes bar, '<a href="/accounts/AMEX/2508/pdf" target="_blank" ' \
+                         'aria-label="PDF (se abre en otra pestaña)">PDF ↗</a>'
+    assert_includes bar, '1 sin clasificar'
+    assert_includes bar, '<form method="post" action="/accounts/AMEX/2508/detail">' \
+                         '<button type="submit">Aplicar reglas</button></form>'
   end
 
   def test_rules_button_needs_a_rules_file
@@ -110,18 +128,40 @@ class StatementsTest < Minitest::Test
     refute_includes last_response.body, 'Hacer regla'
   end
 
-  def test_period_links_to_the_neighbouring_statements
+  def test_the_period_menu_lists_the_statements_newest_first_between_the_arrows
     %w[2507 2508 2509].each { |p| write_statement('AMEX', p, json: { 'transactions' => [] }, beancount: '') }
 
     get '/accounts/AMEX/2508'
 
-    assert_includes last_response.body, '<a href="/accounts/AMEX/2507" aria-label="Anterior">'
-    assert_includes last_response.body, '<a href="/accounts/AMEX/2509" aria-label="Siguiente">'
+    body = last_response.body
+    assert_equal %w[2509 2508 2507], body.scan(/<option value="(\d{4})"/).flatten
+    assert_includes body, '<option value="2508" selected>agosto 2025</option>'
+    assert_includes body, '<a href="/accounts/AMEX/2507" aria-label="Anterior">'
+    assert_includes body, '<a href="/accounts/AMEX/2509" aria-label="Siguiente">'
 
     get '/accounts/AMEX/2509'
 
     refute_includes last_response.body, 'aria-label="Siguiente"'
     assert_includes last_response.body, '<a href="/accounts/AMEX/2508" aria-label="Anterior">'
+  end
+
+  # The menu submits ?period= to the page it is on; the arrows and the menu keep the view.
+  def test_another_period_lands_on_the_same_view_of_that_statement
+    %w[2507 2508].each { |p| write_statement('AMEX', p, json: { 'transactions' => [] }, beancount: '') }
+
+    get '/accounts/AMEX/2508/beancount'
+
+    assert_includes last_response.body, '<form method="get" action="/accounts/AMEX/2508/beancount" class="period">'
+    assert_includes last_response.body, '<a href="/accounts/AMEX/2507/beancount" aria-label="Anterior">'
+
+    get '/accounts/AMEX/2508/beancount', period: '2507'
+
+    assert last_response.redirect?
+    assert_equal '/accounts/AMEX/2507/beancount', URI(last_response.location).path
+
+    get '/accounts/AMEX/2508', period: '../x'
+
+    assert_equal 200, last_response.status
   end
 
   def test_flagged_transaction_shows_its_flag
@@ -196,7 +236,8 @@ class StatementsTest < Minitest::Test
 
     body = last_response.body
     assert_includes body, '<a href="/accounts/AMEX/2508/beancount" aria-current="true">Beancount</a>'
-    assert_includes body, '<a class="edit-file" href="/accounts/AMEX/2508/beancount/edit">Editar</a>'
+    assert_includes body, '<div class="code-box"><a class="edit-file" ' \
+                          'href="/accounts/AMEX/2508/beancount/edit">Editar</a>'
     assert_includes body, '<form class="code" method="post" action="/edit">'
     assert_includes body, '<input type="hidden" name="file" value="accounts/AMEX/AMEX 2508.beancount">'
     assert_includes body, '<span class="line" id="L2">  <span class="bc-account">Liabilities:Amex</span>'
@@ -212,7 +253,7 @@ class StatementsTest < Minitest::Test
     body = last_response.body
     assert_includes body, '<form class="code" method="post" action="/edit" ' \
                           'data-back="/accounts/AMEX/2508/beancount">'
-    refute_includes body, 'class="edit-file"'
+    refute_includes body, '>Editar</a>'
   end
 
   def test_after_a_save_the_beancount_view_says_guardado
@@ -231,14 +272,17 @@ class StatementsTest < Minitest::Test
     assert_equal 404, last_response.status
   end
 
-  def test_non_default_pipeline_has_the_editor_under_its_own_heading
+  def test_non_default_pipeline_has_the_beancount_view_and_the_pdf
     write_statement('CETES', '2508', json: { 'movements' => [] }, beancount: '')
 
     get '/accounts/CETES/2508'
 
-    assert_includes last_response.body, '<div class="code-head"><h2>Beancount</h2><a class="edit-file" ' \
-                                        'href="/accounts/CETES/2508/beancount/edit">Editar</a></div>'
-    assert_includes last_response.body, '<input type="hidden" name="file" value="accounts/CETES/CETES 2508.beancount">'
+    body = last_response.body
+    assert_includes body, '<a href="/accounts/CETES/2508" aria-current="true">Beancount</a>'
+    assert_includes body, '<a href="/accounts/CETES/2508/pdf" target="_blank"'
+    refute_includes body, '<h2>Beancount</h2>'
+    assert_includes body, '<a class="edit-file" href="/accounts/CETES/2508/beancount/edit">Editar</a>'
+    assert_includes body, '<input type="hidden" name="file" value="accounts/CETES/CETES 2508.beancount">'
   end
 
   def test_post_detail_on_an_account_without_rules_is_404

@@ -58,6 +58,12 @@ module Frijolero
         File.join(ledger_dir, 'accounts', account_key, "#{account_key} #{period}.#{ext}")
       end
 
+      # The periods that have a `.beancount` for this account, oldest first.
+      def statement_periods(account_key)
+        name = /\A#{Regexp.escape(account_key)} (\d{4})\.beancount\z/
+        Dir.children(File.join(ledger_dir, 'accounts', account_key)).filter_map { |file| name.match(file)&.[](1) }.sort
+      end
+
       # The S3 bucket mirrors the ledger's own layout, so one key formula serves both
       # the upload and the signed download. Spaces stay literal here; percent-encoding
       # is the signer's job (S3#host_and_path).

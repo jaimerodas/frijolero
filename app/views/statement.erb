@@ -1,88 +1,95 @@
 <%
   account_path = Rack::Utils.escape_path(account)
-  prev_period, next_period = neighbours
+  index = periods.index(period)
+  prev_period = periods[index - 1] if index.positive?
+  next_period = periods[index + 1]
   base = "/accounts/#{account_path}/#{period}"
+  # The arrows and the menu keep the view: from the Beancount text they land on the Beancount text.
+  suffix = '/beancount' if view == :beancount
   code = { file: file, text: beancount, back: ("#{base}/beancount" if editing) }
-  edit_link = %(<a class="edit-file" href="#{base}/beancount/edit">Editar</a>) unless editing
 %>
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <%= head("#{account} #{period_name(period)}") %>
   <script src="/editor.js" defer></script>
+  <script src="/reports.js" defer></script>
 </head>
 <body>
   <%= topbar %>
   <main>
     <%= erb :_cuentas, layout: false %>
     <%= erb :_account, layout: false, locals: { account: account, tab: :statements } %>
-    <header class="page-head">
-      <hgroup>
-        <h2 class="period"><% if prev_period %><a href="/accounts/<%= account_path %>/<%= prev_period %>" aria-label="Anterior">&lsaquo;</a><% else %><span aria-hidden="true">&lsaquo;</span><% end %><%= h(period_name(period)) %><% if next_period %><a href="/accounts/<%= account_path %>/<%= next_period %>" aria-label="Siguiente">&rsaquo;</a><% else %><span aria-hidden="true">&rsaquo;</span><% end %></h2>
-        <p class="net">
-          <% if rows %><span class="count"><%= thousands(rows.size) %> movimientos</span><% totals.each do |currency, sides| %><% sides.zip(%w[cargo abono], %w[debit credit]).each do |(count, sum), noun, side| %><% next if count.zero? %><span class="count"><%= thousands(count) %> <%= noun %><%= 's' unless count == 1 %></span><data class="<%= side %>" value="<%= sum.to_s('F') %>"><%= money(sum) %> <%= h(currency) %></data><% end %><% end %><% elsif summary %><span class="count"><%= h(summary) %></span><% end %>
-          <% if fixme_count.zero? %><span class="status received">Todo clasificado</span><% else %><span class="status missing"><%= fixme_count %> sin clasificar</span><% end %>
-        </p>
-      </hgroup>
-      <div class="actions">
-        <a class="button" href="/accounts/<%= account_path %>/<%= h(period) %>/pdf">Descargar PDF</a>
-        <% if rules?(account) && fixme_count.positive? && File.exist?(Frijolero::Config.rules_path(account)) %>
-          <form method="post" action="/accounts/<%= account_path %>/<%= h(period) %>/detail">
-            <button type="submit">Aplicar reglas</button>
-          </form>
+    <div class="toolbar">
+      <form method="get" action="<%= base %><%= suffix %>" class="period">
+        <% if prev_period %><a href="/accounts/<%= account_path %>/<%= prev_period %><%= suffix %>" aria-label="Anterior">&lsaquo;</a><% else %><span aria-hidden="true">&lsaquo;</span><% end %>
+        <select name="period" aria-label="Periodo">
+          <% periods.reverse_each do |option| %><option value="<%= option %>"<% if option == period %> selected<% end %>><%= h(period_name(option)) %></option><% end %>
+        </select>
+        <% if next_period %><a href="/accounts/<%= account_path %>/<%= next_period %><%= suffix %>" aria-label="Siguiente">&rsaquo;</a><% else %><span aria-hidden="true">&rsaquo;</span><% end %>
+      </form>
+      <nav class="tabs" aria-label="Vistas">
+        <% if rows %>
+          <a href="<%= base %>"<% if view == :entries %> aria-current="true"<% end %>>Movimientos</a>
+          <a href="<%= base %>/beancount"<% if view == :beancount %> aria-current="true"<% end %>>Beancount</a>
+        <% else %>
+          <a href="<%= base %>" aria-current="true">Beancount</a>
         <% end %>
+        <%# The original leaves the app, so it opens in another tab and says so. %>
+        <a href="<%= base %>/pdf" target="_blank" aria-label="PDF (se abre en otra pestaña)">PDF ↗</a>
+      </nav>
+      <div class="net">
+        <% if rows %>
+          <span class="count"><%= thousands(rows.size) %> movimientos</span>
+          <%# The sums wait behind the ⓘ: a hover on a desk, a tap on a phone. %>
+          <% unless totals.empty? %><span class="info"><button type="button" aria-label="Cargos y abonos" aria-describedby="totals">i</button><span class="panel" id="totals" role="tooltip"><% totals.each do |currency, sides| %><% sides.zip(%w[cargo abono], %w[debit credit]).each do |(count, sum), noun, side| %><% next if count.zero? %><span class="count"><%= thousands(count) %> <%= noun %><%= 's' unless count == 1 %></span><data class="<%= side %>" value="<%= sum.to_s('F') %>"><%= money(sum) %> <%= h(currency) %></data><% end %><% end %></span></span><% end %>
+        <% elsif summary %><span class="count"><%= h(summary) %></span><% end %>
+        <% if fixme_count.zero? %><span class="status received">Todo clasificado</span><% else %><span class="status missing"><%= fixme_count %> sin clasificar</span><% end %>
+        <%# The fix sits beside the status it fixes: the detailer touches only the unclassified postings. %>
+        <% if rules?(account) && fixme_count.positive? && File.exist?(Frijolero::Config.rules_path(account)) %><form method="post" action="<%= base %>/detail"><button type="submit">Aplicar reglas</button></form><% end %>
       </div>
-    </header>
+    </div>
 
     <% if notice %>
       <p class="notice"><%= h(notice) %></p>
     <% end %>
 
-    <% if rows %>
-      <nav class="tablist" aria-label="Vistas">
-        <a href="<%= base %>"<% if view == :entries %> aria-current="true"<% end %>>Movimientos</a>
-        <a href="<%= base %>/beancount"<% if view == :beancount %> aria-current="true"<% end %>>Beancount</a>
-        <% if view == :beancount %><%= edit_link %><% end %>
-      </nav>
-      <% if view == :entries %>
-        <section id="entries">
-          <ol class="ledger">
-            <% rows.each do |tx| %>
-              <% merchant, tail = split_description(tx[:description]) %>
-              <li>
-                <time datetime="<%= h(tx[:date]) %>"><%= h(tx[:date]) %></time>
-                <div class="entry">
-                  <div><%= h(merchant) %><% if tx[:flag] == '!' %> <span class="flag">!</span><% end %></div>
-                  <% if tail %><div class="tail"><%= h(tail) %></div><% end %>
-                  <div class="posting">
-                    <% if tx[:payee] %><span><%= h(tx[:payee]) %></span><% end %>
-                    <% if tx[:narration] %><span class="note"><%= h(tx[:narration]) %></span><% end %>
-                    <% tx[:accounts].each do |name| %>
-                      <% if name == 'Expenses:FIXME' %>
-                        <span class="status missing">sin clasificar</span>
-                        <form method="post" action="/accounts/<%= account_path %>/rules/from">
-                          <input type="hidden" name="description" value="<%= h(tx[:description]) %>">
-                          <input type="hidden" name="amount" value="<%= h(tx[:amount]&.to_s('F')) %>">
-                          <input type="hidden" name="back" value="/accounts/<%= account_path %>/<%= h(period) %>">
-                          <button type="submit">Hacer regla</button>
-                        </form>
-                      <% else %>
-                        <code><%= h(name) %></code>
-                      <% end %>
+    <% if rows && view == :entries %>
+      <section id="entries">
+        <ol class="ledger">
+          <% rows.each do |tx| %>
+            <% merchant, tail = split_description(tx[:description]) %>
+            <li>
+              <time datetime="<%= h(tx[:date]) %>"><%= h(tx[:date]) %></time>
+              <div class="entry">
+                <div><%= h(merchant) %><% if tx[:flag] == '!' %> <span class="flag">!</span><% end %></div>
+                <% if tail %><div class="tail"><%= h(tail) %></div><% end %>
+                <div class="posting">
+                  <% if tx[:payee] %><span><%= h(tx[:payee]) %></span><% end %>
+                  <% if tx[:narration] %><span class="note"><%= h(tx[:narration]) %></span><% end %>
+                  <% tx[:accounts].each do |name| %>
+                    <% if name == 'Expenses:FIXME' %>
+                      <span class="status missing">sin clasificar</span>
+                      <form method="post" action="/accounts/<%= account_path %>/rules/from">
+                        <input type="hidden" name="description" value="<%= h(tx[:description]) %>">
+                        <input type="hidden" name="amount" value="<%= h(tx[:amount]&.to_s('F')) %>">
+                        <input type="hidden" name="back" value="/accounts/<%= account_path %>/<%= h(period) %>">
+                        <button type="submit">Hacer regla</button>
+                      </form>
+                    <% else %>
+                      <code><%= h(name) %></code>
                     <% end %>
-                  </div>
+                  <% end %>
                 </div>
-                <data class="<%= tx[:amount]&.negative? ? 'debit' : 'credit' %>" value="<%= h(tx[:amount]&.to_s('F')) %>"><%= money(tx[:amount]) %> <%= h(tx[:currency]) %></data>
-              </li>
-            <% end %>
-          </ol>
-        </section>
-      <% else %>
-        <%= erb :_code, layout: false, locals: code %>
-      <% end %>
+              </div>
+              <data class="<%= tx[:amount]&.negative? ? 'debit' : 'credit' %>" value="<%= h(tx[:amount]&.to_s('F')) %>"><%= money(tx[:amount]) %> <%= h(tx[:currency]) %></data>
+            </li>
+          <% end %>
+        </ol>
+      </section>
     <% else %>
-      <div class="code-head"><h2>Beancount</h2><%= edit_link %></div>
-      <%= erb :_code, layout: false, locals: code %>
+      <%# Editar rides in the code's top-right corner; the edit view has the editor open and no link. %>
+      <div class="code-box"><% unless editing %><a class="edit-file" href="<%= base %>/beancount/edit">Editar</a><% end %><%= erb :_code, layout: false, locals: code %></div>
     <% end %>
   </main>
 </body>
