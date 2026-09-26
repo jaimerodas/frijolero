@@ -107,6 +107,18 @@ function matchAccounts(word, accounts) {
   return scored.slice(0, 8).map((s) => s.account);
 }
 
+// The line under the caret gets `.current` while the textarea has the focus; returns the
+// marker, for a caller that redraws the pre without an input event.
+function currentLine(textarea, pre) {
+  const mark = () => {
+    pre.querySelector('.line.current')?.classList.remove('current');
+    if (document.activeElement !== textarea) return;
+    pre.children[textarea.value.slice(0, textarea.selectionStart).split('\n').length - 1]?.classList.add('current');
+  };
+  for (const type of ['input', 'keyup', 'click', 'focus', 'blur']) textarea.addEventListener(type, mark);
+  return mark;
+}
+
 let autocompleteId = 0;
 
 // The account suggestion list floating over `textarea`, under the word being typed, in the
@@ -282,9 +294,10 @@ function editor(form) {
 
   form.querySelector('button[value="cancel"]').addEventListener('click', close);
 
-  const accounts = accountAutocomplete(textarea, BEANCOUNT_SPOT, () => render(textarea.value));
+  const accounts = accountAutocomplete(textarea, BEANCOUNT_SPOT, () => { render(textarea.value); mark(); });
 
   textarea.addEventListener('input', () => render(textarea.value));
+  const mark = currentLine(textarea, pre);
 
   // Tab indents two spaces, as a posting needs; ⌘S or Ctrl+S saves. The account list, when
   // it shows, gets first refusal on Tab/Escape/the arrows.
@@ -358,7 +371,8 @@ if (rules) {
   };
   render();
   rules.addEventListener('input', render);
-  const accounts = accountAutocomplete(rules, RULES_SPOT, render);
+  const mark = currentLine(rules, pre);
+  const accounts = accountAutocomplete(rules, RULES_SPOT, () => { render(); mark(); });
   rules.addEventListener('keydown', (event) => accounts.handleKey(event));
 
   // "Hacer regla" leaves the caret after the new entry's `account: `, with its line in view.
@@ -366,6 +380,7 @@ if (rules) {
     const at = Number(rules.dataset.caret);
     rules.focus({ preventScroll: true });
     rules.setSelectionRange(at, at);
+    mark();
     pre.children[rules.value.slice(0, at).split('\n').length - 1]?.scrollIntoView({ block: 'center' });
   }
 }
