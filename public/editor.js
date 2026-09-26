@@ -7,6 +7,12 @@
 // TOKEN is the JS copy of App::BEANCOUNT_TOKEN in app/statements.rb: keep the two identical.
 const TOKEN = /(?<head>^\d{4}-\d{2}-\d{2} \S+)|(?<comment>(?<!\S);.*)|(?<string>&quot;.*?&quot;)|(?<account>(?:Assets|Liabilities|Equity|Income|Expenses)(?::[\w-]+)+)|(?<amount>-?\d[\d,]*(?:\.\d+)? [A-Z][A-Z0-9._-]*)/g;
 
+// The rules YAML in the same colors, on the escaped line: a section or a pattern (the entry's
+// head, unquoted or quoted) in ink at 600 like the flag, `# comments` and the field names muted
+// like dates, an account in blue, an `amount:` by its sign. Payee and narration stay plain,
+// as the quoted payee and narration of a transaction do.
+const RULES_TOKEN = /(?<pattern>^(?:start_with|include)(?=:)|(?<=^ {2})(?:&quot;.*?&quot;|&#39;.*?&#39;|[^\s&#-].*?)(?=:(?: |$)))|(?<comment>(?<!\S)#.*)|(?<key>\b(?:payee|narration|account|when|amount)(?=:))|(?<account>(?:Assets|Liabilities|Equity|Income|Expenses)(?::[\w-]+)+)|(?<amount>(?<=\bamount:\s*)-?\d[\d,]*(?:\.\d+)?)/g;
+
 const escape = (text) => text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 // Same classes as beancount_span and beancount_head in app/statements.rb.
@@ -22,8 +28,8 @@ function span(kind, text) {
   return `<span class="${klass}">${text}</span>`;
 }
 
-function highlight(line) {
-  return escape(line).replace(TOKEN, (match, ...rest) => {
+function highlight(line, token = TOKEN) {
+  return escape(line).replace(token, (match, ...rest) => {
     const groups = rest.at(-1);
     return span(Object.keys(groups).find((k) => groups[k] !== undefined), match);
   });
@@ -369,7 +375,7 @@ if (rules) {
   rules.before(box);
   box.append(pre, rules);
   rules.form.classList.add('code', 'editing');
-  const surface = codeSurface(rules, pre, escape, RULES_SPOT);
+  const surface = codeSurface(rules, pre, (line) => highlight(line, RULES_TOKEN), RULES_SPOT);
   surface.draw();
   rules.addEventListener('keydown', (event) => surface.handleKey(event));
 
