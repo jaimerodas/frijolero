@@ -86,19 +86,21 @@ class EditorsTest < Minitest::Test
 
     refute_includes last_response.body, '<aside'
     assert_includes last_response.body, 'Cómo escribir reglas'
-
-    get '/accounts/yaml'
-    refute_includes last_response.body, 'class="accounts"'
   end
 
-  # The rules textarea gets the autocomplete of the Beancount editors, over the open accounts.
-  def test_rules_editor_embeds_the_open_accounts_for_the_autocomplete
+  # The three YAML editors get the numbered layout and the autocomplete of the Beancount editors, over the
+  # open accounts; `data-yaml` picks the colors and where an account goes.
+  def test_yaml_editors_are_code_editors_over_the_open_accounts
     File.write(File.join(@dir, 'main.beancount'), "2024-01-01 open Liabilities:Amex\n")
 
-    get '/accounts/AMEX/rules'
+    { '/accounts/AMEX/rules' => 'rules', '/accounts/AMEX/config' => 'accounts', '/accounts/yaml' => 'accounts' }
+      .each do |path, kind|
+        get path
 
-    assert_includes last_response.body, '<script type="application/json" class="accounts">["Liabilities:Amex"]</script>'
-    assert_includes last_response.body, '<script src="/editor.js" defer></script>'
+        assert_includes last_response.body, %(data-yaml="#{kind}"), path
+        assert_includes last_response.body, 'class="accounts">["Liabilities:Amex"]</script>', path
+        assert_includes last_response.body, '<script src="/editor.js" defer></script>', path
+      end
   end
 
   def test_rules_editor_shows_a_default_template_when_no_file_exists

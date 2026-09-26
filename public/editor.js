@@ -13,6 +13,11 @@ const TOKEN = /(?<head>^\d{4}-\d{2}-\d{2} \S+)|(?<comment>(?<!\S);.*)|(?<string>
 // as the quoted payee and narration of a transaction do.
 const RULES_TOKEN = /(?<pattern>^(?:start_with|include)(?=:)|(?<=^ {2})(?:&quot;.*?&quot;|&#39;.*?&#39;|[^\s&#-].*?)(?=:(?: |$)))|(?<comment>(?<!\S)#.*)|(?<key>\b(?:payee|narration|account|when|amount)(?=:))|(?<account>(?:Assets|Liabilities|Equity|Income|Expenses)(?::[\w-]+)+)|(?<amount>(?<=\bamount:\s*)-?\d[\d,]*(?:\.\d+)?)/g;
 
+// accounts.yaml the same way: an account's key (column 0, the entry's head) in ink at 600 like a
+// rules pattern, its field names and `# comments` muted, accounts in blue. A Multi's printed
+// names, one level deeper under `accounts:`, stay plain.
+const ACCOUNTS_TOKEN = /(?<pattern>^[^\s#-].*?(?=:(?: |$)))|(?<comment>(?<!\S)#.*)|(?<key>(?<=^ {2})\w+(?=:))|(?<account>(?:Assets|Liabilities|Equity|Income|Expenses)(?::[\w-]+)+)/g;
+
 const escape = (text) => text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 // Same classes as beancount_span and beancount_head in app/statements.rb.
@@ -37,9 +42,12 @@ function highlight(line, token = TOKEN) {
 
 // Where the account autocomplete may open, tested on the line up to the word. In Beancount:
 // the first word of an indented posting line, or the account word(s) after a directive's date
-// and a keyword that takes one. In the rules YAML: the value of `account:`, quoted or not.
+// and a keyword that takes one. In the rules YAML: the value of `account:`, quoted or not. In
+// accounts.yaml: the value of `beancount_account:` or any `<name>_account:`, or of a Multi's
+// printed name (the `accounts:` map is the only thing four spaces deep).
 const BEANCOUNT_SPOT = /^\s+$|^\d{4}-\d{2}-\d{2} (?:open|close|balance|pad) /;
 const RULES_SPOT = /\baccount:\s*['"]?$/;
+const ACCOUNTS_SPOT = /(?:_account|^ {4}[^\s#][^#]*):\s*['"]?$/;
 const ACCOUNT_WORD = /[\w:-]/;
 
 // The word under the caret, if the caret sits right after it (not before or inside it) and
@@ -342,7 +350,7 @@ function editor(form) {
   return { open, showErrors };
 }
 
-const form = document.querySelector('form.code:not(.rules-editor)');
+const form = document.querySelector('form.code:not([data-yaml])');
 if (form) {
   const ed = editor(form);
 
@@ -373,27 +381,30 @@ if (form) {
   });
 }
 
-// The rules editor: a plain textarea in the page, which becomes the Beancount editor's layout
-// for the line numbers (a numbered pre under a transparent textarea; plain text, no colors),
-// with the same list after `account:`. With no list, Tab keeps its native job of moving the focus.
-const rules = document.querySelector('form.rules-editor textarea');
-if (rules) {
+// The YAML editors (an account's rules, its block of accounts.yaml, the whole file): a plain
+// textarea in the page, which becomes the Beancount editor's layout for the line numbers (a
+// numbered pre under a transparent textarea), in the same colors, with the same list where an
+// account goes. `data-yaml` picks the grammar. With no list, Tab keeps its native job of moving the focus.
+const YAML = { rules: [RULES_TOKEN, RULES_SPOT], accounts: [ACCOUNTS_TOKEN, ACCOUNTS_SPOT] };
+const yaml = document.querySelector('form[data-yaml] textarea');
+if (yaml) {
+  const [token, spot] = YAML[yaml.form.dataset.yaml];
   const box = document.createElement('div');
   const pre = document.createElement('pre');
   box.className = 'surface';
-  rules.before(box);
-  box.append(pre, rules);
-  rules.form.classList.add('code', 'editing');
-  const surface = codeSurface(rules, pre, (line) => highlight(line, RULES_TOKEN), RULES_SPOT);
+  yaml.before(box);
+  box.append(pre, yaml);
+  yaml.form.classList.add('code', 'editing');
+  const surface = codeSurface(yaml, pre, (line) => highlight(line, token), spot);
   surface.draw();
-  rules.addEventListener('keydown', (event) => surface.handleKey(event));
+  yaml.addEventListener('keydown', (event) => surface.handleKey(event));
 
   // "Hacer regla" leaves the caret after the new entry's `account: `, with its line in view.
-  if (rules.dataset.caret) {
-    const at = Number(rules.dataset.caret);
-    rules.focus({ preventScroll: true });
-    rules.setSelectionRange(at, at);
+  if (yaml.dataset.caret) {
+    const at = Number(yaml.dataset.caret);
+    yaml.focus({ preventScroll: true });
+    yaml.setSelectionRange(at, at);
     surface.mark();
-    pre.children[rules.value.slice(0, at).split('\n').length - 1]?.scrollIntoView({ block: 'center' });
+    pre.children[yaml.value.slice(0, at).split('\n').length - 1]?.scrollIntoView({ block: 'center' });
   }
 }

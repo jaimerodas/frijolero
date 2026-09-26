@@ -5,7 +5,7 @@
 <html lang="es">
 <head>
   <%= head(title) %>
-  <% if rules %><script src="/editor.js" defer></script><% end %>
+  <script src="/editor.js" defer></script>
 </head>
 <body>
   <%= topbar %>
@@ -40,10 +40,11 @@ include:
         <p>Se aplican todas las reglas que coinciden: primero <code>start_with</code> en el orden del archivo, luego <code>include</code>. Una regla posterior sobreescribe solo los campos que define. Al guardar, la app vuelve al estado de cuenta; ahí, "Aplicar reglas" clasifica lo que sigue en <code>Expenses:FIXME</code>.</p>
       </details>
     <% end %>
-    <form method="post" action="<%= h(action) %>"<% if rules %> class="rules-editor"<% end %>>
+    <%# Every page here edits YAML: an account's rules, its block of accounts.yaml, or the whole file. %>
+    <form method="post" action="<%= h(action) %>" data-yaml="<%= rules ? 'rules' : 'accounts' %>">
       <% if back %><input type="hidden" name="back" value="<%= h(back) %>"><% end %>
       <label for="content">Contenido</label>
-      <% if rules %><script type="application/json" class="accounts"><%= JSON.generate(Frijolero::LedgerAccounts.active).gsub('<', '\u003c') %></script><% end %>
+      <script type="application/json" class="accounts"><%= JSON.generate(Frijolero::LedgerAccounts.active).gsub('<', '\u003c') %></script>
       <textarea id="content" name="content" rows="30" spellcheck="false"<% if caret %> data-caret="<%= caret %>"<% end %>><%= h(content) %></textarea>
       <p class="actions"><button type="submit" class="primary">Guardar</button></p>
     </form>
