@@ -1,32 +1,25 @@
 # El ledger
 
-El ledger es tu repo de git, privado. Guarda las transacciones, la configuración de las cuentas, las reglas y los prompts. La
-app lee la configuración en cada request y en cada corrida. Un cambio en el ledger
-no necesita un deploy.
+El ledger es tu repo de git, privado. Guarda las transacciones, la
+configuración de las cuentas, las reglas y los prompts. La app lee la
+configuración en cada request y en cada corrida, así que un cambio en el
+ledger no necesita un deploy.
 
 ## Las tres copias
 
 | Copia | Dónde | Quién escribe |
 |---|---|---|
-| Laptop | Tu clon en la laptop | Tú, con ediciones a mano. Haz pull con rebase antes de cada push. |
-| Servidor | `/data/ledger` en el contenedor | La app. Cada corrida hace pull con rebase al empezar, y commit y push al terminar. Los editores y el diálogo de editar del Diario hacen commit al guardar. |
+| Laptop | Tu clon en la laptop | Tú, a mano. Haz pull con rebase antes de cada push. |
+| Servidor | `/data/ledger` en el contenedor | La app. Cada corrida hace pull con rebase al empezar, y commit y push al terminar. Los editores de la app hacen commit y push al guardar. |
 | GitHub | origin | Nadie de forma directa. |
 
-Antes de cada push, la app hace pull con rebase otra vez. Así integra
-cualquier cambio hecho mientras la corrida corría. Si el rebase encuentra un
-conflicto, la app lo aborta y la corrida falla. El commit se queda en el
-servidor.
-
-La app tiene su propio editor, reportes y diario. Si editas el ledger a mano en
-la laptop, con fava o con cualquier editor, haz pull con rebase antes del push.
+Antes de cada push, la app hace pull con rebase otra vez. Así integra lo que
+llegó mientras la corrida trabajaba. Si el rebase encuentra un conflicto, la
+app lo aborta y la corrida falla. El commit se queda en el servidor.
 
 ## Crear un ledger
 
-1. Corre `bin/new-ledger <directorio>`. El script crea los archivos iniciales,
-   copia los prompts y hace el primer commit. Con eso ya puedes correr la app
-   en la laptop: sin remoto, cada commit se queda en tu clon. Sobre un ledger
-   que ya existe, el mismo script agrega solo lo que falta (ver
-   [setup.md](setup.md#si-ya-tienes-un-ledger)).
+1. Corre `bin/new-ledger <directorio>`.
 2. Para el servidor, crea un repo privado en GitHub.
 3. Agrega el remoto y haz push:
 
@@ -35,12 +28,18 @@ la laptop, con fava o con cualquier editor, haz pull con rebase antes del push.
    git -C <directorio> push -u origin main
    ```
 
-4. En la laptop, pon la ruta en `LEDGER_REPO` de `.env`. En el servidor, clona
-   el repo en `/data/ledger`.
-5. Abre `/accounts/new` y da de alta la primera cuenta.
+4. En la laptop, pon la ruta en `LEDGER_REPO` de `.env`.
+5. En el servidor, clona el repo en `/data/ledger`.
+6. Abre `/accounts/new` y da de alta la primera cuenta.
 
-Con un remoto, cada corrida hace `git pull --rebase` al empezar y `git push` al
-terminar. Sin remoto, no hace ninguno de los dos.
+`bin/new-ledger` crea los archivos iniciales, copia los prompts y hace el
+primer commit. Con eso ya puedes correr la app en la laptop. Sobre un ledger
+que ya existe, el mismo script agrega solo lo que falta (ver
+[setup.md](setup.md#si-ya-tienes-un-ledger)).
+
+Con un remoto, cada corrida hace `git pull --rebase` al empezar y `git push`
+al terminar. Sin remoto, la corrida no hace ninguno de los dos, y cada commit
+se queda en tu clon.
 
 ## El layout del repo
 
@@ -53,25 +52,26 @@ accounts/<Key>/<Key> YYMM.beancount   # un estado de cuenta, con su .json al lad
 ```
 
 El nombre de un estado de cuenta es la clave de la cuenta, un espacio y el
-periodo como `YYMM`. El periodo es el mes que contiene la mayoría de los días
-del estado de cuenta. Un estado de AMEX del 4 de agosto al 3 de septiembre es
+periodo como `YYMM`. El periodo es el mes que tiene la mayoría de los días del
+estado de cuenta. Un estado de AMEX del 4 de agosto al 3 de septiembre es
 `2608`.
 
 `main.beancount` es el único archivo que la app conoce por nombre
 (`LEDGER_MAIN_FILE` lo cambia). La app le agrega un `open` cuando das de alta
-una cuenta, y un `include` cuando procesa un estado de cuenta. Los reportes
-lo leen con rustledger. Las transacciones sueltas, los precios y las
-aserciones de saldo van ahí también, o en archivos aparte con su propio
-`include`. A Beancount no le importa en qué archivo está cada entrada.
+una cuenta, y un `include` cuando procesa un estado de cuenta. Si el repo
+tiene un `account_opens.beancount`, los `open` van ahí.
+
+Los reportes leen el archivo principal con rustledger. Las transacciones
+sueltas, los precios y las aserciones de saldo pueden ir ahí o en archivos
+aparte con su propio `include`. A Beancount no le importa en qué archivo está
+cada entrada.
+
 Si el archivo principal tiene `option "title"`, la app muestra ese nombre en
-cada página y en la de entrada. Si no, muestra Frijolero.
+cada página. Si no, muestra Frijolero.
 
-Si el repo tiene un `account_opens.beancount`, los opens van ahí en lugar del
-archivo principal.
-
-En el bucket, los PDF viven en `frijolero/accounts/<Key>/<Key> YYMM.pdf`. El bucket
-puede ser compartido con otras apps, porque todo va bajo el prefijo
-`frijolero/`.
+En el bucket, los PDF viven en `frijolero/accounts/<Key>/<Key> YYMM.pdf`. Todo
+va bajo el prefijo `frijolero/`, así que otras apps pueden usar el mismo
+bucket.
 
 ## config/accounts.yaml
 
@@ -111,14 +111,18 @@ Old Card:
 | `beancount_account` | La cuenta de Beancount donde la app registra las transacciones. |
 | `openai_prompt_type` | El directorio de `config/prompts/` que extrae este tipo de estado de cuenta. |
 | `converter_type` | El pipeline: `cetes_directo`, `fintual`, `alpaca` (o `plata`, su nombre viejo) o `multi`. Sin este campo, el pipeline es Default. Solo Default y Multi usan reglas. |
-| `accounts` | Solo Multi. Un estado de cuenta que cubre varias cuentas del mismo banco, cada una en su sección "Movimientos de <nombre>". Mapea el nombre impreso a la cuenta de Beancount. La app registra cada movimiento desde la cuenta de su sección. Un traspaso entre esas cuentas aparece dos veces, una por sección. Una regla puede mandar una fila a la otra cuenta del mismo estado de cuenta. Esa fila es la que se queda. La app descarta su espejo: la fila de la otra cuenta con la misma fecha y el monto opuesto. |
-| `description` | La pista que recibe el clasificador. Si falta, usa la clave. |
+| `accounts` | Solo Multi. Mapea cada nombre impreso a su cuenta de Beancount (ver la sección de Multi). |
+| `description` | La pista que recibe el clasificador. Si falta, el clasificador usa la clave. |
 | `cutoff_day` | El día del mes en que cierra el estado de cuenta. Sin este campo, el último día del mes. La corrida lo llena la primera vez que ve un periodo impreso, y nunca lo sobrescribe. |
-| `closed` | Con `true`, la cuenta sale del dashboard y del clasificador. Su historial sigue en su página, bajo Cuentas. |
+| `closed` | Con `true`, la cuenta sale de Recientes y del clasificador. Su historial sigue en su página, en Cuentas. |
+
+Un estado de cuenta que cierra en `cutoff_day` pertenece al mes de 15 días
+antes del cierre. Recientes y el clasificador usan la misma regla.
 
 Los pipelines CetesDirecto, Fintual y Alpaca registran intereses, impuestos y
-ganancias en otras cuentas. Estos campos las nombran. Cada una es opcional.
-Sin ella, la transacción va a `Income:FIXME` o `Expenses:FIXME`.
+ganancias en otras cuentas. Los campos que siguen nombran esas cuentas. Cada
+uno es opcional. Sin él, la transacción va a `Income:FIXME` o
+`Expenses:FIXME`.
 
 | Campo | Pipelines | Uso |
 |---|---|---|
@@ -132,48 +136,70 @@ Sin ella, la transacción va a `Income:FIXME` o `Expenses:FIXME`.
 | `opening_account` | Alpaca | La contraparte de una posición transferida desde otro broker. |
 | `payee` | Alpaca | El nombre en cada transacción. Sin él, `Alpaca`. |
 
-Un estado de cuenta que cierra en `cutoff_day` pertenece al mes de 15 días
-antes del cierre. El dashboard y el clasificador usan la misma regla.
+### Editar las cuentas
 
-Edita el bloque de una cuenta en `/accounts/<Key>/config`. Ese editor guarda
-solo ese bloque, así los comentarios del resto del archivo sobreviven. Edita
-todo el archivo en `/accounts/yaml`. Da de alta una cuenta del pipeline
-Default en `/accounts/new`. Las cuentas de los otros pipelines necesitan más
-cuentas de Beancount. Dalas de alta en `/accounts/yaml`.
+- La pestaña Configuración de una cuenta (`/accounts/<Key>/config`) edita
+  solo el bloque de esa cuenta. Los comentarios del resto del archivo quedan
+  igual.
+- "Editar el archivo completo", en Cuentas (`/accounts/yaml`), edita todo
+  `accounts.yaml`.
+- "Nueva cuenta" (`/accounts/new`) da de alta una cuenta del pipeline Default.
+
+Las cuentas de los otros pipelines necesitan más cuentas de Beancount. Dalas
+de alta en el archivo completo. Los dos editores tienen números de línea y
+completan los nombres de las cuentas abiertas del ledger.
+
+### Multi
+
+Multi lee un estado de cuenta que cubre varias cuentas del mismo banco, cada
+una en su sección "Movimientos de <nombre>". `accounts` mapea cada nombre
+impreso a una cuenta de Beancount. La app registra cada movimiento desde la
+cuenta de su sección.
+
+Un traspaso entre esas cuentas aparece dos veces, una vez por sección. Una
+regla puede mandar un movimiento a la otra cuenta del mismo estado de cuenta.
+Ese movimiento se queda, y la app descarta su espejo: el movimiento de la
+otra cuenta con la misma fecha y el monto opuesto.
 
 ## config/prompts/\<tipo\>/
 
 Cada `openai_prompt_type` apunta a un directorio con tres archivos:
 
-- `spec.json` fija el modelo y el formato de salida.
-- `instructions.txt` es el prompt del sistema.
-- `schema.json` es el esquema JSON estricto de la respuesta.
+- `spec.json`: el modelo y el formato de salida.
+- `instructions.txt`: el prompt del sistema.
+- `schema.json`: el esquema JSON estricto de la respuesta.
 
-El modelo de `spec.json` debe ser del proveedor en `LLM_PROVIDER`. Con
-`openai`, uno de OpenAI (`gpt-5.6-sol`). Con `anthropic`, uno de Anthropic
-(`claude-opus-5` para extraer, `claude-haiku-4-5` para clasificar). Si
-`LLM_PROVIDER=anthropic`, `bin/new-ledger` pone los de Anthropic. Los demás
-campos de `spec.json` van tal cual a la API del proveedor. `reasoning` es de
-OpenAI. `max_tokens`, `thinking` y `output_config` son de Anthropic. El esquema
-es el mismo para los dos. Anthropic exige `additionalProperties: false` en cada
-objeto, y los esquemas estrictos de OpenAI ya lo traen.
+El modelo de `spec.json` debe ser del proveedor de `LLM_PROVIDER`:
 
-El directorio `classify` es el prompt que lee la cuenta y el periodo de un PDF
-subido. La app llena su lista de cuentas desde `accounts.yaml` en cada
+| Proveedor | Extraer | Clasificar (`classify`) |
+|---|---|---|
+| `openai` | `gpt-5.6-sol` | `gpt-5.4-mini` |
+| `anthropic` | `claude-opus-5` | `claude-haiku-4-5` |
+
+Con `LLM_PROVIDER=anthropic`, `bin/new-ledger` pone los modelos de Anthropic.
+Los demás campos de `spec.json` van tal cual a la API del proveedor.
+`reasoning` es de OpenAI. `max_tokens`, `thinking` y `output_config` son de
+Anthropic. El esquema es el mismo para los dos. Anthropic exige
+`additionalProperties: false` en cada objeto, y los esquemas estrictos de
+OpenAI ya lo traen.
+
+El directorio `classify` tiene el prompt que lee la cuenta y el periodo de un
+PDF subido. La app llena su lista de cuentas desde `accounts.yaml` en cada
 llamada.
 
-`templates/prompts/` de este repo tiene los cuatro genéricos: `classify`,
-`default`, `multi` y `alpaca`. `bin/new-ledger` los copia. El ledger tiene la
-copia viva, y el formulario de cuenta nueva ofrece los directorios que hay en
-`config/prompts/` del ledger. Un prompt para un banco en particular es un
-directorio más ahí. Un cambio en un prompt es un commit en el ledger.
+`templates/prompts/` de este repo tiene los cuatro prompts genéricos:
+`classify`, `default`, `multi` y `alpaca`. `bin/new-ledger` los copia al
+ledger, que tiene la copia viva. Un prompt para un banco en particular es un
+directorio más en `config/prompts/` del ledger. La forma de cuenta nueva
+ofrece esos directorios.
 
 ## Las cuentas de Alpaca
 
 El pipeline `alpaca` lee los estados de cuenta mensuales de Alpaca, la casa de
-bolsa detrás de varios asesores. `payee` en el bloque de la cuenta es el nombre
-que lleva cada transacción. Sin él, "Alpaca". El pipeline abre y cierra las
-cuentas de cada commodity por sí mismo, con `"FIFO"`. No declares esas cuentas
-en `account_opens.beancount`. Si una posición se cierra y vuelve a abrir en
-un mes posterior, `bean-check` reporta una colisión. Borra el `close` anterior
-y el `open` posterior.
+bolsa detrás de varios asesores. El pipeline abre y cierra la cuenta de cada
+commodity, con `"FIFO"`. No declares esas cuentas en
+`account_opens.beancount`.
+
+Una posición puede cerrarse y volver a abrirse en un mes posterior. En ese
+caso, Beancount marca un error porque la cuenta se abre dos veces. Para
+corregirlo, borra el `close` anterior y el `open` posterior.
