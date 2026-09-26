@@ -80,8 +80,9 @@ class StatementsTest < Minitest::Test
     assert_includes last_response.body, 'action="/accounts/AMEX/2508/detail"'
     assert_includes last_response.body, 'Aplicar reglas'
     assert_includes last_response.body, 'href="/accounts/AMEX/2508/pdf"'
-    assert_includes last_response.body,
-                    '<span class="bc-account bc-fixme">Expenses:FIXME</span>'
+
+    get '/accounts/AMEX/2508/beancount'
+    assert_includes last_response.body, '<span class="bc-account bc-fixme">Expenses:FIXME</span>'
   end
 
   def test_rules_button_needs_a_rules_file
@@ -173,30 +174,61 @@ class StatementsTest < Minitest::Test
     refute_includes last_response.body, 'Aplicar reglas'
   end
 
-  def test_beancount_tab_is_the_editor_of_the_statement_file
-    write_statement('AMEX', '2508', json: {},
-                                    beancount: "2025-08-01 * \"X\"\n  Liabilities:Amex  -1 MXN\n  Expenses:Food\n")
+  STATEMENT_TEXT = "2025-08-01 * \"X\"\n  Liabilities:Amex  -1 MXN\n  Expenses:Food\n"
+
+  # Each view has its own URL, so a reload or a link lands on the view it names.
+  def test_the_statement_shows_the_movements_with_links_to_the_other_views
+    write_statement('AMEX', '2508', json: {}, beancount: STATEMENT_TEXT)
 
     get '/accounts/AMEX/2508'
 
     body = last_response.body
-    assert_includes body, '<script src="/editor.js" defer></script>'
-    assert_match(%r{<div class="tablist">.*<button type="button" class="edit-file">Editar</button>\s*</div>}m, body)
+    assert_includes body, '<a href="/accounts/AMEX/2508" aria-current="true">Movimientos</a>'
+    assert_includes body, '<a href="/accounts/AMEX/2508/beancount">Beancount</a>'
+    assert_includes body, '<ol class="ledger">'
+    refute_includes body, '<form class="code"'
+  end
+
+  def test_the_beancount_view_is_the_statement_file_with_an_edit_link
+    write_statement('AMEX', '2508', json: {}, beancount: STATEMENT_TEXT)
+
+    get '/accounts/AMEX/2508/beancount'
+
+    body = last_response.body
+    assert_includes body, '<a href="/accounts/AMEX/2508/beancount" aria-current="true">Beancount</a>'
+    assert_includes body, '<a class="edit-file" href="/accounts/AMEX/2508/beancount/edit">Editar</a>'
     assert_includes body, '<form class="code" method="post" action="/edit">'
     assert_includes body, '<input type="hidden" name="file" value="accounts/AMEX/AMEX 2508.beancount">'
     assert_includes body, '<span class="line" id="L2">  <span class="bc-account">Liabilities:Amex</span>'
-    assert_includes body, '<textarea name="content" hidden'
+    refute_includes body, '<ol class="ledger">'
   end
 
-  def test_after_a_save_the_page_opens_on_the_beancount_tab_and_says_guardado
-    write_statement('AMEX', '2508', json: {}, beancount: '')
+  # The editor opens itself there, and Cancelar and the save go back to the Beancount view.
+  def test_the_edit_view_opens_the_editor_and_returns_to_the_beancount_view
+    write_statement('AMEX', '2508', json: {}, beancount: STATEMENT_TEXT)
 
-    get '/accounts/AMEX/2508', saved: 1
+    get '/accounts/AMEX/2508/beancount/edit'
 
     body = last_response.body
-    assert_includes body, '<p class="notice">Guardado</p>'
-    assert_includes body, 'id="view-beancount" class="visually-hidden" checked>'
-    refute_includes body, 'id="view-entries" class="visually-hidden" checked>'
+    assert_includes body, '<form class="code" method="post" action="/edit" ' \
+                          'data-back="/accounts/AMEX/2508/beancount">'
+    refute_includes body, 'class="edit-file"'
+  end
+
+  def test_after_a_save_the_beancount_view_says_guardado
+    write_statement('AMEX', '2508', json: {}, beancount: '')
+
+    get '/accounts/AMEX/2508/beancount', saved: 1
+
+    assert_includes last_response.body, '<p class="notice">Guardado</p>'
+  end
+
+  def test_the_views_of_an_unknown_statement_are_404
+    get '/accounts/AMEX/2508/beancount'
+    assert_equal 404, last_response.status
+
+    get '/accounts/AMEX/2508/beancount/edit'
+    assert_equal 404, last_response.status
   end
 
   def test_non_default_pipeline_has_the_editor_under_its_own_heading
@@ -204,8 +236,8 @@ class StatementsTest < Minitest::Test
 
     get '/accounts/CETES/2508'
 
-    assert_includes last_response.body, '<div class="code-head"><h2>Beancount</h2>' \
-                                        '<button type="button" class="edit-file">Editar</button></div>'
+    assert_includes last_response.body, '<div class="code-head"><h2>Beancount</h2><a class="edit-file" ' \
+                                        'href="/accounts/CETES/2508/beancount/edit">Editar</a></div>'
     assert_includes last_response.body, '<input type="hidden" name="file" value="accounts/CETES/CETES 2508.beancount">'
   end
 
@@ -245,7 +277,7 @@ class StatementsTest < Minitest::Test
     FileUtils.mkdir_p(File.dirname(paths[:beancount]))
     File.write(paths[:beancount], 'algo en beancount')
 
-    get '/accounts/AMEX/2508'
+    get '/accounts/AMEX/2508/beancount'
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, 'algo en beancount'
@@ -394,7 +426,7 @@ class StatementsTest < Minitest::Test
     File.write(File.join(@dir, 'main.beancount'), "2024-01-01 open Expenses:Food\n")
     write_statement('AMEX', '2508', json: { 'transactions' => [] }, beancount: '')
 
-    get '/accounts/AMEX/2508'
+    get '/accounts/AMEX/2508/beancount'
 
     assert_includes last_response.body, '<script type="application/json" class="accounts">["Expenses:Food"]</script>'
   end
@@ -402,11 +434,11 @@ class StatementsTest < Minitest::Test
   # The gutter fits three digits; a file past line 999 widens it for its own numbers.
   def test_the_gutter_widens_only_past_line_999
     write_statement('AMEX', '2508', json: { 'transactions' => [] }, beancount: "; x\n" * 998)
-    get '/accounts/AMEX/2508'
+    get '/accounts/AMEX/2508/beancount'
     assert_includes last_response.body, '<div class="surface"><pre>'
 
     write_statement('AMEX', '2508', json: { 'transactions' => [] }, beancount: "; x\n" * 999)
-    get '/accounts/AMEX/2508'
+    get '/accounts/AMEX/2508/beancount'
     assert_includes last_response.body, '<div class="surface" style="--digits: 4"><pre>'
   end
 

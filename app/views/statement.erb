@@ -1,6 +1,9 @@
 <%
   account_path = Rack::Utils.escape_path(account)
   prev_period, next_period = neighbours
+  base = "/accounts/#{account_path}/#{period}"
+  code = { file: file, text: beancount, back: ("#{base}/beancount" if editing) }
+  edit_link = %(<a class="edit-file" href="#{base}/beancount/edit">Editar</a>) unless editing
 %>
 <!DOCTYPE html>
 <html lang="es">
@@ -36,14 +39,12 @@
     <% end %>
 
     <% if rows %>
-      <div class="tabs">
-        <div class="tablist">
-          <input type="radio" name="view" id="view-entries" class="visually-hidden"<% unless params[:saved] %> checked<% end %>>
-          <label for="view-entries">Movimientos</label>
-          <input type="radio" name="view" id="view-beancount" class="visually-hidden"<% if params[:saved] %> checked<% end %>>
-          <label for="view-beancount">Beancount</label>
-          <button type="button" class="edit-file">Editar</button>
-        </div>
+      <nav class="tablist" aria-label="Vistas">
+        <a href="<%= base %>"<% if view == :entries %> aria-current="true"<% end %>>Movimientos</a>
+        <a href="<%= base %>/beancount"<% if view == :beancount %> aria-current="true"<% end %>>Beancount</a>
+        <% if view == :beancount %><%= edit_link %><% end %>
+      </nav>
+      <% if view == :entries %>
         <section id="entries">
           <ol class="ledger">
             <% rows.each do |tx| %>
@@ -76,13 +77,12 @@
             <% end %>
           </ol>
         </section>
-        <section id="beancount">
-          <%= erb :_code, layout: false, locals: { file: file, text: beancount } %>
-        </section>
-      </div>
+      <% else %>
+        <%= erb :_code, layout: false, locals: code %>
+      <% end %>
     <% else %>
-      <div class="code-head"><h2>Beancount</h2><button type="button" class="edit-file">Editar</button></div>
-      <%= erb :_code, layout: false, locals: { file: file, text: beancount } %>
+      <div class="code-head"><h2>Beancount</h2><%= edit_link %></div>
+      <%= erb :_code, layout: false, locals: code %>
     <% end %>
   </main>
 </body>

@@ -295,7 +295,9 @@ function editor(form) {
     actions.hidden = false;
     showErrors(found);
     dialog?.showModal();
-    textarea.focus();
+    // The caret at the top, focused where the page already is: not a jump to the file's end.
+    textarea.setSelectionRange(0, 0);
+    textarea.focus({ preventScroll: true });
   }
 
   // Blurred first, so the redraw marks no current line in read mode.
@@ -309,7 +311,9 @@ function editor(form) {
     dialog?.close();
   }
 
-  form.querySelector('button[value="cancel"]').addEventListener('click', close);
+  // On a page of its own (a statement's /beancount/edit), Cancelar goes back to the page to read.
+  const back = form.dataset.back;
+  form.querySelector('button[value="cancel"]').addEventListener('click', () => (back ? location.assign(back) : close()));
 
   // Tab indents two spaces, as a posting needs; ⌘S or Ctrl+S saves. The account list, when
   // it shows, gets first refusal on Tab/Escape/the arrows.
@@ -325,12 +329,12 @@ function editor(form) {
     }
   });
 
-  // A clean save reloads: the dialog in place, which keeps the scroll position; a page on
-  // its Beancount view. A rejected one lists the errors and stays.
+  // A clean save reloads: the dialog in place, which keeps the scroll position; a page, or
+  // the page it came from, with its notice. A rejected one lists the errors and stays.
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const response = await fetch('/edit', { method: 'POST', body: new FormData(form) }).catch(() => null);
-    if (response?.status === 204) return dialog ? location.reload() : location.replace(`${location.pathname}?saved=1`);
+    if (response?.status === 204) return dialog ? location.reload() : location.replace(`${back || location.pathname}?saved=1`);
     if (response?.status === 422) return showErrors((await response.json()).errors);
     showErrors([response ? await response.text() : 'Sin conexión']);
   });
@@ -342,13 +346,15 @@ const form = document.querySelector('form.code:not(.rules-editor)');
 if (form) {
   const ed = editor(form);
 
-  // Statement and file pages: Editar fetches the whole file.
-  document.querySelector('button.edit-file')?.addEventListener('click', async () => {
+  // The file page's Editar, and a statement's /beancount/edit on load: fetch the whole file.
+  const openFile = async () => {
     const response = await fetch(`/edit?${new URLSearchParams({ file: form.elements.file.value })}`).catch(() => null);
     if (!response?.ok) return ed.showErrors([response ? await response.text() : 'Sin conexión']);
     const block = await response.json();
     ed.open(block.text, 1, block.errors);
-  });
+  };
+  document.querySelector('button.edit-file')?.addEventListener('click', openFile);
+  if (form.dataset.back) openFile();
 
   // The journal: the date of an entry opens the dialog with that one transaction.
   document.addEventListener('click', async (event) => {

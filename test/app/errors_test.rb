@@ -249,7 +249,7 @@ class ReadModeErrorsTest < Minitest::Test
     @reports.errors = [{ code: 'E1001', message: 'No abierta', file: 'accounts/AMEX/AMEX 2508.beancount', line: 1,
                          end_line: 4 }]
 
-    get '/accounts/AMEX/2508'
+    get '/accounts/AMEX/2508/beancount'
 
     body = last_response.body
     assert_includes body, '<span class="line err" id="L1" title="E1001 No abierta">'
@@ -262,7 +262,7 @@ class ReadModeErrorsTest < Minitest::Test
     write_statement('AMEX', '2508', "2025-08-01 * \"X\"\n  Liabilities:Amex -1 MXN\n  Expenses:Food\n")
     @reports.errors = []
 
-    get '/accounts/AMEX/2508'
+    get '/accounts/AMEX/2508/beancount'
 
     assert_includes last_response.body, '<ul class="errors error" role="alert" hidden></ul>'
   end

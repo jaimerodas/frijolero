@@ -159,7 +159,8 @@ class NavTest < Minitest::Test
       assert_equal ['<h1>AMEX</h1>'], body.scan(%r{<h1>.*?</h1>}), path
       assert_includes body, '<a href="/accounts">Cuentas</a>', path
       assert_includes body, %(<a href="#{TAB_HREFS[tab]}" aria-current="true">#{tab}</a>), path
-      assert_equal 2, body.scan('aria-current=').size, path
+      # The topbar's section and the account's tab; a statement's own view links are a level below.
+      assert_equal 2, body.sub(%r{<nav class="tablist".*?</nav>}m, '').scan('aria-current=').size, path
     end
   end
 

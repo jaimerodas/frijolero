@@ -15,6 +15,9 @@ module Frijolero
 
     # The period segment is four digits, so /accounts/<Key>/config and /rules never land here.
     PERIOD = { mustermann_opts: { capture: { yymm: /\d{4}/ } } }.freeze
+    # The statement's views: `view` is only beancount and `action` only edit, so …/pdf and the
+    # other routes under a period never land on the statement page.
+    STATEMENT_VIEWS = { mustermann_opts: { capture: { yymm: /\d{4}/, view: 'beancount', action: 'edit' } } }.freeze
 
     helpers do
       # Beancount text → one `span.line#L<n>` per line, colored, split on "\n" with the trailing
@@ -62,7 +65,9 @@ module Frijolero
       end
     end
 
-    get '/accounts/:account/:yymm', PERIOD do
+    # One URL per view, so a reload or a link lands on the view it names: the movements at
+    # /accounts/<Key>/<YYMM>, the Beancount text at …/beancount, and the editor at …/beancount/edit.
+    get '/accounts/:account/:yymm(/:view(/:action)?)?', STATEMENT_VIEWS do
       account = params[:account]
       period = params[:yymm]
       halt 404, 'Cuenta desconocida' unless Config.accounts.key?(account)
@@ -79,8 +84,8 @@ module Frijolero
       beancount = File.read(paths[:beancount])
 
       erb :statement, locals: {
-        account: account,
-        period: period,
+        account: account, period: period,
+        view: params[:view] ? :beancount : :entries, editing: params[:action] == 'edit',
         summary: data && pipeline.summary(data),
         rows: rows,
         totals: rows && StatementRows.totals(rows),
