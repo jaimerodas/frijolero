@@ -5,6 +5,7 @@
 <html lang="es">
 <head>
   <%= head(title) %>
+  <% if accounts %><script src="/editor.js" defer></script><% end %>
 </head>
 <body>
   <%= topbar %>
@@ -43,6 +44,7 @@ include:
     <form method="post" action="<%= h(action) %>">
       <% if back %><input type="hidden" name="back" value="<%= h(back) %>"><% end %>
       <label for="content">Contenido</label>
+      <% if accounts %><script type="application/json" class="accounts"><%= JSON.generate(Frijolero::LedgerAccounts.active).gsub('<', '\u003c') %></script><% end %>
       <textarea id="content" name="content" rows="30" spellcheck="false"><%= h(content) %></textarea>
       <p class="actions"><button type="submit" class="primary">Guardar</button></p>
     </form>

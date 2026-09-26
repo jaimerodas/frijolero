@@ -21,4 +21,21 @@ class LedgerAccountsTest < Minitest::Test
       assert_equal %w[Assets:Glob Assets:Main Liabilities:TDC], Frijolero::LedgerAccounts.all
     end
   end
+
+  # What the autocomplete offers: an account a rule names but no `open` line opens, or one
+  # that is closed, would fail the ledger check the moment a posting used it.
+  def test_active_leaves_out_accounts_only_a_rule_names_and_closed_ones
+    with_ledger_dir do |dir|
+      File.write(File.join(dir, 'main.beancount'), <<~BEAN)
+        2020-01-01 open Assets:Bank
+        2020-01-01 open Liabilities:OldCard
+        2024-06-30 close Liabilities:OldCard
+      BEAN
+      FileUtils.mkdir_p(File.join(dir, 'config', 'rules'))
+      File.write(File.join(dir, 'config', 'rules', 'Bank.yaml'), "include:\n  BOOK: { account: Expenses:Books }\n")
+
+      assert_equal %w[Assets:Bank], Frijolero::LedgerAccounts.active
+      assert_includes Frijolero::LedgerAccounts.all, 'Expenses:Books'
+    end
+  end
 end

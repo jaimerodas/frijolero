@@ -29,15 +29,16 @@ function highlight(line) {
   });
 }
 
-// Where the account autocomplete may open: the first word of an indented posting line, or
-// the account word(s) after a directive's date and keyword. Same shape as the head part of
-// TOKEN, but only the three directives that take an account.
-const DIRECTIVE = /^\d{4}-\d{2}-\d{2} (?:open|close|balance|pad) /;
+// Where the account autocomplete may open, tested on the line up to the word. In Beancount:
+// the first word of an indented posting line, or the account word(s) after a directive's date
+// and a keyword that takes one. In the rules YAML: the value of `account:`, quoted or not.
+const BEANCOUNT_SPOT = /^\s+$|^\d{4}-\d{2}-\d{2} (?:open|close|balance|pad) /;
+const RULES_SPOT = /\baccount:\s*['"]?$/;
 const ACCOUNT_WORD = /[\w:-]/;
 
 // The word under the caret, if the caret sits right after it (not before or inside it) and
-// it is in a spot an account can go. `start`/`col` are relative to the line's own text.
-function wordContext(text, caret) {
+// what comes before it on the line matches `spot`.
+function wordContext(text, caret, spot) {
   const lineStart = text.lastIndexOf('\n', caret - 1) + 1;
   const lineEnd = text.indexOf('\n', caret);
   const line = text.slice(lineStart, lineEnd === -1 ? text.length : lineEnd);
@@ -46,15 +47,37 @@ function wordContext(text, caret) {
   let start = col;
   while (start > 0 && ACCOUNT_WORD.test(line[start - 1])) start--;
   if (col - start < 2) return null;
-  const before = line.slice(0, start);
-  if (!/^\s+$/.test(before) && !DIRECTIVE.test(before)) return null;
-  return { start: lineStart + start, col: start, lineIndex: text.slice(0, lineStart).split('\n').length - 1, word: line.slice(start, col) };
+  if (!spot.test(line.slice(0, start))) return null;
+  return { start: lineStart + start, word: line.slice(start, col) };
 }
 
-// The end of the word to replace on accept: from the caret to the next run of whitespace,
-// so an accept over a half-typed word (caret not at its very end) still eats all of it.
+// The end of the word to replace on accept: from the caret to the first character an account
+// cannot hold, so an accept over a half-typed word eats all of it and never a closing quote.
 function wordEnd(text, caret) {
-  return caret + text.slice(caret).search(/\s|$/);
+  return caret + text.slice(caret).search(/[^\w:-]|$/);
+}
+
+// Where character `index` of the textarea sits, relative to the textarea's own box and its
+// scroll: {top of the line under it, left}. A hidden copy with the same box, font and wrapping
+// holds the text up to `index` and a marker after it.
+function caretPoint(textarea, index) {
+  const style = getComputedStyle(textarea);
+  const copy = document.createElement('div');
+  for (const p of ['fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'tabSize', 'whiteSpace', 'overflowWrap', 'wordBreak',
+    'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']) copy.style[p] = style[p];
+  Object.assign(copy.style, { position: 'absolute', visibility: 'hidden', boxSizing: 'border-box', width: `${textarea.clientWidth}px`, border: '0' });
+  copy.textContent = textarea.value.slice(0, index);
+  const mark = copy.appendChild(document.createElement('span'));
+  mark.textContent = '\u200b';
+  document.body.append(copy);
+  // The marker's box is the glyph's; half the leading below it is the line's bottom.
+  const leading = (parseFloat(style.lineHeight) - mark.offsetHeight) / 2 || 0;
+  const point = {
+    top: textarea.clientTop + mark.offsetTop + mark.offsetHeight + leading - textarea.scrollTop,
+    left: textarea.clientLeft + mark.offsetLeft - textarea.scrollLeft,
+  };
+  copy.remove();
+  return point;
 }
 
 // Case-insensitive: the typed word splits on ':' and each part must be found, in order, in
@@ -86,45 +109,29 @@ function matchAccounts(word, accounts) {
 
 let autocompleteId = 0;
 
-// The account suggestion list floating over the textarea. It never touches a line's height:
-// it is absolutely positioned in .surface, under the word being typed.
-function accountAutocomplete(form, textarea, pre, render) {
-  const surface = form.querySelector('.surface');
-  const accounts = JSON.parse(form.querySelector('script.accounts')?.textContent || '[]');
+// The account suggestion list floating over `textarea`, under the word being typed, in the
+// textarea's parent, which is its positioning context. It never touches a line's height.
+// `accounts` comes from a `script.accounts` next to it; `spot` says where a word is an account;
+// `accepted` runs after a pick (the Beancount editor redraws its colored copy).
+function accountAutocomplete(textarea, spot, accepted = () => {}) {
+  const accounts = JSON.parse(textarea.parentElement.closest('form').querySelector('script.accounts')?.textContent || '[]');
   const id = `ac${autocompleteId++}`;
   const list = document.createElement('ul');
   list.className = 'suggestions';
   list.id = `${id}-list`;
   list.setAttribute('role', 'listbox');
   list.hidden = true;
-  surface.appendChild(list);
+  textarea.parentElement.append(list);
   textarea.setAttribute('aria-autocomplete', 'list');
   textarea.setAttribute('aria-controls', list.id);
   textarea.setAttribute('aria-expanded', 'false');
   let current = null;
   let selected = 0;
-  let charWidth = null;
 
-  function width() {
-    if (charWidth) return charWidth;
-    const probe = document.createElement('span');
-    probe.style.visibility = 'hidden';
-    probe.textContent = '0'.repeat(20);
-    pre.appendChild(probe);
-    charWidth = probe.getBoundingClientRect().width / 20;
-    probe.remove();
-    return charWidth;
-  }
-
-  // ponytail: placed under the block's start column; a wrapped line's continuation is off.
-  // Upgrade path: measure the wrapped sub-line's own top with a Range if this bites.
   function position() {
-    const span = pre.children[current.lineIndex];
-    if (!span) return;
-    const line = span.getBoundingClientRect();
-    const box = surface.getBoundingClientRect();
-    list.style.top = `${line.bottom - box.top}px`;
-    list.style.left = `${line.left - box.left + current.col * width()}px`;
+    const point = caretPoint(textarea, current.start);
+    list.style.top = `${textarea.offsetTop + point.top}px`;
+    list.style.left = `${textarea.offsetLeft + point.left}px`;
   }
 
   function select(i) {
@@ -144,7 +151,7 @@ function accountAutocomplete(form, textarea, pre, render) {
   function accept(account) {
     const end = wordEnd(textarea.value, textarea.selectionStart);
     textarea.setRangeText(account, current.start, end, 'end');
-    render(textarea.value);
+    accepted();
     hide();
   }
 
@@ -163,7 +170,7 @@ function accountAutocomplete(form, textarea, pre, render) {
 
   function update() {
     const context = textarea.selectionStart === textarea.selectionEnd
-      && wordContext(textarea.value, textarea.selectionStart);
+      && wordContext(textarea.value, textarea.selectionStart, spot);
     const matches = context && matchAccounts(context.word, accounts);
     if (!matches || matches.length === 0 || (matches.length === 1 && matches[0].toLowerCase() === context.word.toLowerCase())) return hide();
     show(context, matches);
@@ -275,7 +282,7 @@ function editor(form) {
 
   form.querySelector('button[value="cancel"]').addEventListener('click', close);
 
-  const accounts = accountAutocomplete(form, textarea, pre, render);
+  const accounts = accountAutocomplete(textarea, BEANCOUNT_SPOT, () => render(textarea.value));
 
   textarea.addEventListener('input', () => render(textarea.value));
 
@@ -333,4 +340,12 @@ if (form) {
     ed.open(block.text, block.first, block.errors);
     if (!response?.ok) ed.showErrors([response ? await response.text() : 'Sin conexión']);
   });
+}
+
+// The rules editor: a plain textarea, the same list after `account:`. With no list, Tab keeps
+// its native job of moving the focus.
+const rules = document.querySelector('.rules-editor textarea');
+if (rules) {
+  const accounts = accountAutocomplete(rules, RULES_SPOT);
+  rules.addEventListener('keydown', (event) => accounts.handleKey(event));
 }

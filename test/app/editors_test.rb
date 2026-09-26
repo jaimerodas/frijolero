@@ -93,6 +93,16 @@ class EditorsTest < Minitest::Test
     refute_includes last_response.body, '<aside'
   end
 
+  # The rules textarea gets the autocomplete of the Beancount editors, over the open accounts.
+  def test_rules_editor_embeds_the_open_accounts_for_the_autocomplete
+    File.write(File.join(@dir, 'main.beancount'), "2024-01-01 open Liabilities:Amex\n")
+
+    get '/accounts/AMEX/rules'
+
+    assert_includes last_response.body, '<script type="application/json" class="accounts">["Liabilities:Amex"]</script>'
+    assert_includes last_response.body, '<script src="/editor.js" defer></script>'
+  end
+
   def test_rules_editor_shows_a_default_template_when_no_file_exists
     get '/accounts/AMEX/rules'
 
