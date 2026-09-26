@@ -9,7 +9,9 @@ require 'time'
 module Frijolero
   # One queue, one worker thread, an append-only JSONL log. Nothing else.
   class Jobs
-    Job = Struct.new(:id, :label, :status, :started_at, :finished_at, :error, :output, keyword_init: true) do
+    # token is the upload directory's name (see App#save_upload), so a failed job can
+    # be retried from the same PDF; a job logged before this field is nil, no retry.
+    Job = Struct.new(:id, :label, :token, :status, :started_at, :finished_at, :error, :output, keyword_init: true) do
       def running? = status == 'running'
       def done? = %w[ok failed].include?(status)
     end
@@ -25,8 +27,8 @@ module Frijolero
       recover_running_jobs
     end
 
-    def push(label:, &body)
-      job = Job.new(id: SecureRandom.hex(8), label: label, status: 'queued')
+    def push(label:, token: nil, &body)
+      job = Job.new(id: SecureRandom.hex(8), label: label, token: token, status: 'queued')
       @mutex.synchronize { @jobs[job.id] = job }
       log(job)
       @queue.push([job, body])

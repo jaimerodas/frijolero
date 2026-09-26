@@ -20,3 +20,20 @@ document.addEventListener('click', (event) => {
 document.addEventListener('change', (event) => {
   if (event.target.matches('select[name="period"], select[name="chart"]')) event.target.form.requestSubmit();
 });
+
+// A button that waits on the server (the classifier, S3) says so, and its form takes no second
+// click. The back button can bring the page back from the cache as it was left, so it resets there.
+document.addEventListener('submit', (event) => {
+  const button = event.submitter;
+  if (!button?.dataset.busy) return;
+  button.dataset.idle = button.textContent;
+  button.textContent = button.dataset.busy;
+  button.form.inert = true;
+});
+window.addEventListener('pageshow', () => {
+  for (const button of document.querySelectorAll('button[data-idle]')) {
+    button.textContent = button.dataset.idle;
+    button.form.inert = false;
+    delete button.dataset.idle;
+  }
+});

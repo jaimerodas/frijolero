@@ -226,7 +226,7 @@ class StatementsTest < Minitest::Test
     assert_includes body, '<a href="/accounts/AMEX/2508" aria-current="true">Movimientos</a>'
     assert_includes body, '<a href="/accounts/AMEX/2508/beancount">Beancount</a>'
     assert_includes body, '<ol class="ledger">'
-    refute_includes body, '<form class="code"'
+    refute_includes body, 'class="code-box"'
   end
 
   def test_the_beancount_view_is_the_statement_file_with_an_edit_link
@@ -503,6 +503,73 @@ class StatementsTest < Minitest::Test
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, '-1.00 MXN'
+  end
+
+  def test_the_date_of_a_movement_opens_the_edit_dialog
+    write_statement('AMEX', '2508',
+                    json: { 'transactions' => [] },
+                    beancount: "2025-08-01 * \"OXXO\"\n  Liabilities:Amex -100 MXN\n  Expenses:Food\n")
+
+    get '/accounts/AMEX/2508'
+
+    body = last_response.body
+    assert_includes body, '<time datetime="2025-08-01"><button type="button" class="edit" ' \
+                          'data-file="accounts/AMEX/AMEX 2508.beancount" data-line="1">2025-08-01</button></time>'
+    refute_includes body, 'data-statement'
+    assert_includes body, '<dialog id="edit">'
+  end
+
+  def test_the_beancount_view_has_no_edit_dialog
+    write_statement('AMEX', '2508', json: {}, beancount: STATEMENT_TEXT)
+
+    get '/accounts/AMEX/2508/beancount'
+
+    refute_includes last_response.body, '<dialog id="edit">'
+  end
+
+  def test_the_missing_status_links_to_the_first_unclassified_row
+    write_statement('AMEX', '2508',
+                    json: { 'transactions' => [] },
+                    beancount: <<~BEAN)
+                      2025-08-01 * "OXXO"
+                        Liabilities:Amex -100 MXN
+                        Expenses:FIXME
+
+                      2025-08-02 * "UBER"
+                        Liabilities:Amex -50 MXN
+                        Expenses:FIXME
+                    BEAN
+
+    get '/accounts/AMEX/2508'
+
+    body = last_response.body
+    assert_includes body, '<a class="status missing" href="/accounts/AMEX/2508#sin-clasificar">2 sin clasificar</a>'
+    assert_equal 1, body.scan('id="sin-clasificar"').size
+    assert_includes body, '<li class="fixme" id="sin-clasificar">'
+    assert_includes body, '<li class="fixme">'
+  end
+
+  def test_no_link_when_everything_is_classified
+    write_statement('AMEX', '2508', json: { 'transactions' => [] }, beancount: STATEMENT_TEXT)
+
+    get '/accounts/AMEX/2508'
+
+    refute_includes last_response.body, '#sin-clasificar'
+    assert_includes last_response.body, '<span class="status received">Todo clasificado</span>'
+  end
+
+  def test_non_default_pipeline_keeps_the_plain_status_span
+    write_statement('CETES', '2508', json: { 'movements' => [] }, beancount: <<~BEAN)
+      2025-08-01 * "X"
+        Expenses:FIXME 100 MXN
+        Assets:CETES -100 MXN
+    BEAN
+
+    get '/accounts/CETES/2508'
+
+    body = last_response.body
+    assert_includes body, '<span class="status missing">1 sin clasificar</span>'
+    refute_includes body, '#sin-clasificar'
   end
 
   private

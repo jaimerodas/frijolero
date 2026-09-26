@@ -3,6 +3,8 @@
 require_relative '../test_helper'
 
 class HelpersTest < Minitest::Test
+  include TestHelpers
+
   def setup
     @app = Frijolero::App.new!
   end
@@ -18,6 +20,13 @@ class HelpersTest < Minitest::Test
     assert_equal '+5,276.79', @app.money(5276.79)
     assert_equal '-22.00', @app.money(-22)
     assert_equal '', @app.money(nil)
+  end
+
+  def test_local_time_is_the_utc_stamp_in_mexico_city
+    with_env('TZ' => 'America/Mexico_City') do
+      assert_equal '4 sep 2026, 06:22', @app.local_time('2026-09-04T12:22:00Z')
+    end
+    assert_equal '', @app.local_time(nil)
   end
 
   def test_split_description_at_semicolon_or_before_rfc

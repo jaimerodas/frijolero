@@ -24,9 +24,9 @@
           <% jobs.each do |job| %>
             <tr>
               <th scope="row"><a href="/jobs/<%= h(job.id) %>"><%= h(job.label) %></a></th>
-              <td data-label="Estado"><span class="status <%= h(job.status) %>"><%= h(job.status) %></span></td>
-              <td class="date" data-label="Inicio"><%= h(job.started_at) %></td>
-              <td class="date" data-label="Fin"><%= h(job.finished_at) %></td>
+              <td data-label="Estado"><span class="status <%= h(job.status) %>"><%= job_status(job.status) %></span></td>
+              <td class="date" data-label="Inicio"><%= h(local_time(job.started_at)) %></td>
+              <td class="date" data-label="Fin"><%= h(local_time(job.finished_at)) %></td>
             </tr>
           <% end %>
         </tbody>

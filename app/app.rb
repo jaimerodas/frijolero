@@ -11,6 +11,8 @@ module Frijolero
     set :public_folder, File.expand_path('../public', __dir__)
     set :static_cache_control, [:no_cache]
 
+    JOB_STATUS = { 'queued' => 'en cola', 'running' => 'corriendo', 'ok' => 'listo', 'failed' => 'falló' }.freeze
+
     class << self
       attr_writer :jobs, :client, :s3, :repo, :reports
 
@@ -62,8 +64,37 @@ module Frijolero
       end
     end
 
+    # The job page and the Bitácora: Spanish status words, local time, and the check
+    # behind the retry button (also run by the retry route itself).
+    helpers do
+      # 'queued' → 'en cola', etc. The dashboard has its own 'falló' for the same word.
+      def job_status(status) = JOB_STATUS.fetch(status, status)
+
+      # UTC ISO 8601 → local time, e.g. '4 sep 2026, 06:22'. TZ is the Dockerfile's job.
+      def local_time(iso)
+        return '' unless iso
+
+        t = Time.iso8601(iso).localtime
+        "#{t.day} #{Period::MONTHS[t.month - 1][0, 3]} #{t.year}, #{t.strftime('%H:%M')}"
+      end
+
+      # [account, period, pdf_path] for a failed job whose upload can still be retried,
+      # or nil: it needs its token, the account, no statement yet, and the PDF still on disk.
+      def retryable_upload(job)
+        return nil unless job.status == 'failed' && job.token
+
+        account, _, period = job.label.rpartition(' ')
+        return nil unless Config.accounts.key?(account)
+        return nil if File.exist?(Config.statement_path(account, period, 'beancount'))
+
+        pdf_path = upload_pdf(job.token)
+        pdf_path && [account, period, pdf_path]
+      end
+    end
+
     get '/' do
-      failed = self.class.jobs.all.select { |j| j.status == 'failed' }.map(&:label)
+      # jobs.all is newest first, so uniq keeps the latest failure of each label.
+      failed = self.class.jobs.all.select { |j| j.status == 'failed' }.uniq(&:label).to_h { |j| [j.label, j.id] }
       erb :dashboard, locals: { dashboard: Dashboard.new(failed: failed) }
     end
 
@@ -76,6 +107,19 @@ module Frijolero
       halt 404, 'No existe esa corrida' unless job
 
       erb :job, locals: { job: job }
+    end
+
+    # Queues the same statement again from the upload directory a failed job left behind.
+    post '/jobs/:id/retry' do
+      job = self.class.jobs.find(params[:id])
+      halt 404, 'No existe esa corrida' unless job
+      halt 422, "Falta #{LLM.key_var}: la extracción la necesita" unless self.class.client
+
+      account, period, pdf_path = retryable_upload(job)
+      halt 422, 'Esta corrida no se puede reintentar' unless account
+
+      new_job = enqueue_statement(account: account, period: period, pdf_path: pdf_path, overwrite: false)
+      redirect "/jobs/#{new_job.id}", 303
     end
   end
 end

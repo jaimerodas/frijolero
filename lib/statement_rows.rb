@@ -15,14 +15,14 @@ module Frijolero
         next unless block[:type] == :transaction
 
         tx = Beancount::Transaction.new(block)
-        row(block[:date], tx, sources) if tx.parsed?
+        row(block[:date], block[:line], tx, sources) if tx.parsed?
       end
     end
 
-    def row(date, transaction, sources)
+    def row(date, line, transaction, sources)
       source, others = split(transaction.postings, sources)
       amount, currency = amount_of(source, others)
-      { date: date, flag: transaction.flag, description: transaction.description, payee: transaction.payee,
+      { date: date, line: line, flag: transaction.flag, description: transaction.description, payee: transaction.payee,
         narration: (transaction.narration if transaction.metadata.key?('source_desc')),
         accounts: others.map { |p| p[:account] }, amount: amount, currency: currency }
     end

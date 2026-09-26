@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <%= head %>
+  <script src="/reports.js" defer></script>
 </head>
 <body>
   <%= topbar %>
@@ -20,7 +21,7 @@
         Sobrescribir si ya existe
       </label>
 
-      <p class="actions"><button type="submit" class="primary">Clasificar</button></p>
+      <p class="actions"><button type="submit" class="primary" data-busy="Clasificando…">Clasificar</button></p>
     </form>
   </main>
 </body>

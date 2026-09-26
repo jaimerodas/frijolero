@@ -11,7 +11,10 @@
   <main>
     <%= erb :_cuentas, layout: false %>
     <h1><%= h(job.label) %></h1>
-    <p class="meta"><span class="status <%= h(job.status) %>"><%= h(job.status) %></span></p>
+    <p class="meta">
+      <span class="status <%= h(job.status) %>"><%= job_status(job.status) %></span>
+      <%= h(local_time(job.started_at)) %><% if job.finished_at %> – <%= h(local_time(job.finished_at)) %><% end %>
+    </p>
 
     <% if job.error %>
       <p class="error" role="alert"><%= h(job.error) %></p>
@@ -19,6 +22,8 @@
 
     <% if job.status == 'ok' %>
       <p class="actions"><a class="button" href="/accounts/<%= Rack::Utils.escape_path(account) %>/<%= h(period) %>">Ver estado de cuenta</a></p>
+    <% elsif self.class.client && retryable_upload(job) %>
+      <form class="actions" method="post" action="/jobs/<%= h(job.id) %>/retry"><button type="submit">Reintentar</button></form>
     <% end %>
 
     <pre><%= h(job.output) %></pre>

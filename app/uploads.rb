@@ -91,11 +91,14 @@ module Frijolero
     def validate_token!(token)
       halt 422, 'Token inválido' unless token.to_s.match?(/\A\h{16}\z/)
 
+      upload_pdf(token) || halt(422, 'Token inválido')
+    end
+
+    # The one file in an upload's directory, or nil: Statement deletes it after the extraction.
+    def upload_pdf(token)
       dir = File.join(Config.incoming_dir, token)
       files = Dir.exist?(dir) ? Dir.children(dir) : []
-      halt 422, 'Token inválido' unless files.size == 1
-
-      File.join(dir, files.first)
+      File.join(dir, files.first) if files.size == 1
     end
 
     # The printed period end is optional: the filename shortcut has none.
@@ -118,7 +121,7 @@ module Frijolero
     # The block runs after a good statement and rides on the same commit.
     def run_job(label, statement, upload_dir)
       repo = self.class.repo
-      self.class.jobs.push(label: label) do
+      self.class.jobs.push(label: label, token: File.basename(upload_dir)) do
         repo.pull
         status = statement.process
         raise "Statement terminó con #{status}" unless status == Statement::OK

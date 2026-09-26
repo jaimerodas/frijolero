@@ -8,9 +8,15 @@ module Frijolero
   class Dashboard
     Row = Struct.new(:account, :statuses, :cutoff_day, keyword_init: true)
 
-    def initialize(today: Date.today, failed: [])
+    # failed maps "<account> <period>" to the id of the newest failed job with that label.
+    def initialize(today: Date.today, failed: {})
       @today = today
       @failed = failed
+    end
+
+    # The job behind a :failed status, for the dashboard's link.
+    def failed_job_id(account, period)
+      @failed["#{account} #{period}"]
     end
 
     # The newest period that some account has closed, and the one before it.
@@ -49,7 +55,7 @@ module Frijolero
 
     def status_for(account, period, closed)
       return :received if File.exist?(Config.statement_path(account, period, 'beancount'))
-      return :failed if @failed.include?("#{account} #{period}")
+      return :failed if @failed.key?("#{account} #{period}")
 
       period <= closed ? :missing : :pending
     end

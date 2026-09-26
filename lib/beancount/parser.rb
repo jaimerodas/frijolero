@@ -30,7 +30,7 @@ module Frijolero
         date = lines[start_idx][0, 10]
         tx_lines = [lines[start_idx]]
         idx = consume_continuations(lines, start_idx + 1, tx_lines)
-        [{ type: :transaction, date: date, lines: tx_lines }, idx]
+        [{ type: :transaction, date: date, line: start_idx + 1, lines: tx_lines }, idx]
       end
 
       def self.consume_continuations(lines, idx, tx_lines)

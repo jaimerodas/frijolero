@@ -11,7 +11,8 @@ ENV RACK_ENV="production" \
     BUNDLE_DEPLOYMENT="1" \
     BUNDLE_PATH="/usr/local/bundle" \
     BUNDLE_WITHOUT="development:test" \
-    MALLOC_ARENA_MAX="2"
+    MALLOC_ARENA_MAX="2" \
+    TZ="America/Mexico_City"
 
 # git: LedgerRepo shells out to it. ca-certificates: HTTPS to OpenAI, S3 and GitHub.
 RUN apt-get update -qq && \

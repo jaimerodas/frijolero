@@ -37,6 +37,10 @@
                 <td data-label="<%= h(period_name(period)) %>">
                   <% if status == :received %>
                     <a class="status received" href="/accounts/<%= path %>/<%= period %>"><%= labels[status] %></a>
+                  <% elsif status == :missing %>
+                    <a class="status missing" href="/upload"><%= labels[status] %></a>
+                  <% elsif status == :failed %>
+                    <a class="status failed" href="/jobs/<%= h(dashboard.failed_job_id(row.account, period)) %>"><%= labels[status] %></a>
                   <% else %>
                     <span class="status <%= status %>"><%= labels[status] %></span>
                   <% end %>

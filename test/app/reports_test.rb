@@ -392,6 +392,14 @@ class ReportsPageTest < Minitest::Test
     assert_includes last_response.body, '<h1>Diario</h1>'
   end
 
+  def test_the_journal_tab_is_titled_by_its_account
+    get '/journal', account: 'Expenses:Taxes'
+    assert_includes last_response.body, '<title>Expenses:Taxes · Diario</title>'
+
+    get '/journal'
+    assert_includes last_response.body, '<title>Diario</title>'
+  end
+
   def test_journal_entry_is_payee_colon_narration_then_one_line_per_posting
     get '/journal'
     body = last_response.body

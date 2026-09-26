@@ -120,7 +120,8 @@ class DashboardTest < Minitest::Test
       FileUtils.mkdir_p(File.dirname(path))
       File.write(path, '')
 
-      dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5), failed: ['AMEX 2608', 'BBVA TDC 2608'])
+      failed = { 'AMEX 2608' => 'job1', 'BBVA TDC 2608' => 'job2' }
+      dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5), failed: failed)
       rows = dashboard.rows.to_h { |r| [r.account, r.statuses] }
 
       assert_equal :failed, rows['AMEX']['2608']
@@ -152,6 +153,21 @@ class DashboardTest < Minitest::Test
       assert_includes html, '<th>julio 2026</th>'
       assert_includes html, '<th>agosto 2026</th>'
       assert_includes html, '&lt;x&gt;'
+    end
+  end
+
+  def test_missing_links_to_upload_and_failed_links_to_its_job
+    with_ledger_dir do |dir|
+      write_accounts(dir)
+      path = Frijolero::Config.statement_path('BBVA TDC', '2608', 'beancount')
+      FileUtils.mkdir_p(File.dirname(path))
+      File.write(path, '')
+
+      dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5), failed: { 'AMEX 2607' => 'job1' })
+      html = Frijolero::App.new!.erb(:dashboard, locals: { dashboard: dashboard })
+
+      assert_includes html, '<a class="status missing" href="/upload">falta</a>'
+      assert_includes html, '<a class="status failed" href="/jobs/job1">falló</a>'
     end
   end
 end

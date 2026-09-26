@@ -44,7 +44,7 @@
           <%# The sums wait behind the ⓘ: a hover on a desk, a tap on a phone. %>
           <% unless totals.empty? %><span class="info"><button type="button" aria-label="Cargos y abonos" aria-describedby="totals">i</button><span class="panel" id="totals" role="tooltip"><% totals.each do |currency, sides| %><% sides.zip(%w[cargo abono], %w[debit credit]).each do |(count, sum), noun, side| %><% next if count.zero? %><span class="count"><%= thousands(count) %> <%= noun %><%= 's' unless count == 1 %></span><data class="<%= side %>" value="<%= sum.to_s('F') %>"><%= money(sum) %> <%= h(currency) %></data><% end %><% end %></span></span><% end %>
         <% elsif summary %><span class="count"><%= h(summary) %></span><% end %>
-        <% if fixme_count.zero? %><span class="status received">Todo clasificado</span><% else %><span class="status missing"><%= fixme_count %> sin clasificar</span><% end %>
+        <% if fixme_count.zero? %><span class="status received">Todo clasificado</span><% elsif rows %><a class="status missing" href="<%= base %>#sin-clasificar"><%= fixme_count %> sin clasificar</a><% else %><span class="status missing"><%= fixme_count %> sin clasificar</span><% end %>
         <%# The fix sits beside the status it fixes: the detailer touches only the unclassified postings. %>
         <% if rules?(account) && fixme_count.positive? && File.exist?(Frijolero::Config.rules_path(account)) %><form method="post" action="<%= base %>/detail"><button type="submit">Aplicar reglas</button></form><% end %>
       </div>
@@ -56,11 +56,14 @@
 
     <% if rows && view == :entries %>
       <section id="entries">
+        <% first_fixme = rows.find_index { |tx| tx[:accounts].include?('Expenses:FIXME') } %>
         <ol class="ledger">
-          <% rows.each do |tx| %>
+          <% rows.each_with_index do |tx, i| %>
             <% merchant, tail = split_description(tx[:description]) %>
-            <li>
-              <time datetime="<%= h(tx[:date]) %>"><%= h(tx[:date]) %></time>
+            <% fixme = tx[:accounts].include?('Expenses:FIXME') %>
+            <li<% if fixme %> class="fixme"<% end %><% if i == first_fixme %> id="sin-clasificar"<% end %>>
+              <%# The date opens the same edit dialog the journal uses, for a one-off hand edit. %>
+              <time datetime="<%= h(tx[:date]) %>"><button type="button" class="edit" data-file="<%= h(file) %>" data-line="<%= tx[:line] %>"><%= h(tx[:date]) %></button></time>
               <div class="entry">
                 <div><%= h(merchant) %><% if tx[:flag] == '!' %> <span class="flag">!</span><% end %></div>
                 <% if tail %><div class="tail"><%= h(tail) %></div><% end %>
@@ -87,6 +90,11 @@
           <% end %>
         </ol>
       </section>
+      <dialog id="edit">
+        <h2>Editar transacción</h2>
+        <p class="meta"><a class="statement"></a></p>
+        <%= erb :_code, layout: false, locals: { file: '', text: '' } %>
+      </dialog>
     <% else %>
       <%# Editar rides in the code's top-right corner; the edit view has the editor open and no link. %>
       <div class="code-box"><% unless editing %><a class="edit-file" href="<%= base %>/beancount/edit">Editar</a><% end %><%= erb :_code, layout: false, locals: code %></div>

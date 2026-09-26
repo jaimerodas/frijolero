@@ -11,7 +11,7 @@ class UploadsTest < Minitest::Test
 
   class FakeClient
     attr_reader :extractions
-    attr_accessor :classification
+    attr_accessor :classification, :extract_error
 
     def initialize
       @extractions = []
@@ -22,6 +22,7 @@ class UploadsTest < Minitest::Test
       name = spec['format']['name']
       @extractions << name
       return @classification if name == 'statement_classification'
+      raise @extract_error if @extract_error
 
       { 'transactions' => [{ 'date' => '2025-08-03', 'description' => 'X', 'amount' => -10.0, 'currency' => 'MXN' }] }
     end
@@ -386,6 +387,33 @@ class UploadsTest < Minitest::Test
     assert_includes last_response.body, 'formaction="/upload/backup"'
   end
 
+  # Without overwrite, the job would refuse an existing statement; the page says so and offers the box.
+  def test_confirm_page_warns_when_the_statement_exists_and_offers_to_overwrite
+    FileUtils.mkdir_p(File.join(@dir, 'accounts', 'AMEX'))
+    File.write(File.join(@dir, 'accounts', 'AMEX', 'AMEX 2508.beancount'), '')
+
+    upload_and_extract_token('AMEX 2508.pdf')
+
+    assert_includes last_response.body, 'Ya existe AMEX 2508'
+    assert_match(/<input type="checkbox" name="overwrite" value="1">/, last_response.body)
+  end
+
+  def test_confirm_page_keeps_the_upload_choice_for_a_new_statement
+    upload_and_extract_token('AMEX 2508.pdf')
+
+    refute_includes last_response.body, 'Ya existe'
+    assert_includes last_response.body, '<input type="hidden" name="overwrite" value="0">'
+  end
+
+  def test_the_upload_buttons_say_they_are_busy
+    get '/upload'
+    assert_includes last_response.body, 'data-busy="Clasificando…"'
+
+    upload_and_extract_token('AMEX 2508.pdf')
+    assert_includes last_response.body, 'data-busy="Procesando…"'
+    assert_includes last_response.body, 'data-busy="Guardando…"'
+  end
+
   # For a statement whose .beancount already exists: the PDF lands in S3 and nothing else moves.
   def test_backup_puts_the_pdf_in_s3_without_a_job
     token = upload_and_extract_token('AMEX 2508.pdf')
@@ -467,19 +495,71 @@ class UploadsTest < Minitest::Test
     assert_includes last_response.body, 'overwrite_declined'
   end
 
+  # A 429 fails the job at extraction, before the local PDF is deleted, so the upload can run again.
+  def test_a_failed_extraction_offers_a_retry_that_queues_the_same_upload
+    token = upload_and_extract_token('AMEX 2508.pdf')
+    job_id = failed_job(token)
+
+    get "/jobs/#{job_id}"
+    assert_includes last_response.body, 'Reintentar'
+
+    @client.extract_error = nil
+    post "/jobs/#{job_id}/retry"
+    retry_job = Frijolero::App.jobs.find(last_response.location[%r{/jobs/(.+)\z}, 1])
+    Frijolero::App.jobs.work_one
+
+    assert_equal ['AMEX 2508', token, 'ok'], [retry_job.label, retry_job.token, retry_job.status]
+  end
+
+  def test_no_retry_once_that_statement_exists
+    job_id = failed_job(upload_and_extract_token('AMEX 2508.pdf'))
+    path = Frijolero::Config.statement_path('AMEX', '2508', 'beancount')
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, '')
+
+    get "/jobs/#{job_id}"
+    refute_includes last_response.body, 'Reintentar'
+
+    post "/jobs/#{job_id}/retry"
+    assert_equal 422, last_response.status
+  end
+
+  def test_no_retry_without_a_model_key
+    job_id = failed_job(upload_and_extract_token('AMEX 2508.pdf'))
+    Frijolero::App.client = nil
+
+    get "/jobs/#{job_id}"
+    refute_includes last_response.body, 'Reintentar'
+
+    without_env('OPENAI_API_KEY') { post "/jobs/#{job_id}/retry" }
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, 'OPENAI_API_KEY'
+  end
+
+  def test_no_retry_without_the_uploaded_pdf
+    token = upload_and_extract_token('AMEX 2508.pdf')
+    job_id = failed_job(token)
+    FileUtils.rm_rf(File.join(Frijolero::Config.incoming_dir, token))
+
+    get "/jobs/#{job_id}"
+
+    refute_includes last_response.body, 'Reintentar'
+  end
+
   def test_job_page_404s_for_an_unknown_id
     get '/jobs/nope'
 
     assert_equal 404, last_response.status
   end
 
-  def test_jobs_index_lists_the_label
+  def test_jobs_index_lists_the_label_and_the_status_in_spanish
     token = upload_and_extract_token('AMEX 2508.pdf')
     post '/upload/confirm', account: 'AMEX', period: '2508', token: token, overwrite: '0'
 
     get '/jobs'
 
     assert_includes last_response.body, 'AMEX 2508'
+    assert_includes last_response.body, '<span class="status queued">en cola</span>'
   end
 
   def test_pdf_download_redirects_to_s3_presigned_url
@@ -528,6 +608,13 @@ class UploadsTest < Minitest::Test
     path = File.join(@dir, "upload-#{rand(1_000_000)}-#{filename}")
     File.write(path, "%PDF-1.4\n")
     Rack::Test::UploadedFile.new(path, 'application/pdf', original_filename: name || filename)
+  end
+
+  # The id of a job that failed at extraction with a rate limit.
+  def failed_job(token)
+    @client.extract_error = Frijolero::LLM::RateLimitError.new('rate limited', status: 429)
+    post '/upload/confirm', account: 'AMEX', period: '2508', token: token, overwrite: '0'
+    Frijolero::App.jobs.work_one.id
   end
 
   def upload_and_extract_token(filename)
