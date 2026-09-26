@@ -313,7 +313,7 @@ function editor(form) {
   return { open, showErrors };
 }
 
-const form = document.querySelector('form.code');
+const form = document.querySelector('form.code:not(.rules-editor)');
 if (form) {
   const ed = editor(form);
 
@@ -342,10 +342,30 @@ if (form) {
   });
 }
 
-// The rules editor: a plain textarea, the same list after `account:`. With no list, Tab keeps
-// its native job of moving the focus.
-const rules = document.querySelector('.rules-editor textarea');
+// The rules editor: a plain textarea in the page, which becomes the Beancount editor's layout
+// for the line numbers (a numbered pre under a transparent textarea; plain text, no colors),
+// with the same list after `account:`. With no list, Tab keeps its native job of moving the focus.
+const rules = document.querySelector('form.rules-editor textarea');
 if (rules) {
-  const accounts = accountAutocomplete(rules, RULES_SPOT);
+  const surface = document.createElement('div');
+  const pre = document.createElement('pre');
+  surface.className = 'surface';
+  rules.before(surface);
+  surface.append(pre, rules);
+  rules.form.classList.add('code', 'editing');
+  const render = () => {
+    pre.innerHTML = rules.value.split('\n').map((line, i) => `<span class="line" id="L${i + 1}">${escape(line)}</span>`).join('');
+  };
+  render();
+  rules.addEventListener('input', render);
+  const accounts = accountAutocomplete(rules, RULES_SPOT, render);
   rules.addEventListener('keydown', (event) => accounts.handleKey(event));
+
+  // "Hacer regla" leaves the caret after the new entry's `account: `, with its line in view.
+  if (rules.dataset.caret) {
+    const at = Number(rules.dataset.caret);
+    rules.focus({ preventScroll: true });
+    rules.setSelectionRange(at, at);
+    pre.children[rules.value.slice(0, at).split('\n').length - 1]?.scrollIntoView({ block: 'center' });
+  }
 }

@@ -73,7 +73,7 @@ class EditorsTest < Minitest::Test
     refute_includes last_response.body, 'Volver al estado de cuenta'
   end
 
-  def test_rules_editor_lists_the_ledger_accounts_and_explains_the_rules
+  def test_rules_editor_explains_the_rules_and_the_autocomplete_replaces_the_list
     File.write(File.join(@dir, 'main.beancount'), "2024-01-01 open Liabilities:Amex\n2024-01-01 open Assets:BBVA\n")
     FileUtils.mkdir_p(File.join(@dir, 'config', 'rules'))
     File.write(rules_path('BBVA TDC'), <<~YAML)
@@ -84,13 +84,11 @@ class EditorsTest < Minitest::Test
 
     get '/accounts/AMEX/rules'
 
-    accounts = last_response.body[%r{<aside.*?</aside>}m]
-    assert_equal ['Assets:BBVA', 'Expenses:Comida', 'Expenses:Taxi', 'Liabilities:Amex'],
-                 accounts.scan(%r{<li>(.*?)</li>}).flatten
+    refute_includes last_response.body, '<aside'
     assert_includes last_response.body, 'Cómo escribir reglas'
 
     get '/accounts/yaml'
-    refute_includes last_response.body, '<aside'
+    refute_includes last_response.body, 'class="accounts"'
   end
 
   # The rules textarea gets the autocomplete of the Beancount editors, over the open accounts.
@@ -128,6 +126,26 @@ class EditorsTest < Minitest::Test
     assert_equal ['rules AMEX'], @repo.messages
   end
 
+  # A browser submits a textarea with CRLF line endings; the file keeps the ledger's LF.
+  def test_saving_rules_from_a_browser_writes_lf_line_endings
+    post '/accounts/AMEX/rules', content: "start_with:\r\n  OXXO:\r\n    account: Expenses:Comida\r\n"
+
+    assert_equal "start_with:\n  OXXO:\n    account: Expenses:Comida\n", File.read(rules_path('AMEX'))
+  end
+
+  # A file saved with CRLF before the fix: the caret counts the text the browser shows, which is LF.
+  def test_make_a_rule_on_a_crlf_file_puts_the_caret_on_the_account
+    FileUtils.mkdir_p(File.dirname(rules_path('AMEX')))
+    File.write(rules_path('AMEX'), "start_with:\r\n  UBER:\r\n    account: Expenses:Taxi\r\ninclude: {}\r\n")
+
+    post '/accounts/AMEX/rules/from', description: 'OXXO', amount: '-50'
+
+    content = textarea_content(last_response.body)
+    caret = last_response.body[/data-caret="(\d+)"/, 1].to_i
+    refute_includes content, "\r"
+    assert_equal '    account: ', content[0...caret].lines.last
+  end
+
   def test_invalid_yaml_syntax_is_rejected_without_writing_or_committing
     post '/accounts/AMEX/rules', content: 'start_with: [unclosed'
 
@@ -152,28 +170,55 @@ class EditorsTest < Minitest::Test
     assert_includes last_response.body, 'action="/accounts/BBVA%20TDC/rules"'
   end
 
-  def test_make_a_rule_prefills_a_new_pattern_without_saving
+  # The textarea's text as the browser gets it.
+  def textarea_content(body) = CGI.unescapeHTML(body[%r{<textarea[^>]*>(.*?)</textarea>}m, 1])
+
+  # "Hacer regla" writes the new entry into the text: comments, quotes and order stay, the
+  # entry closes the start_with section, and nothing is saved yet.
+  def test_make_a_rule_adds_the_entry_as_text_at_the_end_of_start_with
     FileUtils.mkdir_p(File.dirname(rules_path('AMEX')))
     File.write(rules_path('AMEX'), <<~YAML)
+      # Reglas de AMEX
       start_with:
-        UBER:
+        UBER:            # viajes
           payee: "Uber"
           account: "Expenses:Transporte"
+      # lo que contiene
+      include:
+        OXXO: { account: Expenses:Comida }
     YAML
+    before = File.read(rules_path('AMEX'))
 
     post '/accounts/AMEX/rules/from', description: 'OXXO 123', amount: '-50'
 
     assert_equal 200, last_response.status
-    assert_includes last_response.body, 'UBER'
-    assert_includes last_response.body, 'OXXO 123'
-    assert_includes last_response.body, 'account: &#39;Expenses:&#39;'
-    assert_equal <<~YAML, File.read(rules_path('AMEX'))
+    assert_equal <<~YAML, textarea_content(last_response.body)
+      # Reglas de AMEX
       start_with:
-        UBER:
+        UBER:            # viajes
           payee: "Uber"
           account: "Expenses:Transporte"
+        OXXO 123:
+          payee:
+          narration:
+          account:\u0020
+      # lo que contiene
+      include:
+        OXXO: { account: Expenses:Comida }
     YAML
+    assert_equal before, File.read(rules_path('AMEX'))
     assert_empty @repo.messages
+  end
+
+  # The caret goes after `account: `, where the autocomplete takes over.
+  def test_make_a_rule_puts_the_caret_on_the_account
+    post '/accounts/AMEX/rules/from', description: '*TELCEL', amount: '-50'
+
+    content = textarea_content(last_response.body)
+    assert_equal "start_with:\n  \"*TELCEL\":\n    payee:\n    narration:\n    account: \ninclude: {}\n", content
+    caret = last_response.body[/data-caret="(\d+)"/, 1].to_i
+    assert_equal '    account: ', content[0...caret].lines.last
+    assert_equal '*TELCEL', YAML.safe_load(content)['start_with'].keys.first
   end
 
   def test_make_a_rule_does_not_duplicate_an_existing_pattern

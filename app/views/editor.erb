@@ -1,11 +1,11 @@
 <%
-  accounts = tab == :rules ? Frijolero::LedgerAccounts.all : nil
+  rules = tab == :rules
 %>
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <%= head(title) %>
-  <% if accounts %><script src="/editor.js" defer></script><% end %>
+  <% if rules %><script src="/editor.js" defer></script><% end %>
 </head>
 <body>
   <%= topbar %>
@@ -19,7 +19,7 @@
       <p class="error" role="alert"><%= h(error) %></p>
     <% end %>
     <% if back %><p><a href="<%= h(back) %>">Volver al estado de cuenta</a></p><% end %>
-    <% if accounts %>
+    <% if rules %>
       <details class="help">
         <summary>Cómo escribir reglas</summary>
         <p>Una regla clasifica una transacción por su descripción. Hay dos secciones: <code>start_with</code>, cuando la descripción empieza con el patrón, e <code>include</code>, cuando lo contiene en cualquier parte. Cada entrada puede poner <code>payee</code>, <code>narration</code> y <code>account</code>; los tres son opcionales.</p>
@@ -40,21 +40,13 @@ include:
         <p>Se aplican todas las reglas que coinciden: primero <code>start_with</code> en el orden del archivo, luego <code>include</code>. Una regla posterior sobreescribe solo los campos que define. Al guardar, la app vuelve al estado de cuenta; ahí, "Aplicar reglas" clasifica lo que sigue en <code>Expenses:FIXME</code>.</p>
       </details>
     <% end %>
-    <div class="<%= 'rules-editor' if accounts %>">
-    <form method="post" action="<%= h(action) %>">
+    <form method="post" action="<%= h(action) %>"<% if rules %> class="rules-editor"<% end %>>
       <% if back %><input type="hidden" name="back" value="<%= h(back) %>"><% end %>
       <label for="content">Contenido</label>
-      <% if accounts %><script type="application/json" class="accounts"><%= JSON.generate(Frijolero::LedgerAccounts.active).gsub('<', '\u003c') %></script><% end %>
-      <textarea id="content" name="content" rows="30" spellcheck="false"><%= h(content) %></textarea>
+      <% if rules %><script type="application/json" class="accounts"><%= JSON.generate(Frijolero::LedgerAccounts.active).gsub('<', '\u003c') %></script><% end %>
+      <textarea id="content" name="content" rows="30" spellcheck="false"<% if caret %> data-caret="<%= caret %>"<% end %>><%= h(content) %></textarea>
       <p class="actions"><button type="submit" class="primary">Guardar</button></p>
     </form>
-    <% if accounts %>
-      <aside>
-        <h2>Cuentas del ledger</h2>
-        <ul><% accounts.each do |a| %><li><%= h(a) %></li><% end %></ul>
-      </aside>
-    <% end %>
-    </div>
   </main>
 </body>
 </html>
