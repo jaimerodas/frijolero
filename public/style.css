@@ -158,6 +158,17 @@ a.rules { font-size: 0.875rem; margin-left: 0.5rem; color: var(--muted); }
 .ledger details[open] .line::before { content: "▾"; }
 .ledger .flag { color: var(--debit); font-weight: 700; }
 .ledger .sum { grid-area: 1 / 2; display: grid; }
+/* The running balance of a balance-sheet account: a third column, muted. The header and every
+   row share the grid of .with-running through subgrid, so Monto and Saldo are as wide as their
+   widest figure on the page, and a balance row's amount ends on Saldo's edge. On phones the
+   balance sits on the date line instead. */
+@media (width > 40rem) {
+  .with-running { display: grid; grid-template-columns: 6.5rem 1fr auto; column-gap: 1rem; }
+  .with-running > :is(.order, .ledger), .with-running .ledger > li { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; }
+  .with-running .order > :not(:first-child) { justify-self: end; }
+}
+.ledger .txn > .running { grid-area: 1 / 3; display: grid; color: var(--muted); }
+.order > .running { color: var(--muted); }
 .ledger .postings {
   display: grid;
   grid-template-columns: 1fr max-content;
@@ -544,7 +555,11 @@ summary { cursor: pointer; font-weight: 600; }
   .ledger > li { grid-template-columns: 1fr auto; }
   .ledger > li > data { grid-area: 1 / 2; }
   .ledger .entry { grid-column: 1 / -1; }
-  .ledger .txn { grid-template-columns: 1fr; row-gap: 0.25rem; }
+  .ledger .txn { grid-template-columns: 1fr auto; row-gap: 0.25rem; }
+  .ledger .txn details { grid-column: 1 / -1; }
+  .ledger .txn > .running { grid-area: 1 / 2; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; gap: 0 0.5rem; }
+  .ledger .txn > .running::before { content: attr(data-label); font-family: var(--sans); font-size: 0.875rem; }
+  .order > .running { display: none; }
   .ledger .txn summary { display: block; }
   .ledger .txn .sum { float: right; margin-left: 1rem; }
   .ledger .postings { clear: both; }

@@ -493,6 +493,7 @@ class ReportsPageTest < Minitest::Test
   end
 
   # 450 compras of 150 on one day, n0 to n449 in ledger order: three pages, the last with 50.
+  # Newest first reverses the day, so page 1 starts at n449.
   def journal_rows_on_three_pages
     first = @reports.journal('Expenses', nil, nil).first
     @reports.rows = Array.new(450) { |i| first.merge(narration: "n#{i}") }
@@ -504,14 +505,14 @@ class ReportsPageTest < Minitest::Test
     journal_rows_on_three_pages
     get '/journal', account: 'Expenses'
 
-    assert_equal (0...200).map { |i| "n#{i}" }, shown(last_response.body)
+    assert_equal 449.downto(250).map { |i| "n#{i}" }, shown(last_response.body)
   end
 
   def test_journal_page_param_shows_that_slice_of_the_order
     journal_rows_on_three_pages
     get '/journal', account: 'Expenses', page: '3'
 
-    assert_equal (400...450).map { |i| "n#{i}" }, shown(last_response.body)
+    assert_equal 49.downto(0).map { |i| "n#{i}" }, shown(last_response.body)
   end
 
   def test_journal_count_and_total_cover_every_page
@@ -538,7 +539,7 @@ class ReportsPageTest < Minitest::Test
     fake.define_singleton_method(:journal) { |*args, **kw| (seen = kw[:ids]) && real.call(*args, **kw) }
     get '/journal', account: 'Expenses', page: '3'
 
-    assert_equal (400...450).to_a, seen
+    assert_equal 49.downto(0).to_a, seen
   end
 
   def test_journal_page_links_keep_the_filter_and_the_sort
@@ -573,10 +574,10 @@ class ReportsPageTest < Minitest::Test
   def test_journal_page_out_of_range_or_not_a_number_clamps
     journal_rows_on_three_pages
     get '/journal', account: 'Expenses', page: '99'
-    assert_equal 'n400', shown(last_response.body).first
+    assert_equal 'n49', shown(last_response.body).first
 
     get '/journal', account: 'Expenses', page: 'x'
-    assert_equal 'n0', shown(last_response.body).first
+    assert_equal 'n449', shown(last_response.body).first
   end
 
   def test_journal_count_has_a_thousands_separator
@@ -676,6 +677,53 @@ class ReportsPageTest < Minitest::Test
     assert_includes page2, '40.00 MXN'
   end
 
+  # `count` compras on Liabilities:AMEX, one a day from 2026-01-01, each one 150 more owed.
+  def amex_rows(count)
+    compra = @reports.journal('Liabilities:AMEX', nil, nil).first
+    @reports.rows = Array.new(count) { |i| compra.merge(narration: "n#{i}", date: Date.new(2026, 1, 1) + i) }
+  end
+
+  def running(body) = body.scan(%r{<span class="running" data-label="Saldo"><data [^>]*>([^<]*)</data></span>}).flatten
+
+  # The fake opens AMEX at 250 owed, in the report sign: a debt reads positive.
+  def test_balance_column_adds_each_transaction_to_the_opening_in_the_report_sign
+    amex_rows(3)
+
+    get '/journal', account: 'Liabilities:AMEX'
+    assert_equal ['700.00 MXN', '550.00 MXN', '400.00 MXN'], running(last_response.body)
+    assert_includes last_response.body, '<span class="running">Saldo</span>'
+    # One grid for the header and the rows, so the columns fit the widest figure.
+    assert_match %r{<div class="with-running">\s*<p class="order">.*</ol>\s*</div>}m, last_response.body
+
+    get '/journal', account: 'Liabilities:AMEX', sort: 'date-asc'
+    assert_equal ['400.00 MXN', '550.00 MXN', '700.00 MXN'], running(last_response.body)
+  end
+
+  # Page 2 holds the 50 oldest, so its top row is the 50th compra.
+  def test_balance_column_carries_over_from_the_pages_before
+    amex_rows(250)
+    get '/journal', account: 'Liabilities:AMEX', page: '2'
+
+    assert_equal '7,750.00 MXN', running(last_response.body).first
+  end
+
+  def test_balance_column_is_absent_off_the_balance_sheet_with_a_search_or_with_an_amount_sort
+    [{}, { account: 'Expenses' }, { account: 'Liabilities:AMEX', q: 'amazon' },
+     { account: 'Liabilities:AMEX', sort: 'amount-desc' }].each do |query|
+      get '/journal', query
+
+      refute_includes last_response.body, 'running"', query
+    end
+    refute_includes @reports.calls.map(&:first), :opening
+  end
+
+  def test_balance_column_and_balance_line_share_one_opening_query
+    get '/journal', account: 'Liabilities:AMEX', chart: 'balance'
+
+    assert_includes last_response.body, 'class="running"'
+    assert_equal(1, @reports.calls.count { |call| call.first == :opening })
+  end
+
   def test_transaction_and_balance_rows_in_error_are_marked_with_the_message
     @reports.check_errors = [
       { code: 'E1001', message: 'Cuenta sin abrir', file: 'accounts/AMEX/AMEX 2607.beancount', line: 10, end_line: 15 },
@@ -706,13 +754,14 @@ class ReportsPageTest < Minitest::Test
 
   def order_of(body) = %w[compra Nómina chicle segunda].sort_by { |word| body.index(word) || body.size }
 
-  def test_journal_lists_the_newest_first_and_keeps_the_ledger_order_within_a_day
+  # Newest first is date-asc reversed, within a day too, so a running balance reads the same either way.
+  def test_journal_lists_the_newest_first_and_reverses_the_ledger_order_within_a_day
     rows = @reports.journal('', nil, nil)
     rows << rows.first.merge(narration: 'segunda')
     @reports.rows = rows
     get '/journal'
 
-    assert_equal %w[Nómina compra segunda chicle], order_of(last_response.body)
+    assert_equal %w[Nómina segunda compra chicle], order_of(last_response.body)
   end
 
   def test_journal_sort_date_asc_lists_the_oldest_first
@@ -833,7 +882,6 @@ class ReportsPageTest < Minitest::Test
 
     assert_includes body, '<option value="history" disabled>Histograma</option><option value="balance">Saldo</option>'
     refute_includes body, 'chart-data'
-    refute_includes @reports.calls.map(&:first), :opening
   end
 
   def test_chart_embeds_the_opening_balance_in_the_report_sign_for_the_balance_line

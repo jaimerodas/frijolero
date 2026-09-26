@@ -288,6 +288,7 @@ The journal lists the postings behind a report figure, and every amount on the t
 - The reason is memory. The full journal of every account left Puma at 124 MB, near the cap of 128 MiB. With the index and pages of 200, the same requests end at 67 MB.
 - rledger numbers `id` in ledger order, so `[date, id]` keeps the entries of one day in file order.
 - With an account, a date sort and no `q`, the page also shows the balance assertions of the period (`Reports.balances`). One query has the account and the amount, the other has the location, and the code zips them. Balances stay out of the index, so the count, the total and the charts do not change.
+- On an Assets, Liabilities or Equity account, with a date sort and no `q`, each transaction also shows the balance after it, in the report sign (`journal_running`). The balance starts from `Reports.opening`, the same query as the Saldo chart, and runs over the whole index, so page 2 starts where page 1 ends. Newest first is date-asc reversed, also inside one day, so a row shows the same balance in both orders.
 - A row inside the directive of a ledger error gets the red band and the error message.
 
 #### Charts (`app/charts.rb`, `public/charts.js`)

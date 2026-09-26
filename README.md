@@ -39,7 +39,9 @@ los resalta. "Hacer regla" crea una regla desde un movimiento.
 
 **Reportes** tiene tres páginas: Estado de resultados, Balance general y
 Diario. Los dos reportes van por año, trimestre o mes, en MXN o por moneda.
-Cada cifra lleva al Diario, que lista los movimientos detrás de ella.
+Cada cifra lleva al Diario, que lista los movimientos detrás de ella. En una
+cuenta de activo, pasivo o capital, el Diario también da el saldo después de
+cada movimiento.
 
 Si el ledger tiene errores, un disco rojo con el número aparece en la barra
 de arriba. El disco lleva a la página de errores.

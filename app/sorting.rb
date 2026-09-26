@@ -52,14 +52,17 @@ module Frijolero
         end
       end
 
-      # Ties keep the ledger order, and an amount tie falls back to the date.
+      # Ties keep the ledger order, and an amount tie falls back to the date. Descending
+      # reverses the ties too, so newest first is date-asc upside down and a row's running
+      # balance is the same either way.
       # ponytail: a sum in several currencies (`?mxn=0`) sorts by the first one.
       def sort_rows(rows)
         sort = journal_sort
-        desc = sort.end_with?('desc')
+        flip = sort.end_with?('desc') ? -1 : 1
         rows.each_with_index.sort_by do |tx, i|
-          value = sort.start_with?('amount') ? tx[:sum].values.first || 0 : tx[:date].jd
-          [desc ? -value : value, -tx[:date].jd, i]
+          day = tx[:date].jd
+          value = sort.start_with?('amount') ? tx[:sum].values.first || 0 : day
+          [value * flip, -day, i * flip]
         end.map(&:first)
       end
     end
@@ -95,11 +98,11 @@ module Frijolero
         journal_merge(rows, journal_page_balances(balances, rows, page, pages, desc), desc)
       end
 
-      # This page's slice of the sorted index, fetched whole, with its sums.
+      # This page's slice of the sorted index, fetched whole, with its sums and running balances.
       def journal_shown(index, account, period, page)
         shown = index.slice((page - 1) * JOURNAL_PAGE, JOURNAL_PAGE)
         whole = journal_whole(account, period, shown.map { |tx| tx[:id] })
-        shown.filter_map { |tx| whole[tx[:id]]&.merge(sum: tx[:sum]) }
+        shown.filter_map { |tx| whole[tx[:id]]&.merge(tx.slice(:sum, :running)) }
       end
     end
 

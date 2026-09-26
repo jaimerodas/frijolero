@@ -17,13 +17,14 @@ module Frijolero
       def chart_options(rows, account)
         return if account.empty? || rows.empty?
 
-        sheet = account.start_with?('Assets', 'Liabilities', 'Equity')
+        sheet = sheet?(account)
         { 'history' => !sheet, 'balance' => sheet && !searching?,
           'accounts' => chart_children(rows, account).size >= 2,
           'payees' => rows.map { |tx| tx[:payee].to_s }.uniq.size >= 2 }
       end
 
       def searching? = !params[:q].to_s.strip.empty?
+      def sheet?(account) = account.start_with?('Assets', 'Liabilities', 'Equity')
 
       def chart_children(rows, account)
         rows.flat_map { |tx| tx[:postings].select { |p| p[:matched] } }
@@ -63,6 +64,33 @@ module Frijolero
             { date: txn[:date].iso8601, currency: currency, amount: (n * sign).to_f,
               account: p[:account], payee: txn[:payee] }
           end
+        end
+      end
+    end
+
+    helpers do
+      # The journal's running balance column, the balance line's twin: a balance-sheet account,
+      # in date order, and not with a search text, for the same reason as the line.
+      def running_balance?(account) = sheet?(account) && journal_sort.start_with?('date') && !searching?
+
+      # The balance before the period, or nil when neither the balance line nor the
+      # column shows: one query for both. Fills the column on the way.
+      def journal_opening(index, account, period, chart, sign)
+        running = running_balance?(account)
+        return unless chart == 'balance' || running
+
+        opening = self.class.reports.opening(account, period.from, period.to, mxn: mxn?)
+        journal_running(index, opening, sign) if running
+        opening
+      end
+
+      # `running` on every entry of the index, not just the page's, so a later page picks up
+      # where the one before it ends: the opening plus each entry, oldest first, in the
+      # report sign and in the currencies the entry moves.
+      def journal_running(index, opening, sign)
+        balance = opening.transform_values { |n| n * sign }
+        (journal_sort == 'date-desc' ? index.reverse : index).each do |tx|
+          tx[:running] = tx[:sum].to_h { |c, n| [c, balance[c] = balance.fetch(c, 0) + n] }
         end
       end
     end
