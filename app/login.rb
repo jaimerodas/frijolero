@@ -16,6 +16,7 @@ module Frijolero
   class Login < Sinatra::Base
     set :views, App.views
     set :public_folder, App.public_folder # style.css before the filter
+    set :static_cache_control, [:no_cache] # a deploy changes the files under the same names
     set :password, -> { ENV.fetch('APP_PASSWORD') }
     set :api_token, -> { ENV.fetch('API_TOKEN', '') }
     set :session_secret, -> { Digest::SHA512.hexdigest(password) }

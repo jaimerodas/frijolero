@@ -75,6 +75,14 @@ class AppTest < Minitest::Test
     assert_equal 200, last_response.status
   end
 
+  # Login serves the static files, so its setting is the one that counts. Without it,
+  # a browser keeps an old style.css after a deploy.
+  def test_static_files_are_revalidated_on_each_request
+    get '/style.css'
+
+    assert_includes last_response.headers['cache-control'].to_s, 'no-cache'
+  end
+
   def test_login_with_wrong_password_is_unauthorized_and_stays_out
     post '/login', password: 'wrong'
 

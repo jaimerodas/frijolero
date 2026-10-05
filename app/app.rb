@@ -10,7 +10,6 @@ module Frijolero
   class App < Sinatra::Base
     set :views, File.join(__dir__, 'views')
     set :public_folder, File.expand_path('../public', __dir__)
-    set :static_cache_control, [:no_cache]
 
     JOB_STATUS = { 'queued' => 'en cola', 'running' => 'corriendo', 'ok' => 'listo', 'failed' => 'falló' }.freeze
 
