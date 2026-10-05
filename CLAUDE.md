@@ -155,19 +155,17 @@ Received links to the statement, missing to `/upload`, and failed to the newest 
 
 ### Upload flow (`app/uploads.rb`)
 
-1. `POST /upload` saves the PDF in `incoming/<token>/` and runs `Classifier` in the request.
-2. A file name like `<Key> YYMM.pdf` needs no model. Any other name costs one model call with the `classify` prompt. Without a model key, the route answers 422 and names the key variable.
+1. The web form (`POST /upload`, field `pdf[]`) and the iOS Shortcut (`POST /api/upload`, field `pdf`) save each PDF in `incoming/<token>/` and queue it for `Inbox::Worker`. They answer at once: the form redirects to `/inbox`, and the API answers 202. If one file is not a PDF, nothing is saved.
+2. A file name like `<Key> YYMM.pdf` needs no model. Any other name costs one model call with the `classify` prompt. Without a model key, the answer is an error that names the key variable, and the Bandeja offers only "Solo guardar PDF".
 3. The classifier takes the period from the midpoint of the printed start and end, so AMEX Aug 4 to Sep 3 is `2608`. A doubtful answer becomes `unknown`.
-4. The confirm page shows the result. If that statement exists and a model key is set, the page says so and shows the Sobrescribir box. Without overwrite, the job refuses an existing statement.
-5. "Procesar" (`POST /upload/confirm`) queues a job. "Solo guardar PDF" (`POST /upload/backup`) puts the PDF in the bucket during the request and removes the upload. It skips the model, the ledger and the job log.
+4. The Bandeja shows the answer, and the person confirms or changes it. If that statement exists, the row shows the Sobrescribir box. Without overwrite, the job refuses an existing statement.
+5. "Procesar" (`POST /inbox/process`) queues a job. "Solo guardar PDF" (`POST /inbox/backup`) puts the PDF in the bucket during the request and removes the upload. It skips the model, the ledger and the job log.
 
 The buttons that wait on the server have `data-busy`. `reports.js` writes that word on the button and makes the form `inert`, so a second click sends nothing. The `pageshow` event restores them when the back button shows the page from the cache.
 
-The web form also writes `classification.json`, so an upload that the person leaves on the confirm page shows in the Bandeja.
-
 ### Bandeja (`app/inbox.rb`, `/inbox`)
 
-The Bandeja holds the uploads that wait for a person. An iOS Shortcut sends each PDF from the share sheet to `POST /api/upload`. The route saves the PDF, queues its classification and answers 202 at once. Every answer is JSON, errors included, because a Shortcut reads a body more easily than a status. The person always confirms: nothing is processed without a click.
+The Bandeja holds the uploads that wait for a person. The API answers in JSON, errors included, because a Shortcut reads a body more easily than a status. The person always confirms: nothing is processed without a click.
 
 - `Inbox` only reads and writes the disk. A page that counts the Bandeja starts no thread.
 - `Inbox::Worker` is a second queue and thread, apart from the job worker, so an extraction never holds up a classification. At boot, it queues each upload that has no `classification.json`. A model error becomes the answer (`{"error": …}`), and the worker goes on.
@@ -372,9 +370,8 @@ Some tests commit in a temporary repo, and they read the global git config. If `
 
 ## Known rough edges
 
-1. `POST /upload` (the web form) waits for the classifier during the request: OpenAI background mode, with a first poll after 2 s. `/api/upload` does not wait, because `Inbox::Worker` classifies in the background. The fix is to send the web form to the Bandeja too. The classify model is set in `config/prompts/classify/spec.json` of the ledger.
-2. There is one worker thread. A second upload waits for the extraction in front of it.
-3. A `closed: true` account leaves the dashboard. Its history stays on its page, which Cuentas links to.
+1. There is one worker thread. A second upload waits for the extraction in front of it.
+2. A `closed: true` account leaves the dashboard. Its history stays on its page, which Cuentas links to.
 
 ## Data formats
 

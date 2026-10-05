@@ -5,8 +5,8 @@ de cuenta en PDF de bancos, tarjetas y casas de bolsa en archivos de Beancount.
 
 Así funciona:
 
-1. Subes un PDF.
-2. La app identifica la cuenta y el periodo, y tú los confirmas.
+1. Subes uno o más PDF, desde la página o desde un atajo de iOS.
+2. La app identifica la cuenta y el periodo, y tú los confirmas en la Bandeja.
 3. Una corrida en segundo plano extrae las transacciones con un modelo de
    OpenAI o de Anthropic.
 4. La corrida aplica las reglas de la cuenta y escribe un archivo `.beancount`.
@@ -28,13 +28,13 @@ configuras uno.
 - Bitácora: las corridas, con su estado, su hora y su salida. Una corrida
   fallida puede tener el botón "Reintentar".
 
-Al subir un PDF, confirmas la cuenta y el periodo. Si ese estado de cuenta ya
-existe, la página lo dice y ofrece "Sobrescribir". "Solo guardar PDF" guarda
-el archivo y no extrae nada.
+Los PDF que subes esperan en la Bandeja. Ahí confirmas la cuenta y el periodo
+de cada uno, o los cambias. Si ese estado de cuenta ya existe, la Bandeja lo
+dice y ofrece "Sobrescribir". "Solo guardar PDF" guarda el archivo y no
+extrae nada. Recientes dice cuántos hay por confirmar.
 
 Desde el iPhone, un atajo de iOS manda los PDF a la Bandeja desde la hoja de
-compartir (ver [setup.md](docs/setup.md#subir-desde-el-iphone)). Ahí esperan
-tu confirmación. Recientes dice cuántos hay por confirmar.
+compartir (ver [setup.md](docs/setup.md#subir-desde-el-iphone)).
 
 Cada estado de cuenta tiene su página, con dos vistas: Movimientos y
 Beancount. En Movimientos, la fecha de un movimiento abre un editor de esa

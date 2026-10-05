@@ -5,7 +5,7 @@ require 'fileutils'
 
 module Frijolero
   # One PDF's lifecycle: extract, save, detail, convert, merge, clean up. The job
-  # knows the account and the period from the confirm page.
+  # knows the account and the period from the Bandeja, where a person confirmed them.
   class Statement
     NO_ACCOUNT_CONFIG = :no_account_config
     OVERWRITE_DECLINED = :overwrite_declined

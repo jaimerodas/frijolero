@@ -34,9 +34,10 @@ Si prefieres Claude, pon `LLM_PROVIDER=anthropic` y `ANTHROPIC_API_KEY` en
 lugar de `OPENAI_API_KEY`. El nombre del modelo va en cada `spec.json` del
 ledger (ver [ledger.md](ledger.md#configpromptstipo)).
 
-Cada subida gasta dinero en el modelo y hace commit en el ledger. Sin llave,
-la app no clasifica ni extrae. Solo guarda un PDF que se llame
-`Clave YYMM.pdf`.
+Cada PDF que subes cuesta una llamada al modelo para clasificarlo, salvo uno
+que se llame `Clave YYMM.pdf`. Procesar cuesta la extracción y hace commit en
+el ledger. Sin llave, la app no clasifica ni extrae: en la Bandeja solo guarda
+el PDF, con la cuenta y el periodo que elijas.
 
 ### Si ya tienes un ledger
 
@@ -91,7 +92,7 @@ la página de la cuenta dice cuáles faltan.
 | `APP_PASSWORD` | La contraseña. Obligatoria. También firma la cookie de sesión, que dura 30 días. Si la cambias, todos los dispositivos cierran sesión. |
 | `API_TOKEN` | El token del atajo de iOS (ver [Subir desde el iPhone](#subir-desde-el-iphone)). Solo abre `/api/upload`. Sin él, `/api/` está cerrado. |
 | `LLM_PROVIDER` | El proveedor del modelo: `openai` (por defecto) o `anthropic`. |
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` | La llave del proveedor. Sin ella, la app solo guarda PDF que se llamen `Clave YYMM.pdf`. |
+| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` | La llave del proveedor. Sin ella, la app no clasifica ni extrae: solo guarda los PDF. |
 | `LLM_TIMEOUT` | Los segundos que la app espera al modelo en una extracción. Por defecto, 900. |
 | `S3_ENDPOINT`, `S3_BUCKET`, `S3_KEY_ID`, `S3_KEY` | Un bucket compatible con S3 para los PDF. El endpoint es el host, sin `https://`. Sin las cuatro, los PDF quedan en `pdfs/`, junto al ledger. |
 | `S3_REGION` | La región para la firma. Por defecto, el segundo segmento del endpoint, que es lo que esperan B2 y AWS (`s3.us-west-000.backblazeb2.com`). R2 usa `auto`, Hetzner su ubicación (`fsn1`), DigitalOcean y MinIO `us-east-1`. |

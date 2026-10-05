@@ -10,18 +10,14 @@
     <%= erb :_cuentas, layout: false %>
     <h1>Subir estado de cuenta</h1>
     <% unless self.class.client %>
-      <p class="error" role="alert">Falta <code><%= Frijolero::LLM.key_var %></code>: sin ella la app no clasifica ni extrae. Un PDF llamado <code>Clave YYMM.pdf</code> se puede guardar sin procesarlo.</p>
+      <p class="error" role="alert">Falta <code><%= Frijolero::LLM.key_var %></code>: sin ella la app no clasifica ni extrae. Un PDF llamado <code>Clave YYMM.pdf</code> llega a la Bandeja con su cuenta y su periodo, y se puede guardar sin procesarlo.</p>
     <% end %>
     <form method="post" action="/upload" enctype="multipart/form-data">
-      <label for="pdf">PDF</label>
-      <input type="file" id="pdf" name="pdf" accept="application/pdf" required>
+      <label for="pdf">Uno o más PDF</label>
+      <input type="file" id="pdf" name="pdf[]" accept="application/pdf" multiple required>
+      <p class="note">Los PDF esperan en la Bandeja hasta que confirmas la cuenta y el periodo de cada uno.</p>
 
-      <label>
-        <input type="checkbox" name="overwrite">
-        Sobrescribir si ya existe
-      </label>
-
-      <p class="actions"><button type="submit" class="primary" data-busy="Clasificando…">Clasificar</button></p>
+      <p class="actions"><button type="submit" class="primary" data-busy="Subiendo…">Subir</button></p>
     </form>
   </main>
 </body>

@@ -9,7 +9,7 @@ require 'time'
 module Frijolero
   # One queue, one worker thread, an append-only JSONL log. Nothing else.
   class Jobs
-    # token is the upload directory's name (see App#save_upload), so a failed job can
+    # token is the upload directory's name (see Inbox#add), so a failed job can
     # be retried from the same PDF; a job logged before this field is nil, no retry.
     Job = Struct.new(:id, :label, :token, :status, :started_at, :finished_at, :error, :output, keyword_init: true) do
       def running? = status == 'running'
