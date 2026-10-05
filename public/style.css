@@ -627,9 +627,9 @@ summary { cursor: pointer; font-weight: 600; }
 /* Diario: saldos y errores. The glyph of a balance, and the ■ of an error line, sit in the
    column of a transaction's ▸, so the words line up; the glyph is the color, the words ink. */
 .ledger > li.err { background: var(--error-line); }
-/* The status's link scrolls to the first unclassified row (#sin-clasificar); while it is the
-   :target, every unclassified row lights up, not only that one. */
-.ledger:has(> li.fixme:target) > li.fixme { background: var(--current-line); }
+/* The status's link goes to the first unclassified row (#sin-clasificar); while it is the
+   :target, the list shows only the unclassified rows. Back, or the Movimientos tab, shows all. */
+.ledger:has(> li.fixme:target) > li:not(.fixme) { display: none; }
 .ledger :is(.balance, summary) .status { color: var(--ink); font-weight: 400; }
 .ledger :is(.balance, summary) .status::before { display: inline-block; width: 1.1rem; margin: 0; color: var(--red); }
 .ledger .balance .status.ok::before { color: var(--credit); }

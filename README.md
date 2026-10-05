@@ -38,8 +38,8 @@ compartir (ver [setup.md](docs/setup.md#subir-desde-el-iphone)).
 
 Cada estado de cuenta tiene su página, con dos vistas: Movimientos y
 Beancount. En Movimientos, la fecha de un movimiento abre un editor de esa
-transacción. "▲ N sin clasificar" lleva a los movimientos sin clasificar y
-los resalta. "Hacer regla" crea una regla desde un movimiento.
+transacción. "▲ N sin clasificar" muestra solo los movimientos sin
+clasificar. "Hacer regla" crea una regla desde un movimiento.
 
 **Reportes** tiene tres páginas: Estado de resultados, Balance general y
 Diario. Los dos reportes van por año, trimestre o mes, en MXN o por moneda.
