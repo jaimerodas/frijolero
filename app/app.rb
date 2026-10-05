@@ -4,6 +4,7 @@ require 'sinatra/base'
 require_relative '../lib/frijolero'
 require_relative 'jobs'
 require_relative 'dashboard'
+require_relative 'inbox'
 
 module Frijolero
   class App < Sinatra::Base
@@ -14,14 +15,24 @@ module Frijolero
     JOB_STATUS = { 'queued' => 'en cola', 'running' => 'corriendo', 'ok' => 'listo', 'failed' => 'falló' }.freeze
 
     class << self
-      attr_writer :jobs, :client, :s3, :repo, :reports
+      attr_writer :jobs, :client, :s3, :repo, :reports, :inbox, :inbox_worker
 
       def jobs = @jobs ||= Jobs.new(log_path: Config.jobs_file).tap(&:start)
+      # Only the disk: a page that reads the Bandeja starts no thread.
+      def inbox = @inbox ||= Inbox.new(Config.incoming_dir)
+      def inbox_worker = @inbox_worker ||= Inbox::Worker.new(inbox) { |pdf| classify(pdf) }.tap(&:start)
       def client = @client ||= LLM.client
       # Any S3 variable set means S3; from_env then names the missing ones. None means disk.
       def s3 = @s3 ||= (S3::ENV_KEYS.any? { |k| ENV.key?(k) } ? S3.from_env : LocalPdfs.new(Config.pdfs_dir))
       def repo = @repo ||= LedgerRepo.new(dir: Config.ledger_dir)
       def reports = @reports ||= Reports
+
+      # The answer that the Bandeja keeps for one PDF.
+      def classify(pdf)
+        Classifier.new(client: client).classify(pdf).to_h
+      rescue Classifier::NoClient
+        { error: "Falta #{LLM.key_var}" }
+      end
     end
 
     helpers do
@@ -87,7 +98,7 @@ module Frijolero
         return nil unless Config.accounts.key?(account)
         return nil if File.exist?(Config.statement_path(account, period, 'beancount'))
 
-        pdf_path = upload_pdf(job.token)
+        pdf_path = self.class.inbox.find(job.token)&.pdf # Statement deletes it after the extraction
         pdf_path && [account, period, pdf_path]
       end
     end
@@ -95,7 +106,7 @@ module Frijolero
     get '/' do
       # jobs.all is newest first, so uniq keeps the latest failure of each label.
       failed = self.class.jobs.all.select { |j| j.status == 'failed' }.uniq(&:label).to_h { |j| [j.label, j.id] }
-      erb :dashboard, locals: { dashboard: Dashboard.new(failed: failed) }
+      erb :dashboard, locals: { dashboard: Dashboard.new(failed: failed), waiting: inbox_rows.size }
     end
 
     get '/jobs' do

@@ -22,12 +22,16 @@ class AppTest < Minitest::Test
     # config.ru calls App.jobs at load time; set it first so the ||= keeps this
     # instance (no start, so no worker thread spins up under the tests).
     Frijolero::App.jobs = Frijolero::Jobs.new(log_path: File.join(@dir, 'jobs.jsonl'))
+    Frijolero::App.inbox = Frijolero::Inbox.new(File.join(@dir, 'incoming'))
+    Frijolero::App.inbox_worker = Frijolero::Inbox::Worker.new(Frijolero::App.inbox) { {} }
   end
 
   def teardown
     restore_env('APP_PASSWORD', @previous_app_password)
     restore_env('LEDGER_DIR', @previous_ledger_dir)
     Frijolero::App.jobs = nil
+    Frijolero::App.inbox = nil
+    Frijolero::App.inbox_worker = nil
     FileUtils.remove_entry(@dir)
   end
 
@@ -113,6 +117,55 @@ class AppTest < Minitest::Test
     get '/'
 
     assert_equal 302, last_response.status
+  end
+
+  # The iOS Shortcut has no cookie: a bearer token opens /api/, and only /api/.
+  def test_api_with_the_token_reaches_the_app
+    File.write(File.join(@dir, 'config', 'accounts.yaml'), "AMEX:\n  beancount_account: \"Liabilities:Amex\"\n")
+    pdf = Rack::Test::UploadedFile.new(StringIO.new('%PDF'), 'application/pdf', original_filename: 'AMEX 2608.pdf')
+
+    with_env('API_TOKEN' => 'tok') do
+      header 'Authorization', 'Bearer tok'
+      post '/api/upload', pdf: pdf
+    end
+
+    assert_equal 202, last_response.status
+    assert_equal ['AMEX 2608.pdf'], Frijolero::App.inbox.items.map(&:filename)
+  end
+
+  def test_api_without_the_token_is_a_json_401_not_a_redirect
+    with_env('API_TOKEN' => 'tok') { post '/api/upload' }
+
+    assert_equal 401, last_response.status
+    assert_equal({ 'error' => 'Token inválido' }, JSON.parse(last_response.body))
+  end
+
+  def test_api_with_a_wrong_token_is_unauthorized
+    with_env('API_TOKEN' => 'tok') do
+      header 'Authorization', 'Bearer nope'
+      post '/api/upload'
+    end
+
+    assert_equal 401, last_response.status
+  end
+
+  def test_api_without_api_token_set_is_closed
+    with_env('API_TOKEN' => nil) do
+      header 'Authorization', 'Bearer '
+      post '/api/upload'
+    end
+
+    assert_equal 401, last_response.status
+  end
+
+  def test_the_token_opens_nothing_outside_api
+    with_env('API_TOKEN' => 'tok') do
+      header 'Authorization', 'Bearer tok'
+      get '/'
+    end
+
+    assert_equal 302, last_response.status
+    assert last_response.location.end_with?('/login')
   end
 
   def test_loading_without_app_password_raises

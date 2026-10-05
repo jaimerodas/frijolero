@@ -88,7 +88,8 @@ la página de la cuenta dice cuáles faltan.
 |---|---|
 | `LEDGER_DIR` | El clon del ledger. Obligatoria. El directorio padre guarda el log de corridas y las subidas. `bin/dev` la pone por ti. |
 | `LEDGER_MAIN_FILE` | El archivo principal del ledger, relativo a `LEDGER_DIR`. Por defecto, `main.beancount`. |
-| `APP_PASSWORD` | La contraseña, la única credencial. Obligatoria. También firma la cookie de sesión, que dura 30 días. Si la cambias, todos los dispositivos cierran sesión. |
+| `APP_PASSWORD` | La contraseña. Obligatoria. También firma la cookie de sesión, que dura 30 días. Si la cambias, todos los dispositivos cierran sesión. |
+| `API_TOKEN` | El token del atajo de iOS (ver [Subir desde el iPhone](#subir-desde-el-iphone)). Solo abre `/api/upload`. Sin él, `/api/` está cerrado. |
 | `LLM_PROVIDER` | El proveedor del modelo: `openai` (por defecto) o `anthropic`. |
 | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` | La llave del proveedor. Sin ella, la app solo guarda PDF que se llamen `Clave YYMM.pdf`. |
 | `LLM_TIMEOUT` | Los segundos que la app espera al modelo en una extracción. Por defecto, 900. |
@@ -162,10 +163,49 @@ docker run --rm -p 9292:9292 -v ~/.local/share/frijolero:/data \
   -e APP_PASSWORD=x -e LEDGER_DIR=/data/ledger -e OPENAI_API_KEY=... frijolero
 ```
 
+## Subir desde el iPhone
+
+Un atajo de iOS manda un PDF desde la hoja de compartir de otra app, por
+ejemplo la app de tu banco. El PDF espera en la Bandeja hasta que lo
+confirmas. La app no procesa nada sin tu confirmación.
+
+1. Crea un token con `openssl rand -hex 32`.
+2. Ponlo en `API_TOKEN`. En producción, ponlo en el campo `api_token` del
+   item de 1Password antes del deploy. Sin ese campo, el deploy falla.
+3. En la app Atajos, crea un atajo que recibe PDF de la hoja de compartir.
+   Para cada PDF, el atajo hace este request con la acción "Obtener
+   contenido de URL" (Get Contents of URL):
+
+   ```
+   POST https://<tu host>/api/upload
+   Authorization: Bearer <tu token>
+   Cuerpo: formulario, con el PDF en un campo de tipo archivo llamado pdf
+   ```
+
+4. Al final, el atajo abre `https://<tu host>/inbox`.
+
+La respuesta siempre es JSON, porque al atajo le cuesta leer el status:
+
+- `202` y `{"inbox": "https://…/inbox"}`: el PDF está en la Bandeja.
+- `401` y `{"error": "Token inválido"}`: falta el token o no es correcto.
+- `422` y `{"error": "…"}`: el archivo no es un PDF, o no hay cuentas.
+
+Para ver los errores en el teléfono, toma el valor `error` del diccionario.
+Si tiene valor, muestra una alerta con él.
+
+La Bandeja clasifica cada PDF en segundo plano y se actualiza sola mientras
+clasifica. Junto a cada PDF muestra la cuenta y el periodo que encontró, y
+puedes cambiarlos. "Procesar los listos" procesa los PDF marcados con
+● listo. Un PDF con ▲ o ■ necesita tu revisión: no se identificó, ya existe,
+está repetido en la Bandeja, no se clasificó o su corrida falló. Descartar
+borra el PDF.
+
 ## Una corrida que falla
 
 La página de la corrida muestra el error y la salida completa. En Recientes,
-"falló" lleva a esa página. El PDF se queda en `/data/incoming/<hex>/`.
+"falló" lleva a esa página. El PDF se queda en `/data/incoming/<hex>/`. Si
+el PDF sigue ahí, la subida también vuelve a la Bandeja con "■ falló", con la
+cuenta y el periodo que elegiste. Procesar la corre otra vez.
 
 Si la corrida falló en la extracción, por ejemplo por el límite de uso del
 modelo, la página muestra "Reintentar". El botón corre la misma subida otra
@@ -176,5 +216,6 @@ vez, sin subir el PDF de nuevo. Aparece solo con estas condiciones:
 - La app tiene la llave del modelo.
 - Ese estado de cuenta todavía no existe.
 
-Si no aparece, sube el PDF otra vez. Los directorios de las subidas fallidas
-se acumulan, y nada los borra.
+Si no aparece, sube el PDF otra vez. En la Bandeja, Descartar borra una
+subida que ya no sirve. Una corrida que falla después de la extracción ya no
+tiene el PDF. Su directorio se queda, y nada lo borra.

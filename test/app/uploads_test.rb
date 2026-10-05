@@ -95,6 +95,10 @@ class UploadsTest < Minitest::Test
     File.write(File.join(@dir, 'main.beancount'), '')
 
     Frijolero::App.jobs = Frijolero::Jobs.new(log_path: File.join(@dir, 'jobs.jsonl'))
+    @incoming = File.join(@dir, 'incoming')
+    Frijolero::App.inbox = Frijolero::Inbox.new(@incoming)
+    @worker = Frijolero::Inbox::Worker.new(Frijolero::App.inbox) { |pdf| Frijolero::App.classify(pdf) }
+    Frijolero::App.inbox_worker = @worker
     @client = FakeClient.new
     @order = []
     @s3 = FakeS3.new(@order)
@@ -108,6 +112,8 @@ class UploadsTest < Minitest::Test
   def teardown
     restore_env('LEDGER_DIR', @previous_ledger_dir)
     Frijolero::App.jobs = nil
+    Frijolero::App.inbox = nil
+    Frijolero::App.inbox_worker = nil
     Frijolero::App.client = nil
     Frijolero::App.s3 = nil
     Frijolero::App.repo = nil
@@ -190,7 +196,7 @@ class UploadsTest < Minitest::Test
     assert_match(/value="AMEX"\s+selected/, last_response.body)
     assert_includes last_response.body, 'value="2508"'
     assert_empty @client.extractions
-    assert(Dir.glob(File.join(Frijolero::Config.incoming_dir, '*', '*')).any?)
+    refute_empty Frijolero::App.inbox.items
   end
 
   def test_a_filename_with_accents_renders_the_confirm_page
@@ -313,7 +319,7 @@ class UploadsTest < Minitest::Test
     assert_equal 'ok', job.status
     assert File.exist?(Frijolero::Config.statement_path('AMEX', '2508', 'beancount'))
     assert_includes File.read(Frijolero::Config.main_file), 'include'
-    refute Dir.exist?(File.join(Frijolero::Config.incoming_dir, token))
+    refute Dir.exist?(File.join(@incoming, token))
   end
 
   # The order is the durability property: pull before anything is written, the PDF in
@@ -343,7 +349,7 @@ class UploadsTest < Minitest::Test
     assert_equal 'failed', job.status
     assert_includes job.error, 'offline'
     assert_empty @client.extractions
-    assert Dir.exist?(File.join(Frijolero::Config.incoming_dir, token))
+    assert Dir.exist?(File.join(@incoming, token))
   end
 
   def test_a_failed_statement_is_never_pushed
@@ -426,7 +432,7 @@ class UploadsTest < Minitest::Test
     assert_equal [:put], @order
     assert_empty Frijolero::App.jobs.all
     assert_empty @client.extractions
-    refute Dir.exist?(File.join(Frijolero::Config.incoming_dir, token))
+    refute Dir.exist?(File.join(@incoming, token))
   end
 
   def test_backup_keeps_the_upload_when_s3_fails
@@ -437,7 +443,7 @@ class UploadsTest < Minitest::Test
 
     assert_equal 502, last_response.status
     assert_includes last_response.body, 'boom'
-    assert Dir.exist?(File.join(Frijolero::Config.incoming_dir, token))
+    assert Dir.exist?(File.join(@incoming, token))
   end
 
   def test_backup_rejects_unknown_account
@@ -463,7 +469,7 @@ class UploadsTest < Minitest::Test
     job = Frijolero::App.jobs.find(job_id)
     assert_equal 'failed', job.status
     assert_includes job.error, 'overwrite_declined'
-    assert Dir.exist?(File.join(Frijolero::Config.incoming_dir, token))
+    assert Dir.exist?(File.join(@incoming, token))
   end
 
   def test_job_page_refreshes_while_running_and_links_when_done
@@ -539,7 +545,7 @@ class UploadsTest < Minitest::Test
   def test_no_retry_without_the_uploaded_pdf
     token = upload_and_extract_token('AMEX 2508.pdf')
     job_id = failed_job(token)
-    FileUtils.rm_rf(File.join(Frijolero::Config.incoming_dir, token))
+    FileUtils.rm_rf(File.join(@incoming, token))
 
     get "/jobs/#{job_id}"
 
@@ -602,7 +608,293 @@ class UploadsTest < Minitest::Test
     assert_empty Frijolero::App.s3.calls
   end
 
+  def test_a_web_upload_leaves_its_answer_for_the_inbox
+    post '/upload', pdf: pdf_upload('AMEX 2508.pdf')
+
+    answer = Frijolero::App.inbox.items.first.answer
+    assert_equal %w[AMEX 2508], answer.values_at('account', 'period')
+  end
+
+  # The share sheet (an iOS Shortcut). Login checks the token; App never sees it.
+  def test_api_upload_saves_the_pdf_and_answers_before_the_model
+    post '/api/upload', pdf: pdf_upload('estado.pdf')
+
+    assert_equal 202, last_response.status
+    assert_equal 'application/json', last_response.media_type
+    assert_equal({ 'inbox' => 'http://example.org/inbox' }, JSON.parse(last_response.body))
+    assert_equal ['estado.pdf'], Frijolero::App.inbox.items.map(&:filename)
+    assert_empty @client.extractions
+  end
+
+  def test_api_upload_queues_the_classification
+    @client.classification = { 'account' => 'BBVA', 'period_start' => '2026-07-24', 'period_end' => '2026-08-23' }
+    post '/api/upload', pdf: pdf_upload('estado.pdf')
+
+    @worker.work_one
+
+    answer = Frijolero::App.inbox.items.first.answer
+    assert_equal %w[BBVA 2608 2026-08-23], answer.values_at('account', 'period', 'period_end')
+  end
+
+  def test_api_upload_of_a_non_pdf_answers_with_a_json_error
+    post '/api/upload', pdf: pdf_upload('foto.png', name: 'foto.png')
+
+    assert_equal 422, last_response.status
+    assert_equal({ 'error' => 'Sube un PDF' }, JSON.parse(last_response.body))
+    assert_empty Frijolero::App.inbox.items
+  end
+
+  def test_api_upload_without_accounts_saves_nothing
+    File.delete(File.join(@dir, 'config', 'accounts.yaml'))
+
+    post '/api/upload', pdf: pdf_upload('estado.pdf')
+
+    assert_equal 422, last_response.status
+    assert_includes JSON.parse(last_response.body)['error'], 'cuenta'
+    assert_empty Frijolero::App.inbox.items
+  end
+
+  def test_an_empty_inbox_says_where_uploads_come_from
+    get '/inbox'
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, 'Nada por confirmar'
+    refute_includes last_response.body, '<form method="post" action="/inbox/process"'
+  end
+
+  def test_an_upload_being_classified_shows_and_the_page_refreshes
+    api_upload('estado.pdf')
+
+    get '/inbox'
+
+    assert_includes last_response.body, 'estado.pdf'
+    assert_includes last_response.body, '<span class="status running">clasificando</span>'
+    assert_includes last_response.body, 'http-equiv="refresh"'
+  end
+
+  def test_a_classified_upload_is_ready_with_its_guess_filled_in
+    @client.classification = { 'account' => 'BBVA', 'period_start' => '2026-07-24', 'period_end' => '2026-08-23' }
+    token = classified('estado.pdf')
+
+    get '/inbox'
+
+    assert_includes last_response.body, '<span class="status ok">listo</span>'
+    assert_match(/value="BBVA"\s+selected/, last_response.body)
+    assert_includes last_response.body, %(name="period[#{token}]" value="2608")
+    assert_includes last_response.body, '2026-07-24 a 2026-08-23'
+    assert_includes last_response.body, %(name="tokens" value="#{token}" data-busy="Procesando…">Procesar los listos)
+    refute_includes last_response.body, 'http-equiv="refresh"'
+  end
+
+  def test_only_the_ready_uploads_go_into_process_the_ready_ones
+    ready = classified('AMEX 2508.pdf')
+    also_ready = classified('BBVA 2508.pdf')
+    unknown = classified('estado.pdf')
+
+    get '/inbox'
+
+    assert_includes last_response.body, %(name="tokens" value="#{ready} #{also_ready}")
+    assert_includes last_response.body, '<span class="status missing">sin identificar</span>'
+    assert_includes last_response.body, %(name="tokens" value="#{unknown}")
+  end
+
+  def test_an_upload_of_an_existing_statement_offers_to_overwrite
+    statement('AMEX', '2508')
+    token = classified('AMEX 2508.pdf')
+
+    get '/inbox'
+
+    assert_includes last_response.body, '<span class="status missing">ya existe</span>'
+    assert_includes last_response.body, %(name="overwrite[#{token}]" value="1")
+    refute_includes last_response.body, 'Procesar los listos'
+  end
+
+  def test_two_uploads_of_one_statement_are_both_marked
+    classified('AMEX 2508.pdf')
+    classified('AMEX 2508.pdf')
+
+    get '/inbox'
+
+    assert_equal 2, last_response.body.scan('<span class="status missing">repetido</span>').size
+    refute_includes last_response.body, 'Procesar los listos'
+  end
+
+  def test_a_classifier_error_shows_with_its_message
+    Frijolero::App.client = nil
+    without_env('OPENAI_API_KEY') do
+      classified('estado.pdf')
+      get '/inbox'
+    end
+
+    assert_includes last_response.body, '<span class="status failed">no se clasificó</span>'
+    assert_includes last_response.body, 'Falta OPENAI_API_KEY'
+    refute_includes last_response.body, '>Procesar<'
+    assert_includes last_response.body, 'Solo guardar PDF'
+  end
+
+  def test_an_upload_with_a_queued_job_leaves_the_inbox
+    token = classified('AMEX 2508.pdf')
+    process(token, 'AMEX', '2508')
+
+    get '/inbox'
+
+    assert_includes last_response.body, 'Nada por confirmar'
+  end
+
+  def test_an_upload_whose_job_failed_comes_back_with_the_choice_and_the_job
+    @client.classification = { 'account' => 'BBVA', 'period_start' => '2026-07-24', 'period_end' => '2026-08-23' }
+    token = classified('estado.pdf')
+    @client.extract_error = Frijolero::LLM::RateLimitError.new('rate limited', status: 429)
+    process(token, 'AMEX', '2508')
+    job = Frijolero::App.jobs.work_one
+
+    get '/inbox'
+
+    assert_includes last_response.body, %(<a class="status failed" href="/jobs/#{job.id}">falló</a>)
+    assert_match(/value="AMEX"\s+selected/, last_response.body)
+    assert_includes last_response.body, %(name="period[#{token}]" value="2508")
+    refute_includes last_response.body, 'Procesar los listos'
+  end
+
+  def test_processing_one_upload_runs_its_job_with_the_chosen_account
+    @client.classification = { 'account' => 'BBVA', 'period_start' => '2026-07-24', 'period_end' => '2026-08-23' }
+    token = classified('estado.pdf')
+
+    process(token, 'AMEX', '2508')
+
+    assert_equal 303, last_response.status
+    job = Frijolero::App.jobs.find(last_response.location[%r{/jobs/(.+)\z}, 1])
+    assert_equal ['AMEX 2508', token], [job.label, job.token]
+    Frijolero::App.jobs.work_one
+    assert_equal 'ok', job.status
+    refute Dir.exist?(File.join(@incoming, token))
+  end
+
+  def test_processing_records_the_cutoff_day_from_the_printed_period_end
+    @client.classification = { 'account' => 'AMEX', 'period_start' => '2026-07-04', 'period_end' => '2026-08-03' }
+    token = classified('estado.pdf')
+
+    process(token, 'AMEX', '2607')
+    Frijolero::App.jobs.work_one
+
+    assert_equal 3, Frijolero::Config.accounts['AMEX']['cutoff_day']
+  end
+
+  def test_processing_the_ready_ones_queues_a_job_each
+    first = classified('AMEX 2508.pdf')
+    second = classified('BBVA 2508.pdf')
+
+    post '/inbox/process', tokens: "#{first} #{second}",
+                           account: { first => 'AMEX', second => 'BBVA' }, period: { first => '2508', second => '2508' }
+
+    assert_equal 303, last_response.status
+    assert_equal '/jobs', URI(last_response.location).path
+    assert_equal ['AMEX 2508', 'BBVA 2508'], Frijolero::App.jobs.all.map(&:label).sort
+  end
+
+  def test_one_bad_row_queues_nothing
+    first = classified('AMEX 2508.pdf')
+    second = classified('estado.pdf')
+
+    post '/inbox/process', tokens: "#{first} #{second}",
+                           account: { first => 'AMEX', second => '' }, period: { first => '2508', second => '' }
+
+    assert_equal 422, last_response.status
+    assert_empty Frijolero::App.jobs.all
+  end
+
+  def test_processing_with_overwrite_replaces_the_statement
+    statement('AMEX', '2508')
+    token = classified('AMEX 2508.pdf')
+
+    process(token, 'AMEX', '2508', overwrite: { token => '1' })
+    job = Frijolero::App.jobs.work_one
+
+    assert_equal 'ok', job.status
+  end
+
+  def test_processing_without_a_model_key_is_rejected_with_the_variable_name
+    token = classified('AMEX 2508.pdf')
+    Frijolero::App.client = nil
+
+    without_env('OPENAI_API_KEY') { process(token, 'AMEX', '2508') }
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, 'OPENAI_API_KEY'
+    assert_empty Frijolero::App.jobs.all
+  end
+
+  def test_saving_only_the_pdf_from_the_inbox
+    token = classified('estado.pdf')
+
+    post '/inbox/backup', token: token, account: { token => 'AMEX' }, period: { token => '2508' }
+
+    assert_equal 303, last_response.status
+    assert_equal '/inbox', URI(last_response.location).path
+    assert_equal ['frijolero/accounts/AMEX/AMEX 2508.pdf'], @s3.calls
+    assert_empty Frijolero::App.inbox.items
+    assert_empty Frijolero::App.jobs.all
+  end
+
+  def test_saving_only_the_pdf_keeps_the_upload_when_s3_fails
+    token = classified('AMEX 2508.pdf')
+    @s3.put_error = 'boom'
+
+    post '/inbox/backup', token: token, account: { token => 'AMEX' }, period: { token => '2508' }
+
+    assert_equal 502, last_response.status
+    assert_equal [token], Frijolero::App.inbox.items.map(&:token)
+  end
+
+  def test_discard_deletes_the_upload
+    token = classified('AMEX 2508.pdf')
+
+    post '/inbox/discard', token: token
+
+    assert_equal 303, last_response.status
+    assert_equal '/inbox', URI(last_response.location).path
+    assert_empty Frijolero::App.inbox.items
+    assert_empty @s3.calls
+  end
+
+  def test_discard_of_an_unknown_token_is_rejected
+    post '/inbox/discard', token: '../incoming'
+
+    assert_equal 422, last_response.status
+  end
+
+  def test_dashboard_points_to_the_uploads_waiting_in_the_inbox
+    get '/'
+    refute_includes last_response.body, 'por confirmar'
+
+    api_upload('estado.pdf')
+    get '/'
+
+    assert_includes last_response.body, '<a class="status missing" href="/inbox">1 por confirmar</a>'
+  end
+
   private
+
+  # The token of a new upload through the API, before the classifier.
+  def api_upload(filename)
+    before = Frijolero::App.inbox.items.map(&:token)
+    post '/api/upload', pdf: pdf_upload(filename)
+    (Frijolero::App.inbox.items.map(&:token) - before).first
+  end
+
+  def classified(filename)
+    api_upload(filename).tap { @worker.work_one }
+  end
+
+  def process(token, account, period, **)
+    post '/inbox/process', tokens: token, account: { token => account }, period: { token => period }, **
+  end
+
+  def statement(account, period)
+    path = Frijolero::Config.statement_path(account, period, 'beancount')
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, '')
+  end
 
   def pdf_upload(filename, name: nil)
     path = File.join(@dir, "upload-#{rand(1_000_000)}-#{filename}")

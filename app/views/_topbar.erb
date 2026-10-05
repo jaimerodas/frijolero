@@ -1,6 +1,6 @@
 <%
   path = request&.path_info.to_s
-  sections = { 'Estados de cuenta' => %w[/ /upload /jobs /accounts], 'Reportes' => %w[/reports /journal] }
+  sections = { 'Estados de cuenta' => %w[/ /upload /inbox /jobs /accounts], 'Reportes' => %w[/reports /journal] }
   errors = ledger_errors
 %>
 <header class="topbar">

@@ -27,16 +27,18 @@ class NavTest < Minitest::Test
     File.write(beancount, '')
     Frijolero::App.s3 = FakeS3.new
     Frijolero::App.jobs = Frijolero::Jobs.new(log_path: File.join(@dir, 'jobs.jsonl'))
+    Frijolero::App.inbox = Frijolero::Inbox.new(File.join(@dir, 'incoming'))
   end
 
   def teardown
     @previous_ledger_dir ? ENV['LEDGER_DIR'] = @previous_ledger_dir : ENV.delete('LEDGER_DIR')
     Frijolero::App.s3 = nil
     Frijolero::App.jobs = nil
+    Frijolero::App.inbox = nil
     FileUtils.remove_entry(@dir)
   end
 
-  SECTIONS = %w[/ /upload /jobs /accounts /accounts/new /accounts/AMEX /accounts/AMEX/2608
+  SECTIONS = %w[/ /upload /inbox /jobs /accounts /accounts/new /accounts/AMEX /accounts/AMEX/2608
                 /accounts/AMEX/config /accounts/AMEX/rules].to_h { |p| [p, 'Estados de cuenta'] }.freeze
 
   HREFS = { 'Estados de cuenta' => '/', 'Reportes' => '/reports' }.freeze
@@ -147,6 +149,14 @@ class NavTest < Minitest::Test
       assert_includes last_response.body, %(<a href="#{href}" aria-current="true">#{label}</a>), path
       assert_includes last_response.body, '<a href="/">Recientes</a>', path
     end
+  end
+
+  def test_inbox_is_bandeja_under_the_title_row
+    get '/inbox'
+
+    assert_includes last_response.body, '<a href="/">Recientes</a>'
+    assert_includes last_response.body, '<h1>Bandeja</h1>'
+    assert_includes last_response.body, '<title>Bandeja</title>'
   end
 
   def test_upload_page_has_the_title_row_without_the_upload_button

@@ -120,6 +120,14 @@ td.date { font-family: var(--mono); font-size: 0.9375rem; white-space: nowrap; }
 td .button, td button { min-height: 2rem; padding-inline: 0.625rem; font-size: 0.875rem; }
 .cutoff { color: var(--muted); white-space: nowrap; }
 a.rules { font-size: 0.875rem; margin-left: 0.5rem; color: var(--muted); }
+/* The Bandeja: the status and the printed dates (or the error) under the file name, a
+   period field four digits wide, and the buttons of a row on a line that wraps. */
+.inbox th[scope="row"] { white-space: normal; overflow-wrap: anywhere; }
+.inbox th .note { display: block; font-size: 0.875rem; font-weight: 400; }
+.inbox input:not([type="checkbox"]) { width: 4ch; font-family: var(--mono); }
+.row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+@media (width > 40rem) { .row-actions { flex-wrap: nowrap; } }
+.row-actions label { margin: 0; }
 
 /* Statement: one entry per transaction. Date, body, amount; on phones the body drops below. */
 .ledger { list-style: none; margin: 0 0 2rem; padding: 0; }
@@ -515,6 +523,7 @@ summary { cursor: pointer; font-weight: 600; }
   td:empty { display: none; }
   td.amount { text-align: left; }
   td .button, td button { margin-top: 0.25rem; }
+  .row-actions button { min-height: 2.75rem; } /* the Bandeja is used on the phone */
   /* Navigation centered: brand, sections, report names, each toolbar row. Data stays left. */
   .topbar, .title, .toolbar, .account-head { justify-content: center; }
   .topbar .brand { flex-basis: 100%; justify-content: center; margin-right: 0; }

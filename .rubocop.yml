@@ -112,8 +112,10 @@ Metrics/ClassLength:
     - 'test/**/*'
     - 'lib/converters/fintual.rb'
     - 'lib/converters/alpaca.rb'
-    # App: routes are a table; each handler is a few lines.
+    # App: routes are a table; each handler is a few lines. uploads.rb reopens App
+    # for the upload and the Bandeja.
     - 'app/app.rb'
+    - 'app/uploads.rb'
 
 # Reports is one BQL query per report plus the parsing of what comes back and the
 # three made-up equity rows of the balance sheet. ~110 lines of small functions

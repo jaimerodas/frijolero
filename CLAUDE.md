@@ -95,7 +95,7 @@ kamal app exec --reuse 'bundle exec ruby -Ilib -e "require %q(frijolero); Frijol
 On the volume (`/data`, the parent of `LEDGER_DIR`):
 
 - `jobs.jsonl`: the append-only job log.
-- `incoming/<token>/<original name>.pdf`: one directory for each upload. A successful job removes it.
+- `incoming/<token>/`: one directory for each upload, with `<original name>.pdf` and, after the classifier, `classification.json`. A successful job removes it.
 - `pdfs/`: the PDFs, when no bucket is set.
 
 In the bucket, which other apps share: `frijolero/accounts/<Key>/<Key> YYMM.pdf`. `Config.pdf_key` is the only formula for that key.
@@ -107,7 +107,8 @@ In the bucket, which other apps share: `frijolero/accounts/<Key>/<Key> YYMM.pdf`
 | `LEDGER_DIR`, `LEDGER_MAIN_FILE` | The ledger clone, and the name of its main file (default `main.beancount`). |
 | `LLM_PROVIDER`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` | `LLM_PROVIDER` is `openai` (default) or `anthropic`. Without the key of that provider, `LLM.client` is nil and the app cannot classify or extract. The model names are in the `spec.json` files of the ledger, so a change of provider changes them too. |
 | `LLM_TIMEOUT` | Default 900 s. It is the poll deadline for OpenAI and the read timeout for Anthropic. |
-| `APP_PASSWORD` | The only credential. It also signs the session cookie (30 days), so a new password logs out every device. |
+| `APP_PASSWORD` | The password. It also signs the session cookie (30 days), so a new password logs out every device. |
+| `API_TOKEN` | The bearer token of the iOS Shortcut. It opens only `/api/`, and it can only upload. Without it, `/api/` is closed. In 1Password, the field is `api_token`. |
 | `S3_ENDPOINT`, `S3_BUCKET`, `S3_KEY_ID`, `S3_KEY` | Any S3-compatible store (B2 in production). The endpoint is a bare host. With none of the four, the PDFs go to disk (`LocalPdfs`). With only some, `S3.from_env` raises and names the missing ones. It also removes whitespace from the keys: a stray space from 1Password once caused `Signature validation failed`. |
 | `S3_REGION`, `S3_PATH_STYLE` | Optional. The default region is the second segment of the endpoint, which is correct for B2 and AWS. R2 needs `auto`, Hetzner its location, and DigitalOcean and MinIO `us-east-1`. `S3_PATH_STYLE=1` puts the bucket in the path, for MinIO on localhost or a bucket name with a dot. |
 | `GIT_TOKEN` | A GitHub fine-grained token with Contents read and write on the ledger. Each git call sends it as an HTTP header. It is never written to disk. |
@@ -120,11 +121,11 @@ In the bucket, which other apps share: `frijolero/accounts/<Key>/<Key> YYMM.pdf`
 ### Request side (`app/`)
 
 - `app/app.rb` holds the settings, the collaborators, the dashboard and the job pages. Each other file in `app/` reopens `App` for one area. `app/` is the only place that requires Sinatra.
-- `App` has five collaborators, each built on first use: `jobs`, `client`, `s3`, `repo` and `reports`. Tests replace them through their `attr_writer`.
-- `Login` (`app/login.rb`) is middleware in front of `App`. It owns `/login` and `/logout`, and it sends each request without a session to `/login`. `App` and its tests never see auth. `/up` and the static files are outside it.
+- `App` has seven collaborators, each built on first use: `jobs`, `inbox`, `inbox_worker`, `client`, `s3`, `repo` and `reports`. Tests replace them through their `attr_writer`.
+- `Login` (`app/login.rb`) is middleware in front of `App`. It owns `/login` and `/logout`, and it sends each request without a session to `/login`. A request to `/api/` needs `Authorization: Bearer <API_TOKEN>` instead, and gets a JSON 401 without it. `App` and its tests never see auth. `/up` and the static files are outside it.
 - The views are standalone ERB pages in Spanish, with no layout. Each page calls the `head` and `topbar` helpers.
 - All pages of one account are under `/accounts/<Key>`. A statement has three URLs: `/accounts/<Key>/<YYMM>` (the movements), `…/beancount` (the text) and `…/beancount/edit` (the text in the editor). The route constraints in `app/statements.rb` keep `config` and `rules` out of the period segment.
-- With no account in `accounts.yaml`, a filter sends every `/upload` route to `/accounts/new`. So no model call can happen before the first account exists.
+- With no account in `accounts.yaml`, a filter sends every `/upload` route to `/accounts/new`, and `/api/upload` answers 422. So no model call can happen before the first account exists.
 
 ### Design rules (`public/style.css`)
 
@@ -162,6 +163,20 @@ Received links to the statement, missing to `/upload`, and failed to the newest 
 
 The buttons that wait on the server have `data-busy`. `reports.js` writes that word on the button and makes the form `inert`, so a second click sends nothing. The `pageshow` event restores them when the back button shows the page from the cache.
 
+The web form also writes `classification.json`, so an upload that the person leaves on the confirm page shows in the Bandeja.
+
+### Bandeja (`app/inbox.rb`, `/inbox`)
+
+The Bandeja holds the uploads that wait for a person. An iOS Shortcut sends each PDF from the share sheet to `POST /api/upload`. The route saves the PDF, queues its classification and answers 202 at once. Every answer is JSON, errors included, because a Shortcut reads a body more easily than a status. The person always confirms: nothing is processed without a click.
+
+- `Inbox` only reads and writes the disk. A page that counts the Bandeja starts no thread.
+- `Inbox::Worker` is a second queue and thread, apart from the job worker, so an extraction never holds up a classification. At boot, it queues each upload that has no `classification.json`. A model error becomes the answer (`{"error": …}`), and the worker goes on.
+- `Inbox#rows` leaves out each upload that a queued or running job holds. Each row has one status: classifying, error, failed (its newest job failed), unknown, exists, repeated (two uploads with the same account and period) or ready. Only ready rows go into "Procesar los listos".
+- The page is one form. Each row sends `account[token]`, `period[token]` and `overwrite[token]`. A button sends the tokens to process in `tokens`, so one row and "Procesar los listos" use the same route. The first submit button of the form is hidden and disabled, so Enter in a period field submits nothing.
+- Procesar writes the choice into `classification.json` before it queues the job. So a row whose job fails comes back as the person left it.
+- The page refreshes every 3 s while a row is classifying. A refresh loses an edit that is not submitted.
+- The dashboard shows "▲ N por confirmar" when the Bandeja is not empty. There is no tab, because four tabs do not fit on a phone.
+
 ### Jobs (`app/jobs.rb`)
 
 `Jobs` is one `Queue`, one worker thread and `jobs.jsonl`. At boot, it marks the jobs left `running` or `queued` as failed. The job body is `repo.pull`, then `Statement#process`, then `repo.commit_and_push("<Key> YYMM")`, then the removal of the upload directory. The body writes its output through `Log.sink`. The UI calls a job a "corrida".
@@ -173,7 +188,7 @@ A failed job shows "Reintentar" only when a model key is set and `retryable_uplo
 - The `.beancount` of that statement does not exist. A later success for the same label ends the retry.
 - The upload directory still holds the PDF. `Statement` deletes it after the extraction, so a retry is possible only after a failure at the extraction, such as a 429.
 
-The retry runs with overwrite off and does not record the cutoff day. The job log stores times in UTC. The pages show them in local time, with the status words in Spanish.
+The retry runs with overwrite off and does not record the cutoff day. While the PDF is there, the upload also shows in the Bandeja as failed, and Procesar there is a retry too. The job log stores times in UTC. The pages show them in local time, with the status words in Spanish.
 
 ### Statement (`lib/statement.rb`)
 
@@ -337,17 +352,17 @@ Before you commit new code that runs git:
 ## Operations
 
 - **Deploy.** Kamal 2 with `config/deploy.yml`, which holds the droplet, the host, the image and the bucket. The image is built for amd64 on the laptop. The volume is `frijolero_data:/data`. A deploy takes about 40 s.
-- **Secrets.** `.kamal/secrets` gets each secret from a 1Password item with `kamal secrets fetch --adapter 1password`. The Kamal parser has no line continuations, so each command is one line. The fields are `kamal_registry_password`, `openai_api_key`, `app_password`, `b2_key_id`, `b2_application_key` and `git_token`. The values that are not secret, `b2_bucket` and `b2_endpoint`, are in `deploy.yml`.
+- **Secrets.** `.kamal/secrets` gets each secret from a 1Password item with `kamal secrets fetch --adapter 1password`. The Kamal parser has no line continuations, so each command is one line. The fields are `kamal_registry_password`, `openai_api_key`, `app_password`, `b2_key_id`, `b2_application_key`, `git_token` and `api_token`. A missing field fails the deploy. The values that are not secret, `b2_bucket` and `b2_endpoint`, are in `deploy.yml`.
 - **1Password.** `kamal` and `ssh` to the droplet work only while the 1Password app is unlocked. The `op` prompt and the SSH agent go through it.
 - **Memory.** The cap is 128 MiB. Idle production uses 35 to 42 MiB of cgroup memory. A report adds an `rledger` child of about 21 MB for about 0.1 s.
 - **Image.** `ruby:4.0.6-slim`, two stages, user `app`, `TZ=America/Mexico_City`. It installs `git` and downloads `rledger` with a pinned checksum. The base image already has `tzdata`. `Gemfile.lock` pins Bundler 4.0.16, the version in the image.
-- **Failed jobs.** The PDF stays in `/data/incoming/<token>/`. A successful retry removes it. Nothing removes the other old directories yet.
+- **Failed jobs.** The PDF stays in `/data/incoming/<token>/`, and the upload shows in the Bandeja. A successful retry removes it, and so does Descartar. Nothing removes a directory without a PDF, which a job that fails after the extraction leaves.
 
 If `kamal` or `ssh` fails with `promptError` or "communication with agent failed", ask the user to run the command with the `!` prefix. If a failed deploy leaves a lock, run `kamal lock release`.
 
 ## Tests
 
-- Minitest and rack-test: about 750 tests in about 12 s. `test/` mirrors `app/` and `lib/`.
+- Minitest and rack-test: about 800 tests in about 12 s. `test/` mirrors `app/` and `lib/`.
 - `with_ledger_dir` points `LEDGER_DIR` at a temporary ledger. Web tests call `App` directly, with fake collaborators. Only `test/app/app_test.rb` loads `config.ru`, for the auth wiring.
 - `test_helper.rb` sets `RACK_ENV=test` before it loads the app. Sinatra reads the environment when `sinatra/base` loads, and with any other value its host authorization answers 403.
 - No test uses the network.
@@ -357,7 +372,7 @@ Some tests commit in a temporary repo, and they read the global git config. If `
 
 ## Known rough edges
 
-1. `POST /upload` waits for the classifier during the request: OpenAI background mode, with a first poll after 2 s. There are two options: a synchronous Responses call with `reasoning.effort: minimal`, or a classify job with a page that refreshes. The classify model is set in `config/prompts/classify/spec.json` of the ledger.
+1. `POST /upload` (the web form) waits for the classifier during the request: OpenAI background mode, with a first poll after 2 s. `/api/upload` does not wait, because `Inbox::Worker` classifies in the background. The fix is to send the web form to the Bandeja too. The classify model is set in `config/prompts/classify/spec.json` of the ledger.
 2. There is one worker thread. A second upload waits for the extraction in front of it.
 3. A `closed: true` account leaves the dashboard. Its history stays on its page, which Cuentas links to.
 

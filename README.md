@@ -32,6 +32,10 @@ Al subir un PDF, confirmas la cuenta y el periodo. Si ese estado de cuenta ya
 existe, la página lo dice y ofrece "Sobrescribir". "Solo guardar PDF" guarda
 el archivo y no extrae nada.
 
+Desde el iPhone, un atajo de iOS manda los PDF a la Bandeja desde la hoja de
+compartir (ver [setup.md](docs/setup.md#subir-desde-el-iphone)). Ahí esperan
+tu confirmación. Recientes dice cuántos hay por confirmar.
+
 Cada estado de cuenta tiene su página, con dos vistas: Movimientos y
 Beancount. En Movimientos, la fecha de un movimiento abre un editor de esa
 transacción. "▲ N sin clasificar" lleva a los movimientos sin clasificar y

@@ -12,6 +12,9 @@
   <%= topbar %>
   <main>
     <%= erb :_cuentas, layout: false %>
+    <% if waiting.positive? %>
+    <p><a class="status missing" href="/inbox"><%= waiting %> por confirmar</a></p>
+    <% end %>
     <% if dashboard.rows.empty? %>
     <p>No hay cuentas. <a href="/accounts/new">Da de alta la primera.</a></p>
     <% else %>

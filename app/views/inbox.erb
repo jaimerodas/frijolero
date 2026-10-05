@@ -1,0 +1,85 @@
+<%
+  client = self.class.client
+  ready = rows.select { |row| row.status == :ready }.map { |row| row.item.token }
+  accounts = Frijolero::Config.accounts.keys
+%>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%= head('Bandeja', refresh: rows.any? { |row| row.status == :classifying } ? 3 : nil) %>
+  <script src="/reports.js" defer></script>
+</head>
+<body>
+  <%= topbar %>
+  <main>
+    <%= erb :_cuentas, layout: false %>
+    <h1>Bandeja</h1>
+    <% if rows.empty? %>
+    <p>Nada por confirmar. Los PDF que compartas con el atajo de iOS esperan aquí hasta que los confirmes.</p>
+    <% else %>
+    <% if client %>
+    <p class="note">Revisa antes de procesar: la extracción cuesta dinero.</p>
+    <% else %>
+    <p class="error" role="alert">Falta <code><%= Frijolero::LLM.key_var %></code>: sin ella la app solo guarda el PDF.</p>
+    <% end %>
+    <form method="post" action="/inbox/process">
+      <%# The first submit button is the one Enter presses. Disabled, it makes Enter in a period field do nothing. %>
+      <button type="submit" disabled hidden></button>
+      <div class="table-wrap">
+        <table class="inbox">
+          <thead>
+            <tr>
+              <th>Archivo</th>
+              <th>Cuenta</th>
+              <th>Periodo</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.each do |row| %>
+              <% item, status = row.item, row.status; answer = item.answer || {}; token = h(item.token) %>
+              <% glyph, word = Frijolero::App::INBOX_STATUS[status] %>
+              <tr>
+                <th scope="row">
+                  <%= h(item.filename) %><br>
+                  <% if status == :failed %>
+                    <a class="status failed" href="/jobs/<%= h(row.job.id) %>">falló</a>
+                  <% else %>
+                    <span class="status <%= glyph %>"><%= word %></span>
+                  <% end %>
+                  <% if answer['error'] %>
+                    <span class="note"><%= h(answer['error']) %></span>
+                  <% elsif answer['period_start'] && answer['period_end'] %>
+                    <span class="note"><%= h(answer['period_start']) %> a <%= h(answer['period_end']) %></span>
+                  <% end %>
+                </th>
+                <td data-label="Cuenta">
+                  <select name="account[<%= token %>]" aria-label="Cuenta de <%= h(item.filename) %>">
+                    <option value=""></option>
+                    <% accounts.each do |account| %>
+                      <option value="<%= h(account) %>" <%= 'selected' if account == answer['account'] %>><%= h(account) %></option>
+                    <% end %>
+                  </select>
+                </td>
+                <td data-label="Periodo"><input name="period[<%= token %>]" value="<%= h(answer['period']) %>" inputmode="numeric" maxlength="4" placeholder="YYMM" aria-label="Periodo de <%= h(item.filename) %>"></td>
+                <td>
+                  <div class="row-actions">
+                    <% if status == :exists && client %><label><input type="checkbox" name="overwrite[<%= token %>]" value="1"> Sobrescribir</label><% end %>
+                    <% if client %><button type="submit" name="tokens" value="<%= token %>" data-busy="Procesando…">Procesar</button><% end %>
+                    <button type="submit" name="token" value="<%= token %>" formaction="/inbox/backup" data-busy="Guardando…">Solo guardar PDF</button>
+                    <button type="submit" name="token" value="<%= token %>" formaction="/inbox/discard">Descartar</button>
+                  </div>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+      <% if client && ready.any? %>
+      <p class="actions"><button type="submit" class="primary" name="tokens" value="<%= h(ready.join(' ')) %>" data-busy="Procesando…">Procesar los listos</button></p>
+      <% end %>
+    </form>
+    <% end %>
+  </main>
+</body>
+</html>

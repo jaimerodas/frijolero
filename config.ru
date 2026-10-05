@@ -4,6 +4,7 @@ require_relative 'app/app'
 require_relative 'app/login'
 
 Frijolero::App.jobs
+Frijolero::App.inbox_worker
 
 map '/up' do
   run ->(_env) { [200, { 'content-type' => 'text/plain' }, ['ok']] }
