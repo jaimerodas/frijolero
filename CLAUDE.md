@@ -216,7 +216,7 @@ The page reads the `.beancount` file, not the JSON. The JSON is fixed at job tim
 
 - The movements and the Beancount text are two views, each at its own URL. The server renders only the current view.
 - The date of a movement opens the edit dialog on that transaction (see Editors). So a person can classify one movement without a rule.
-- "▲ N sin clasificar" links to `#sin-clasificar`, the first unclassified row. While that row is the `:target`, CSS hides every row that is not `li.fixme`. There is no script. A save in the edit dialog reloads with the hash, so the filter stays and the saved row leaves it.
+- "▲ N sin clasificar" is a filter. It links to `#sin-clasificar`, which is the `<body>`, so the page does not scroll. While the body is the `:target`, CSS hides every row that is not `li.fixme`, shows the status as a black block and shows "Ver todos". There is no script. A save in the edit dialog reloads with the hash, so the filter stays and the saved row leaves it.
 - "Aplicar reglas" shows only while something is unclassified and the rules file exists, because the rules touch only FIXME postings.
 - `beancount_html` colors the text with one regex over the escaped text. A line that matches nothing stays plain, so a hand edit never breaks the page. There is no highlighting library.
 

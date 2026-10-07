@@ -4,7 +4,7 @@ Una regla clasifica una transacción por su descripción. Le pone un `payee`,
 una `narration` y una cuenta de gastos o ingresos. Una transacción sin regla
 queda en `Expenses:FIXME`, y la página del estado de cuenta la marca como
 "sin clasificar". "▲ N sin clasificar", arriba de la lista, muestra solo los
-movimientos sin clasificar. La pestaña Movimientos muestra todos otra vez.
+movimientos sin clasificar. "Ver todos" muestra la lista completa otra vez.
 
 Solo las cuentas de los pipelines Default y Multi usan reglas. Las cuentas de
 CetesDirecto, Fintual y Alpaca no tienen archivo de reglas ni editor.

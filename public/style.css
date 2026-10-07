@@ -99,8 +99,8 @@ h2 { font-size: 1.125rem; font-weight: 600; margin: 2.5rem 0 0.75rem; padding-bo
 .status.running { --glyph: "◐"; color: var(--ink); }
 .status.missing { --glyph: "▲"; color: var(--red); }
 .status.failed { --glyph: "■"; color: var(--red); font-weight: 600; }
-a.status { text-decoration: none; }
-a.status:hover { text-decoration: underline; }
+:is(a.status, .show-all) { text-decoration: none; }
+:is(a.status, .show-all):hover { text-decoration: underline; }
 
 /* Tables */
 .table-wrap { overflow-x: auto; margin-block: 1rem 2rem; }
@@ -245,7 +245,7 @@ dialog .code { margin-bottom: 0; }
 .page-head hgroup { margin: 0; }
 .net { display: flex; flex-wrap: wrap; align-items: center; gap: 0 1rem; margin: 0; font-family: var(--mono); font-size: 0.9375rem; font-weight: 500; }
 .net .count { font-family: var(--sans); font-weight: 400; color: var(--muted); }
-.net .status { font-family: var(--sans); font-weight: 400; }
+.net :is(.status, .show-all) { font-family: var(--sans); font-weight: 400; }
 /* A statement's ⓘ: a ring with an i beside the count. On hover or focus (a tap on a phone) the debit and
    credit sums per currency hang under it in a flat callout ruled in ink. The ring's hit area is 44 px and
    reaches down to the callout, so the pointer keeps the hover on the way there. */
@@ -627,9 +627,13 @@ summary { cursor: pointer; font-weight: 600; }
 /* Diario: saldos y errores. The glyph of a balance, and the ■ of an error line, sit in the
    column of a transaction's ▸, so the words line up; the glyph is the color, the words ink. */
 .ledger > li.err { background: var(--error-line); }
-/* The status's link goes to the first unclassified row (#sin-clasificar); while it is the
-   :target, the list shows only the unclassified rows. Back, or the Movimientos tab, shows all. */
-.ledger:has(> li.fixme:target) > li:not(.fixme) { display: none; }
+/* "N sin clasificar" is a filter: its link targets the body (#sin-clasificar), so the page does
+   not scroll. While the body is the :target, the list shows only the unclassified rows, the
+   status is a pressed black block with its red ▲, and "Ver todos" shows next to it. */
+#sin-clasificar:target .ledger > li:not(.fixme), #sin-clasificar:not(:target) .net .show-all { display: none; }
+#sin-clasificar:target .net a.status { padding: 0.125rem 0.5rem; background: var(--ink); color: var(--bg); font-weight: 600; }
+#sin-clasificar:target .net a.status::before { color: var(--red); }
+.net .show-all { display: inline-flex; align-items: center; min-height: 2.75rem; }
 .ledger :is(.balance, summary) .status { color: var(--ink); font-weight: 400; }
 .ledger :is(.balance, summary) .status::before { display: inline-block; width: 1.1rem; margin: 0; color: var(--red); }
 .ledger .balance .status.ok::before { color: var(--credit); }

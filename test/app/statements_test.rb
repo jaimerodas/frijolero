@@ -527,7 +527,8 @@ class StatementsTest < Minitest::Test
     refute_includes last_response.body, '<dialog id="edit">'
   end
 
-  def test_the_missing_status_links_to_the_first_unclassified_row
+  # The filter is CSS on body:target: the body is the target, so the page does not scroll.
+  def test_the_missing_status_filters_the_list_and_offers_the_way_back
     write_statement('AMEX', '2508',
                     json: { 'transactions' => [] },
                     beancount: <<~BEAN)
@@ -544,18 +545,20 @@ class StatementsTest < Minitest::Test
 
     body = last_response.body
     assert_includes body, '<a class="status missing" href="/accounts/AMEX/2508#sin-clasificar">2 sin clasificar</a>'
+    assert_includes body, '<a class="show-all" href="/accounts/AMEX/2508">Ver todos</a>'
+    assert_includes body, '<body id="sin-clasificar">'
     assert_equal 1, body.scan('id="sin-clasificar"').size
-    assert_includes body, '<li class="fixme" id="sin-clasificar">'
-    assert_includes body, '<li class="fixme">'
   end
 
-  def test_no_link_when_everything_is_classified
+  def test_no_filter_when_everything_is_classified
     write_statement('AMEX', '2508', json: { 'transactions' => [] }, beancount: STATEMENT_TEXT)
 
     get '/accounts/AMEX/2508'
 
-    refute_includes last_response.body, '#sin-clasificar'
-    assert_includes last_response.body, '<span class="status received">Todo clasificado</span>'
+    body = last_response.body
+    refute_includes body, 'sin-clasificar'
+    refute_includes body, 'Ver todos'
+    assert_includes body, '<span class="status received">Todo clasificado</span>'
   end
 
   def test_non_default_pipeline_keeps_the_plain_status_span
@@ -569,7 +572,8 @@ class StatementsTest < Minitest::Test
 
     body = last_response.body
     assert_includes body, '<span class="status missing">1 sin clasificar</span>'
-    refute_includes body, '#sin-clasificar'
+    refute_includes body, 'sin-clasificar'
+    refute_includes body, 'Ver todos'
   end
 
   private
