@@ -151,6 +151,7 @@ Received links to the statement, missing to `/upload`, and failed to the newest 
 
 - `/accounts/<Key>` lists the PDFs of the account from the bucket. Each period between the oldest PDF and the newest closed period gets a row, so a gap shows as missing. A bucket error shows on the page, with status 502.
 - `/accounts/<Key>/config` edits only the block of the account in `accounts.yaml`. `AccountBlock` cuts the block by line range, so the comments in the rest of the file stay. The key cannot change.
+- At the bottom of `/accounts`, "Otros archivos beancount" links the main file and each file that it includes outside `accounts/` to its editor at `/files/<path>`. A file that nothing includes does not show, because rledger never reads it.
 - `/accounts/new` adds one account for the Default pipeline. `NewAccount` appends the block and an `open` line, unless a line already opens that account. The other pipelines need extra accounts, so they use `/accounts/yaml`, the editor for the whole file.
 
 ### Upload flow (`app/uploads.rb`)

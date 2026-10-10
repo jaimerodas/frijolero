@@ -123,6 +123,23 @@ class AccountsTest < Minitest::Test
     assert_includes last_response.body, '/accounts/yaml'
   end
 
+  def test_accounts_list_links_the_main_file_and_its_includes_outside_accounts
+    main = File.basename(Frijolero::Config.main_file)
+    File.write(Frijolero::Config.main_file, <<~BEANCOUNT)
+      include "prices.beancount"
+      include "accounts/AMEX/AMEX 2609.beancount"
+    BEANCOUNT
+    File.write(File.join(@dir, 'ignored.beancount'), '')
+
+    get '/accounts'
+
+    assert_includes last_response.body, 'Otros archivos beancount'
+    assert_includes last_response.body, %(href="/files/#{main}")
+    assert_includes last_response.body, 'href="/files/prices.beancount"'
+    refute_includes last_response.body, '/files/accounts/'
+    refute_includes last_response.body, 'ignored.beancount'
+  end
+
   def test_accounts_yaml_editor_shows_the_current_file
     get '/accounts/yaml'
 

@@ -8,6 +8,17 @@ module Frijolero
       def ledger_edit
         LedgerEdit.new(file: params[:file], line: params[:line], checker: self.class.reports)
       end
+
+      # The main file and its includes outside accounts/, whose files the statement
+      # pages already open. The main file is in the ledger's root, so its include
+      # paths are the paths /files/ takes. A file that nothing includes is left out.
+      def other_ledger_files
+        main = Config.main_file
+        return [] unless File.exist?(main)
+
+        includes = File.foreach(main).filter_map { |line| line[/^include\s+"([^"]+)"/, 1] }
+        [File.basename(main), *includes].reject { |file| file.start_with?('accounts/') }
+      end
     end
 
     # One transaction as text, by file and line, or the whole file without a

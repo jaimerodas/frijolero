@@ -45,6 +45,15 @@
 
     <p class="actions"><a class="button primary" href="/accounts/new">Nueva cuenta</a></p>
     <p><a href="/accounts/yaml">Editar el archivo completo</a></p>
+
+    <% unless (files = other_ledger_files).empty? %>
+      <h2>Otros archivos beancount</h2>
+      <ul class="files">
+        <% files.each do |file| %>
+          <li><a href="/files/<%= Rack::Utils.escape_path(file) %>"><code><%= h(file) %></code></a></li>
+        <% end %>
+      </ul>
+    <% end %>
   </main>
 </body>
 </html>
