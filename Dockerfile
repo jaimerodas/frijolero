@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Production image for Kamal. Ruby version pinned to .ruby-version.
-ARG RUBY_VERSION=4.0.6
+ARG RUBY_VERSION=4.0.7
 ARG RUSTLEDGER_VERSION=0.24.0
 FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 

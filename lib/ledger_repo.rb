@@ -32,7 +32,7 @@ module Frijolero
 
     # Pulls again between commit and push: the laptop may have pushed since the
     # job's first pull, and the editors never pull at all.
-    # rubocop:disable Naming/PredicateMethod -- name is part of the package's public API
+    # rubocop:disable-next Naming/PredicateMethod -- name is part of the package's public API
     def commit_and_push(message)
       git('add', '-A')
       return false unless staged_changes?
@@ -42,7 +42,6 @@ module Frijolero
       git('push') if remote?
       true
     end
-    # rubocop:enable Naming/PredicateMethod
 
     private
 

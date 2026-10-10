@@ -2,7 +2,7 @@
 
 ## Requisitos
 
-- Ruby 4.0.6, la versión de `.ruby-version`.
+- Ruby 4.0, en la versión exacta de `.ruby-version`.
 - git. La app lo usa para el ledger.
 - Una llave de OpenAI o de Anthropic, para clasificar y extraer.
 - rustledger, para los reportes y la revisión de errores.
