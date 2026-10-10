@@ -107,13 +107,13 @@ module Frijolero
 
     get '/reports/income' do
       rows = report_locals { |period| self.class.reports.income(period.from, period.to, mxn: mxn?) }
-      erb :report_income, locals: rows.merge(chart: sankey? && sankey_data(rows[:flat], rows[:period]))
+      erb :report_income, locals: rows.merge(chart: diagram? && sankey_data(rows[:flat], rows[:period]))
     end
 
     # A snapshot at the end of the period, or today while it is still running.
     get '/reports/balance' do
       rows = report_locals { |period| self.class.reports.balance([period.to, Date.today].min, mxn: mxn?) }
-      erb :report_balance, locals: rows
+      erb :report_balance, locals: rows.merge(chart: diagram? && icicle_data(rows[:flat], rows[:period]))
     end
 
     # One row per posting, behind the report figures. `account` reaches the

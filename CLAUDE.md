@@ -334,7 +334,10 @@ The journal of one account has four charts (`App::CHARTS`): Histograma, Saldo, S
 
 In MXN mode, a histogram bar and the journal page that it links to can differ by a few pesos. `CONVERT` prices each period at its own closing date.
 
-The income statement has a third tab, Diagrama (`?chart=sankey`). It is a Sankey of the MXN flows, from the income accounts to the expense accounts, plus the net result, so it always balances. A leaf with a negative net (a refund larger than the spend) moves to the other side. A subtree under 1 % of its side folds into "Otras". On phones, the tables show instead. `charts.js` measures the chart block on `load`, because a deferred script can run before the stylesheet lays out the page.
+Each report has a third tab, Diagrama, in MXN only (`App::DIAGRAMS`). It replaces the tables. `charts.js` measures the chart block on `load`, because a deferred script can run before the stylesheet lays out the page.
+
+- The income statement (`?chart=sankey`) shows a Sankey of the MXN flows, from the income accounts to the expense accounts, plus the net result, so it always balances. A leaf with a negative net (a refund larger than the spend) moves to the other side. A subtree under 1 % of its side folds into "Otras". On phones, the tables show instead.
+- The balance sheet (`?chart=icicle`) shows a zoomable icicle of the Assets, at the market value of the sheet. A click on a cell with children zooms in, a click on the first column zooms out, and a leaf links to its journal. Nothing folds, so the zoom can reach each small account. A negative or unpriced asset has no area and is left out, so a parent can be taller than its row in the table. It stays on phones, two columns wide.
 
 #### Errors (`app/errors.rb`)
 

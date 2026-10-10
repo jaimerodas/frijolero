@@ -979,7 +979,7 @@ class ReportsPageTest < Minitest::Test
     assert_match(%r{<form method="get" action="/journal" role="search">.*<select name="chart".*</form>}m, body)
   end
 
-  def test_income_offers_the_diagram_as_a_third_view_and_the_other_pages_do_not
+  def test_each_report_offers_its_own_diagram_as_a_third_view_and_the_journal_does_not
     get '/reports/income', period: '2025-05'
     body = last_response.body
 
@@ -988,9 +988,53 @@ class ReportsPageTest < Minitest::Test
     assert_includes body, '<a href="/reports/income?period=2025-05&amp;chart=sankey">Diagrama</a>'
 
     get '/reports/balance', period: '2025-05'
-    refute_includes last_response.body, 'Diagrama'
+    assert_includes last_response.body, '<nav class="tabs currency" aria-label="Vista">'
+    assert_includes last_response.body, '<a href="/reports/balance?period=2025-05&amp;chart=icicle">Diagrama</a>'
     get '/journal', period: '2025-05'
     refute_includes last_response.body, 'Diagrama'
+  end
+
+  def test_a_report_ignores_the_diagram_of_the_other
+    get '/reports/balance', period: '2026', chart: 'sankey'
+    refute_includes last_response.body, 'chart-data'
+    assert_includes last_response.body, '<a href="/reports/balance?period=2026" aria-current="true">MXN</a>'
+  end
+
+  # Market value in MXN, as on the sheet. A negative or unpriced asset has no area, and the
+  # other sections are not assets.
+  def test_icicle_replaces_the_tables_with_the_positive_mxn_assets
+    @reports.define_singleton_method(:balance) do |*|
+      { 'Assets:Bank' => { 'MXN' => BigDecimal('1100') }, 'Assets:Broker:AAPL' => { 'MXN' => BigDecimal('2500.5') },
+        'Assets:Overdrawn' => { 'MXN' => BigDecimal('-30') }, 'Assets:Unpriced' => { 'XYZ' => BigDecimal('4') },
+        'Liabilities:Card' => { 'MXN' => BigDecimal('-250') } }
+    end
+    get '/reports/balance', period: '2026', chart: 'icicle'
+    body = last_response.body
+
+    assert_includes body, '<script src="/d3.min.js" defer></script><script src="/charts.js" defer></script>'
+    assert_includes body, '<a href="/reports/balance?period=2026&amp;chart=icicle" aria-current="true">Diagrama</a>'
+    assert_includes body, '<a href="/reports/balance?period=2026">MXN</a>'
+    assert_includes body, '<script type="application/json" id="chart-data">{"chart":"icicle","period":"2026",' \
+                          '"rows":[{"account":"Assets:Bank","amount":1100.0},' \
+                          '{"account":"Assets:Broker:AAPL","amount":2500.5}]}</script>'
+    assert_match(%r{</div>\s*<section class="chart icicle" aria-label="Gráfica">}, body)
+    assert_includes body, '<div class="tables behind">'
+  end
+
+  def test_icicle_needs_mxn_and_assets
+    get '/reports/balance', period: '2026', chart: 'icicle', mxn: '0'
+    refute_includes last_response.body, 'chart-data'
+    refute_includes last_response.body, 'd3.min.js'
+    assert_includes last_response.body, '<div class="tables">'
+
+    @reports.define_singleton_method(:balance) { |*| { 'Liabilities:Card' => { 'MXN' => BigDecimal('-250') } } }
+    get '/reports/balance', period: '2026', chart: 'icicle'
+    refute_includes last_response.body, 'chart-data'
+    assert_includes last_response.body, '<div class="tables">'
+
+    @reports.error = 'rledger: boom'
+    get '/reports/balance', period: '2026', chart: 'icicle'
+    refute_includes last_response.body, 'chart-data'
   end
 
   def test_sankey_replaces_the_tables_with_the_mxn_flows_of_the_leaves

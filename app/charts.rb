@@ -7,6 +7,8 @@ module Frijolero
     # The menu of the journal of one account, in order. A report gets its own list.
     CHARTS = { 'history' => 'Histograma', 'balance' => 'Saldo', 'accounts' => 'Subcuentas',
                'payees' => 'Contrapartes' }.freeze
+    # Each report's diagram, the third view after its two currency tabs.
+    DIAGRAMS = { '/reports/income' => 'sankey', '/reports/balance' => 'icicle' }.freeze
 
     helpers do
       # Which charts the menu offers, or nil when there is no menu (no account, no
@@ -96,10 +98,11 @@ module Frijolero
     end
 
     helpers do
-      # The Sankey of the income statement: on its page, in MXN, when asked for.
-      def sankey?
-        request.path_info == '/reports/income' && mxn? && params[:chart] == 'sankey'
-      end
+      # The diagram of this report, or nil on any other page.
+      def report_diagram = DIAGRAMS[request.path_info]
+
+      # The report's own diagram: in MXN, when asked for.
+      def diagram? = mxn? && !report_diagram.nil? && params[:chart] == report_diagram
 
       # What charts.js draws: the leaves of Income and Expenses with their MXN
       # amount in the report sign, sorted by account. It builds the tree itself,
@@ -113,6 +116,17 @@ module Frijolero
           { account: account, amount: (account.start_with?('Income') ? -n : n).to_f }
         end
         { chart: 'sankey', period: period.param, rows: rows.sort_by { |row| row[:account] } } unless rows.empty?
+      end
+
+      # The icicle of the balance sheet: the Assets accounts with their MXN market value,
+      # sorted by account; charts.js builds the tree. A negative or unpriced asset has no
+      # area and is left out, so a parent can exceed its row in the table. Nil when nothing.
+      def icicle_data(flat, period)
+        rows = flat.filter_map do |account, amounts|
+          n = amounts['MXN']
+          { account: account, amount: n.to_f } if account.start_with?('Assets:') && n&.positive?
+        end
+        { chart: 'icicle', period: period.param, rows: rows.sort_by { |row| row[:account] } } unless rows.empty?
       end
     end
   end

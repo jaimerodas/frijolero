@@ -35,12 +35,12 @@
     <% if next_period %><a href="<%= h(path) %>?<%= h(report_query(next_period)) %>" aria-label="Siguiente">&rsaquo;</a><% else %><span aria-hidden="true">&rsaquo;</span><% end %>
     <% if covered %><span class="note">al <%= h(today.iso8601) %></span><% end %>
   </form>
-  <%# The income statement has a third view, the Sankey, so its tabs drop the chart and Diagrama sets it. %>
-  <% income = path == '/reports/income' %>
-  <nav class="tabs currency" aria-label="<%= income ? 'Vista' : 'Moneda' %>">
-    <a href="<%= h(path) %>?<%= h(report_query(period, mxn: true, chart: (params[:chart] unless income))) %>"<% if mxn? && !sankey? %> aria-current="true"<% end %>>MXN</a>
-    <a href="<%= h(path) %>?<%= h(report_query(period, mxn: false, chart: (params[:chart] unless income))) %>"<% unless mxn? %> aria-current="true"<% end %>>Por moneda</a>
-    <% if income %><a href="<%= h(path) %>?<%= h(report_query(period, mxn: true, chart: 'sankey')) %>"<% if sankey? %> aria-current="true"<% end %>>Diagrama</a><% end %>
+  <%# Each report has a third view, its diagram, so its tabs drop the chart and Diagrama sets it. %>
+  <% diagram = report_diagram %>
+  <nav class="tabs currency" aria-label="<%= diagram ? 'Vista' : 'Moneda' %>">
+    <a href="<%= h(path) %>?<%= h(report_query(period, mxn: true, chart: (params[:chart] unless diagram))) %>"<% if mxn? && !diagram? %> aria-current="true"<% end %>>MXN</a>
+    <a href="<%= h(path) %>?<%= h(report_query(period, mxn: false, chart: (params[:chart] unless diagram))) %>"<% unless mxn? %> aria-current="true"<% end %>>Por moneda</a>
+    <% if diagram %><a href="<%= h(path) %>?<%= h(report_query(period, mxn: true, chart: diagram)) %>"<% if diagram? %> aria-current="true"<% end %>>Diagrama</a><% end %>
   </nav>
 </div>
 <% if params[:pull] == 'ok' %>

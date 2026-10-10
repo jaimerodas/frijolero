@@ -328,8 +328,9 @@ dialog .code { margin-bottom: 0; }
 /* Labels reverse out on the two darkest steps of paper; on the dark ground only the top step takes black. */
 .chart .t1 .label { fill: var(--bg); }
 .chart .t2 .label { fill: light-dark(var(--bg), var(--ink)); }
-.chart a[href]:is(:hover, :focus-visible) :is(.bar, .tile) { fill: var(--blue); }
-.chart a[href]:is(:hover, :focus-visible) .label { fill: var(--on-blue); }
+.chart :is(a[href], [role="button"]):is(:hover, :focus-visible) :is(.bar, .tile) { fill: var(--blue); }
+.chart :is(a[href], [role="button"]):is(:hover, :focus-visible) .label { fill: var(--on-blue); }
+.chart [role="button"] { cursor: pointer; }
 .chart .balance { fill: none; stroke: var(--ink); stroke-width: 1.5px; }
 .chart .hover { fill: none; pointer-events: all; }
 .chart .domain, .chart .tick line, .chart .zero { stroke: var(--rule); }
@@ -343,7 +344,9 @@ dialog .code { margin-bottom: 0; }
    blue, expenses the debit orange, a gain green and a loss red; a flow is the tone of the node it feeds, at a tint.
    Blue is taken, so a hovered node turns ink, and its label, beside the node, blue rather than white. */
 .behind { display: none; }
-.chart.sankey { border-bottom: 0; padding-bottom: 0; }
+.chart:is(.sankey, .icicle) { border-bottom: 0; padding-bottom: 0; }
+/* A hidden label of a thin icicle cell runs over the cells below it; it must not catch their pointer. */
+.chart.icicle .label { pointer-events: none; }
 .chart .income { --tone: var(--blue); }
 .chart .expense { --tone: var(--debit); }
 .chart .gain { --tone: var(--credit); }
@@ -543,9 +546,9 @@ summary { cursor: pointer; font-weight: 600; }
   .page-head form { flex: 1; flex-wrap: wrap; }
   .page-head input[type="search"] { flex: 1; width: auto; min-width: 0; }
   .page-head select[name="chart"] { order: 1; flex-basis: 100%; }
-  /* No room for the Sankey: the tables show and the Diagrama tab goes. */
+  /* No room for the Sankey: the tables show and its Diagrama tab goes. The icicle fits, two columns wide. */
   .chart.sankey, .toolbar .currency a[href*="chart=sankey"] { display: none; }
-  .behind { display: block; }
+  .sankey + .behind { display: block; }
   /* Report rows: the name on the left, each amount with its currency on the right, one line each. */
   .report tr { display: grid; grid-template-columns: 1fr auto; column-gap: 1rem; align-items: baseline; }
   .report th[scope="row"] { grid-area: 1 / 1; font-weight: 400; }

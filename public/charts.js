@@ -1,9 +1,9 @@
-// The chart block of the journal and of the income statement. Ruby embeds the
+// The chart block of the journal and of the two reports. Ruby embeds the
 // chart's name and its rows in #chart-data: for the journal, the period and the
 // matched postings (date, currency, amount in the report sign, account, payee);
-// for the Sankey, the period as a param and the leaves of Income and Expenses.
-// d3 does the rest. Dates are plain days: utcParse and the utc intervals keep
-// them as written.
+// for the Sankey, the period as a param and the leaves of Income and Expenses;
+// for the icicle, the period as a param and the Assets accounts. d3 does the
+// rest. Dates are plain days: utcParse and the utc intervals keep them as written.
 const block = document.getElementById('chart-data');
 const data = JSON.parse(block.textContent);
 const section = block.parentElement;
@@ -51,6 +51,12 @@ function showTip(event, when, value, currency, count) {
   tip.style('left', `${Math.min(Math.max(px, half), section.clientWidth - half)}px`).style('top', `${py}px`);
 }
 const hideTip = () => tip.attr('hidden', true);
+
+// Four steps of tone by the square root of a share, like a grey scale; style.css
+// sets the colour of each step and of its label.
+const step = (share) => { const r = Math.sqrt(share); return r >= 0.75 ? 1 : r >= 0.5 ? 2 : r >= 0.25 ? 3 : 4; };
+// The height of a chart that fills the viewport under its own top.
+const fill = () => Math.max(320, window.innerHeight - section.getBoundingClientRect().top - window.scrollY - 40);
 
 function figure(currency, h = height) {
   const fig = d3.select(section).append('figure');
@@ -205,13 +211,11 @@ function tree(group) {
     const root = d3.treemap().size([width, height]).padding(1)(
       d3.hierarchy({ children: kept }).sum((d) => d.value).sort((a, b) => b.value - a.value));
     const label = (d) => d.data.name || none;
-    // Four steps of tone by the square root of the share of the largest tile, like a
-    // grey scale; style.css sets the colour of each step and of its label.
+    // The tone is the share of the largest tile.
     const largest = root.leaves()[0].value;
-    const step = (d) => { const r = Math.sqrt(d.value / largest); return r >= 0.75 ? 1 : r >= 0.5 ? 2 : r >= 0.25 ? 3 : 4; };
 
     const tile = figure(currency).selectAll('a').data(root.leaves()).join('a')
-      .attr('class', (d) => `t${step(d)}`)
+      .attr('class', (d) => `t${step(d.value / largest)}`)
       .attr('href', (d) => (d.data.name && !d.data.other ? href(d.data.name) : null))
       .attr('aria-label', (d) => `${label(d)}: ${money(d.value, currency)}`)
       .on('pointerenter pointermove', (event, d) => showTip(event, label(d), d.value, currency, d.data.count))
@@ -237,8 +241,7 @@ function tree(group) {
 // parent, which links nowhere. A node is d3-sankey's max(in, out): a parent with
 // postings of its own shows the gap unlinked.
 function sankey() {
-  // It fills the viewport under its own top.
-  const height = Math.max(320, window.innerHeight - section.getBoundingClientRect().top - window.scrollY - 40);
+  const height = fill();
   const leaves = data.rows.map((r) => ({ parts: r.account.split(':'), income: r.account.startsWith('Income') !== (r.amount < 0), value: Math.abs(r.amount) }));
   const side = (leaf) => (leaf.income ? 'in' : 'out');
   const income = d3.sum(leaves, (l) => (l.income ? l.value : 0));
@@ -312,9 +315,69 @@ function sankey() {
     .text((d) => `${d.label} ${short(d.value)}`);
 }
 
+// The icicle of the balance sheet: the Assets accounts in MXN, one column per depth,
+// each cell as tall as its value, biggest first. A cell with children zooms in on a
+// click (or Enter) and fills the height; the focus, in the first column, zooms back
+// out to its parent. A leaf links to the journal of its account. About 160 px per
+// column, at least two. An account with a balance of its own and children is taller
+// than its children by that much. The tone is the cell's share of its parent.
+function icicle() {
+  const height = fill();
+  const root = d3.stratify().path((r) => r.account.replaceAll(':', '/'))(data.rows)
+    .sum((d) => d?.amount ?? 0).sort((a, b) => b.value - a.value);
+  const columns = Math.min(root.height + 1, Math.max(2, Math.floor(width / 160)));
+  const column = width / columns;
+  // d3.partition's x is the cell's vertical span here and y its horizontal one, as in d3's example.
+  d3.partition().size([height, (root.height + 1) * column])(root);
+  const name = (d) => d.id.slice(1).replaceAll('/', ':');
+  const label = (d) => (d.parent ? d.id.slice(d.id.lastIndexOf('/') + 1) : 'Activos');
+  const svg = figure('MXN', height);
+  const cell = svg.selectAll('a').data(root.descendants()).join('a')
+    .attr('class', (d) => `t${step(d.parent ? d.value / d.parent.value : 1)}`)
+    .attr('href', (d) => (d.children ? null : `/journal?account=${encodeURIComponent(name(d))}&period=${encodeURIComponent(data.period)}`))
+    .attr('role', (d) => (d.children ? 'button' : null))
+    .attr('aria-label', (d) => `${name(d)}: ${money(d.value, 'MXN')}`)
+    .on('click', (_, d) => d.children && zoom(d))
+    .on('keydown', (event, d) => {
+      if (!d.children || (event.key !== 'Enter' && event.key !== ' ')) return;
+      event.preventDefault();
+      zoom(d);
+    })
+    .on('pointerenter pointermove', (event, d) => showTip(event, name(d), d.value, 'MXN'))
+    .on('pointerleave', hideTip);
+  const rect = cell.append('rect').attr('class', 'tile').attr('width', (d) => d.y1 - d.y0);
+  // The name and the amount, each only where it fits the column: about 7.5 px per mono character.
+  const line = (row, text) => cell.filter((d) => text(d).length * 7.5 + 8 <= column)
+    .append('text').attr('class', 'label').attr('x', 4).attr('y', row * 14).text(text);
+  const lines = [[1, line(1, label)], [2, line(2, (d) => money(d.value, 'MXN'))]];
+
+  let focus;
+  const motion = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 750;
+  // `p` fills the height from the first column. A cell off the columns takes no Tab,
+  // and a line shows only where the cell is tall enough for it.
+  function show(p, duration) {
+    focus = p;
+    root.each((d) => {
+      d.to = { top: ((d.x0 - p.x0) / (p.x1 - p.x0)) * height, bottom: ((d.x1 - p.x0) / (p.x1 - p.x0)) * height, left: d.y0 - p.y0 };
+    });
+    const t = svg.transition().duration(duration);
+    const seen = (d) => d.to.left >= 0 && d.to.left < width && d.to.bottom > 0 && d.to.top < height;
+    cell.attr('tabindex', (d) => (seen(d) ? 0 : -1))
+      .transition(t).attr('transform', (d) => `translate(${d.to.left},${d.to.top})`);
+    rect.transition(t).attr('height', (d) => d.to.bottom - d.to.top);
+    for (const [row, text] of lines) text.transition(t).attr('opacity', (d) => +(seen(d) && d.to.bottom - d.to.top > row * 14 + 6));
+  }
+  function zoom(d) {
+    const p = d === focus ? d.parent : d;
+    if (p) show(p, motion);
+  }
+  show(root, 0);
+}
+
 // Drawn once the stylesheet is in, so the block's width is the laid-out one, not the unstyled page.
 function draw() {
   width = section.clientWidth;
-  if (data.chart === 'sankey') sankey(); else if (data.chart === 'history') history(); else if (data.chart === 'balance') balance(); else tree(data.chart);
+  const charts = { sankey, icicle, history, balance };
+  (charts[data.chart] ?? tree)(data.chart);
 }
 if (document.readyState === 'complete') draw(); else window.addEventListener('load', draw);
