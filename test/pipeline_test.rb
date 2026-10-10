@@ -252,6 +252,36 @@ class PipelineTest < Minitest::Test
     assert_equal 'movements[0] lacks settlement_date or trade_date', error.message
   end
 
+  def test_cetes_directo_validate_accepts_a_statement_that_reconciles
+    assert_valid Frijolero::Pipeline::CetesDirecto.new({}), cetes_fixture
+  end
+
+  # The converter has no entry for it, and a dropped row breaks the balances.
+  def test_cetes_directo_validate_rejects_a_movement_it_cannot_convert
+    data = cetes_fixture
+    data['movements'][4].merge!('movement_type' => 'other', 'description_code' => 'VENTA')
+
+    error = assert_raises(Frijolero::Pipeline::InvalidData) { Frijolero::Pipeline::CetesDirecto.new({}).validate!(data) }
+    assert_equal "movements[4] is 'other' (VENTA), which the converter does not handle", error.message
+  end
+
+  def test_cetes_directo_validate_rejects_titles_that_do_not_reach_the_closing_holdings
+    data = cetes_fixture
+    data['movements'][2]['titles'] = 158
+
+    error = assert_raises(Frijolero::Pipeline::InvalidData) { Frijolero::Pipeline::CetesDirecto.new({}).validate!(data) }
+    assert_equal 'the movements leave BONDDIA-PF2 at 5,788 titles, not at the 5,815 of the closing holdings',
+                 error.message
+  end
+
+  def test_cetes_directo_validate_rejects_movements_that_do_not_reach_saldo_final
+    data = cetes_fixture
+    data['movements'][3]['cash_inflow'] = 10_081.02
+
+    error = assert_raises(Frijolero::Pipeline::InvalidData) { Frijolero::Pipeline::CetesDirecto.new({}).validate!(data) }
+    assert_equal 'the movements take the cash from 0.5 to 71.02, not to the Saldo final of 8.02', error.message
+  end
+
   def test_fintual_validate_accepts_a_transaction
     assert_valid Frijolero::Pipeline::Fintual.new({}),
                  'transactions' => [{ 'trade_date' => '2025-08-03', 'transaction_type' => 'buy',
@@ -290,6 +320,10 @@ class PipelineTest < Minitest::Test
   def assert_valid(pipeline, data)
     pipeline.validate!(data)
     pass "#{pipeline.class} accepted the payload"
+  end
+
+  def cetes_fixture
+    JSON.parse(File.read(fixture_path('sample_cetes_directo.json')))
   end
 
   def alpaca_row(entry_type)

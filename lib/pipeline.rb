@@ -141,15 +141,24 @@ module Frijolero
     end
 
     class CetesDirecto < Base
-      # The converter dispatches on movement_type (an unknown one is dropped without
-      # a sound) and dates each posting with settlement_date, falling back to
-      # trade_date. The cash columns go through to_f, and a row legitimately carries
-      # only the one of them that applies.
+      include Converters::Amounts
+
+      # The converter dispatches on movement_type and dates each posting with
+      # settlement_date, falling back to trade_date. A row carries only the cash
+      # column that applies.
+      #
+      # It also asserts the cash and every holding, so a bad read would only show as
+      # a failed balance after the commit. These checks repeat the statement's own
+      # reconciliation first, while the PDF is still there for a retry.
       REQUIRED = ['movement_type', %w[settlement_date trade_date]].freeze
+      HANDLED = Converters::CetesDirecto::KINDS.keys + [Converters::CetesDirecto::TAX]
 
       def validate!(data)
         super
         validate_rows!(data, 'movements', REQUIRED)
+        validate_types!(data['movements'])
+        validate_titles!(data)
+        validate_cash!(data)
       end
 
       def summary(data)
@@ -164,6 +173,54 @@ module Frijolero
           output: output,
           targets: Converters::AccountTargets.from_config(@account_config)
         )
+      end
+
+      private
+
+      def validate_types!(rows)
+        rows.each_with_index do |row, index|
+          next if HANDLED.include?(row['movement_type'])
+
+          raise InvalidData, "movements[#{index}] is '#{row['movement_type']}' (#{row['description_code']}), " \
+                             'which the converter does not handle'
+        end
+      end
+
+      # Each security goes from its opening titles to its closing titles.
+      def validate_titles!(data)
+        reached = reached_titles(data)
+        closing = titles(data['closing_holdings'])
+        symbol = (reached.keys | closing.keys).find { |key| reached[key] != closing[key] }
+        return unless symbol
+
+        raise InvalidData, "the movements leave #{symbol} at #{number(reached[symbol])} titles, " \
+                           "not at the #{number(closing[symbol])} of the closing holdings"
+      end
+
+      def titles(holdings)
+        (holdings || []).each_with_object(Hash.new(0)) do |holding, totals|
+          totals[Converters::CetesDirecto.symbol(holding)] = to_d(holding['titles'])
+        end
+      end
+
+      # The titles of each security after the movements, from the opening holdings.
+      def reached_titles(data)
+        data['movements'].each_with_object(titles(data['opening_holdings'])) do |row, totals|
+          sign = Converters::CetesDirecto::TITLES[row['movement_type']]
+          totals[Converters::CetesDirecto.symbol(row)] += sign * to_d(row['titles']) if sign
+        end
+      end
+
+      # The rows take the cash from "Saldo inicial" to "Saldo final".
+      def validate_cash!(data)
+        start, finish = data['raw_checks'].to_h.values_at('opening_cash_ledger_balance', 'closing_cash_ledger_balance')
+        return if start.nil? || finish.nil?
+
+        reached = data['movements'].sum(to_d(start)) { |row| Converters::CetesDirecto.cash(row) }
+        return if reached == to_d(finish)
+
+        raise InvalidData, "the movements take the cash from #{start} to #{number(reached)}, " \
+                           "not to the Saldo final of #{finish}"
       end
     end
 

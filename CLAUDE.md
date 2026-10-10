@@ -263,6 +263,20 @@ The account autocomplete lists `LedgerAccounts.active`: the `open` lines minus t
 
 Every amount goes through `BigDecimal`, because a float residue such as `-5.55e-17` breaks Beancount. `Amounts` writes thousands with commas (`-15,596.89 MXN`). Beancount accepts them, and `Beancount::Transaction` removes them when it reads an amount back. `BeancountMerger` adds an `include` line, relative to the directory of the main file.
 
+### CetesDirecto
+
+The CetesDirecto pipeline keeps lots. Each security has a FIFO sub-account and a commodity of the same name (`<account>:CETES-280412`). The cash is in `<account>:Cash`, and the BBVA rule for NAFIN transfers points there. Each month ends with a price for each holding and a balance on the cash and on each holding, so a wrong row fails the check instead of hiding in a plug.
+
+These behaviors are on purpose:
+
+- A coupon row (PAGINTCU) prints `PESOS PESOS`. The ISR row with the same folio names the bond, so the converter joins the rows of one folio into one transaction.
+- A maturity (AMORTIZACION) sells the lots at the amount paid, and the difference with cost goes to `interest_account`. The statement counts it the same way, so the interest of a year equals "Intereses acumulados del ejercicio".
+- A BONDDIA sale (VTASI) books its difference with cost to `gains_account`. The income statement shows only realized income. A change in market value shows on the balance sheet, as "Ganancias no realizadas".
+- "Total de efectivo" and "Saldo final" can differ by one centavo, and the next statement starts from "Total de efectivo". A "Redondeo" entry closes the gap.
+- `validate!` repeats the reconciliation of the statement: each row has a known type, the movements take each security from its opening titles to its closing titles, and they take the cash from "Saldo inicial" to "Saldo final". A failure stops the job while the PDF is still there for a retry.
+- The converter writes the Cetes side of a transfer, and the BBVA statement has the other side. The person deletes one. If both stay, the cash balance of that month fails.
+- The first statement of an account needs an opening entry with the lots, because the opening table prints no cost. Until December 2025, "Precio ponderado" of a coupon bond included accrued interest. From January 2026, it is the purchase cost.
+
 ### Alpaca
 
 The Alpaca pipeline reads the statements of the custodian, never the advisor PDF. `Alpaca::Entry` joins the four tables of the statement into one stream. Its sort keeps the printed order, because a reversal and the rows of a corporate action must stay together. `Alpaca::CorporateAction` handles splits and spinoffs, which keep the cost basis. The removed total wins, because Alpaca rounds the price on the added side. The sign of `quantity` separates removals from additions.

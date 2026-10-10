@@ -88,6 +88,9 @@ Metrics/AbcSize:
 # handler method, plus shared helpers. ~102 lines; splitting per-handler
 # files would be more navigation than understanding.
 #
+# Converters::CetesDirecto is the same shape: one small writer per movement kind,
+# plus the month end (prices, balances, opens and closes). ~115 lines.
+#
 # Converters::Alpaca is the largest class in the app: 41 methods over ~380 lines
 # of file. Measured, not estimated. It is one job (convert an Alpaca statement)
 # expressed as many small writers -- every method passes Metrics/MethodLength,
@@ -111,6 +114,7 @@ Metrics/ClassLength:
   Exclude:
     - 'test/**/*'
     - 'lib/converters/fintual.rb'
+    - 'lib/converters/cetes_directo.rb'
     - 'lib/converters/alpaca.rb'
     # App: routes are a table; each handler is a few lines. uploads.rb reopens App
     # for the upload and the Bandeja.

@@ -1,0 +1,22 @@
+;; The accounts and opening lots that the output of sample_cetes_directo.json
+;; assumes. cetes_directo_beancount_test.rb puts this in front of the output, so
+;; rustledger checks the month end to end. CETES 270225 is bought during the
+;; month, so the converter opens it itself.
+
+2026-01-31 open Assets:Investments:CETESDirecto:Cash MXN
+2026-01-31 open Assets:Investments:CETESDirecto:BONDDIA-PF2 BONDDIA-PF2 "FIFO"
+2026-01-31 open Assets:Investments:CETESDirecto:BPAG28-280504 BPAG28-280504 "FIFO"
+2026-01-31 open Assets:Investments:CETESDirecto:CETES-260226 CETES-260226 "FIFO"
+2026-01-31 open Assets:BBVA MXN
+2026-01-31 open Income:Interest MXN
+2026-01-31 open Income:Gains:CetesDirecto MXN
+2026-01-31 open Expenses:Taxes:ISR MXN
+2026-01-31 open Equity:Opening-Balances
+
+2026-01-31 * "Saldo inicial"
+  Assets:Investments:CETESDirecto:BONDDIA-PF2  10000 BONDDIA-PF2 {2.25 MXN}
+  Assets:Investments:CETESDirecto:BPAG28-280504  100 BPAG28-280504 {99.5 MXN}
+  Assets:Investments:CETESDirecto:CETES-260226  1000 CETES-260226 {9.735 MXN}
+  Assets:Investments:CETESDirecto:Cash  0.50 MXN
+  Equity:Opening-Balances
+

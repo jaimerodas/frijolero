@@ -193,6 +193,25 @@ ledger, que tiene la copia viva. Un prompt para un banco en particular es un
 directorio más en `config/prompts/` del ledger. La forma de cuenta nueva
 ofrece esos directorios.
 
+## Las cuentas de CETES Directo
+
+El pipeline `cetes_directo` lleva cada instrumento en su propia subcuenta, con
+`"FIFO"`: `Assets:Investments:CetesDirecto:CETES-280412`. El efectivo está en
+`<cuenta>:Cash`. Declara esa cuenta en `account_opens.beancount`. El pipeline
+abre y cierra las cuentas de los instrumentos.
+
+- Un vencimiento registra como interés la diferencia contra el costo, igual
+  que el estado de cuenta. Así, el interés de un año en el ledger es el
+  "Intereses acumulados del ejercicio" del estado.
+- El estado de resultados muestra solo lo realizado: cupones, vencimientos y
+  ventas de BONDDIA. El cambio del valor de mercado aparece en el balance
+  general, en "Ganancias no realizadas".
+- La app escribe su lado de cada transferencia al banco, y el estado del banco
+  tiene el otro lado. Borra uno. Si quedan los dos, falla el saldo de
+  efectivo del mes.
+- El primer estado de cuenta necesita una entrada de apertura con los títulos
+  y su costo, porque la tabla de apertura no imprime el costo.
+
 ## Las cuentas de Alpaca
 
 El pipeline `alpaca` lee los estados de cuenta mensuales de Alpaca, la casa de
