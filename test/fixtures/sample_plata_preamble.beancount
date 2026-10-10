@@ -1,6 +1,6 @@
 ;; Account declarations and opening positions that sample_plata.json's output
-;; assumes. Prepended to the converter's output in plata_beancount_test.rb so a
-;; real Beancount parser can check the generated ledger end to end.
+;; assumes. Prepended to the converter's output in alpaca_beancount_test.rb so
+;; rustledger can check the generated ledger end to end.
 ;;
 ;; Commodity accounts use FIFO because the converter emits `{}` reductions, which
 ;; are ambiguous under the default STRICT booking once a ticker has two lots.

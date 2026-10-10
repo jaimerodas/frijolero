@@ -1,42 +1,33 @@
 # frozen_string_literal: true
 
 require 'test_helper'
-require 'English'
 
-# The unit tests assert on strings. This one hands the generated ledger to a real
-# Beancount parser, which is the only thing that can tell us the output is valid --
-# several past defects (a reduction against a nonexistent 0.00 lot, share counts
-# rendered in scientific notation) produced text that looked plausible and failed
-# to load.
+# The unit tests assert on strings. This one hands the generated ledger to
+# rustledger, the checker the app runs, which is the only thing that can tell us
+# the output is valid -- several past defects (a reduction against a nonexistent
+# 0.00 lot, share counts rendered in scientific notation) produced text that looked
+# plausible and failed to load.
 #
 # It also proves more than parseability: the converter's own closing `balance`
-# directives are checked by beancount against the postings it emitted, so a split
-# that loses basis or a dropped movement fails here rather than in fava months later.
+# directives are checked against the postings it emitted, so a split that loses
+# basis or a dropped movement fails here rather than in the reports months later.
 #
-# Skips when no checker is installed, so the suite stays runnable without one.
+# Skips when rustledger is not installed.
 class AlpacaBeancountTest < Minitest::Test
   include TestHelpers
 
-  CHECKER = 'bean-check'
-
   def test_generated_ledger_loads_without_errors
-    skip "#{CHECKER} not installed" unless checker_available?
-
     with_temp_dir do |dir|
       path = File.join(dir, 'ledger.beancount')
       File.write(path, preamble + generated)
 
-      output = `#{CHECKER} #{path} 2>&1`
+      output, status = rledger('check', '--no-cache', path)
 
-      assert_predicate $CHILD_STATUS, :success?, "#{CHECKER} rejected the ledger:\n#{output}"
+      assert_predicate status, :success?, "rledger rejected the ledger:\n#{output}"
     end
   end
 
   private
-
-  def checker_available?
-    system("command -v #{CHECKER} > /dev/null 2>&1")
-  end
 
   def preamble
     File.read(fixture_path('sample_plata_preamble.beancount'), encoding: 'UTF-8')

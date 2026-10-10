@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'test_helper'
-require 'English'
 
 # The unit tests assert on strings. This one hands a converted month to rustledger,
 # the checker the app runs. rustledger checks the converter's own balance
@@ -33,18 +32,11 @@ class CetesDirectoBeancountTest < Minitest::Test
   private
 
   def with_ledger
-    skip 'rledger not installed' unless system("command -v #{Frijolero::Config.rledger} > /dev/null 2>&1")
-
     with_temp_dir do |dir|
       path = File.join(dir, 'ledger.beancount')
       File.write(path, File.read(fixture_path('sample_cetes_directo_preamble.beancount')) + generated)
       yield path
     end
-  end
-
-  def rledger(*args)
-    output = IO.popen([Frijolero::Config.rledger, *args], err: %i[child out], &:read)
-    [output, $CHILD_STATUS]
   end
 
   def generated

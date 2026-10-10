@@ -7,6 +7,7 @@ ENV['RACK_ENV'] = 'test'
 require_relative '../app/app'
 require 'minitest/autorun'
 require 'minitest/mock'
+require 'English'
 require 'fileutils'
 require 'tmpdir'
 module TestHelpers
@@ -23,6 +24,14 @@ module TestHelpers
 
   def with_temp_dir(&)
     Dir.mktmpdir(&)
+  end
+
+  # Runs rustledger, the checker the app runs, and returns its output and status.
+  # Skips the test when rustledger is not installed.
+  def rledger(*args)
+    skip 'rledger not installed' unless system("command -v #{Frijolero::Config.rledger} > /dev/null 2>&1")
+
+    [IO.popen([Frijolero::Config.rledger, *args], err: %i[child out], &:read), $CHILD_STATUS]
   end
 
   # Points LEDGER_DIR at a fresh temp dir with config/ inside; restores ENV after.
