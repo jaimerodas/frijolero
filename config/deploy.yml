@@ -10,7 +10,7 @@ servers:
     hosts:
       - 146.190.35.4 # maia
     options:
-      memory: 128m # ~45 MB RSS idle plus a ~21 MB rledger child per report; an overrun is a visible restart
+      memory: 256m # 35-42 MiB after a boot, ~100 MiB after two weeks (Ruby keeps its heap), plus a ~21 MB rledger child per report
 
 proxy:
   ssl: true
