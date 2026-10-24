@@ -19,9 +19,8 @@ module Frijolero
 
     def extract(pdf_path, spec)
       data = @transport.post_json('/messages', request_body(spec, pdf_path))
-      unless data['stop_reason'] == 'end_turn'
-        raise LLM::APIError, "Response stopped early (#{data['stop_reason']}): #{data['stop_details'] || data['usage']}"
-      end
+      record_usage(spec, data['usage'] || {})
+      check_stop(data)
 
       text = data['content']&.find { |c| c['type'] == 'text' }&.fetch('text', nil)
       raise LLM::APIError, "Failed to extract transactions: #{data}" unless text
@@ -42,6 +41,21 @@ module Frijolero
       body['output_config'] = (body['output_config'] || {}).merge('format' => format)
       body['messages'] = [{ role: 'user', content: [document(pdf_path)] }]
       body
+    end
+
+    def check_stop(data)
+      return if data['stop_reason'] == 'end_turn'
+
+      raise LLM::APIError, "Response stopped early (#{data['stop_reason']}): #{data['stop_details'] || data['usage']}"
+    end
+
+    # Before the stop_reason check: those tokens are paid too. Anthropic's input_tokens
+    # leaves the cache out, but Usage counts cached tokens as part of the input.
+    def record_usage(spec, usage)
+      cached = usage['cache_read_input_tokens'] || 0
+      input = (usage['input_tokens'] || 0) + cached + (usage['cache_creation_input_tokens'] || 0)
+      Usage.record(prompt: spec['_prompt'], model: spec['model'], input_tokens: input, cached_tokens: cached,
+                   output_tokens: usage['output_tokens'] || 0)
     end
 
     def document(pdf_path)

@@ -22,10 +22,7 @@ class StatementsTest < Minitest::Test
   end
 
   def setup
-    @dir = Dir.mktmpdir
-    @previous_ledger_dir = ENV.fetch('LEDGER_DIR', nil)
-    ENV['LEDGER_DIR'] = @dir
-    FileUtils.mkdir_p(File.join(@dir, 'config'))
+    @dir = enter_test_ledger
     write_accounts_yaml
     File.write(File.join(@dir, 'main.beancount'), '')
 
@@ -34,9 +31,8 @@ class StatementsTest < Minitest::Test
   end
 
   def teardown
-    restore_env('LEDGER_DIR', @previous_ledger_dir)
+    leave_test_ledger
     Frijolero::App.repo = nil
-    FileUtils.remove_entry(@dir)
   end
 
   def app
@@ -601,13 +597,5 @@ class StatementsTest < Minitest::Test
     rules_dir = File.join(@dir, 'config', 'rules')
     FileUtils.mkdir_p(rules_dir)
     File.write(File.join(rules_dir, "#{account}.yaml"), YAML.dump(rules))
-  end
-
-  def restore_env(key, previous_value)
-    if previous_value.nil?
-      ENV.delete(key)
-    else
-      ENV[key] = previous_value
-    end
   end
 end

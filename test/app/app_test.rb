@@ -14,13 +14,13 @@ class AppTest < Minitest::Test
   def setup
     @previous_app_password = ENV.fetch('APP_PASSWORD', nil)
     ENV['APP_PASSWORD'] = 'secret'
-    @dir = Dir.mktmpdir
-    @previous_ledger_dir = ENV.fetch('LEDGER_DIR', nil)
-    ENV['LEDGER_DIR'] = @dir
-    FileUtils.mkdir_p(File.join(@dir, 'config'))
+    # A ledger in the database, as config.ru expects, but not current on this thread:
+    # each request gets it from OnlyLedger.
+    @dir = enter_db_ledger
+    Frijolero::Ledger.current = nil
 
-    # config.ru calls App.jobs at load time; set it first so the ||= keeps this
-    # instance (no start, so no worker thread spins up under the tests).
+    # config.ru calls App.jobs at load time; set it first so it keeps this instance
+    # (no start, so no worker thread spins up under the tests).
     Frijolero::App.jobs = Frijolero::Jobs.new(log_path: File.join(@dir, 'jobs.jsonl'))
     Frijolero::App.inbox = Frijolero::Inbox.new(File.join(@dir, 'incoming'))
     Frijolero::App.inbox_worker = Frijolero::Inbox::Worker.new(Frijolero::App.inbox) { {} }
@@ -28,11 +28,10 @@ class AppTest < Minitest::Test
 
   def teardown
     restore_env('APP_PASSWORD', @previous_app_password)
-    restore_env('LEDGER_DIR', @previous_ledger_dir)
+    leave_test_ledger
     Frijolero::App.jobs = nil
     Frijolero::App.inbox = nil
     Frijolero::App.inbox_worker = nil
-    FileUtils.remove_entry(@dir)
   end
 
   def app
@@ -59,6 +58,17 @@ class AppTest < Minitest::Test
     assert_equal 200, last_response.status
     assert_includes last_response.body, 'name="password"'
     assert_includes last_response.body, '<h1 class="wordmark">Frijolero</h1>'
+  end
+
+  # OnlyLedger lends the ledger to one request. Puma reuses its threads, so the next
+  # request on this thread must not find the last one's ledger.
+  def test_a_request_has_the_ledger_and_leaves_none_on_its_thread
+    File.write(File.join(@dir, 'main.beancount'), %(option "title" "Casa"\n))
+
+    get '/login'
+
+    assert_includes last_response.body, '<h1 class="wordmark">Casa</h1>', 'the page read the ledger'
+    assert_raises(Frijolero::NoLedger) { Frijolero::Ledger.current }
   end
 
   def test_login_page_wordmark_is_the_ledger_title

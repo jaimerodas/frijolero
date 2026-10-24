@@ -38,10 +38,7 @@ class AccountsTest < Minitest::Test
   end
 
   def setup
-    @dir = Dir.mktmpdir
-    @previous_ledger_dir = ENV.fetch('LEDGER_DIR', nil)
-    ENV['LEDGER_DIR'] = @dir
-    FileUtils.mkdir_p(File.join(@dir, 'config'))
+    @dir = enter_test_ledger
     File.write(File.join(@dir, 'config', 'accounts.yaml'), <<~YAML)
       # Account Configuration
       # maps keys to accounts
@@ -69,10 +66,9 @@ class AccountsTest < Minitest::Test
   end
 
   def teardown
-    restore_env('LEDGER_DIR', @previous_ledger_dir)
+    leave_test_ledger
     Frijolero::App.repo = nil
     Frijolero::App.s3 = nil
-    FileUtils.remove_entry(@dir)
   end
 
   def app
@@ -355,8 +351,6 @@ class AccountsTest < Minitest::Test
   # --- New account form ---
 
   def test_new_account_form_lists_the_prompt_types_except_classify
-    make_prompt_types('default', 'bbva', 'classify')
-
     get '/accounts/new'
 
     assert_equal 200, last_response.status
@@ -505,14 +499,12 @@ class AccountsTest < Minitest::Test
   end
 
   def test_creating_an_account_with_an_unknown_prompt_type_is_rejected
-    post '/accounts/new', new_account_params(openai_prompt_type: 'plata')
+    post '/accounts/new', new_account_params(openai_prompt_type: 'nope')
 
     assert_rejected 'Tipo de prompt desconocido'
   end
 
   def test_new_account_form_puts_default_first_and_explains_it
-    make_prompt_types('alpaca', 'default', 'multi')
-
     get '/accounts/new'
 
     assert_match(/<option value="default" selected>.*<option value="alpaca">/m, last_response.body)
@@ -520,7 +512,6 @@ class AccountsTest < Minitest::Test
   end
 
   def test_new_account_form_offers_the_ledgers_asset_and_liability_accounts
-    make_prompt_types('default')
     File.write(File.join(@dir, 'main.beancount'), <<~BEAN)
       2020-01-01 open Assets:Banco:Nomina
       2020-01-01 open Liabilities:TDC:Banorte
@@ -535,24 +526,9 @@ class AccountsTest < Minitest::Test
     refute_includes last_response.body, 'Expenses:Comida'
   end
 
-  def test_new_account_form_without_prompts_points_to_the_docs
-    get '/accounts/new'
-
-    assert_equal 200, last_response.status
-    assert_includes last_response.body, 'config/prompts'
-    assert_includes last_response.body, 'bin/new-ledger'
-    assert_includes last_response.body, 'docs/setup.md'
-    assert_includes last_response.body, '<button type="submit" class="primary" disabled>'
-  end
-
   private
 
-  def make_prompt_types(*types)
-    types.each { |type| FileUtils.mkdir_p(File.join(@dir, 'config', 'prompts', type)) }
-  end
-
   def new_account_params(**overrides)
-    make_prompt_types('default', 'bbva')
     { key: 'HSBC', description: 'Cuenta HSBC', beancount_account: 'Assets:HSBC', openai_prompt_type: 'default',
       cutoff_day: '15', opened_on: '2026-09-01' }.merge(overrides)
   end
@@ -563,13 +539,5 @@ class AccountsTest < Minitest::Test
     refute Frijolero::Config.accounts.key?('HSBC')
     refute File.exist?(File.join(@dir, 'main.beancount'))
     assert_empty @repo.messages
-  end
-
-  def restore_env(key, previous_value)
-    if previous_value.nil?
-      ENV.delete(key)
-    else
-      ENV[key] = previous_value
-    end
   end
 end

@@ -21,10 +21,7 @@ class EditorsTest < Minitest::Test
   end
 
   def setup
-    @dir = Dir.mktmpdir
-    @previous_ledger_dir = ENV.fetch('LEDGER_DIR', nil)
-    ENV['LEDGER_DIR'] = @dir
-    FileUtils.mkdir_p(File.join(@dir, 'config'))
+    @dir = enter_test_ledger
     File.write(File.join(@dir, 'config', 'accounts.yaml'), <<~YAML)
       AMEX:
         beancount_account: "Liabilities:Amex"
@@ -40,9 +37,8 @@ class EditorsTest < Minitest::Test
   end
 
   def teardown
-    restore_env('LEDGER_DIR', @previous_ledger_dir)
+    leave_test_ledger
     Frijolero::App.repo = nil
-    FileUtils.remove_entry(@dir)
   end
 
   def app
@@ -265,13 +261,5 @@ class EditorsTest < Minitest::Test
 
   def rules_path(account)
     Frijolero::Config.rules_path(account)
-  end
-
-  def restore_env(key, previous_value)
-    if previous_value.nil?
-      ENV.delete(key)
-    else
-      ENV[key] = previous_value
-    end
   end
 end

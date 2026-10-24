@@ -1,12 +1,16 @@
 # frozen_string_literal: true
 
 module Frijolero
-  # Plain-line output for the pipeline. The web app points `sink` at a job log.
+  # Plain-line output for the pipeline. A job points `sink` at its own log. The sink is
+  # per thread, so two jobs at once, or a request during a job, never write into a
+  # job that is not theirs.
   module Log
-    @sink = $stdout
-
     class << self
-      attr_accessor :sink
+      def sink = Thread.current[:frijolero_log_sink] || $stdout
+
+      def sink=(io)
+        Thread.current[:frijolero_log_sink] = io
+      end
 
       def puts(msg = '')
         sink.puts(msg)

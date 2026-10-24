@@ -34,7 +34,7 @@ module Frijolero
         raise InvalidData, 'the response is not a JSON object' unless data.is_a?(Hash)
       end
 
-      # The extraction request, as loaded from config/prompts. A strategy may shape it.
+      # The extraction request, as loaded from prompts/. A strategy may shape it.
       def request_spec(spec)
         spec
       end

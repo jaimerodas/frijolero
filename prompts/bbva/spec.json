@@ -1,0 +1,8 @@
+{
+  "model": "gpt-5.6-sol",
+  "format": {
+    "type": "json_schema",
+    "name": "transaction_list",
+    "strict": true
+  }
+}

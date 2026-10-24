@@ -15,11 +15,8 @@ class NavTest < Minitest::Test
   def app = Frijolero::App
 
   def setup
-    @dir = Dir.mktmpdir
-    @previous_ledger_dir = ENV.fetch('LEDGER_DIR', nil)
-    ENV['LEDGER_DIR'] = @dir
+    @dir = enter_test_ledger
     FileUtils.mkdir_p(File.join(@dir, 'config', 'rules'))
-    FileUtils.mkdir_p(File.join(@dir, 'config', 'prompts', 'default'))
     File.write(File.join(@dir, 'config', 'accounts.yaml'), "AMEX:\n  beancount_account: \"Liabilities:Amex\"\n")
     File.write(File.join(@dir, 'config', 'rules', 'AMEX.yaml'), "start_with: {}\n")
     beancount = Frijolero::Config.statement_path('AMEX', '2608', 'beancount')
@@ -31,11 +28,10 @@ class NavTest < Minitest::Test
   end
 
   def teardown
-    @previous_ledger_dir ? ENV['LEDGER_DIR'] = @previous_ledger_dir : ENV.delete('LEDGER_DIR')
+    leave_test_ledger
     Frijolero::App.s3 = nil
     Frijolero::App.jobs = nil
     Frijolero::App.inbox = nil
-    FileUtils.remove_entry(@dir)
   end
 
   SECTIONS = %w[/ /upload /inbox /jobs /accounts /accounts/new /accounts/AMEX /accounts/AMEX/2608

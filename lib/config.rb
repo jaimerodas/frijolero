@@ -3,16 +3,21 @@
 require 'yaml'
 
 module Frijolero
+  # The paths and settings of the current ledger (Ledger.current), and the few that are
+  # global. Without a current ledger, a ledger path raises NoLedger.
   class Config
     class << self
-      def ledger_dir
-        ENV.fetch('LEDGER_DIR') { raise 'LEDGER_DIR is not set' }
+      # The volume: the database, and ledgers/<id>/ for each ledger.
+      def data_dir
+        ENV.fetch('DATA_DIR') { raise 'DATA_DIR is not set' }
       end
+
+      def ledger_dir = Ledger.current.repo_dir
 
       # The one file the app knows by name: it appends the includes (and, without a
       # separate opens file, the opens) to it, and the reports read it.
       def main_file
-        File.join(ledger_dir, ENV.fetch('LEDGER_MAIN_FILE', 'main.beancount'))
+        File.join(ledger_dir, Ledger.current.main_file)
       end
 
       def config_dir
@@ -44,9 +49,9 @@ module Frijolero
         File.join(config_dir, 'rules')
       end
 
-      def prompts_dir
-        File.join(config_dir, 'prompts')
-      end
+      # The prompts belong to the app, not to a ledger: the app pays for the model, so it
+      # picks the models, and an improved prompt reaches every ledger.
+      def prompts_dir = File.expand_path('../prompts', __dir__)
 
       def rules_path(account_key)
         return nil unless account_key
@@ -67,11 +72,9 @@ module Frijolero
       # The S3 bucket mirrors the ledger's own layout, so one key formula serves both
       # the upload and the signed download. Spaces stay literal here; percent-encoding
       # is the signer's job (S3#host_and_path).
-      # The bucket is shared with other apps, so every key lives under frijolero/.
-      S3_PREFIX = 'frijolero'
-
+      # The bucket is shared with other apps, so every ledger's pdf_prefix is under frijolero/.
       def pdf_prefix(account_key)
-        "#{S3_PREFIX}/accounts/#{account_key}/"
+        "#{Ledger.current.pdf_prefix}/accounts/#{account_key}/"
       end
 
       def pdf_key(account_key, period)
@@ -86,22 +89,12 @@ module Frijolero
         YAML.load_file(accounts_file) || {}
       end
 
-      def data_dir
-        File.dirname(ledger_dir)
-      end
+      def jobs_file = File.join(Ledger.current.dir, 'jobs.jsonl')
 
-      def jobs_file
-        File.join(data_dir, 'jobs.jsonl')
-      end
-
-      def incoming_dir
-        File.join(data_dir, 'incoming')
-      end
+      def incoming_dir = File.join(Ledger.current.dir, 'incoming')
 
       # The PDFs when S3 is not set (LocalPdfs).
-      def pdfs_dir
-        File.join(data_dir, 'pdfs')
-      end
+      def pdfs_dir = File.join(Ledger.current.dir, 'pdfs')
 
       # Seconds to wait for one extraction: OpenAI's poll deadline (background
       # responses are kept for about 10 minutes) and Anthropic's read timeout.

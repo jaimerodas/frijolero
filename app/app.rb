@@ -13,17 +13,28 @@ module Frijolero
 
     JOB_STATUS = { 'queued' => 'en cola', 'running' => 'corriendo', 'ok' => 'listo', 'failed' => 'falló' }.freeze
 
+    PER_LEDGER_LOCK = Mutex.new
+
     class << self
+      # A test sets a collaborator with its writer, and that one then serves every ledger.
       attr_writer :jobs, :client, :s3, :repo, :reports, :inbox, :inbox_worker
 
-      def jobs = @jobs ||= Jobs.new(log_path: Config.jobs_file).tap(&:start)
+      # The job log and worker of the current ledger. The job body sets its own ledger.
+      def jobs = @jobs || per_ledger(:jobs) { Jobs.new(log_path: Config.jobs_file).tap(&:start) }
       # Only the disk: a page that reads the Bandeja starts no thread.
-      def inbox = @inbox ||= Inbox.new(Config.incoming_dir)
-      def inbox_worker = @inbox_worker ||= Inbox::Worker.new(inbox) { |pdf| classify(pdf) }.tap(&:start)
+      def inbox = @inbox || Inbox.new(Config.incoming_dir)
+
+      def inbox_worker
+        @inbox_worker || per_ledger(:inbox_worker) do |ledger|
+          Inbox::Worker.new(inbox) { |pdf| Ledger.with(ledger) { classify(pdf) } }.tap(&:start)
+        end
+      end
+
       def client = @client ||= LLM.client
-      # Any S3 variable set means S3; from_env then names the missing ones. None means disk.
-      def s3 = @s3 ||= (S3::ENV_KEYS.any? { |k| ENV.key?(k) } ? S3.from_env : LocalPdfs.new(Config.pdfs_dir))
-      def repo = @repo ||= LedgerRepo.new(dir: Config.ledger_dir)
+      # Any S3 variable set means S3; from_env then names the missing ones. None means
+      # disk, in the directory of the ledger. The keys carry the ledger's pdf_prefix.
+      def s3 = @s3 || (S3::ENV_KEYS.any? { |k| ENV.key?(k) } ? S3.from_env : LocalPdfs.new(Config.pdfs_dir))
+      def repo = @repo || LedgerRepo.new(dir: Config.ledger_dir)
       def reports = @reports ||= Reports
 
       # The answer that the Bandeja keeps for one PDF.
@@ -31,6 +42,16 @@ module Frijolero
         Classifier.new(client: client).classify(pdf).to_h
       rescue Classifier::NoClient
         { error: "Falta #{LLM.key_var}" }
+      end
+
+      private
+
+      # One of each per ledger, built once, because it holds a thread or a log in memory.
+      # ponytail: two threads per ledger (its jobs and its Bandeja), which also runs the
+      # jobs of one ledger in order; a shared pool if ledgers ever number in the hundreds.
+      def per_ledger(name)
+        ledger = Ledger.current
+        PER_LEDGER_LOCK.synchronize { (@per_ledger ||= {})[[name, ledger.dir]] ||= yield(ledger) }
       end
     end
 

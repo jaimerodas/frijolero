@@ -74,10 +74,7 @@ class UploadsTest < Minitest::Test
   end
 
   def setup
-    @dir = Dir.mktmpdir
-    @previous_ledger_dir = ENV.fetch('LEDGER_DIR', nil)
-    ENV['LEDGER_DIR'] = @dir
-    FileUtils.mkdir_p(File.join(@dir, 'config'))
+    @dir = enter_test_ledger
     File.write(File.join(@dir, 'config', 'accounts.yaml'), <<~YAML)
       AMEX:
         beancount_account: "Liabilities:Amex"
@@ -88,10 +85,6 @@ class UploadsTest < Minitest::Test
         beancount_account: "Assets:CETES"
         converter_type: cetes_directo
     YAML
-    FileUtils.mkdir_p(File.join(@dir, 'config', 'prompts'))
-    FileUtils.cp_r(fixture_path('prompts/default'), File.join(@dir, 'config', 'prompts', 'default'))
-    FileUtils.cp_r(template_path('prompts/classify'),
-                   File.join(@dir, 'config', 'prompts', 'classify'))
     File.write(File.join(@dir, 'main.beancount'), '')
 
     Frijolero::App.jobs = Frijolero::Jobs.new(log_path: File.join(@dir, 'jobs.jsonl'))
@@ -110,7 +103,7 @@ class UploadsTest < Minitest::Test
   end
 
   def teardown
-    restore_env('LEDGER_DIR', @previous_ledger_dir)
+    leave_test_ledger
     Frijolero::App.jobs = nil
     Frijolero::App.inbox = nil
     Frijolero::App.inbox_worker = nil
@@ -118,7 +111,6 @@ class UploadsTest < Minitest::Test
     Frijolero::App.s3 = nil
     Frijolero::App.repo = nil
     Frijolero::Log.sink = $stdout
-    FileUtils.remove_entry(@dir)
   end
 
   def app
@@ -765,13 +757,5 @@ class UploadsTest < Minitest::Test
     path = File.join(@dir, "upload-#{rand(1_000_000)}-#{filename}")
     File.write(path, "%PDF-1.4\n")
     Rack::Test::UploadedFile.new(path, 'application/pdf', original_filename: name || filename)
-  end
-
-  def restore_env(key, previous_value)
-    if previous_value.nil?
-      ENV.delete(key)
-    else
-      ENV[key] = previous_value
-    end
   end
 end

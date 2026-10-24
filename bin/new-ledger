@@ -1,8 +1,9 @@
 #!/bin/sh
 # Crea un ledger para Frijolero, o prepara uno que ya existe. Agrega lo que
-# falte: config/accounts.yaml, config/rules/, config/prompts/, accounts/ y, si
-# el directorio no tiene ningún .beancount, main.beancount. Nunca toca un
-# archivo que ya está. Hace git init si hace falta y un commit con lo agregado.
+# falte: config/accounts.yaml, config/rules/, accounts/ y, si el directorio no
+# tiene ningún .beancount, main.beancount. Nunca toca un archivo que ya está.
+# Hace git init si hace falta y un commit con lo agregado. Los prompts son de la
+# app (prompts/), no del ledger.
 #
 # Uso: bin/new-ledger <directorio>
 set -e
@@ -24,17 +25,6 @@ main=$(cd "$dir" && ls -- *.beancount 2>/dev/null | head -1)
 # One file at a time: `cp -n` exits 1 on macOS when it skips a file.
 (cd "$templates/ledger" && find . -type f ! -name main.beancount) | while read -r file; do
   [ -e "$dir/$file" ] || { mkdir -p "$dir/$(dirname "$file")"; cp "$templates/ledger/$file" "$dir/$file"; }
-done
-mkdir -p "$dir/config/prompts"
-for type in "$templates"/prompts/*/; do
-  type=$(basename "$type")
-  [ -d "$dir/config/prompts/$type" ] && continue
-  cp -R "$templates/prompts/$type" "$dir/config/prompts/$type"
-  # The templates name OpenAI models; with Anthropic as the provider, swap them.
-  if [ "$LLM_PROVIDER" = anthropic ]; then
-    sed -i.bak 's/"gpt-5.4-mini"/"claude-haiku-4-5"/; s/"gpt-5.6-sol"/"claude-opus-5"/' "$dir/config/prompts/$type/spec.json"
-    rm "$dir/config/prompts/$type/spec.json.bak"
-  fi
 done
 
 [ -d "$dir/.git" ] || git -C "$dir" init -q -b main

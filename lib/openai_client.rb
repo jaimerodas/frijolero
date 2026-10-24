@@ -18,6 +18,7 @@ module Frijolero
 
     def extract(pdf_path, spec)
       data = poll_response(@transport.post_json('/responses', request_body(spec, pdf_path))['id'])
+      record_usage(spec, data)
       text = response_text(data)
       raise LLM::APIError, "Failed to extract transactions: #{data}" unless text
 
@@ -41,6 +42,16 @@ module Frijolero
     def input_file(pdf_path)
       { type: 'input_file', filename: File.basename(pdf_path),
         file_data: "data:application/pdf;base64,#{LLM.pdf_base64(pdf_path)}" }
+    end
+
+    # Before the text is parsed: the call is paid even if the parsing fails.
+    def record_usage(spec, data)
+      usage = data['usage']
+      Log.puts 'Warning: the response has no usage; recording zeros' unless usage
+      usage ||= {}
+      Usage.record(prompt: spec['_prompt'], model: spec['model'], input_tokens: usage['input_tokens'] || 0,
+                   cached_tokens: usage.dig('input_tokens_details', 'cached_tokens') || 0,
+                   output_tokens: usage['output_tokens'] || 0)
     end
 
     def response_text(data)

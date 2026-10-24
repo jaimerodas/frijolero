@@ -28,7 +28,7 @@ class ReportsTest < Minitest::Test
       Dir.mktmpdir do |links|
         link = File.join(links, 'ledger')
         File.symlink(dir, link)
-        ENV['LEDGER_DIR'] = link
+        Frijolero::Ledger.current = Frijolero::Ledger.current.with(repo_dir: link)
         yield File.realpath(dir)
       end
     end

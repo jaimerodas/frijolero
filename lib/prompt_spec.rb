@@ -23,6 +23,7 @@ module Frijolero
       spec = spec_metadata
       spec['instructions'] = read('instructions.txt')
       spec['format'] = merge_schema(spec['format'], read('schema.json'))
+      spec['_prompt'] = File.basename(dir) # for the usage record; `_` keys never reach the API
       spec
     end
 

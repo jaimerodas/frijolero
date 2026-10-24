@@ -34,7 +34,6 @@ module TestHelpers
     [IO.popen([Frijolero::Config.rledger, *args], err: %i[child out], &:read), $CHILD_STATUS]
   end
 
-  # Points LEDGER_DIR at a fresh temp dir with config/ inside; restores ENV after.
   # Runs the block with `values` in ENV (nil unsets) and puts the old values back.
   def with_env(values)
     old = ENV.to_h.slice(*values.keys)
@@ -49,17 +48,53 @@ module TestHelpers
 
   def s3_env = Frijolero::S3::ENV_KEYS.to_h { |k| [k, 'x'] }
 
-  def with_ledger_dir
-    Dir.mktmpdir do |dir|
-      old = ENV.to_h.slice('LEDGER_DIR', 'LEDGER_MAIN_FILE')
-      ENV['LEDGER_DIR'] = dir
-      ENV.delete('LEDGER_MAIN_FILE')
-      FileUtils.mkdir_p(File.join(dir, 'config'))
-      yield dir
-    ensure
-      ENV.delete('LEDGER_DIR')
-      ENV.delete('LEDGER_MAIN_FILE')
-      ENV.merge!(old)
-    end
+  # A fresh DATA_DIR with one ledger, `test`, as the current ledger of this thread, the
+  # way a request or a job has one. Returns its repo directory, with config/ inside.
+  # leave_test_ledger undoes it. The ledger has no row: with_db_ledger is for the
+  # tests that need the database.
+  def enter_test_ledger(main_file: 'main.beancount')
+    @test_ledger_before = [Thread.current[:frijolero_ledger], ENV.fetch('DATA_DIR', nil)]
+    @test_data_dir = Dir.mktmpdir
+    ENV['DATA_DIR'] = @test_data_dir
+    dir = File.join(@test_data_dir, 'ledgers', 'test')
+    Frijolero::Ledger.current = Frijolero::Ledger.new(id: 'test', owner_id: 1, main_file: main_file,
+                                                      pdf_prefix: 'frijolero', dir: dir,
+                                                      repo_dir: File.join(dir, 'repo'))
+    FileUtils.mkdir_p(File.join(dir, 'repo', 'config'))
+    File.join(dir, 'repo')
+  end
+
+  def leave_test_ledger
+    FileUtils.rm_rf(@test_data_dir)
+    ledger, data_dir = @test_ledger_before
+    Frijolero::Ledger.current = ledger
+    data_dir ? ENV['DATA_DIR'] = data_dir : ENV.delete('DATA_DIR')
+  end
+
+  def with_ledger_dir(**)
+    dir = enter_test_ledger(**)
+    yield dir
+  ensure
+    leave_test_ledger
+  end
+
+  # enter_test_ledger, plus the owner (user 1, an admin) and the ledger as rows of a
+  # fresh database. leave_test_ledger undoes it.
+  def enter_db_ledger(main_file: 'main.beancount')
+    dir = enter_test_ledger(main_file: main_file)
+    now = Time.now.utc.iso8601
+    owner = Frijolero::DB.insert("INSERT INTO users (email, role, status, created_at) VALUES (?, 'admin', 'active', ?)",
+                                 'admin@example.com', now)
+    Frijolero::DB.execute('INSERT INTO ledgers (id, owner_id, name, main_file, pdf_prefix, created_at) ' \
+                          "VALUES ('test', ?, 'Prueba', ?, 'frijolero', ?)", owner, main_file, now)
+    Frijolero::Ledger.current = Frijolero::Ledger.find('test')
+    dir
+  end
+
+  def with_db_ledger(**)
+    dir = enter_db_ledger(**)
+    yield dir
+  ensure
+    leave_test_ledger
   end
 end

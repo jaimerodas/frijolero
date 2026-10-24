@@ -231,7 +231,10 @@ def mxn(cents) = format('%.2f', cents / 100.0)
 ledger = File.join(DIR, 'ledger')
 git_env = ENV.keys.grep(/\AGIT_/).to_h { |k| [k, nil] }
 system(git_env, File.expand_path('new-ledger', __dir__), ledger, out: File::NULL, exception: true)
-ENV['LEDGER_DIR'] = ledger
+# The single-user layout, with the job log and the PDFs next to the ledger: bin/dev
+# adopts it into DATA_DIR/ledgers/ on its first boot.
+Frijolero::Ledger.current = Frijolero::Ledger.new(id: 'demo', owner_id: 1, main_file: 'main.beancount',
+                                                  pdf_prefix: 'frijolero', dir: DIR, repo_dir: ledger)
 
 today = Date.today
 last_month = Date.new(today.year, today.month, 1).prev_month
@@ -308,7 +311,6 @@ failed = jobs.last.merge(id: SecureRandom.hex(8), status: 'failed', error: 'Runt
                          output: "Extracted transactions: rate limited by OpenAI (429)\n" \
                                  "✗ ERROR processing #{jobs.last[:label]}.pdf")
 jobs.insert(-2, failed)
-FileUtils.mkdir_p(Config.data_dir)
 File.write(Config.jobs_file, "#{jobs.map { JSON.generate(it) }.join("\n")}\n")
 
 errors = Frijolero::Reports.check

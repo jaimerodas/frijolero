@@ -85,19 +85,15 @@ class ErrorsPageTest < Minitest::Test
   def app = Frijolero::App
 
   def setup
-    @dir = Dir.mktmpdir
-    @previous_ledger_dir = ENV.fetch('LEDGER_DIR', nil)
-    ENV['LEDGER_DIR'] = @dir
-    FileUtils.mkdir_p(File.join(@dir, 'config'))
+    @dir = enter_test_ledger
     File.write(File.join(@dir, 'main.beancount'), "2026-01-01 open Assets:BBVA\n")
     @reports = LedgerErrorsTest::CountingReports.new
     Frijolero::App.reports = @reports
   end
 
   def teardown
-    @previous_ledger_dir ? ENV['LEDGER_DIR'] = @previous_ledger_dir : ENV.delete('LEDGER_DIR')
+    leave_test_ledger
     Frijolero::App.reports = nil
-    FileUtils.remove_entry(@dir)
   end
 
   def test_badge_shows_the_count_and_links_to_errors
@@ -219,10 +215,7 @@ class ReadModeErrorsTest < Minitest::Test
   def app = Frijolero::App
 
   def setup
-    @dir = Dir.mktmpdir
-    @previous_ledger_dir = ENV.fetch('LEDGER_DIR', nil)
-    ENV['LEDGER_DIR'] = @dir
-    FileUtils.mkdir_p(File.join(@dir, 'config'))
+    @dir = enter_test_ledger
     File.write(File.join(@dir, 'config', 'accounts.yaml'), "AMEX:\n  beancount_account: \"Liabilities:Amex\"\n")
     File.write(File.join(@dir, 'main.beancount'), '')
     @reports = LedgerErrorsTest::CountingReports.new
@@ -230,9 +223,8 @@ class ReadModeErrorsTest < Minitest::Test
   end
 
   def teardown
-    @previous_ledger_dir ? ENV['LEDGER_DIR'] = @previous_ledger_dir : ENV.delete('LEDGER_DIR')
+    leave_test_ledger
     Frijolero::App.reports = nil
-    FileUtils.remove_entry(@dir)
   end
 
   def write_statement(account, period, beancount)

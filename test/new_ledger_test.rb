@@ -7,8 +7,7 @@ class NewLedgerTest < Minitest::Test
   include TestHelpers
 
   SCRIPT = File.expand_path('../bin/new-ledger', __dir__)
-  FILES = %w[main.beancount config/accounts.yaml config/prompts/default/spec.json
-             config/prompts/classify/schema.json config/rules/.gitkeep accounts/.gitkeep .gitignore].freeze
+  FILES = %w[main.beancount config/accounts.yaml config/rules/.gitkeep accounts/.gitkeep .gitignore].freeze
 
   def test_creates_the_files_and_a_first_commit
     with_temp_dir do |tmp|
@@ -17,7 +16,7 @@ class NewLedgerTest < Minitest::Test
 
       assert_predicate status, :success?, err
       FILES.each { |file| assert_path_exists File.join(dir, file) }
-      assert_equal %w[alpaca classify default multi], Dir.children(File.join(dir, 'config', 'prompts')).sort
+      refute_path_exists File.join(dir, 'config', 'prompts'), 'the prompts belong to the app'
       assert_equal %w[accounts config main.beancount], Dir.children(dir).sort - ['.git', '.gitignore']
       log, = Open3.capture2(scrubbed_env, 'git', '-C', dir, 'log', '--oneline')
       assert_equal 1, log.lines.size
@@ -26,14 +25,10 @@ class NewLedgerTest < Minitest::Test
   end
 
   def test_the_app_reads_the_new_ledger_as_empty
-    with_temp_dir do |tmp|
-      dir = File.join(tmp, 'ledger')
+    with_ledger_dir do |dir|
       Open3.capture3(scrubbed_env, SCRIPT, dir)
 
-      ENV['LEDGER_DIR'] = dir
       assert_empty Frijolero::Config.accounts
-    ensure
-      ENV.delete('LEDGER_DIR')
     end
   end
 
@@ -45,7 +40,6 @@ class NewLedgerTest < Minitest::Test
 
       assert_predicate status, :success?, err
       assert_path_exists File.join(tmp, 'config', 'accounts.yaml')
-      assert_path_exists File.join(tmp, 'config', 'prompts', 'default', 'spec.json')
       refute_path_exists File.join(tmp, 'main.beancount'), 'the ledger has its own main file'
       assert_equal "2020-01-01 open Assets:Banco\n", File.read(File.join(tmp, 'ledger.beancount'))
       log, = Open3.capture2(scrubbed_env, 'git', '-C', tmp, 'log', '--oneline')
@@ -56,9 +50,9 @@ class NewLedgerTest < Minitest::Test
 
   def test_adopting_keeps_the_existing_files_and_commits_on_top
     with_temp_dir do |tmp|
-      spec = File.join(tmp, 'config', 'prompts', 'default', 'spec.json')
-      FileUtils.mkdir_p(File.dirname(spec))
-      File.write(spec, '{"model": "mine"}')
+      accounts = File.join(tmp, 'config', 'accounts.yaml')
+      FileUtils.mkdir_p(File.dirname(accounts))
+      File.write(accounts, "AMEX:\n  beancount_account: Liabilities:AMEX\n")
       Open3.capture3(scrubbed_env, 'git', '-C', tmp, 'init', '-q')
       Open3.capture3(scrubbed_env, 'git', '-C', tmp, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit',
                      '-q', '--allow-empty', '-m', 'viejo')
@@ -66,8 +60,8 @@ class NewLedgerTest < Minitest::Test
       _out, err, status = Open3.capture3(scrubbed_env, SCRIPT, tmp)
 
       assert_predicate status, :success?, err
-      assert_equal '{"model": "mine"}', File.read(spec)
-      assert_path_exists File.join(tmp, 'config', 'prompts', 'classify', 'spec.json')
+      assert_equal "AMEX:\n  beancount_account: Liabilities:AMEX\n", File.read(accounts)
+      assert_path_exists File.join(tmp, 'config', 'rules', '.gitkeep')
       log, = Open3.capture2(scrubbed_env, 'git', '-C', tmp, 'log', '--oneline')
       assert_equal 2, log.lines.size
       assert_match(/Frijolero/, log.lines.first)

@@ -12,11 +12,14 @@ module Frijolero
       # again only when a `.beancount` file of the ledger changed, came or went:
       # on the real ledger the scan is 146 files in 3 ms, the check 46 ms and a
       # 20 MB child. Two threads may both run it once; the answer is the same.
+      # One cached answer per ledger.
       def ledger_errors
         stamp = ledger_stamp
-        key = [reports, Config.ledger_dir, stamp]
-        @ledger_errors = [key, checked_errors] unless stamp && @ledger_errors&.first == key
-        @ledger_errors.last
+        key = [reports, stamp]
+        cache = (@ledger_errors ||= {})
+        entry = cache[Config.ledger_dir]
+        entry = cache[Config.ledger_dir] = [key, checked_errors] unless stamp && entry&.first == key
+        entry.last
       end
 
       private

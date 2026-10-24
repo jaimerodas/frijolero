@@ -21,22 +21,25 @@ class AnthropicClientTest < Minitest::Test
   end
 
   DONE = { 'stop_reason' => 'end_turn', 'content' => [{ 'type' => 'text', 'text' => '{"transactions":[]}' }] }.freeze
-  SPEC = { '_comment' => 'note', 'model' => 'claude-test', 'instructions' => 'Extract the transactions.',
+  SPEC = { '_comment' => 'note', '_prompt' => 'default', 'model' => 'claude-test',
+           'instructions' => 'Extract the transactions.',
            'format' => { 'type' => 'json_schema', 'name' => 'transactions', 'strict' => true,
                          'schema' => { 'type' => 'object', 'additionalProperties' => false } } }.freeze
 
   def extract(response, spec = SPEC)
     transport = FakeTransport.new(response)
-    Tempfile.create(['statement', '.pdf']) do |f|
-      f.write('%PDF-1.4')
-      f.flush
-      result = Frijolero::AnthropicClient.new('k', transport: transport).extract(f.path, spec)
-      [result, transport.calls.first]
+    with_db_ledger do
+      Tempfile.create(['statement', '.pdf']) do |f|
+        f.write('%PDF-1.4')
+        f.flush
+        result = Frijolero::AnthropicClient.new('k', transport: transport).extract(f.path, spec)
+        [result, transport.calls.first, Frijolero::DB.execute('SELECT * FROM usage')]
+      end
     end
   end
 
   def test_extract_builds_a_messages_request_with_the_pdf_inline_and_the_schema
-    result, (path, body) = extract(DONE)
+    result, (path, body), = extract(DONE)
 
     assert_equal({ 'transactions' => [] }, result)
     assert_equal '/messages', path
@@ -58,7 +61,7 @@ class AnthropicClientTest < Minitest::Test
     spec = SPEC.merge('max_tokens' => 4000, 'thinking' => { 'type' => 'adaptive' },
                       'output_config' => { 'effort' => 'low' })
 
-    _, (_, body) = extract(DONE, spec)
+    _, (_, body), = extract(DONE, spec)
 
     assert_equal 4000, body['max_tokens']
     assert_equal({ 'type' => 'adaptive' }, body['thinking'])
@@ -95,5 +98,33 @@ class AnthropicClientTest < Minitest::Test
     error = assert_raises(Frijolero::LLM::APIError) { extract({ 'stop_reason' => 'end_turn', 'content' => [] }) }
 
     assert_includes error.message, 'Failed to extract'
+  end
+
+  # Anthropic leaves the cache out of input_tokens: 100 + 30 read + 20 written = 150 in all.
+  def test_a_completed_call_records_its_usage_with_the_cache_counted_in_the_input
+    usage = { 'input_tokens' => 100, 'cache_read_input_tokens' => 30, 'cache_creation_input_tokens' => 20,
+              'output_tokens' => 7 }
+
+    _, _, rows = extract(DONE.merge('usage' => usage))
+
+    assert_equal([['default', 'claude-test', 150, 30, 7, 0]],
+                 rows.map do |r|
+                   r.values_at('prompt', 'model', 'input_tokens', 'cached_tokens', 'output_tokens', 'cost_micros')
+                 end)
+  end
+
+  def test_the_usage_is_recorded_even_when_the_answer_is_cut_short
+    response = { 'stop_reason' => 'max_tokens', 'content' => [],
+                 'usage' => { 'input_tokens' => 5, 'output_tokens' => 9 } }
+    rows = nil
+    with_db_ledger do
+      Tempfile.create(['statement', '.pdf']) do |f|
+        client = Frijolero::AnthropicClient.new('k', transport: FakeTransport.new(response))
+        assert_raises(Frijolero::LLM::APIError) { client.extract(f.path, SPEC) }
+        rows = Frijolero::DB.execute('SELECT input_tokens, output_tokens FROM usage')
+      end
+    end
+
+    assert_equal [{ 'input_tokens' => 5, 'output_tokens' => 9 }], rows
   end
 end

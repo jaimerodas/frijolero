@@ -1,0 +1,255 @@
+{
+  "name": "alpaca_statement_v1",
+  "strict": true,
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "schema_version": { "type": "string" },
+      "provider": { "type": ["string", "null"] },
+      "custodian": { "type": ["string", "null"] },
+      "account_number": { "type": ["string", "null"] },
+      "account_holder": { "type": ["string", "null"] },
+      "statement_period": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "month_label": { "type": ["string", "null"] },
+          "start_date": { "type": ["string", "null"] },
+          "end_date": { "type": ["string", "null"] }
+        },
+        "required": ["month_label", "start_date", "end_date"]
+      },
+      "currency": { "type": "string" },
+      "cash_summary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "beginning_balance": { "type": ["string", "null"] },
+          "addition": { "type": ["string", "null"] },
+          "subtraction": { "type": ["string", "null"] },
+          "trade_transaction": { "type": ["string", "null"] },
+          "cost_and_fees": { "type": ["string", "null"] },
+          "ending_value": { "type": ["string", "null"] }
+        },
+        "required": [
+          "beginning_balance",
+          "addition",
+          "subtraction",
+          "trade_transaction",
+          "cost_and_fees",
+          "ending_value"
+        ]
+      },
+      "account_summary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "long": { "type": ["string", "null"] },
+          "short": { "type": ["string", "null"] },
+          "options": { "type": ["string", "null"] },
+          "fixed_income": { "type": ["string", "null"] },
+          "total_market_value": { "type": ["string", "null"] }
+        },
+        "required": ["long", "short", "options", "fixed_income", "total_market_value"]
+      },
+      "income_summary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "dividend": { "type": ["string", "null"] },
+          "interest": { "type": ["string", "null"] }
+        },
+        "required": ["dividend", "interest"]
+      },
+      "realized_gain_loss": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "short_term": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "gain": { "type": ["string", "null"] },
+              "loss": { "type": ["string", "null"] },
+              "net": { "type": ["string", "null"] }
+            },
+            "required": ["gain", "loss", "net"]
+          },
+          "long_term": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "gain": { "type": ["string", "null"] },
+              "loss": { "type": ["string", "null"] },
+              "net": { "type": ["string", "null"] }
+            },
+            "required": ["gain", "loss", "net"]
+          }
+        },
+        "required": ["short_term", "long_term"]
+      },
+      "sweep_balances": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "description": { "type": ["string", "null"] },
+            "opening_balance": { "type": ["string", "null"] },
+            "ending_balance": { "type": ["string", "null"] }
+          },
+          "required": ["description", "opening_balance", "ending_balance"]
+        }
+      },
+      "sweep_totals": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "opening_balance": { "type": ["string", "null"] },
+          "ending_balance": { "type": ["string", "null"] }
+        },
+        "required": ["opening_balance", "ending_balance"]
+      },
+      "cash_holding": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "market_value": { "type": ["string", "null"] }
+        },
+        "required": ["market_value"]
+      },
+      "holdings": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "symbol": { "type": ["string", "null"] },
+            "description": { "type": ["string", "null"] },
+            "quantity": { "type": ["string", "null"] },
+            "market_price": { "type": ["string", "null"] },
+            "market_value": { "type": ["string", "null"] },
+            "cost_price": { "type": ["string", "null"] },
+            "unrealized": { "type": ["string", "null"] },
+            "td_cost_basis": { "type": ["string", "null"] }
+          },
+          "required": [
+            "symbol",
+            "description",
+            "quantity",
+            "market_price",
+            "market_value",
+            "cost_price",
+            "unrealized",
+            "td_cost_basis"
+          ]
+        }
+      },
+      "income": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "trade_date": { "type": ["string", "null"] },
+            "entry_type": { "type": ["string", "null"] },
+            "symbol": { "type": ["string", "null"] },
+            "description": { "type": ["string", "null"] },
+            "net_amount": { "type": ["string", "null"] }
+          },
+          "required": ["trade_date", "entry_type", "symbol", "description", "net_amount"]
+        }
+      },
+      "fees": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "trade_date": { "type": ["string", "null"] },
+            "description": { "type": ["string", "null"] },
+            "net_amount": { "type": ["string", "null"] }
+          },
+          "required": ["trade_date", "description", "net_amount"]
+        }
+      },
+      "transactions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "trade_date": { "type": ["string", "null"] },
+            "entry_type": { "type": ["string", "null"] },
+            "side": { "type": ["string", "null"] },
+            "symbol": { "type": ["string", "null"] },
+            "description": { "type": ["string", "null"] },
+            "quantity": { "type": ["string", "null"] },
+            "price": { "type": ["string", "null"] },
+            "amount": { "type": ["string", "null"] },
+            "commission": { "type": ["string", "null"] }
+          },
+          "required": [
+            "trade_date",
+            "entry_type",
+            "side",
+            "symbol",
+            "description",
+            "quantity",
+            "price",
+            "amount",
+            "commission"
+          ]
+        }
+      },
+      "deposits_withdrawals": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "trade_date": { "type": ["string", "null"] },
+            "entry_type": { "type": ["string", "null"] },
+            "description": { "type": ["string", "null"] },
+            "net_amount": { "type": ["string", "null"] },
+            "account_number": { "type": ["string", "null"] }
+          },
+          "required": [
+            "trade_date",
+            "entry_type",
+            "description",
+            "net_amount",
+            "account_number"
+          ]
+        }
+      },
+      "warnings": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "required": [
+      "schema_version",
+      "provider",
+      "custodian",
+      "account_number",
+      "account_holder",
+      "statement_period",
+      "currency",
+      "cash_summary",
+      "account_summary",
+      "income_summary",
+      "realized_gain_loss",
+      "sweep_balances",
+      "sweep_totals",
+      "cash_holding",
+      "holdings",
+      "income",
+      "fees",
+      "transactions",
+      "deposits_withdrawals",
+      "warnings"
+    ]
+  }
+}

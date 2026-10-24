@@ -2,6 +2,10 @@
 
 require_relative 'log'
 require_relative 'config'
+require_relative 'db'
+require_relative 'ledger'
+require_relative 'migration'
+require_relative 'usage'
 require_relative 'prompt_spec'
 require_relative 'account_config'
 require_relative 'account_block'

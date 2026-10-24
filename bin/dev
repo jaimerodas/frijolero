@@ -1,9 +1,12 @@
 #!/bin/sh
 # Runs the app on the laptop. Reads .env if it exists (KEY=VALUE lines, see
-# .env.example). Without LEDGER_REPO, the ledger lives in the user's data
-# directory and the first run creates it. With it, the checkout is reached
-# through tmp/dev/ledger, so the job log, the PDFs and the uploads land in
-# tmp/dev instead of next to the repo.
+# .env.example). DATA_DIR holds the database and ledgers/<id>/. On its first boot,
+# the app adopts a ledger of the single-user layout, LEDGER_DIR, and moves it under
+# ledgers/. Where DATA_DIR is:
+#   - With LEDGER_DIR from the shell (a demo ledger): its parent directory.
+#   - With LEDGER_REPO: tmp/dev, which reaches the checkout through a symlink, so
+#     the job log, the PDFs and the uploads land in tmp/dev, not next to the repo.
+#   - Else: the user's data directory, where the first run creates a ledger.
 set -e
 cd "$(dirname "$0")/.."
 
@@ -19,29 +22,25 @@ if [ -f .env ]; then
 fi
 
 if [ -n "$shell_dir" ]; then
-  export LEDGER_DIR="$shell_dir"
+  DATA_DIR="$(cd "$(dirname "$shell_dir")" && pwd)"
+  export DATA_DIR
+  export LEDGER_DIR="$DATA_DIR/$(basename "$shell_dir")"
   export LEDGER_MAIN_FILE="${shell_main:-main.beancount}"
 elif [ -z "$LEDGER_REPO" ]; then
-  data="${XDG_DATA_HOME:-$HOME/.local/share}/frijolero"
-  [ -d "$data/ledger" ] || bin/new-ledger "$data/ledger"
-  export LEDGER_DIR="$data/ledger"
+  export DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/frijolero"
+  export LEDGER_DIR="$DATA_DIR/ledger"
+  [ -d "$DATA_DIR/ledgers" ] || [ -d "$LEDGER_DIR" ] || bin/new-ledger "$LEDGER_DIR"
 else
-  mkdir -p tmp/dev
-  ln -sfn "$LEDGER_REPO" tmp/dev/ledger
-  export LEDGER_DIR="$PWD/tmp/dev/ledger"
+  export DATA_DIR="$PWD/tmp/dev"
+  export LEDGER_DIR="$DATA_DIR/ledger"
+  mkdir -p "$DATA_DIR"
+  [ -d "$DATA_DIR/ledgers" ] || ln -sfn "$LEDGER_REPO" "$LEDGER_DIR"
 fi
 
-main="$LEDGER_DIR/${LEDGER_MAIN_FILE:-main.beancount}"
-if [ ! -f "$main" ]; then
-  echo "No existe $main." >&2
-  echo "Si tu archivo principal tiene otro nombre, pon LEDGER_MAIN_FILE en .env. Archivos .beancount en el ledger:" >&2
-  ls "$LEDGER_DIR"/*.beancount >&2 2>/dev/null || echo "  ninguno: corre bin/new-ledger \"$LEDGER_DIR\"" >&2
-  exit 1
-fi
-
+export ADMIN_EMAIL="${ADMIN_EMAIL:-admin@localhost}"
 export APP_PASSWORD="${APP_PASSWORD:-x}"
 export PORT="${PORT:-3000}"
 export RACK_ENV="${RACK_ENV:-development}"
 
-echo "frijolero on http://localhost:$PORT (password: $APP_PASSWORD, ledger: $LEDGER_DIR)"
+echo "frijolero on http://localhost:$PORT (password: $APP_PASSWORD, data: $DATA_DIR)"
 exec bundle exec puma -C config/puma.rb config.ru

@@ -149,18 +149,24 @@ module Frijolero
 
     # Pull before the work and push after it, so the statement is written on top of
     # the latest ledger; a job that fails leaves the upload where it is, for a retry.
-    # The block runs after a good statement and rides on the same commit.
-    def run_job(label, statement, upload_dir)
+    # The block runs after a good statement and rides on the same commit. The worker
+    # thread has no ledger of its own, so the body takes the request's.
+    def run_job(label, statement, upload_dir, &after)
       repo = self.class.repo
+      ledger = Ledger.current
       self.class.jobs.push(label: label, token: File.basename(upload_dir)) do
-        repo.pull
-        status = statement.process
-        raise "Statement terminó con #{status}" unless status == Statement::OK
-
-        yield if block_given?
-        repo.commit_and_push(label)
-        FileUtils.rm_rf(upload_dir)
+        Ledger.with(ledger) { process_statement(repo, statement, label, upload_dir, after) }
       end
+    end
+
+    def process_statement(repo, statement, label, upload_dir, after)
+      repo.pull
+      status = statement.process
+      raise "Statement terminó con #{status}" unless status == Statement::OK
+
+      after&.call
+      repo.commit_and_push(label)
+      FileUtils.rm_rf(upload_dir)
     end
   end
 end

@@ -35,12 +35,15 @@ volumes:
 
 env:
   clear:
+    DATA_DIR: /data
+    # Read once, at the first boot with the database: that ledger moves under /data/ledgers/.
     LEDGER_DIR: /data/ledger
     LEDGER_MAIN_FILE: moneys.beancount
     PUMA_THREADS: "3"
     S3_ENDPOINT: s3.us-west-000.backblazeb2.com
     S3_BUCKET: rodas-app-backups
   secret:
+    - ADMIN_EMAIL # the first admin, made at the first boot with the database
     - OPENAI_API_KEY # for Anthropic: LLM_PROVIDER: anthropic under clear, ANTHROPIC_API_KEY here and in .kamal/secrets
     - APP_PASSWORD
     - S3_KEY_ID

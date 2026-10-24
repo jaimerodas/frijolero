@@ -31,8 +31,8 @@ remoto, así que cada commit se queda en él. Los PDF quedan en
 3. Corre `bin/dev` otra vez.
 
 Si prefieres Claude, pon `LLM_PROVIDER=anthropic` y `ANTHROPIC_API_KEY` en
-lugar de `OPENAI_API_KEY`. El nombre del modelo va en cada `spec.json` del
-ledger (ver [ledger.md](ledger.md#configpromptstipo)).
+lugar de `OPENAI_API_KEY`. El nombre del modelo va en cada `spec.json` de
+`prompts/` (ver [ledger.md](ledger.md#los-prompts)).
 
 Cada PDF que subes cuesta una llamada al modelo para clasificarlo, salvo uno
 que se llame `Clave YYMM.pdf`. Procesar cuesta la extracción y hace commit en
@@ -48,21 +48,22 @@ Un ledger de Beancount que ya existe sirve tal cual. Frijolero le agrega
 2. Pon la ruta en `LEDGER_REPO` de `.env`.
 3. Si tu archivo principal no se llama `main.beancount`, pon su nombre en
    `LEDGER_MAIN_FILE` de `.env`.
-4. En Cuentas, da de alta cada cuenta que recibe estados de cuenta.
+4. Corre `bin/dev`.
+5. En Cuentas, da de alta cada cuenta que recibe estados de cuenta.
 
-`bin/new-ledger` agrega lo que falta: `config/accounts.yaml`, `config/rules/`,
-`config/prompts/` y `accounts/`. No cambia los archivos que ya existen. Si el
-directorio no es un repo de git, hace `git init`. Al final hace un commit con
-lo que agregó.
+`bin/new-ledger` agrega lo que falta: `config/accounts.yaml`, `config/rules/`
+y `accounts/`. No cambia los archivos que ya existen. Si el directorio no es
+un repo de git, hace `git init`. Al final hace un commit con lo que agregó.
 
-`bin/dev` enlaza tu ledger en `tmp/dev/ledger`. El log de corridas, los PDF y
-las subidas quedan en `tmp/dev`, no junto a tu ledger. Si no encuentra el
-archivo principal, `bin/dev` se detiene y lista los archivos `.beancount` que
-ve.
+`bin/dev` enlaza tu ledger en `tmp/dev/ledger`. El primer arranque crea la
+base de datos en `tmp/dev`, la registra como tu ledger y mueve el enlace a
+`tmp/dev/ledgers/<id>/repo`. Tu ledger no se mueve. El log de corridas, los
+PDF y las subidas quedan en `tmp/dev`, no junto a tu ledger. Si no encuentra
+el archivo principal en ese primer arranque, la app se detiene y lista los
+archivos `.beancount` que ve.
 
 En la forma de cuenta nueva, el campo de la cuenta Beancount ofrece las
-cuentas de activo y pasivo que tu ledger ya abre. Si el ledger todavía no
-tiene `config/prompts/`, la forma lo dice y el botón "Crear" está apagado.
+cuentas de activo y pasivo que tu ledger ya abre.
 
 ### Un ledger de demostración
 
@@ -87,14 +88,15 @@ la página de la cuenta dice cuáles faltan.
 
 | Variable | Uso |
 |---|---|
-| `LEDGER_DIR` | El clon del ledger. Obligatoria. El directorio padre guarda el log de corridas y las subidas. `bin/dev` la pone por ti. |
-| `LEDGER_MAIN_FILE` | El archivo principal del ledger, relativo a `LEDGER_DIR`. Por defecto, `main.beancount`. |
+| `DATA_DIR` | El volumen: la base de datos y `ledgers/<id>/`, con el clon, el log de corridas, las subidas y los PDF de cada ledger. Obligatoria. `bin/dev` la pone por ti. |
+| `ADMIN_EMAIL` | El correo del primer admin. La app lo crea en el primer arranque. `bin/dev` usa `admin@localhost`. |
+| `LEDGER_DIR`, `LEDGER_MAIN_FILE` | Solo para el primer arranque: el clon que la app adopta (por defecto `DATA_DIR/ledger`) y su archivo principal (por defecto `main.beancount`). La app guarda los dos en la base de datos. |
 | `APP_PASSWORD` | La contraseña. Obligatoria. También firma la cookie de sesión, que dura 30 días. Si la cambias, todos los dispositivos cierran sesión. |
 | `API_TOKEN` | El token del atajo de iOS (ver [Subir desde el iPhone](#subir-desde-el-iphone)). Solo abre `/api/upload`. Sin él, `/api/` está cerrado. |
 | `LLM_PROVIDER` | El proveedor del modelo: `openai` (por defecto) o `anthropic`. |
 | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` | La llave del proveedor. Sin ella, la app no clasifica ni extrae: solo guarda los PDF. |
 | `LLM_TIMEOUT` | Los segundos que la app espera al modelo en una extracción. Por defecto, 900. |
-| `S3_ENDPOINT`, `S3_BUCKET`, `S3_KEY_ID`, `S3_KEY` | Un bucket compatible con S3 para los PDF. El endpoint es el host, sin `https://`. Sin las cuatro, los PDF quedan en `pdfs/`, junto al ledger. |
+| `S3_ENDPOINT`, `S3_BUCKET`, `S3_KEY_ID`, `S3_KEY` | Un bucket compatible con S3 para los PDF. El endpoint es el host, sin `https://`. Sin las cuatro, los PDF quedan en `pdfs/` de cada ledger. |
 | `S3_REGION` | La región para la firma. Por defecto, el segundo segmento del endpoint, que es lo que esperan B2 y AWS (`s3.us-west-000.backblazeb2.com`). R2 usa `auto`, Hetzner su ubicación (`fsn1`), DigitalOcean y MinIO `us-east-1`. |
 | `S3_PATH_STYLE` | Con `1`, el bucket va en la ruta (`endpoint/bucket/llave`) y no en el host (`bucket.endpoint/llave`). Sirve para MinIO en localhost o para un bucket con punto en el nombre. |
 | `GIT_TOKEN` | Un token fine-grained de GitHub con permiso de lectura y escritura de contenido en el repo del ledger. Viaja como header HTTP en cada llamada a git. Nunca se escribe en disco. |
@@ -128,8 +130,15 @@ Un deploy tarda unos 40 segundos. Si un deploy falla y deja un lock, corre
 La primera vez:
 
 1. Clona el repo del ledger en `/data/ledger`, dentro del volumen del
-   servidor.
+   servidor. El primer arranque lo mueve a `/data/ledgers/<id>/repo`.
 2. Corre `kamal setup` en lugar de `kamal deploy`.
+
+Una instalación de antes de la base de datos tiene `/data/ledger`,
+`jobs.jsonl`, `incoming/` y `pdfs/` sueltos en el volumen. Antes del primer
+deploy con la base de datos, copia `/data` a la laptop, pon `ADMIN_EMAIL` y
+`DATA_DIR`, y detén la app con `kamal app stop`. Después corre
+`kamal deploy`. El arranque crea el admin, registra el ledger y mueve cada
+archivo a `/data/ledgers/<id>/`. Los PDF del bucket se quedan donde están.
 
 Para correr un comando en el contenedor de producción:
 
@@ -139,29 +148,30 @@ kamal app exec --reuse '<comando>'
 
 ### Qué necesita un deploy
 
-Un cambio en el código de la app necesita un deploy. Un cambio en las reglas,
-las cuentas, los prompts o el modelo es un commit en el ledger. La app lee
-esos archivos en cada request y en cada corrida.
+Un cambio en el código de la app, en un prompt o en el modelo necesita un
+deploy. Un cambio en las reglas o en las cuentas es un commit en el ledger.
+La app lee esos archivos en cada request y en cada corrida.
 
 El servidor recibe un commit del ledger en la siguiente corrida. El botón
 "Actualizar" de los reportes lo trae de inmediato. Este comando hace lo
 mismo:
 
 ```bash
-kamal app exec --reuse 'bundle exec ruby -Ilib -e "require %q(frijolero); Frijolero::LedgerRepo.new(dir: ENV.fetch(%q(LEDGER_DIR))).pull"'
+kamal app exec --reuse 'bundle exec ruby -Ilib -e "require %q(frijolero); Frijolero::Ledger.all.each { |l| Frijolero::LedgerRepo.new(dir: l.repo_dir).pull }"'
 ```
 
 ### La imagen en la laptop
 
 Con Docker no necesitas Ruby. El contenedor corre como el usuario `app`. El
 directorio que montas en `/data` debe ser de ese usuario, o estar abierto a
-todos. Si `/data/ledger` no existe, créalo antes con `bin/new-ledger`.
+todos. Si el volumen todavía no tiene un ledger, crea `/data/ledger` antes
+con `bin/new-ledger`. El primer arranque lo adopta.
 
 ```bash
 docker build -t frijolero .
 mkdir -p ~/.local/share/frijolero && chmod 777 ~/.local/share/frijolero
 docker run --rm -p 9292:9292 -v ~/.local/share/frijolero:/data \
-  -e APP_PASSWORD=x -e LEDGER_DIR=/data/ledger -e OPENAI_API_KEY=... frijolero
+  -e APP_PASSWORD=x -e DATA_DIR=/data -e ADMIN_EMAIL=yo@example.com -e OPENAI_API_KEY=... frijolero
 ```
 
 ## Subir desde el iPhone
@@ -204,7 +214,7 @@ borra el PDF.
 ## Una corrida que falla
 
 La página de la corrida muestra el error y la salida completa. En Recientes,
-"falló" lleva a esa página. El PDF se queda en `/data/incoming/<hex>/`. Si
+"falló" lleva a esa página. El PDF se queda en `/data/ledgers/<id>/incoming/<hex>/`. Si
 el PDF sigue ahí, la subida también vuelve a la Bandeja con "■ falló", con la
 cuenta y el periodo que elegiste. Procesar la corre otra vez.
 

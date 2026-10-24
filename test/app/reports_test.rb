@@ -160,21 +160,21 @@ class ReportsPageTest < Minitest::Test
     @repo = FakeRepo.new
     Frijolero::App.reports = @reports
     Frijolero::App.repo = @repo
-    @previous_ledger_dir = ENV.fetch('LEDGER_DIR', nil)
-    ENV['LEDGER_DIR'] = '/data/ledger'
+    Frijolero::Ledger.current = Frijolero::Ledger.new(id: 'test', owner_id: 1, main_file: 'main.beancount',
+                                                      pdf_prefix: 'frijolero', dir: '/data', repo_dir: '/data/ledger')
   end
 
   def teardown
     Frijolero::App.reports = nil
     Frijolero::App.repo = nil
-    @previous_ledger_dir ? ENV['LEDGER_DIR'] = @previous_ledger_dir : ENV.delete('LEDGER_DIR')
+    Frijolero::Ledger.current = nil
   end
 
   def app
     Frijolero::App
   end
 
-  # LEDGER_DIR has no accounts.yaml in these tests, so the ledger has no accounts.
+  # /data/ledger has no accounts.yaml in these tests, so the ledger has no accounts.
   def test_an_empty_ledger_says_to_add_the_first_account_on_every_report_page
     @reports.empty = true
 

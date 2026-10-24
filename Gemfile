@@ -7,6 +7,7 @@ ruby file: '.ruby-version'
 gem 'bigdecimal', '~> 4.1'
 gem 'puma', '~> 8.0'
 gem 'sinatra', '~> 4.0'
+gem 'sqlite3', '~> 2.10'
 
 group :development, :test do
   gem 'minitest', '~> 6.0'

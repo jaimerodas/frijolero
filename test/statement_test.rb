@@ -64,8 +64,6 @@ class StatementTest < Minitest::Test
     with_ledger_dir do |dir|
       File.write(File.join(dir, 'config', 'accounts.yaml'),
                  "AMEX:\n  beancount_account: \"Liabilities:Amex\"\n  openai_prompt_type: default\n")
-      FileUtils.mkdir_p(File.join(dir, 'config', 'prompts'))
-      FileUtils.cp_r(fixture_path('prompts/default'), File.join(dir, 'config', 'prompts', 'default'))
       File.write(File.join(dir, 'main.beancount'), '')
       yield dir
     end
@@ -215,8 +213,6 @@ class StatementTest < Minitest::Test
             Plata Cuenta: "Assets:Plata:Cuenta"
             Ahorro Flexible: "Assets:Plata:Ahorro"
       YAML
-      FileUtils.cp_r(File.expand_path('../templates/prompts/multi', __dir__),
-                     File.join(dir, 'config', 'prompts', 'multi'))
       @client.payload = { 'transactions' => [
         { 'date' => '2026-09-10', 'description' => 'Rendimientos', 'amount' => 1733.28, 'account' => 'Ahorro Flexible' }
       ] }

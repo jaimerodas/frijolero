@@ -14,9 +14,6 @@
     <% if error %>
       <p class="error" role="alert"><%= h(error) %></p>
     <% end %>
-    <% if prompt_types.empty? %>
-      <p class="error" role="alert">El ledger no tiene <code>config/prompts/</code>. Corre <code>bin/new-ledger &lt;ruta del ledger&gt;</code> en la laptop, que agrega lo que falta, y haz push. Ver <a href="https://github.com/jaimerodas/frijolero/blob/main/docs/setup.md#si-ya-tienes-un-ledger">docs/setup.md</a>.</p>
-    <% end %>
     <form method="post" action="/accounts/new">
       <label for="key">Clave</label>
       <input type="text" id="key" name="key" value="<%= v.('key') %>" required autofocus>
@@ -38,7 +35,7 @@
           <option value="<%= h(type) %>"<%= ' selected' if type == values['openai_prompt_type'] %>><%= h(type) %></option>
         <% end %>
       </select>
-      <p class="note">Para un banco o una tarjeta, <code>default</code>. Los demás son los prompts especiales de <code>config/prompts/</code> del ledger.</p>
+      <p class="note">Para un banco o una tarjeta, <code>default</code>. Los demás son prompts para un banco o una casa de bolsa en particular.</p>
 
       <label for="cutoff_day">Día de corte</label>
       <input type="number" id="cutoff_day" name="cutoff_day" value="<%= v.('cutoff_day') %>" min="1" max="31">
@@ -47,7 +44,7 @@
       <label for="opened_on">Fecha de apertura</label>
       <input type="date" id="opened_on" name="opened_on" value="<%= v.('opened_on') %>" required>
 
-      <p class="actions"><button type="submit" class="primary"<%= ' disabled' if prompt_types.empty? %>>Crear</button> <a class="button" href="/accounts">Cancelar</a></p>
+      <p class="actions"><button type="submit" class="primary">Crear</button> <a class="button" href="/accounts">Cancelar</a></p>
     </form>
   </main>
 </body>

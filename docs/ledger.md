@@ -1,16 +1,17 @@
 # El ledger
 
 El ledger es tu repo de git, privado. Guarda las transacciones, la
-configuración de las cuentas, las reglas y los prompts. La app lee la
-configuración en cada request y en cada corrida, así que un cambio en el
-ledger no necesita un deploy.
+configuración de las cuentas y las reglas. La app lee la configuración en
+cada request y en cada corrida, así que un cambio en el ledger no necesita un
+deploy. Los prompts son de la app, no del ledger (ver
+[Los prompts](#los-prompts)).
 
 ## Las tres copias
 
 | Copia | Dónde | Quién escribe |
 |---|---|---|
 | Laptop | Tu clon en la laptop | Tú, a mano. Haz pull con rebase antes de cada push. |
-| Servidor | `/data/ledger` en el contenedor | La app. Cada corrida hace pull con rebase al empezar, y commit y push al terminar. Los editores de la app hacen commit y push al guardar. |
+| Servidor | `/data/ledgers/<id>/repo` en el contenedor | La app. Cada corrida hace pull con rebase al empezar, y commit y push al terminar. Los editores de la app hacen commit y push al guardar. |
 | GitHub | origin | Nadie de forma directa. |
 
 Antes de cada push, la app hace pull con rebase otra vez. Así integra lo que
@@ -29,11 +30,11 @@ app lo aborta y la corrida falla. El commit se queda en el servidor.
    ```
 
 4. En la laptop, pon la ruta en `LEDGER_REPO` de `.env`.
-5. En el servidor, clona el repo en `/data/ledger`.
+5. En el servidor, clona el repo en `/data/ledger`. El primer arranque de la
+   app lo mueve a `/data/ledgers/<id>/repo`.
 6. Abre `/accounts/new` y da de alta la primera cuenta.
 
-`bin/new-ledger` crea los archivos iniciales, copia los prompts y hace el
-primer commit. Con eso ya puedes correr la app en la laptop. Sobre un ledger
+`bin/new-ledger` crea los archivos iniciales y hace el primer commit. Con eso ya puedes correr la app en la laptop. Sobre un ledger
 que ya existe, el mismo script agrega solo lo que falta (ver
 [setup.md](setup.md#si-ya-tienes-un-ledger)).
 
@@ -47,7 +48,6 @@ se queda en tu clon.
 main.beancount                # el archivo principal: las opciones, los opens y un include por estado de cuenta
 config/accounts.yaml          # las cuentas
 config/rules/<Key>.yaml       # las reglas, un archivo por cuenta
-config/prompts/<tipo>/        # spec.json, instructions.txt y schema.json
 accounts/<Key>/<Key> YYMM.beancount   # un estado de cuenta, con su .json al lado
 ```
 
@@ -56,8 +56,9 @@ periodo como `YYMM`. El periodo es el mes que tiene la mayoría de los días del
 estado de cuenta. Un estado de AMEX del 4 de agosto al 3 de septiembre es
 `2608`.
 
-`main.beancount` es el único archivo que la app conoce por nombre
-(`LEDGER_MAIN_FILE` lo cambia). La app le agrega un `open` cuando das de alta
+`main.beancount` es el único archivo que la app conoce por nombre. Para otro
+nombre, pon `LEDGER_MAIN_FILE` antes del primer arranque, que lo guarda en la
+base de datos. La app le agrega un `open` cuando das de alta
 una cuenta, y un `include` cuando procesa un estado de cuenta. Si el repo
 tiene un `account_opens.beancount`, los `open` van ahí.
 
@@ -109,7 +110,7 @@ Old Card:
 | Campo | Uso |
 |---|---|
 | `beancount_account` | La cuenta de Beancount donde la app registra las transacciones. |
-| `openai_prompt_type` | El directorio de `config/prompts/` que extrae este tipo de estado de cuenta. |
+| `openai_prompt_type` | El directorio de `prompts/` de la app que extrae este tipo de estado de cuenta. |
 | `converter_type` | El pipeline: `cetes_directo`, `fintual`, `alpaca` (o `plata`, su nombre viejo) o `multi`. Sin este campo, el pipeline es Default. Solo Default y Multi usan reglas. |
 | `accounts` | Solo Multi. Mapea cada nombre impreso a su cuenta de Beancount (ver la sección de Multi). |
 | `description` | La pista que recibe el clasificador. Si falta, el clasificador usa la clave. |
@@ -161,7 +162,11 @@ regla puede mandar un movimiento a la otra cuenta del mismo estado de cuenta.
 Ese movimiento se queda, y la app descarta su espejo: el movimiento de la
 otra cuenta con la misma fecha y el monto opuesto.
 
-## config/prompts/\<tipo\>/
+## Los prompts
+
+Los prompts están en `prompts/<tipo>/` de este repo, iguales para todos los
+ledgers. La app paga el modelo, así que la app escoge los modelos. Un cambio
+en un prompt es un deploy, no un commit en el ledger.
 
 Cada `openai_prompt_type` apunta a un directorio con tres archivos:
 
@@ -176,8 +181,8 @@ El modelo de `spec.json` debe ser del proveedor de `LLM_PROVIDER`:
 | `openai` | `gpt-5.6-sol` | `gpt-5.4-mini` |
 | `anthropic` | `claude-opus-5` | `claude-haiku-4-5` |
 
-Con `LLM_PROVIDER=anthropic`, `bin/new-ledger` pone los modelos de Anthropic.
-Los demás campos de `spec.json` van tal cual a la API del proveedor.
+Con `LLM_PROVIDER=anthropic`, cambia el `model` de cada `spec.json`. Los
+demás campos de `spec.json` van tal cual a la API del proveedor.
 `reasoning` es de OpenAI. `max_tokens`, `thinking` y `output_config` son de
 Anthropic. El esquema es el mismo para los dos. Anthropic exige
 `additionalProperties: false` en cada objeto, y los esquemas estrictos de
@@ -187,11 +192,14 @@ El directorio `classify` tiene el prompt que lee la cuenta y el periodo de un
 PDF subido. La app llena su lista de cuentas desde `accounts.yaml` en cada
 llamada.
 
-`templates/prompts/` de este repo tiene los cuatro prompts genéricos:
-`classify`, `default`, `multi` y `alpaca`. `bin/new-ledger` los copia al
-ledger, que tiene la copia viva. Un prompt para un banco en particular es un
-directorio más en `config/prompts/` del ledger. La forma de cuenta nueva
-ofrece esos directorios.
+Los prompts genéricos son `classify`, `default`, `multi` y `alpaca`. Los
+demás son para un banco o una casa de bolsa en particular: `bbva`, `cetes`,
+`fintual` y `plata`. Un prompt nuevo es un directorio más en `prompts/` y un
+deploy. La forma de cuenta nueva ofrece esos directorios. Un ledger de antes
+todavía tiene `config/prompts/`, pero la app ya no lo lee.
+
+Cada llamada al modelo guarda una fila de uso con su costo en dólares, a
+nombre del dueño del ledger. Los precios están en `lib/usage.rb`.
 
 ## Las cuentas de CETES Directo
 

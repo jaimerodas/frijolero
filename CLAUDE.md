@@ -4,7 +4,7 @@ Guidance for Claude Code in this repository. The code shows what each part does.
 
 ## What this is
 
-Frijolero is a Ruby 4.0 web app. It turns statement PDFs from banks, cards and brokers into Beancount. It runs Sinatra on Puma in one process, with no database.
+Frijolero is a Ruby 4.0 web app. It turns statement PDFs from banks, cards and brokers into Beancount. It runs Sinatra on Puma in one process. Each ledger is a git repo. A SQLite file holds the users, the ledgers and the model usage.
 
 The flow:
 
@@ -34,18 +34,20 @@ kamal deploy                                     # deploy a code change; needs 1
 kamal app exec --reuse '<cmd>'                   # run a command in the production container
 ```
 
-Without `LEDGER_REPO` in `.env`, `bin/dev` keeps a ledger in `~/.local/share/frijolero`. It stops before Puma when the main file of the ledger is missing.
+Without `LEDGER_REPO` in `.env`, `bin/dev` keeps its data in `~/.local/share/frijolero`, and the first run creates a ledger there. With it, the data is in `tmp/dev`. The boot stops, and lists the `.beancount` files that it sees, when a ledger that waits for adoption (see "Outside the ledger") has no main file.
 
 ## Where things live
 
 This repo:
 
 ```
-config.ru     starts App behind the Login middleware
+config.ru     runs the migration, then starts App behind OnlyLedger and Login
 app/          the Sinatra process: App, its route files, Dashboard, Jobs, views/
 public/       style.css, reports.js, editor.js, charts.js, and the vendored d3 files
 lib/          the pipeline, with no Sinatra; lib/frijolero.rb requires the rest
-templates/    prompts/ and ledger/, the seeds that bin/new-ledger copies
+prompts/      one directory per prompt type: spec.json, instructions.txt, schema.json
+db/           the SQLite schema, one <n>_*.sql per version
+templates/    ledger/, the seed that bin/new-ledger copies
 bin/          dev, test, test_fast, new-ledger, demo-ledger
 config/       deploy.yml, puma.rb
 test/         mirrors app/ and lib/; fixtures/ holds sample statements and prompts
@@ -60,7 +62,7 @@ The ledger has three copies:
 | Copy | Where | Who writes |
 |---|---|---|
 | Laptop | A clone with an SSH remote | The user, by hand: pull with rebase, commit, push. |
-| Droplet | `/data/ledger` in the container, HTTPS remote | The app: jobs, editors and rule runs. |
+| Droplet | `/data/ledgers/<id>/repo` in the container, HTTPS remote | The app: jobs, editors and rule runs. |
 | GitHub | origin | Nobody directly. |
 
 The app keeps its copy in sync like this:
@@ -71,41 +73,48 @@ The app keeps its copy in sync like this:
 - A clone with no remote (a setup on the laptop only) skips the pull and the push.
 - The "Actualizar" button on the report pages runs a pull.
 
-Layout of the ledger (`LEDGER_DIR`). `Config` derives each path from it:
+Layout of a ledger clone (`Config.ledger_dir`, the repo of the current ledger). `Config` derives each path from it:
 
 ```
-main.beancount            LEDGER_MAIN_FILE: options, opens, and one `include` per statement
+main.beancount            the main_file of the ledger's row: options, opens, and one `include` per statement
 account_opens.beancount   optional; when it exists, new `open` lines go here and not in the main file
 config/accounts.yaml      account key → beancount_account, openai_prompt_type, converter_type, description, cutoff_day, closed
 config/rules/<Key>.yaml   the rules of one account; the name keeps spaces ("BBVA TDC.yaml")
-config/prompts/<type>/    spec.json, instructions.txt, schema.json; read on each model call
 accounts/<Key>/<Key> YYMM.beancount   and the .json next to it
 ```
 
-`YYMM` is the month that holds most of the days of the statement. The user's own ledger is older than the template. Its main file is `moneys.beancount` (set in `deploy.yml`), and it includes other files. Beancount does not care which file holds an entry, so the app appends to the main file.
+A ledger made before the prompts moved into the app still has `config/prompts/`. Nothing reads it.
 
-A change to the rules, the accounts, the prompts or the model names is a commit in the ledger, not a deploy. The app reads those files on each request and each job. The droplet gets the change at its next pull. To pull from the shell:
+`YYMM` is the month that holds most of the days of the statement. The user's own ledger is older than the template. Its main file is `moneys.beancount` (the migration took it from `LEDGER_MAIN_FILE` in `deploy.yml`), and it includes other files. Beancount does not care which file holds an entry, so the app appends to the main file.
+
+A change to the rules or the accounts is a commit in the ledger, not a deploy. The app reads those files on each request and each job. The droplet gets the change at its next pull. A change to a prompt or a model name is a deploy: the prompts are in `prompts/` of this repo, the same for every ledger, because the app pays for the model and so it chooses the models. To pull every ledger from the shell:
 
 ```bash
-kamal app exec --reuse 'bundle exec ruby -Ilib -e "require %q(frijolero); Frijolero::LedgerRepo.new(dir: ENV.fetch(%q(LEDGER_DIR))).pull"'
+kamal app exec --reuse 'bundle exec ruby -Ilib -e "require %q(frijolero); Frijolero::Ledger.all.each { |l| Frijolero::LedgerRepo.new(dir: l.repo_dir).pull }"'
 ```
 
 ### Outside the ledger
 
-On the volume (`/data`, the parent of `LEDGER_DIR`):
+On the volume (`DATA_DIR`, which is `/data` in production):
 
-- `jobs.jsonl`: the append-only job log.
-- `incoming/<token>/`: one directory for each upload, with `<original name>.pdf` and, after the classifier, `classification.json`. A successful job removes it.
-- `pdfs/`: the PDFs, when no bucket is set.
+- `frijolero.sqlite3`: the users, the ledgers, the sign-in and API tokens, and one usage row per model call. The schema is `db/*.sql`.
+- `ledgers/<id>/repo/`: the clone of each ledger.
+- `ledgers/<id>/jobs.jsonl`: the append-only job log of that ledger.
+- `ledgers/<id>/incoming/<token>/`: one directory for each upload, with `<original name>.pdf` and, after the classifier, `classification.json`. A successful job removes it.
+- `ledgers/<id>/pdfs/`: the PDFs, when no bucket is set.
 
-In the bucket, which other apps share: `frijolero/accounts/<Key>/<Key> YYMM.pdf`. `Config.pdf_key` is the only formula for that key.
+Before the database, the volume held one ledger: `ledger/`, with `jobs.jsonl`, `incoming/` and `pdfs/` next to it. At boot, `Migration` makes the admin from `ADMIN_EMAIL` when there is no admin. When there is no ledger, it also adopts that old ledger (`LEDGER_DIR`, by default `DATA_DIR/ledger`): one row, and each file moved by a rename. A second boot does nothing. The rehearsal on a copy of production, on 2026-10-23, moved the ledger, `jobs.jsonl` and `incoming/`, and every page served as before.
+
+In the bucket, which other apps share: `<pdf_prefix>/accounts/<Key>/<Key> YYMM.pdf`. The adopted ledger has the prefix `frijolero`, the one that every key had before. A new ledger gets `frijolero/ledgers/<id>`. `Config.pdf_key` is the only formula for that key.
 
 ## Environment variables
 
 | Variable | Purpose |
 |---|---|
-| `LEDGER_DIR`, `LEDGER_MAIN_FILE` | The ledger clone, and the name of its main file (default `main.beancount`). |
-| `LLM_PROVIDER`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` | `LLM_PROVIDER` is `openai` (default) or `anthropic`. Without the key of that provider, `LLM.client` is nil and the app cannot classify or extract. The model names are in the `spec.json` files of the ledger, so a change of provider changes them too. |
+| `DATA_DIR` | The volume: the database and `ledgers/`. |
+| `ADMIN_EMAIL` | The first admin, made at boot when there is none. In 1Password, the field is `admin_email`. `bin/dev` uses `admin@localhost`. |
+| `LEDGER_DIR`, `LEDGER_MAIN_FILE` | Read only when the database has no ledger: `Migration` adopts that clone and records its main file (default `main.beancount`). |
+| `LLM_PROVIDER`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` | `LLM_PROVIDER` is `openai` (default) or `anthropic`. Without the key of that provider, `LLM.client` is nil and the app cannot classify or extract. The model names are in `prompts/*/spec.json`, so a change of provider changes them too. |
 | `LLM_TIMEOUT` | Default 900 s. It is the poll deadline for OpenAI and the read timeout for Anthropic. |
 | `APP_PASSWORD` | The password. It also signs the session cookie (30 days), so a new password logs out every device. |
 | `API_TOKEN` | The bearer token of the iOS Shortcut. It opens only `/api/`, and it can only upload. Without it, `/api/` is closed. In 1Password, the field is `api_token`. |
@@ -121,7 +130,8 @@ In the bucket, which other apps share: `frijolero/accounts/<Key>/<Key> YYMM.pdf`
 ### Request side (`app/`)
 
 - `app/app.rb` holds the settings, the collaborators, the dashboard and the job pages. Each other file in `app/` reopens `App` for one area. `app/` is the only place that requires Sinatra.
-- `App` has seven collaborators, each built on first use: `jobs`, `inbox`, `inbox_worker`, `client`, `s3`, `repo` and `reports`. Tests replace them through their `attr_writer`.
+- `App` has seven collaborators: `jobs`, `inbox`, `inbox_worker`, `client`, `s3`, `repo` and `reports`. `jobs` and `inbox_worker` exist once per ledger, because each holds a thread. `inbox`, `repo` and `s3` are built for the current ledger on each call. Tests replace a collaborator through its `attr_writer`, and that one then serves every ledger.
+- The current ledger (`lib/ledger.rb`) is per thread: `Thread.current`, not `Fiber[]`, which a new thread inherits. Without one, a ledger path raises `NoLedger`, so code that forgot it fails instead of reading another ledger. `OnlyLedger` (`app/only_ledger.rb`), the outer middleware, makes the first ledger the current ledger of each request, and `Ledger.with` clears it at the end. The job body and the Bandeja worker set it with `Ledger.with`, from the ledger of the request that queued them.
 - `Login` (`app/login.rb`) is middleware in front of `App`. It owns `/login` and `/logout`, and it sends each request without a session to `/login`. A request to `/api/` needs `Authorization: Bearer <API_TOKEN>` instead, and gets a JSON 401 without it. `App` and its tests never see auth. `/up` and the static files are outside it. `Login` serves the static files itself, so a static setting (such as `static_cache_control`) goes on `Login`; on `App` it does nothing.
 - The views are standalone ERB pages in Spanish, with no layout. Each page calls the `head` and `topbar` helpers.
 - All pages of one account are under `/accounts/<Key>`. A statement has three URLs: `/accounts/<Key>/<YYMM>` (the movements), `…/beancount` (the text) and `…/beancount/edit` (the text in the editor). The route constraints in `app/statements.rb` keep `config` and `rules` out of the period segment.
@@ -169,7 +179,7 @@ The buttons that wait on the server have `data-busy`. `reports.js` writes that w
 The Bandeja holds the uploads that wait for a person. The API answers in JSON, errors included, because a Shortcut reads a body more easily than a status. The person always confirms: nothing is processed without a click.
 
 - `Inbox` only reads and writes the disk. A page that counts the Bandeja starts no thread.
-- `Inbox::Worker` is a second queue and thread, apart from the job worker, so an extraction never holds up a classification. At boot, it queues each upload that has no `classification.json`. A model error becomes the answer (`{"error": …}`), and the worker goes on.
+- `Inbox::Worker` is a second queue and thread for each ledger, apart from the job worker, so an extraction never holds up a classification. At boot, it queues each upload that has no `classification.json`. A model error becomes the answer (`{"error": …}`), and the worker goes on.
 - `Inbox#rows` leaves out each upload that a queued or running job holds. Each row has one status: classifying, error, failed (its newest job failed), unknown, exists, repeated (two uploads with the same account and period) or ready. Only ready rows go into "Procesar los listos".
 - The page is one form. Each row sends `account[token]`, `period[token]` and `overwrite[token]`. A button sends the tokens to process in `tokens`, so one row and "Procesar los listos" use the same route. The first submit button of the form is hidden and disabled, so Enter in a period field submits nothing.
 - Procesar writes the choice into `classification.json` before it queues the job. So a row whose job fails comes back as the person left it.
@@ -178,7 +188,7 @@ The Bandeja holds the uploads that wait for a person. The API answers in JSON, e
 
 ### Jobs (`app/jobs.rb`)
 
-`Jobs` is one `Queue`, one worker thread and `jobs.jsonl`. At boot, it marks the jobs left `running` or `queued` as failed. The job body is `repo.pull`, then `Statement#process`, then `repo.commit_and_push("<Key> YYMM")`, then the removal of the upload directory. The body writes its output through `Log.sink`. The UI calls a job a "corrida".
+Each ledger has its own `Jobs`: one `Queue`, one worker thread and its `jobs.jsonl`. So the jobs of one ledger run in order, and one ledger never waits for another. `Log.sink` is per thread, so two jobs at once keep their output apart. At boot, it marks the jobs left `running` or `queued` as failed. The job body is `repo.pull`, then `Statement#process`, then `repo.commit_and_push("<Key> YYMM")`, then the removal of the upload directory. The body writes its output through `Log.sink`. The UI calls a job a "corrida".
 
 A failed job shows "Reintentar" only when a model key is set and `retryable_upload` is true:
 
@@ -348,13 +358,15 @@ A failed balance (`E2001`) shows in Spanish with the gap. It links to the journa
 ### Infrastructure (`lib/`)
 
 - `LLM` (`lib/llm.rb`) is the seam between providers: the typed errors, one shared `Transport` over `Net::HTTP`, `LLM.client`, `LLM.key_var` and `LLM.report`.
-- A client has one method, `extract(pdf_path, spec) -> Hash`. The spec is the `PromptSpec` of the ledger, and its other keys go to the API as they are. A new provider is one class and one entry in `LLM::PROVIDERS`.
+- A client has one method, `extract(pdf_path, spec) -> Hash`. The spec is a `PromptSpec` of the app, and its other keys go to the API as they are. Keys that start with `_` never reach the API.
+- Each client writes one `Usage` row per call, before it parses the answer, because the call is paid either way. `Usage::PRICES` is USD per million tokens (input, cached input, output) from the OpenAI price page, which is also micro-dollars per token. A test makes sure that each model in `prompts/` has a price. An unknown model, such as each Anthropic model today, costs 0 with a warning in the job log. The owner of the ledger pays, so the row names the owner. A new provider is one class and one entry in `LLM::PROVIDERS`.
 - `OpenAIClient` uses the Responses API with the PDF as `input_file`, in background mode with a 2 s poll. The classifier uses the same client.
 - `AnthropicClient` sends one Messages request with the PDF as a `document` block. A `stop_reason` other than `end_turn` is an `APIError`. Neither client uses a Files API.
 - `S3` is a small SigV4 client over `Net::HTTP`. `uri_encode` is the only place that turns a space into `%20`. The tests replay two official AWS test vectors.
 - `LocalPdfs` has the same three methods as `S3` (`put`, `list`, `presigned_url`) on disk.
 - `LedgerRepo` runs git as a subprocess (see "Git subprocesses").
-- `PromptSpec` joins `spec.json`, `instructions.txt` and `schema.json`. The templates are in `templates/prompts/`. The ledger holds the live copies, and some prompts (`bbva`, `cetes`, `fintual`) exist only there.
+- `PromptSpec` joins `spec.json`, `instructions.txt` and `schema.json` from `prompts/<type>/`, and adds `_prompt`, the type, for the usage row. `plata` is the Alpaca prompt with the advisor of the user's own account, and `alpaca` the general one.
+- `DB` (`lib/db.rb`) is one SQLite connection behind a Monitor, which is reentrant, so a transaction can call `execute`. At boot, each `db/<n>_*.sql` above `PRAGMA user_version` runs in its own transaction. Money is an integer of micro-dollars, never a float.
 
 ## Git subprocesses
 
@@ -368,19 +380,20 @@ Before you commit new code that runs git:
 ## Operations
 
 - **Deploy.** Kamal 2 with `config/deploy.yml`, which holds the droplet, the host, the image and the bucket. The image is built for amd64 on the laptop. The volume is `frijolero_data:/data`. A deploy takes about 40 s.
-- **Secrets.** `.kamal/secrets` gets each secret from a 1Password item with `kamal secrets fetch --adapter 1password`. The Kamal parser has no line continuations, so each command is one line. The fields are `kamal_registry_password`, `openai_api_key`, `app_password`, `b2_key_id`, `b2_application_key`, `git_token` and `api_token`. A missing field fails the deploy. The values that are not secret, `b2_bucket` and `b2_endpoint`, are in `deploy.yml`.
+- **Secrets.** `.kamal/secrets` gets each secret from a 1Password item with `kamal secrets fetch --adapter 1password`. The Kamal parser has no line continuations, so each command is one line. The fields are `kamal_registry_password`, `openai_api_key`, `app_password`, `b2_key_id`, `b2_application_key`, `git_token`, `api_token` and `admin_email`. A missing field fails the deploy. The values that are not secret, `b2_bucket` and `b2_endpoint`, are in `deploy.yml`.
 - **1Password.** `kamal` and `ssh` to the droplet work only while the 1Password app is unlocked. The `op` prompt and the SSH agent go through it.
 - **Memory.** The cap is 256 MiB. Right after a boot, production uses 35 to 42 MiB of cgroup memory. Ruby keeps the heap of its largest request: after 13 days up, production used 99.6 MiB (81 MiB of heap), with a peak of 120.6 MiB. A report adds an `rledger` child of about 21 MB for about 0.1 s.
 - **Image.** `ruby:<version>-slim`, two stages, user `app`, `TZ=America/Mexico_City`. It installs `git` and downloads `rledger` with a pinned checksum. The base image already has `tzdata`. `Gemfile.lock` pins the Bundler that the image ships, so the build installs no other one.
 - **Ruby bump.** The version is in three places: `.ruby-version`, `ARG RUBY_VERSION` in the `Dockerfile`, and `Gemfile.lock` (`bundle update --ruby`). The Gemfile reads `.ruby-version`, and Bundler refuses any other patch release. Then run `docker run --rm --platform linux/amd64 ruby:<version>-slim bundle -v` and pin that Bundler with `bundle update --bundler=<it>`.
-- **Failed jobs.** The PDF stays in `/data/incoming/<token>/`, and the upload shows in the Bandeja. A successful retry removes it, and so does Descartar. Nothing removes a directory without a PDF, which a job that fails after the extraction leaves.
+- **Failed jobs.** The PDF stays in `/data/ledgers/<id>/incoming/<token>/`, and the upload shows in the Bandeja. A successful retry removes it, and so does Descartar. Nothing removes a directory without a PDF, which a job that fails after the extraction leaves.
 
 If `kamal` or `ssh` fails with `promptError` or "communication with agent failed", ask the user to run the command with the `!` prefix. If a failed deploy leaves a lock, run `kamal lock release`.
 
 ## Tests
 
 - Minitest and rack-test: about 800 tests in about 12 s. `test/` mirrors `app/` and `lib/`.
-- `with_ledger_dir` points `LEDGER_DIR` at a temporary ledger. Web tests call `App` directly, with fake collaborators. Only `test/app/app_test.rb` loads `config.ru`, for the auth wiring.
+- `with_ledger_dir` makes a temporary ledger, in a fresh `DATA_DIR`, the current ledger of the test thread. A setup uses `enter_test_ledger` and `leave_test_ledger`. `with_db_ledger` also writes the owner and the ledger as rows.
+- No test writes into `prompts/`: `Config.prompts_dir` is the real folder. Use `test/fixtures/prompts`, or a copy of it in a temporary directory. Web tests call `App` directly, with fake collaborators. Only `test/app/app_test.rb` loads `config.ru`, for the auth wiring.
 - `test_helper.rb` sets `RACK_ENV=test` before it loads the app. Sinatra reads the environment when `sinatra/base` loads, and with any other value its host authorization answers 403.
 - No test uses the network.
 - `Config.accounts` is read on each call and never memoized. The first deploy cached `{}`, because it started before the volume had a ledger.
@@ -389,12 +402,12 @@ Some tests commit in a temporary repo, and they read the global git config. If `
 
 ## Known rough edges
 
-1. There is one worker thread. A second upload waits for the extraction in front of it.
+1. There is one worker thread per ledger. A second upload to the same ledger waits for the extraction in front of it.
 2. A `closed: true` account leaves the dashboard. Its history stays on its page, which Cuentas links to.
 
 ## Data formats
 
-The transaction JSON of the Default pipeline. The other pipelines have their own schemas in `config/prompts/<type>/schema.json`:
+The transaction JSON of the Default pipeline. The other pipelines have their own schemas in `prompts/<type>/schema.json`:
 
 ```json
 { "transactions": [ { "date": "2024-01-15", "description": "AMAZON WEB SERVICES", "amount": -50.00,

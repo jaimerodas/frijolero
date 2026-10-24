@@ -31,9 +31,6 @@ class ClassifierTest < Minitest::Test
       BBVA:
         beancount_account: "Assets:BBVA"
     YAML
-    FileUtils.mkdir_p(File.join(dir, 'config', 'prompts'))
-    FileUtils.cp_r(template_path('prompts/classify'),
-                   File.join(dir, 'config', 'prompts', 'classify'))
   end
 
   def test_known_filename_answers_without_a_model_call

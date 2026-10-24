@@ -17,15 +17,13 @@ class BeancountMergerTest < Minitest::Test
   end
 
   def test_include_is_relative_to_main_file_in_subdirectory
-    with_ledger_dir do |dir|
-      with_env('LEDGER_MAIN_FILE' => 'ledger/main.beancount') do
-        FileUtils.mkdir_p(File.join(dir, 'ledger'))
+    with_ledger_dir(main_file: 'ledger/main.beancount') do |dir|
+      FileUtils.mkdir_p(File.join(dir, 'ledger'))
 
-        Frijolero::BeancountMerger.merge(File.join(dir, 'accounts', 'Amex', 'Amex 2508.beancount'))
+      Frijolero::BeancountMerger.merge(File.join(dir, 'accounts', 'Amex', 'Amex 2508.beancount'))
 
-        assert_equal "include \"../accounts/Amex/Amex 2508.beancount\"\n",
-                     File.read(File.join(dir, 'ledger', 'main.beancount'))
-      end
+      assert_equal "include \"../accounts/Amex/Amex 2508.beancount\"\n",
+                   File.read(File.join(dir, 'ledger', 'main.beancount'))
     end
   end
 
