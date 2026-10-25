@@ -5,8 +5,8 @@ require 'test_helper'
 class LedgerAccountsTest < Minitest::Test
   include TestHelpers
 
-  # An adopted ledger keeps its opens wherever it likes; the main file's includes reach them.
-  def test_follows_the_includes_of_the_main_file_one_level_down
+  # An adopted ledger keeps its opens wherever it likes; the includes reach them, at any depth.
+  def test_follows_every_include_of_the_ledger
     with_ledger_dir do |dir|
       File.write(File.join(dir, 'main.beancount'), <<~BEAN)
         include "opens.beancount"
@@ -18,7 +18,16 @@ class LedgerAccountsTest < Minitest::Test
       FileUtils.mkdir_p(File.join(dir, 'accounts'))
       File.write(File.join(dir, 'accounts', 'x.beancount'), "2020-01-01 open Assets:Glob\n")
 
-      assert_equal %w[Assets:Glob Assets:Main Liabilities:TDC], Frijolero::LedgerAccounts.active
+      assert_equal %w[Assets:Deeper Assets:Glob Assets:Main Liabilities:TDC], Frijolero::LedgerAccounts.active
+    end
+  end
+
+  # The editors still open on a ledger that LedgerFiles refuses, so the badge can say why.
+  def test_an_unsafe_ledger_has_no_accounts
+    with_ledger_dir do |dir|
+      File.write(File.join(dir, 'main.beancount'), %(2020-01-01 open Assets:Main\ninclude "/etc/hosts"\n))
+
+      assert_empty Frijolero::LedgerAccounts.active
     end
   end
 

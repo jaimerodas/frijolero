@@ -129,15 +129,14 @@ class DashboardTest < Minitest::Test
     end
   end
 
-  def test_view_renders_statuses_and_escapes_account_names
+  # A key with HTML in it is not an account (Config::ACCOUNT_KEY), so there is no escape to test.
+  def test_view_renders_statuses
     with_ledger_dir do |dir|
       File.write(File.join(dir, 'config', 'accounts.yaml'), <<~YAML)
         AMEX:
           beancount_account: "Liabilities:Amex"
         BBVA TDC:
           beancount_account: "Liabilities:BBVA"
-        <x>:
-          beancount_account: "Liabilities:X"
       YAML
 
       path = Frijolero::Config.statement_path('BBVA TDC', '2608', 'beancount')
@@ -152,7 +151,6 @@ class DashboardTest < Minitest::Test
       assert_includes html, '/accounts/BBVA%20TDC/2608'
       assert_includes html, '<th>julio 2026</th>'
       assert_includes html, '<th>agosto 2026</th>'
-      assert_includes html, '&lt;x&gt;'
     end
   end
 

@@ -1,47 +1,39 @@
-#!/bin/sh
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
 # Crea un ledger para Frijolero, o prepara uno que ya existe. Agrega lo que
 # falte: config/accounts.yaml, config/rules/, accounts/ y, si el directorio no
 # tiene ningún .beancount, main.beancount. Nunca toca un archivo que ya está.
 # Hace git init si hace falta y un commit con lo agregado. Los prompts son de la
-# app (prompts/), no del ledger.
+# app (prompts/), no del ledger. El trabajo lo hace Frijolero::NewLedger, el mismo
+# que usa la app.
 #
 # Uso: bin/new-ledger <directorio>
-set -e
 
-dir="$1"
-if [ -z "$dir" ]; then
-  echo "uso: bin/new-ledger <directorio>" >&2
-  exit 1
-fi
+# Only these two files, which need no gem of the Gemfile: bin/dev runs this script
+# outside `bundle exec`.
+require_relative '../lib/ledger_repo'
+require_relative '../lib/new_ledger'
 
-templates="$(cd "$(dirname "$0")/.." && pwd)/templates"
-new=1
-[ -d "$dir" ] && new=0
-mkdir -p "$dir"
+dir = ARGV.first.to_s
+abort 'uso: bin/new-ledger <directorio>' if dir.empty?
 
-# An existing ledger keeps its own main file, whatever its name.
-main=$(cd "$dir" && ls -- *.beancount 2>/dev/null | head -1)
-[ -n "$main" ] || { cp "$templates/ledger/main.beancount" "$dir/"; main=main.beancount; }
-# One file at a time: `cp -n` exits 1 on macOS when it skips a file.
-(cd "$templates/ledger" && find . -type f ! -name main.beancount) | while read -r file; do
-  [ -e "$dir/$file" ] || { mkdir -p "$dir/$(dirname "$file")"; cp "$templates/ledger/$file" "$dir/$file"; }
-done
+fresh = !File.directory?(dir)
+message = nil
+main = Frijolero::NewLedger.prepare(dir) { |committed| message = committed }
+unless message
+  puts "#{dir} ya tiene todo: nada que agregar."
+  exit
+end
 
-[ -d "$dir/.git" ] || git -C "$dir" init -q -b main
-git -C "$dir" add -- config accounts .gitignore "$main"
-if git -C "$dir" diff --cached --quiet; then
-  echo "$dir ya tiene todo: nada que agregar."
-  exit 0
-fi
-if [ "$new" = 1 ]; then message="Ledger nuevo"; else message="Configuración de Frijolero"; fi
-git -C "$dir" -c user.name=Frijolero -c user.email=frijolero@localhost commit -qm "$message"
-
-if [ "$new" = 1 ]; then
-  echo "Ledger creado en $dir. Sin remoto, los commits se quedan aquí."
+if fresh
+  puts "Ledger creado en #{dir}. Sin remoto, los commits se quedan aquí."
 else
-  echo "Ledger preparado en $dir: commit \"$message\"."
-  [ "$main" = main.beancount ] || echo "Tu archivo principal es $main: pon LEDGER_MAIN_FILE=$main en .env y en el servidor."
-fi
-echo "Para tenerlo en GitHub y en un servidor, agrega un remoto y haz push:"
-echo "  git -C \"$dir\" remote add origin <url>"
-echo "  git -C \"$dir\" push -u origin main"
+  puts %(Ledger preparado en #{dir}: commit "#{message}".)
+  unless main == 'main.beancount'
+    puts "Tu archivo principal es #{main}: pon LEDGER_MAIN_FILE=#{main} en .env y en el servidor."
+  end
+end
+puts 'Para tenerlo en GitHub y en un servidor, agrega un remoto y haz push:'
+puts %(  git -C "#{dir}" remote add origin <url>)
+puts %(  git -C "#{dir}" push -u origin main)

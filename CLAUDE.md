@@ -26,7 +26,7 @@ The ledger is a separate git repo. The PDFs live in an S3-compatible bucket, or 
 ```bash
 bundle exec rake test && bundle exec rubocop    # both must pass before a commit (bin/test runs both)
 
-bin/dev                                          # the app on http://localhost:3000, password x; reads .env (see .env.example)
+bin/dev                                          # the app on http://localhost:3000; sign in as admin@localhost, the link is in the terminal; reads .env (see .env.example)
 bin/demo-ledger tmp/demo --persona contractor --income 65000   # a fake ledger with three banks, 24 months, rules, PDFs and a job log
 LEDGER_DIR=tmp/demo/ledger bin/dev               # the app on that fake ledger
 
@@ -41,7 +41,7 @@ Without `LEDGER_REPO` in `.env`, `bin/dev` keeps its data in `~/.local/share/fri
 This repo:
 
 ```
-config.ru     runs the migration, then starts App behind OnlyLedger and Login
+config.ru     runs the migration, then starts App behind Login and OnlyLedger
 app/          the Sinatra process: App, its route files, Dashboard, Jobs, views/
 public/       style.css, reports.js, editor.js, charts.js, and the vendored d3 files
 lib/          the pipeline, with no Sinatra; lib/frijolero.rb requires the rest
@@ -90,7 +90,7 @@ A ledger made before the prompts moved into the app still has `config/prompts/`.
 A change to the rules or the accounts is a commit in the ledger, not a deploy. The app reads those files on each request and each job. The droplet gets the change at its next pull. A change to a prompt or a model name is a deploy: the prompts are in `prompts/` of this repo, the same for every ledger, because the app pays for the model and so it chooses the models. To pull every ledger from the shell:
 
 ```bash
-kamal app exec --reuse 'bundle exec ruby -Ilib -e "require %q(frijolero); Frijolero::Ledger.all.each { |l| Frijolero::LedgerRepo.new(dir: l.repo_dir).pull }"'
+kamal app exec --reuse 'bundle exec ruby -Ilib -e "require %q(frijolero); Frijolero::Ledger.all.each { |l| Frijolero::LedgerRepo.for(l).pull }"'
 ```
 
 ### Outside the ledger
@@ -116,7 +116,9 @@ In the bucket, which other apps share: `<pdf_prefix>/accounts/<Key>/<Key> YYMM.p
 | `LEDGER_DIR`, `LEDGER_MAIN_FILE` | Read only when the database has no ledger: `Migration` adopts that clone and records its main file (default `main.beancount`). |
 | `LLM_PROVIDER`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` | `LLM_PROVIDER` is `openai` (default) or `anthropic`. Without the key of that provider, `LLM.client` is nil and the app cannot classify or extract. The model names are in `prompts/*/spec.json`, so a change of provider changes them too. |
 | `LLM_TIMEOUT` | Default 900 s. It is the poll deadline for OpenAI and the read timeout for Anthropic. |
-| `APP_PASSWORD` | The password. It also signs the session cookie (30 days), so a new password logs out every device. |
+| `SESSION_SECRET` | Signs the session cookie (30 days). rack-session needs 64 bytes or more. A new secret logs out every device. In 1Password, the field is `session_secret`. `bin/dev` sets a fixed one. |
+| `APP_URL` | The base of the sign-in links (`https://frijolero.pati.to`). The links never come from the request's Host header, because a forged header could point a link at another site. `bin/dev` uses `http://localhost:$PORT`. |
+| `POSTMARK_API_TOKEN`, `MAIL_FROM` | The sign-in emails go through the HTTP API of Postmark, because DigitalOcean blocks SMTP. Without the token, `Postmark.deliver` writes the email to the log. In 1Password, the field is `postmark_api_token`. |
 | `API_TOKEN` | The bearer token of the iOS Shortcut. It opens only `/api/`, and it can only upload. Without it, `/api/` is closed. In 1Password, the field is `api_token`. |
 | `S3_ENDPOINT`, `S3_BUCKET`, `S3_KEY_ID`, `S3_KEY` | Any S3-compatible store (B2 in production). The endpoint is a bare host. With none of the four, the PDFs go to disk (`LocalPdfs`). With only some, `S3.from_env` raises and names the missing ones. It also removes whitespace from the keys: a stray space from 1Password once caused `Signature validation failed`. |
 | `S3_REGION`, `S3_PATH_STYLE` | Optional. The default region is the second segment of the endpoint, which is correct for B2 and AWS. R2 needs `auto`, Hetzner its location, and DigitalOcean and MinIO `us-east-1`. `S3_PATH_STYLE=1` puts the bucket in the path, for MinIO on localhost or a bucket name with a dot. |
@@ -132,7 +134,15 @@ In the bucket, which other apps share: `<pdf_prefix>/accounts/<Key>/<Key> YYMM.p
 - `app/app.rb` holds the settings, the collaborators, the dashboard and the job pages. Each other file in `app/` reopens `App` for one area. `app/` is the only place that requires Sinatra.
 - `App` has seven collaborators: `jobs`, `inbox`, `inbox_worker`, `client`, `s3`, `repo` and `reports`. `jobs` and `inbox_worker` exist once per ledger, because each holds a thread. `inbox`, `repo` and `s3` are built for the current ledger on each call. Tests replace a collaborator through its `attr_writer`, and that one then serves every ledger.
 - The current ledger (`lib/ledger.rb`) is per thread: `Thread.current`, not `Fiber[]`, which a new thread inherits. Without one, a ledger path raises `NoLedger`, so code that forgot it fails instead of reading another ledger. `OnlyLedger` (`app/only_ledger.rb`), the outer middleware, makes the first ledger the current ledger of each request, and `Ledger.with` clears it at the end. The job body and the Bandeja worker set it with `Ledger.with`, from the ledger of the request that queued them.
-- `Login` (`app/login.rb`) is middleware in front of `App`. It owns `/login` and `/logout`, and it sends each request without a session to `/login`. A request to `/api/` needs `Authorization: Bearer <API_TOKEN>` instead, and gets a JSON 401 without it. `App` and its tests never see auth. `/up` and the static files are outside it. `Login` serves the static files itself, so a static setting (such as `static_cache_control`) goes on `Login`; on `App` it does nothing.
+- `Login` (`app/login.rb`) is the outer middleware, in front of `OnlyLedger` and `App`. So its pages have no current ledger, and they must not read one. It owns `/login`, `/login/<token>` and `/logout`. It sends each request without a valid session to `/login`.
+  - A session is valid while its user is active and its `session_version` matches. Login puts the user in `env['frijolero.user']`.
+  - A request to `/api/` needs `Authorization: Bearer <API_TOKEN>` instead, and gets a JSON 401 without it.
+  - `App` and its tests never see auth.
+- Sign-in is by email link (`lib/signin.rb`). There are no passwords.
+  - A link works once, for 15 minutes. The database keeps only the SHA-256 of its token.
+  - `GET /login/<token>` only shows a button, because mail scanners open the links in an email. The POST signs in.
+  - `POST /login` answers with the same page for every email. A user gets at most 1 link a minute and 5 an hour.
+  - `bin/signin-link <email>` prints a link. It is the way in when the email fails: `kamal app exec --reuse 'bin/signin-link <email>'`. `/up` and the static files are outside it. `Login` serves the static files itself, so a static setting (such as `static_cache_control`) goes on `Login`; on `App` it does nothing.
 - The views are standalone ERB pages in Spanish, with no layout. Each page calls the `head` and `topbar` helpers.
 - All pages of one account are under `/accounts/<Key>`. A statement has three URLs: `/accounts/<Key>/<YYMM>` (the movements), `…/beancount` (the text) and `…/beancount/edit` (the text in the editor). The route constraints in `app/statements.rb` keep `config` and `rules` out of the period segment.
 - With no account in `accounts.yaml`, a filter sends every `/upload` route to `/accounts/new`, and `/api/upload` answers 422. So no model call can happen before the first account exists.
@@ -161,7 +171,8 @@ Received links to the statement, missing to `/upload`, and failed to the newest 
 
 - `/accounts/<Key>` lists the PDFs of the account from the bucket. Each period between the oldest PDF and the newest closed period gets a row, so a gap shows as missing. A bucket error shows on the page, with status 502.
 - `/accounts/<Key>/config` edits only the block of the account in `accounts.yaml`. `AccountBlock` cuts the block by line range, so the comments in the rest of the file stay. The key cannot change.
-- At the bottom of `/accounts`, "Otros archivos beancount" links the main file and each file that it includes outside `accounts/` to its editor at `/files/<path>`. A file that nothing includes does not show, because rledger never reads it.
+- At the bottom of `/accounts`, "Otros archivos beancount" links the main file and each file that it includes, at any depth, outside `accounts/` to its editor at `/files/<path>`. The list comes from `LedgerFiles.all`. A file that nothing includes does not show, because rledger never reads it.
+- An account key matches `Config::ACCOUNT_KEY`: letters, numbers, spaces, `.`, `_` and `-`, and not `.` or `..`. The key becomes a directory and the start of file names, so `Config.accounts` skips any other key, and the new-account form and the `accounts.yaml` editor refuse it.
 - `/accounts/new` adds one account for the Default pipeline. `NewAccount` appends the block and an `open` line, unless a line already opens that account. The other pipelines need extra accounts, so they use `/accounts/yaml`, the editor for the whole file.
 
 ### Upload flow (`app/uploads.rb`)
@@ -259,7 +270,7 @@ A `pre` shows the colored, numbered lines. In edit mode, a transparent textarea 
 
 The save (`POST /edit`):
 
-- `LedgerEdit` checks `file` and `line`. A path outside `LEDGER_DIR`, or a file that is not `.beancount`, is a 404. This is the trust boundary.
+- `LedgerEdit` checks `file` and `line`. It compares real paths, so a symlink cannot lead out. A path outside the ledger, a file that does not exist, or a file that is not `.beancount`, is a 404. This is the trust boundary.
 - `line` can point at any line of a transaction, and `LedgerEdit` walks back to its header. No `line` means the whole file.
 - If the block no longer matches the `original` that the form sent, the answer is 409. A job or a pull changed the file.
 - The save runs `Reports.check` before and after the write. It puts the file back and answers 422 only when the edit adds errors, counted by code and file. So a person can repair a ledger that has errors one edit at a time.
@@ -268,7 +279,7 @@ The save (`POST /edit`):
 
 rledger prints real paths. `Reports.ledger_file` makes them relative to the real path of `LEDGER_DIR`, because `bin/dev` gets to the ledger through a symlink.
 
-The account autocomplete lists `LedgerAccounts.active`: the `open` lines minus the `close` lines. A name that only a rule uses, or a closed account, fails the check. The list opens only where an account goes (`BEANCOUNT_SPOT`, `RULES_SPOT` and `ACCOUNTS_SPOT` in `editor.js`). It is a script because a textarea cannot use a `<datalist>`.
+The account autocomplete lists `LedgerAccounts.active`: the `open` lines minus the `close` lines, in every file that rledger reads (`LedgerFiles.all`). A name that only a rule uses, or a closed account, fails the check. The list opens only where an account goes (`BEANCOUNT_SPOT`, `RULES_SPOT` and `ACCOUNTS_SPOT` in `editor.js`). It is a script because a textarea cannot use a `<datalist>`.
 
 ### Converters (`lib/converters/`)
 
@@ -304,6 +315,16 @@ These behaviors are on purpose:
 ### Reports (`app/reports.rb`, `lib/reports.rb`, `lib/period.rb`)
 
 `Reports` runs `rledger query --no-cache -q -f json` on the main file, so the options, opens, balances and prices are all in. It accepts both row shapes: rledger 0.22 prints objects and 0.24 prints arrays (`Reports.table`). One query takes 0.07 s and 21 MB on the real ledger, so there is no cache. rustledger warns when an account closes with a balance that is not zero, and `-q` keeps that warning off stderr.
+
+Each ledger is the data of its owner, so rledger runs only after `LedgerFiles.all` (`lib/ledger_files.rb`) passes the ledger:
+
+- It walks the main file and every include, at any depth, globs included, as real paths.
+- It raises `LedgerFiles::Unsafe` when an `include`, a `document`, or `option "documents"` resolves outside the real path of the ledger. It also raises when a `plugin` is not a built-in plugin of rledger 0.24, or is `document_discovery`, which lists the directories in its config.
+- The regexes follow what rledger does, as measured: rledger also follows an indented `include`, and it accepts a tab or a CR between the words.
+- A glob include with `[ ] { }`, or any path with `\`, is refused. Ruby's `Dir.glob` reads those characters in another way than rledger's glob, so the walk could check other files than rledger reads.
+- `Reports.run` turns `Unsafe` into a `Reports::Error`. `Reports.check` returns it as one `UNSAFE` error at the line to fix, so the badge and the editors show it, and an edit can repair the ledger.
+- On the real ledger (150 files), a walk takes 8 to 9 ms. There is no cache, because the stamp of `ledger_errors` sees only `.beancount` files.
+- rledger runs with `PATH`, `HOME` and `TZ` only, so no secret reaches it. It reads `.rledger.toml` from its working directory. That is the app's directory, so never start rledger inside a ledger.
 
 - `income(from, to)` sums the Income and Expenses postings in the period.
 - `balance(at)` values every account on that day. It adds three made-up equity rows, so that Assets − Liabilities = Equity on the page. `Reports::SYNTHETIC` lists them, and they have no journal link.
@@ -364,13 +385,21 @@ A failed balance (`E2001`) shows in Spanish with the gap. It links to the journa
 - `AnthropicClient` sends one Messages request with the PDF as a `document` block. A `stop_reason` other than `end_turn` is an `APIError`. Neither client uses a Files API.
 - `S3` is a small SigV4 client over `Net::HTTP`. `uri_encode` is the only place that turns a space into `%20`. The tests replay two official AWS test vectors.
 - `LocalPdfs` has the same three methods as `S3` (`put`, `list`, `presigned_url`) on disk.
-- `LedgerRepo` runs git as a subprocess (see "Git subprocesses").
+- `LedgerRepo` runs git as a subprocess (see "Git subprocesses"). `LedgerRepo.for(ledger)` uses the ledger's deploy key (`ledgers/<id>/deploy_key`) when the file exists. Without a key, it uses `GIT_TOKEN` over HTTPS. A ledger with a key never gets the token.
+  - With a key, ssh runs with `IdentitiesOnly=yes`, `StrictHostKeyChecking=yes` and `config/known_hosts`. That file holds the published host keys of github.com and gitlab.com. When a host rotates a key, replace its lines.
+  - `clone` and `add_remote` accept only `git@<host>:<path>` or `ssh://git@<host>/<path>`, with a host from `config/known_hosts`. This is the trust boundary. A local path or `file://` would clone the ledger of another user from the disk, and `ext::` or a leading `-` would run a command.
+  - `clone` sets `core.symlinks=false` in the clone's config, so no checkout or pull makes a symlink. It clones with `--no-checkout` and refuses a tree larger than 100 MB before it writes the files.
+  - `keygen` makes an ed25519 key with `ssh-keygen`, and refuses to replace a key.
+- `NewLedger.prepare(dir)` makes a ledger from `templates/ledger`, or adds the missing files to one that exists. `bin/new-ledger` is a thin script over it.
 - `PromptSpec` joins `spec.json`, `instructions.txt` and `schema.json` from `prompts/<type>/`, and adds `_prompt`, the type, for the usage row. `plata` is the Alpaca prompt with the advisor of the user's own account, and `alpaca` the general one.
 - `DB` (`lib/db.rb`) is one SQLite connection behind a Monitor, which is reentrant, so a transaction can call `execute`. At boot, each `db/<n>_*.sql` above `PRAGMA user_version` runs in its own transaction. Money is an integer of micro-dollars, never a float.
 
 ## Git subprocesses
 
-`GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` override `chdir:`. When they are set, a test that runs git in a temporary directory commits to this repo instead. It happened once. So each git subprocess, in `lib/` and in the tests, gets an env hash that sets every `GIT_*` variable to nil. `LedgerRepo#git` does this, and `test/ledger_repo_test.rb` has the regression test.
+`GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` override `chdir:`. When they are set, a test that runs git in a temporary directory commits to this repo instead. It happened once. `test/ledger_repo_test.rb` has the regression test.
+
+- In `lib/`, every git call goes through `LedgerRepo#git`. It runs git with a clean environment (`unsetenv_others: true`): `PATH`, `HOME` and `TZ`, plus `GIT_SSH_COMMAND` with a deploy key. So no `GIT_*` variable and no secret of the app reaches git or ssh.
+- The tests that run git themselves set every `GIT_*` variable to nil.
 
 Before you commit new code that runs git:
 
@@ -380,10 +409,10 @@ Before you commit new code that runs git:
 ## Operations
 
 - **Deploy.** Kamal 2 with `config/deploy.yml`, which holds the droplet, the host, the image and the bucket. The image is built for amd64 on the laptop. The volume is `frijolero_data:/data`. A deploy takes about 40 s.
-- **Secrets.** `.kamal/secrets` gets each secret from a 1Password item with `kamal secrets fetch --adapter 1password`. The Kamal parser has no line continuations, so each command is one line. The fields are `kamal_registry_password`, `openai_api_key`, `app_password`, `b2_key_id`, `b2_application_key`, `git_token`, `api_token` and `admin_email`. A missing field fails the deploy. The values that are not secret, `b2_bucket` and `b2_endpoint`, are in `deploy.yml`.
+- **Secrets.** `.kamal/secrets` gets each secret from a 1Password item with `kamal secrets fetch --adapter 1password`. The Kamal parser has no line continuations, so each command is one line. The fields are `kamal_registry_password`, `openai_api_key`, `session_secret`, `postmark_api_token`, `b2_key_id`, `b2_application_key`, `git_token`, `api_token` and `admin_email`. A missing field fails the deploy. The `kamal secrets fetch` line must name every field that an `extract` line reads. The fetch gets only the fields that it names, and the deploy of the database failed on a field that was missing there. The values that are not secret, `b2_bucket` and `b2_endpoint`, are in `deploy.yml`.
 - **1Password.** `kamal` and `ssh` to the droplet work only while the 1Password app is unlocked. The `op` prompt and the SSH agent go through it.
 - **Memory.** The cap is 256 MiB. Right after a boot, production uses 35 to 42 MiB of cgroup memory. Ruby keeps the heap of its largest request: after 13 days up, production used 99.6 MiB (81 MiB of heap), with a peak of 120.6 MiB. A report adds an `rledger` child of about 21 MB for about 0.1 s.
-- **Image.** `ruby:<version>-slim`, two stages, user `app`, `TZ=America/Mexico_City`. It installs `git` and downloads `rledger` with a pinned checksum. The base image already has `tzdata`. `Gemfile.lock` pins the Bundler that the image ships, so the build installs no other one.
+- **Image.** `ruby:<version>-slim`, two stages, user `app`, `TZ=America/Mexico_City`. It installs `git` and `openssh-client` (ssh and ssh-keygen, for the deploy keys) and downloads `rledger` with a pinned checksum. `templates/` is in the image, for `NewLedger`. The base image already has `tzdata`. `Gemfile.lock` pins the Bundler that the image ships, so the build installs no other one.
 - **Ruby bump.** The version is in three places: `.ruby-version`, `ARG RUBY_VERSION` in the `Dockerfile`, and `Gemfile.lock` (`bundle update --ruby`). The Gemfile reads `.ruby-version`, and Bundler refuses any other patch release. Then run `docker run --rm --platform linux/amd64 ruby:<version>-slim bundle -v` and pin that Bundler with `bundle update --bundler=<it>`.
 - **Failed jobs.** The PDF stays in `/data/ledgers/<id>/incoming/<token>/`, and the upload shows in the Bandeja. A successful retry removes it, and so does Descartar. Nothing removes a directory without a PDF, which a job that fails after the extraction leaves.
 
@@ -391,7 +420,7 @@ If `kamal` or `ssh` fails with `promptError` or "communication with agent failed
 
 ## Tests
 
-- Minitest and rack-test: about 800 tests in about 12 s. `test/` mirrors `app/` and `lib/`.
+- Minitest and rack-test: about 900 tests in about 16 s. `test/` mirrors `app/` and `lib/`.
 - `with_ledger_dir` makes a temporary ledger, in a fresh `DATA_DIR`, the current ledger of the test thread. A setup uses `enter_test_ledger` and `leave_test_ledger`. `with_db_ledger` also writes the owner and the ledger as rows.
 - No test writes into `prompts/`: `Config.prompts_dir` is the real folder. Use `test/fixtures/prompts`, or a copy of it in a temporary directory. Web tests call `App` directly, with fake collaborators. Only `test/app/app_test.rb` loads `config.ru`, for the auth wiring.
 - `test_helper.rb` sets `RACK_ENV=test` before it loads the app. Sinatra reads the environment when `sinatra/base` loads, and with any other value its host authorization answers 403.

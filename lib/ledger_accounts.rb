@@ -12,23 +12,11 @@ module Frijolero
       (text.scan(OPEN) - text.scan(CLOSE)).flatten.uniq.sort
     end
 
+    # The files that rledger reads. A ledger that LedgerFiles refuses offers none: the badge says why.
     def self.text
-      files.uniq.select { |f| File.exist?(f) }.map { |f| File.read(f) }.join("\n")
-    end
-
-    INCLUDE = /^include "(.+)"/
-
-    # The main file, what it includes (one level: enough for an adopted ledger that keeps its
-    # opens in a file of its own), the opens file and the rules.
-    def self.files
-      [Config.main_file, *included, Config.account_opens_file, *Dir.glob(File.join(Config.rules_dir, '*.yaml'))]
-    end
-
-    def self.included
-      return [] unless File.exist?(Config.main_file)
-
-      dir = File.dirname(Config.main_file)
-      File.read(Config.main_file).scan(INCLUDE).flatten.flat_map { |pattern| Dir.glob(File.expand_path(pattern, dir)) }
+      LedgerFiles.all.map { |f| File.read(f) }.join("\n")
+    rescue LedgerFiles::Unsafe
+      ''
     end
   end
 end

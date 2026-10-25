@@ -14,9 +14,11 @@ ENV RACK_ENV="production" \
     MALLOC_ARENA_MAX="2" \
     TZ="America/Mexico_City"
 
-# git: LedgerRepo shells out to it. ca-certificates: HTTPS to OpenAI, S3 and GitHub.
+# git: LedgerRepo shells out to it. openssh-client: ssh for the deploy key of a
+# ledger remote, and ssh-keygen to make that key. ca-certificates: HTTPS to OpenAI,
+# S3 and GitHub.
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y git ca-certificates && \
+    apt-get install --no-install-recommends -y git openssh-client ca-certificates && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 # Throw-away stage: puma and nio4r compile native extensions.
@@ -43,7 +45,7 @@ COPY --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"
 COPY --from=build /usr/local/bin/rledger /usr/local/bin/rledger
 COPY . .
 
-# /data is the Kamal volume: ledger/ (git clone), jobs.jsonl, incoming/.
+# /data is the Kamal volume: frijolero.sqlite3, and ledgers/<id>/ for each ledger.
 # A named volume copies this directory's ownership on first mount.
 RUN groupadd --system app && useradd --system --gid app --create-home app && \
     mkdir -p /data && chown -R app:app /data /app

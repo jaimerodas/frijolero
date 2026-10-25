@@ -26,16 +26,20 @@ module Frijolero
     BODY_RE = /\A[ \t]+\S/
     STATEMENT_RE = %r{\Aaccounts/([^/]+)/\1 (\d{4})\.beancount\z}
 
-    # `file` is relative to the ledger; a path that leaves it, or is not a
-    # `.beancount` file, is NotFound. `line` nil or 0 means the whole file.
-    # `checker.check` answers with a list of errors.
+    # `file` is relative to the ledger; a path that leaves it (symlinks resolved), that
+    # does not exist, or that is not a `.beancount` file, is NotFound. `line` nil or 0
+    # means the whole file. `checker.check` answers with a list of errors.
     def initialize(file:, line:, checker: Reports)
       @file = file.to_s
       @line = line.to_i
       @checker = checker
-      root = File.expand_path(Config.ledger_dir)
-      @path = File.expand_path(@file, root)
-      raise NotFound unless @file.end_with?('.beancount') && @path.start_with?("#{root}/")
+      raise NotFound unless @file.end_with?('.beancount')
+
+      root = File.realpath(Config.ledger_dir)
+      @path = File.realpath(@file, root)
+      raise NotFound unless @path.start_with?("#{root}/")
+    rescue SystemCallError, ArgumentError # ArgumentError: a NUL byte in the path
+      raise NotFound
     end
 
     # [key, period] when the file is a statement's, else nil.

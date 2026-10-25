@@ -410,6 +410,27 @@ class ReportsTest < Minitest::Test
     end
   end
 
+  # The editors, the badge and /errors place it like any other error, and rledger never runs.
+  def test_check_of_an_unsafe_ledger_is_one_error_at_its_line
+    with_ledger_dir do |dir|
+      File.write(File.join(dir, 'main.beancount'), %(2020-01-01 open Assets:A\ninclude "/etc/hosts"\n))
+      errors = Reports.stub(:capture, ->(*) { flunk 'rledger ran' }) { Reports.check }
+
+      assert_equal [{ code: 'UNSAFE', message: '"/etc/hosts" está fuera del ledger', file: 'main.beancount',
+                      line: 2, end_line: 3 }], errors
+    end
+  end
+
+  # Puma's environment holds the secrets, and rledger reads what a user wrote.
+  def test_rledger_gets_no_secret_from_the_environment
+    with_env('OPENAI_API_KEY' => 'sk-secret') do
+      out, = with_rledger('env') { Reports.capture('check') }
+
+      refute_includes out, 'sk-secret'
+      assert_includes out, "PATH=#{ENV.fetch('PATH')}"
+    end
+  end
+
   def test_check_raises_with_stderr_when_the_output_is_not_json
     with_ledger_dir do
       error = Reports.stub(:capture, ->(*) { ['', 'cannot read moneys.beancount', 1] }) do

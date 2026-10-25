@@ -109,6 +109,17 @@ class ConfigTest < Minitest::Test
     end
   end
 
+  # A key is a directory of the ledger and part of its file names: `../` would leave the ledger.
+  def test_accounts_skip_a_key_that_could_leave_the_ledger
+    with_ledger_dir do |dir|
+      keys = ['AMEX Aeromexico', 'Nómina_2-b.c', '../other', 'a/b', '.', '..', 1234, '...']
+      File.write(File.join(dir, 'config', 'accounts.yaml'),
+                 YAML.dump(keys.to_h { |key| [key, { 'beancount_account' => 'Assets:X' }] }))
+
+      assert_equal ['AMEX Aeromexico', 'Nómina_2-b.c', '...'], Frijolero::Config.accounts.keys
+    end
+  end
+
   def test_data_dir_raises_without_env
     without_env('DATA_DIR') do
       error = assert_raises(RuntimeError) { Frijolero::Config.data_dir }

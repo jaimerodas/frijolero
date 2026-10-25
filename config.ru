@@ -19,8 +19,9 @@ map '/up' do
   run ->(_env) { [200, { 'content-type' => 'text/plain' }, ['ok']] }
 end
 
+# Login first: the sign-in pages run with no current ledger.
 map '/' do
-  use Frijolero::OnlyLedger
   use Frijolero::Login
+  use Frijolero::OnlyLedger
   run Frijolero::App
 end

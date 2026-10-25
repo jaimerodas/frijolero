@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Imprime un enlace para entrar, que sirve una vez durante 15 minutos. Es la entrada
+# cuando el correo falla. Lee DATA_DIR y APP_URL del entorno.
+#
+# Uso: bin/signin-link <correo>
+# En producción: kamal app exec --reuse 'bin/signin-link yo@example.com'
+
+ENV['BUNDLE_GEMFILE'] ||= File.expand_path('../Gemfile', __dir__)
+require 'bundler/setup' # the image installs the gems for Bundler, not for plain ruby
+require_relative '../lib/frijolero'
+
+email = ARGV.fetch(0) { abort 'uso: bin/signin-link <correo>' }
+user = Frijolero::Users.find_by_email(email) or abort "No hay una cuenta con #{email}"
+puts Frijolero::Signin.link(Frijolero::Signin.issue(user, ttl: Frijolero::Signin::LOGIN_TTL))

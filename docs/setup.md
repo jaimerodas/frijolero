@@ -16,8 +16,9 @@ muestran el error y lo demás funciona.
 1. Instala las gemas con `bundle install`.
 2. Corre `bin/dev`.
 3. Abre http://localhost:3000.
-4. Escribe la contraseña `x`.
-5. Presiona "Dar de alta una cuenta" y llena la forma.
+4. Escribe `admin@localhost` y presiona "Mandar enlace".
+5. Abre el enlace que sale en la terminal de `bin/dev` y presiona "Entrar".
+6. Presiona "Dar de alta una cuenta" y llena la forma.
 
 `bin/dev` no necesita `.env`. La primera vez, crea un ledger en
 `~/.local/share/frijolero/ledger` con `bin/new-ledger`. Ese ledger no tiene
@@ -91,7 +92,9 @@ la página de la cuenta dice cuáles faltan.
 | `DATA_DIR` | El volumen: la base de datos y `ledgers/<id>/`, con el clon, el log de corridas, las subidas y los PDF de cada ledger. Obligatoria. `bin/dev` la pone por ti. |
 | `ADMIN_EMAIL` | El correo del primer admin. La app lo crea en el primer arranque. `bin/dev` usa `admin@localhost`. |
 | `LEDGER_DIR`, `LEDGER_MAIN_FILE` | Solo para el primer arranque: el clon que la app adopta (por defecto `DATA_DIR/ledger`) y su archivo principal (por defecto `main.beancount`). La app guarda los dos en la base de datos. |
-| `APP_PASSWORD` | La contraseña. Obligatoria. También firma la cookie de sesión, que dura 30 días. Si la cambias, todos los dispositivos cierran sesión. |
+| `SESSION_SECRET` | Firma la cookie de sesión, que dura 30 días. Obligatoria, de 64 bytes o más: `openssl rand -hex 64`. Si la cambias, todos los dispositivos cierran sesión. `bin/dev` pone una fija. |
+| `APP_URL` | La dirección de la app, para los enlaces de los correos de entrada. Obligatoria. `bin/dev` usa `http://localhost:3000`. |
+| `POSTMARK_API_TOKEN`, `MAIL_FROM` | El token de Postmark y el remitente de los correos de entrada. Sin el token, el enlace sale en el log. |
 | `API_TOKEN` | El token del atajo de iOS (ver [Subir desde el iPhone](#subir-desde-el-iphone)). Solo abre `/api/upload`. Sin él, `/api/` está cerrado. |
 | `LLM_PROVIDER` | El proveedor del modelo: `openai` (por defecto) o `anthropic`. |
 | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` | La llave del proveedor. Sin ella, la app no clasifica ni extrae: solo guarda los PDF. |
@@ -157,7 +160,7 @@ El servidor recibe un commit del ledger en la siguiente corrida. El botón
 mismo:
 
 ```bash
-kamal app exec --reuse 'bundle exec ruby -Ilib -e "require %q(frijolero); Frijolero::Ledger.all.each { |l| Frijolero::LedgerRepo.new(dir: l.repo_dir).pull }"'
+kamal app exec --reuse 'bundle exec ruby -Ilib -e "require %q(frijolero); Frijolero::Ledger.all.each { |l| Frijolero::LedgerRepo.for(l).pull }"'
 ```
 
 ### La imagen en la laptop
@@ -171,8 +174,11 @@ con `bin/new-ledger`. El primer arranque lo adopta.
 docker build -t frijolero .
 mkdir -p ~/.local/share/frijolero && chmod 777 ~/.local/share/frijolero
 docker run --rm -p 9292:9292 -v ~/.local/share/frijolero:/data \
-  -e APP_PASSWORD=x -e DATA_DIR=/data -e ADMIN_EMAIL=yo@example.com -e OPENAI_API_KEY=... frijolero
+  -e SESSION_SECRET="$(openssl rand -hex 64)" -e APP_URL=http://localhost:9292 \
+  -e DATA_DIR=/data -e ADMIN_EMAIL=yo@example.com -e OPENAI_API_KEY=... frijolero
 ```
+
+Sin `POSTMARK_API_TOKEN`, el enlace para entrar sale en la salida del contenedor.
 
 ## Subir desde el iPhone
 

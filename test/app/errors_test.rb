@@ -259,3 +259,81 @@ class ReadModeErrorsTest < Minitest::Test
     assert_includes last_response.body, '<ul class="errors error" role="alert" hidden></ul>'
   end
 end
+
+# A ledger that LedgerFiles refuses, with the real Reports: every page says why, none is a 500,
+# and rledger never runs on it.
+class UnsafeLedgerPagesTest < Minitest::Test
+  include Rack::Test::Methods
+  include TestHelpers
+
+  MAIN = %(2026-01-01 open Assets:BBVA\ninclude "/etc/hosts"\n)
+
+  class FakeRepo
+    attr_reader :messages
+
+    def initialize = @messages = []
+    def commit_and_push(message) = @messages << message
+    def head = nil
+  end
+
+  def app = Frijolero::App
+
+  def setup
+    @dir = enter_test_ledger
+    File.write(File.join(@dir, 'main.beancount'), MAIN)
+    @repo = FakeRepo.new
+    Frijolero::App.repo = @repo
+  end
+
+  def teardown
+    leave_test_ledger
+    Frijolero::App.repo = nil
+  end
+
+  def without_rledger(&) = Frijolero::Reports.stub(:capture, ->(*) { flunk 'rledger ran' }, &)
+
+  def test_a_report_page_shows_the_message
+    without_rledger { get '/reports/income' }
+
+    assert_equal 502, last_response.status
+    assert_includes last_response.body, 'main.beancount:2: &quot;/etc/hosts&quot; está fuera del ledger'
+  end
+
+  def test_the_badge_counts_it_and_the_error_page_links_its_line
+    without_rledger { get '/errors' }
+
+    assert_includes last_response.body, 'aria-label="1 error"'
+    assert_includes last_response.body, '<code>UNSAFE</code> &quot;/etc/hosts&quot; está fuera del ledger'
+    assert_includes last_response.body, '<a href="/files/main.beancount#L2">línea 2</a>'
+  end
+
+  def test_the_file_editor_marks_the_line
+    without_rledger { get '/files/main.beancount' }
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body,
+                    '<span class="line err" id="L2" title="UNSAFE &quot;/etc/hosts&quot; está fuera del ledger">'
+  end
+
+  # The check before the save names the include, the one after runs rledger on the safe ledger.
+  def test_an_edit_that_removes_the_include_is_saved
+    rledger('--version')
+
+    post '/edit', file: 'main.beancount', original: MAIN, content: "2026-01-01 open Assets:BBVA\n"
+
+    assert_equal 204, last_response.status
+    assert_equal "2026-01-01 open Assets:BBVA\n", File.read(File.join(@dir, 'main.beancount'))
+    assert_equal ['Edición main.beancount'], @repo.messages
+  end
+
+  def test_an_edit_that_adds_an_unsafe_include_is_refused
+    File.write(File.join(@dir, 'main.beancount'), "2026-01-01 open Assets:BBVA\n")
+    rledger('--version')
+
+    post '/edit', file: 'main.beancount', original: "2026-01-01 open Assets:BBVA\n", content: MAIN
+
+    assert_equal 422, last_response.status
+    assert_equal 'UNSAFE', JSON.parse(last_response.body)['errors'].first['code']
+    assert_equal "2026-01-01 open Assets:BBVA\n", File.read(File.join(@dir, 'main.beancount'))
+  end
+end

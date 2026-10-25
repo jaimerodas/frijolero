@@ -42,6 +42,8 @@ class LedgerEditTest < Minitest::Test
     with_ledger_dir do |dir|
       FileUtils.mkdir_p(File.join(dir, 'accounts', 'AMEX'))
       File.write(File.join(dir, 'accounts', 'AMEX', 'AMEX 2607.beancount'), LEDGER)
+      # Files that are not a statement's. A file that does not exist is NotFound.
+      %w[transactions.beancount balances.beancount].each { |name| File.write(File.join(dir, name), '') }
       yield dir
     end
   end
@@ -113,6 +115,19 @@ class LedgerEditTest < Minitest::Test
       end
     ensure
       FileUtils.rm_f(File.join(File.dirname(dir), 'outside.beancount'))
+    end
+  end
+
+  # The path checks compare real paths: a link inside the ledger to another ledger's file is not the ledger's.
+  def test_a_symlink_to_a_file_outside_the_ledger_is_not_found
+    with_ledger do |dir|
+      outside = File.join(File.dirname(dir), 'other.beancount')
+      File.write(outside, LEDGER)
+      File.symlink(outside, File.join(dir, 'prices.beancount'))
+
+      assert_raises(LedgerEdit::NotFound) { edit(1, file: 'prices.beancount').block }
+      assert_raises(LedgerEdit::NotFound) { edit(nil, file: 'prices.beancount').save(original: LEDGER, edited: 'x') }
+      assert_equal LEDGER, File.read(outside)
     end
   end
 

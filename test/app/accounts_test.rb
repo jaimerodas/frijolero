@@ -125,6 +125,11 @@ class AccountsTest < Minitest::Test
       include "prices.beancount"
       include "accounts/AMEX/AMEX 2609.beancount"
     BEANCOUNT
+    File.write(File.join(@dir, 'prices.beancount'), %(include "more/rates.beancount"\n))
+    FileUtils.mkdir_p(File.join(@dir, 'more'))
+    File.write(File.join(@dir, 'more', 'rates.beancount'), '')
+    FileUtils.mkdir_p(File.join(@dir, 'accounts', 'AMEX'))
+    File.write(File.join(@dir, 'accounts', 'AMEX', 'AMEX 2609.beancount'), '')
     File.write(File.join(@dir, 'ignored.beancount'), '')
 
     get '/accounts'
@@ -132,8 +137,19 @@ class AccountsTest < Minitest::Test
     assert_includes last_response.body, 'Otros archivos beancount'
     assert_includes last_response.body, %(href="/files/#{main}")
     assert_includes last_response.body, 'href="/files/prices.beancount"'
+    assert_includes last_response.body, 'href="/files/more/rates.beancount"'
     refute_includes last_response.body, '/files/accounts/'
     refute_includes last_response.body, 'ignored.beancount'
+  end
+
+  # The list comes from LedgerFiles, which refuses this ledger; the badge says why.
+  def test_accounts_list_of_an_unsafe_ledger_links_no_files
+    File.write(Frijolero::Config.main_file, %(include "/etc/hosts"\n))
+
+    get '/accounts'
+
+    assert_equal 200, last_response.status
+    refute_includes last_response.body, 'Otros archivos beancount'
   end
 
   def test_accounts_yaml_editor_shows_the_current_file
@@ -170,6 +186,23 @@ class AccountsTest < Minitest::Test
 
     assert_equal 422, last_response.status
     assert_includes last_response.body, 'HSBC'
+    assert_equal original, File.read(Frijolero::Config.accounts_file)
+    assert_empty @repo.messages
+  end
+
+  # Config.accounts would hide that key, so the editor says so instead of saving it.
+  def test_accounts_yaml_with_a_key_that_could_leave_the_ledger_is_rejected
+    original = File.read(Frijolero::Config.accounts_file)
+
+    post '/accounts/yaml', content: <<~YAML
+      AMEX:
+        beancount_account: "Liabilities:Amex"
+      "../HSBC":
+        beancount_account: "Assets:HSBC"
+    YAML
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, "#{Rack::Utils.escape_html('../HSBC')}: clave inválida"
     assert_equal original, File.read(Frijolero::Config.accounts_file)
     assert_empty @repo.messages
   end
@@ -478,6 +511,15 @@ class AccountsTest < Minitest::Test
     post '/accounts/new', new_account_params(key: 'HSBC 2026')
 
     assert_rejected 'La clave no puede terminar en cuatro dígitos'
+  end
+
+  # The key becomes a directory of the ledger.
+  def test_creating_an_account_with_a_key_that_could_leave_the_ledger_is_rejected
+    ['../HSBC', '..'].each do |key|
+      post '/accounts/new', new_account_params(key: key)
+
+      assert_rejected "#{Rack::Utils.escape_html(key)}: clave inválida"
+    end
   end
 
   def test_creating_an_account_with_a_bad_beancount_account_is_rejected

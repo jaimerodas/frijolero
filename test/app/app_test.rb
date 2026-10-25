@@ -4,18 +4,37 @@ require 'test_helper'
 require 'rack/test'
 require 'rack/builder'
 require 'fileutils'
+require 'stringio'
 
 class AppTest < Minitest::Test
   include Rack::Test::Methods
   include TestHelpers
 
   CONFIG_RU = File.expand_path('../../config.ru', __dir__)
+  ENV_VARS = { 'SESSION_SECRET' => 's' * 64, 'APP_URL' => 'https://frijolero.test' }.freeze
+
+  # Keeps each message instead of sending it.
+  class FakeMailer
+    attr_reader :sent
+
+    def initialize
+      @sent = []
+    end
+
+    def deliver(**message) = @sent << message
+  end
+
+  class FailingMailer
+    def deliver(**) = raise(Frijolero::Postmark::Error, 'Postmark: inactive recipient')
+  end
 
   def setup
-    @previous_app_password = ENV.fetch('APP_PASSWORD', nil)
-    ENV['APP_PASSWORD'] = 'secret'
+    @previous_env = ENV.to_h.slice(*ENV_VARS.keys)
+    ENV.merge!(ENV_VARS)
+    @mailer = FakeMailer.new
+    Frijolero::Signin.mailer = @mailer
     # A ledger in the database, as config.ru expects, but not current on this thread:
-    # each request gets it from OnlyLedger.
+    # each request gets it from OnlyLedger. Its owner is the admin, admin@example.com.
     @dir = enter_db_ledger
     Frijolero::Ledger.current = nil
 
@@ -27,7 +46,9 @@ class AppTest < Minitest::Test
   end
 
   def teardown
-    restore_env('APP_PASSWORD', @previous_app_password)
+    ENV_VARS.each_key { |key| ENV.delete(key) }
+    ENV.merge!(@previous_env)
+    Frijolero::Signin.mailer = nil
     leave_test_ledger
     Frijolero::App.jobs = nil
     Frijolero::App.inbox = nil
@@ -37,6 +58,12 @@ class AppTest < Minitest::Test
   def app
     @app ||= build_app(CONFIG_RU)
   end
+
+  def admin = Frijolero::Users.find_by_email('admin@example.com')
+
+  def link_token = Frijolero::Signin.issue(admin, ttl: 60)
+
+  def sign_in = post("/login/#{link_token}")
 
   def test_up_without_session_is_ok
     get '/up'
@@ -52,31 +79,40 @@ class AppTest < Minitest::Test
     assert last_response.location.end_with?('/login')
   end
 
-  def test_login_page_shows_password_field
+  def test_login_page_has_one_email_field
     get '/login'
 
     assert_equal 200, last_response.status
-    assert_includes last_response.body, 'name="password"'
+    assert_includes last_response.body, 'name="email"'
+    refute_includes last_response.body, 'name="password"'
     assert_includes last_response.body, '<h1 class="wordmark">Frijolero</h1>'
+  end
+
+  # Login sits outside OnlyLedger, so its pages run with no current ledger and read none.
+  def test_login_pages_answer_with_no_current_ledger
+    app # config.ru reads the ledgers when it loads
+    Frijolero::Ledger.stub(:all, -> { flunk 'a login page reached OnlyLedger' }) do
+      get '/login'
+      assert_equal 200, last_response.status
+      post '/login', email: 'admin@example.com'
+      assert_equal 200, last_response.status
+      get "/login/#{link_token}"
+      assert_equal 200, last_response.status
+      post '/login/nope'
+      assert_equal 200, last_response.status
+    end
   end
 
   # OnlyLedger lends the ledger to one request. Puma reuses its threads, so the next
   # request on this thread must not find the last one's ledger.
   def test_a_request_has_the_ledger_and_leaves_none_on_its_thread
     File.write(File.join(@dir, 'main.beancount'), %(option "title" "Casa"\n))
+    sign_in
 
-    get '/login'
+    get '/'
 
-    assert_includes last_response.body, '<h1 class="wordmark">Casa</h1>', 'the page read the ledger'
+    assert_includes last_response.body, 'Casa', 'the page read the ledger'
     assert_raises(Frijolero::NoLedger) { Frijolero::Ledger.current }
-  end
-
-  def test_login_page_wordmark_is_the_ledger_title
-    File.write(File.join(@dir, 'main.beancount'), %(option "title" "Mi ledger"\n))
-
-    get '/login'
-
-    assert_includes last_response.body, '<h1 class="wordmark">Mi ledger</h1>'
   end
 
   def test_style_without_session_is_ok
@@ -93,19 +129,58 @@ class AppTest < Minitest::Test
     assert_includes last_response.headers['cache-control'].to_s, 'no-cache'
   end
 
-  def test_login_with_wrong_password_is_unauthorized_and_stays_out
-    post '/login', password: 'wrong'
+  def test_asking_for_a_link_mails_it
+    post '/login', email: 'admin@example.com'
 
-    assert_equal 401, last_response.status
-    assert_includes last_response.body, 'Contraseña incorrecta'
+    assert_equal(['admin@example.com'], @mailer.sent.map { |message| message[:to] })
+    assert_includes @mailer.sent.first[:text], 'https://frijolero.test/login/'
+  end
 
-    get '/'
+  # The page must not tell which addresses have an account.
+  def test_asking_for_a_link_answers_the_same_page_for_every_email
+    post '/login', email: 'admin@example.com'
+    known = last_response.body
+    post '/login', email: 'nadie@example.com'
+
+    assert_equal 200, last_response.status
+    assert_equal known, last_response.body
+    assert_includes known, 'te llega un correo con un enlace para entrar'
+  end
+
+  # bin/signin-link is the way in when mail fails; the page stays the same.
+  def test_a_mail_failure_is_logged_and_shows_the_same_page
+    post '/login', email: 'nadie@example.com'
+    expected = last_response.body
+    Frijolero::Signin.mailer = FailingMailer.new
+    log = StringIO.new
+    Frijolero::Log.sink = log
+
+    post '/login', email: 'admin@example.com'
+
+    assert_equal 200, last_response.status
+    assert_equal expected, last_response.body
+    assert_includes log.string, 'inactive recipient'
+  ensure
+    Frijolero::Log.sink = nil
+  end
+
+  # Mail scanners open the links in an email: the GET must leave the token unused.
+  def test_a_link_page_has_one_button_and_keeps_the_token
+    token = link_token
+
+    get "/login/#{token}"
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, '<button type="submit" class="primary"'
+    refute_includes last_response.body, 'name="email"'
+
+    post "/login/#{token}"
 
     assert_equal 302, last_response.status
   end
 
-  def test_login_with_right_password_starts_session
-    post '/login', password: 'secret'
+  def test_a_link_signs_in
+    sign_in
 
     assert_equal 302, last_response.status
     assert_equal '/', URI(last_response.location).path
@@ -113,11 +188,31 @@ class AppTest < Minitest::Test
     get '/'
 
     assert_equal 200, last_response.status
-    assert_includes last_response.body, 'Frijolero'
   end
 
-  def test_login_sets_cookie_flags
-    post '/login', password: 'secret'
+  def test_a_used_link_shows_the_expired_page
+    token = link_token
+    post "/login/#{token}"
+    post '/logout'
+
+    post "/login/#{token}"
+
+    assert_includes last_response.body, 'Este enlace ya no sirve'
+
+    get '/'
+
+    assert_equal 302, last_response.status
+  end
+
+  def test_an_unknown_link_shows_the_expired_page
+    post '/login/nope'
+
+    assert_includes last_response.body, 'Este enlace ya no sirve'
+    assert_includes last_response.body, 'name="email"', 'the page offers a new link'
+  end
+
+  def test_sign_in_sets_cookie_flags
+    sign_in
 
     cookie = last_response.headers['set-cookie'].to_s.downcase
     assert_includes cookie, 'httponly'
@@ -126,7 +221,7 @@ class AppTest < Minitest::Test
   end
 
   def test_logout_ends_session
-    post '/login', password: 'secret'
+    sign_in
     post '/logout'
 
     assert_equal 302, last_response.status
@@ -135,6 +230,45 @@ class AppTest < Minitest::Test
     get '/'
 
     assert_equal 302, last_response.status
+  end
+
+  # The session is cleared too, so an unblock does not bring it back.
+  def test_a_blocked_user_loses_the_session
+    sign_in
+    Frijolero::DB.execute("UPDATE users SET status = 'blocked' WHERE id = ?", admin.id)
+
+    get '/'
+
+    assert_equal 302, last_response.status
+    assert last_response.location.end_with?('/login')
+
+    Frijolero::DB.execute("UPDATE users SET status = 'active' WHERE id = ?", admin.id)
+    get '/'
+
+    assert_equal 302, last_response.status
+  end
+
+  # "Salir de todos lados" adds 1 to session_version.
+  def test_a_new_session_version_signs_out
+    sign_in
+    Frijolero::DB.execute('UPDATE users SET session_version = 2 WHERE id = ?', admin.id)
+
+    get '/'
+
+    assert_equal 302, last_response.status
+    assert last_response.location.end_with?('/login')
+  end
+
+  def test_the_app_gets_the_signed_in_user
+    @app = Rack::Builder.new do
+      use Frijolero::Login
+      run ->(env) { [200, {}, [env['frijolero.user'].email]] }
+    end.to_app
+
+    sign_in
+    get '/'
+
+    assert_equal 'admin@example.com', last_response.body
   end
 
   # The iOS Shortcut has no cookie: a bearer token opens /api/, and only /api/.
@@ -186,10 +320,11 @@ class AppTest < Minitest::Test
     assert last_response.location.end_with?('/login')
   end
 
-  def test_loading_without_app_password_raises
-    ENV.delete('APP_PASSWORD')
+  def test_loading_without_session_secret_raises
+    ENV.delete('SESSION_SECRET')
 
-    assert_raises(KeyError) { build_app(CONFIG_RU) }
+    error = assert_raises(KeyError) { build_app(CONFIG_RU) }
+    assert_includes error.message, '64'
   end
 
   private
@@ -199,13 +334,5 @@ class AppTest < Minitest::Test
   def build_app(path)
     result = Rack::Builder.parse_file(path)
     result.is_a?(Array) ? result.first : result
-  end
-
-  def restore_env(key, previous_value)
-    if previous_value.nil?
-      ENV.delete(key)
-    else
-      ENV[key] = previous_value
-    end
   end
 end

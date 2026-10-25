@@ -38,9 +38,12 @@ else
 fi
 
 export ADMIN_EMAIL="${ADMIN_EMAIL:-admin@localhost}"
-export APP_PASSWORD="${APP_PASSWORD:-x}"
 export PORT="${PORT:-3000}"
+export APP_URL="${APP_URL:-http://localhost:$PORT}"
+# Fixed, so a restart keeps the session. rack-session needs 64 bytes or more.
+export SESSION_SECRET="${SESSION_SECRET:-frijolero-development-session-secret-for-bin-dev-only-never-production}"
 export RACK_ENV="${RACK_ENV:-development}"
 
-echo "frijolero on http://localhost:$PORT (password: $APP_PASSWORD, data: $DATA_DIR)"
+echo "frijolero on $APP_URL (data: $DATA_DIR)"
+echo "sign in with $ADMIN_EMAIL: without POSTMARK_API_TOKEN, the link appears in this terminal"
 exec bundle exec puma -C config/puma.rb config.ru

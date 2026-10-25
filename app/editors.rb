@@ -125,8 +125,8 @@ module Frijolero
       end
 
       def validate_accounts_yaml!(content)
-        data = parse_yaml_hash!(content)
-        data.each do |key, value|
+        parse_yaml_hash!(content).each do |key, value|
+          raise EditorError, "#{key}: #{NewAccount::BAD_KEY}" unless Config.account_key?(key)
           raise EditorError, "#{key}: falta beancount_account" unless account_entry_valid?(value)
         end
       end

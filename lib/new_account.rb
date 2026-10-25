@@ -11,6 +11,8 @@ module Frijolero
 
     BEANCOUNT_ACCOUNT = /\A(Assets|Liabilities|Equity|Income|Expenses)(:[A-Z][A-Za-z0-9-]*)+\z/
     FIELDS = %w[key description beancount_account openai_prompt_type cutoff_day opened_on].freeze
+    # After "<key>: ", here and in the accounts.yaml editor, for a key that is not a Config::ACCOUNT_KEY.
+    BAD_KEY = 'clave inválida; usa letras, números, espacios, . _ o -'
 
     class << self
       # The app's prompt directories, minus the classifier's, default first.
@@ -22,6 +24,7 @@ module Frijolero
       def parse!(values)
         key = values['key']
         raise Invalid, 'Falta la clave' if key.empty?
+        raise Invalid, "#{key}: #{BAD_KEY}" unless Config.account_key?(key)
         raise Invalid, "#{key} ya existe" if Config.accounts.key?(key)
         raise Invalid, 'La clave no puede terminar en cuatro dígitos' if key.match?(/ \d{4}\z/)
 

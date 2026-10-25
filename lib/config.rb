@@ -6,6 +6,10 @@ module Frijolero
   # The paths and settings of the current ledger (Ledger.current), and the few that are
   # global. Without a current ledger, a ledger path raises NoLedger.
   class Config
+    # An account key is a directory of the ledger and the start of its file names, so it
+    # holds no `/` and it is not `.` or `..`.
+    ACCOUNT_KEY = /\A(?!\.\.?\z)[\p{L}\p{N} ._-]+\z/
+
     class << self
       # The volume: the database, and ledgers/<id>/ for each ledger.
       def data_dir
@@ -82,12 +86,15 @@ module Frijolero
       end
 
       # Read on every call, never cached: a `git pull` or the accounts editor can
-      # change the file under a running app, and the file is tiny.
+      # change the file under a running app, and the file is tiny. A key that is not an
+      # ACCOUNT_KEY is left out, so no path is ever made from it.
       def accounts
         return {} unless File.exist?(accounts_file)
 
-        YAML.load_file(accounts_file) || {}
+        (YAML.load_file(accounts_file) || {}).select { |key, _| account_key?(key) }
       end
+
+      def account_key?(key) = key.is_a?(String) && key.match?(ACCOUNT_KEY)
 
       def jobs_file = File.join(Ledger.current.dir, 'jobs.jsonl')
 

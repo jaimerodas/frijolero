@@ -2,7 +2,6 @@
 
 require 'digest'
 require 'fileutils'
-require 'securerandom'
 require 'time'
 
 module Frijolero
@@ -13,7 +12,6 @@ module Frijolero
   # the same volume. A second run finds the rows and does nothing.
   module Migration
     NEXT_TO_THE_LEDGER = %w[jobs.jsonl incoming pdfs].freeze
-    ID_CHARS = [*'a'..'z', *'0'..'9'].freeze
 
     class << self
       def run
@@ -40,7 +38,7 @@ module Frijolero
         main = File.join(legacy_dir, main_file)
         raise missing_main_file(main) unless File.exist?(main)
 
-        id = SecureRandom.alphanumeric(8, chars: ID_CHARS)
+        id = Ledger.new_id
         DB.transaction do
           DB.execute('INSERT INTO ledgers (id, owner_id, name, main_file, pdf_prefix, created_at) ' \
                      "VALUES (?, ?, ?, ?, 'frijolero', ?)", id, owner, title(main), main_file, now)

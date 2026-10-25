@@ -9,15 +9,14 @@ module Frijolero
         LedgerEdit.new(file: params[:file], line: params[:line], checker: self.class.reports)
       end
 
-      # The main file and its includes outside accounts/, whose files the statement
-      # pages already open. The main file is in the ledger's root, so its include
-      # paths are the paths /files/ takes. A file that nothing includes is left out.
+      # The main file and every file it includes outside accounts/, whose files the statement
+      # pages already open, relative to the ledger as /files/ takes them. A file that nothing
+      # includes is left out, and so is every file of a ledger that LedgerFiles refuses: the
+      # badge says why.
       def other_ledger_files
-        main = Config.main_file
-        return [] unless File.exist?(main)
-
-        includes = File.foreach(main).filter_map { |line| line[/^include\s+"([^"]+)"/, 1] }
-        [File.basename(main), *includes].reject { |file| file.start_with?('accounts/') }
+        LedgerFiles.all.map { |file| Reports.ledger_file(file) }.reject { |file| file.start_with?('accounts/') }
+      rescue LedgerFiles::Unsafe
+        []
       end
     end
 

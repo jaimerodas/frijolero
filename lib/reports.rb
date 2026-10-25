@@ -207,11 +207,15 @@ module Frijolero
       end
     end
 
+    # rledger runs only on a ledger that LedgerFiles passed.
     def run(bql)
+      LedgerFiles.all
       out, err, code = capture('query', '--no-cache', '-q', '-f', 'json', Config.main_file, bql)
       return out if code.zero?
 
       raise Error, err.strip.empty? ? "rledger salió con #{code}" : err.strip
+    rescue LedgerFiles::Unsafe => e
+      raise Error, e.message
     end
 
     # `rledger check` over the whole ledger: [] when it is clean, else one
@@ -220,11 +224,20 @@ module Frijolero
     # it (blank lines after it included). Warnings are left out, and a parse error
     # that rledger reports twice is listed once. Without `--no-cache` the binary
     # would leave a cache file in the clone.
+    # A ledger that LedgerFiles refuses is one UNSAFE error at the line to fix, and rledger
+    # does not run. So the badge and the editors show it, and an edit can repair it.
     def check
+      LedgerFiles.all
       out, err, code = capture('check', '--no-cache', '-f', 'json', Config.main_file)
       JSON.parse(out).fetch('diagnostics').select { |d| d['severity'] == 'error' }.map { |d| check_error(d) }.uniq
+    rescue LedgerFiles::Unsafe => e
+      [unsafe_error(e)]
     rescue JSON::ParserError, KeyError
       raise Error, err.strip.empty? ? "rledger salió con #{code}" : err.strip
+    end
+
+    def unsafe_error(unsafe)
+      { code: 'UNSAFE', message: unsafe.problem, file: unsafe.file, line: unsafe.line, end_line: unsafe.line + 1 }
     end
 
     def check_error(diagnostic)
@@ -239,8 +252,9 @@ module Frijolero
     end
 
     # [stdout, stderr, exit status] of one rledger call. The one seam the tests stub.
+    # rledger gets PATH, HOME and TZ, and nothing else of Puma's environment, which holds the secrets.
     def capture(*)
-      out, err, status = Open3.capture3(Config.rledger, *)
+      out, err, status = Open3.capture3(ENV.slice('PATH', 'HOME', 'TZ'), Config.rledger, *, unsetenv_others: true)
       [out, err, status.exitstatus]
     rescue Errno::ENOENT
       raise Error, "rustledger no está instalado (#{Config.rledger}): brew install rustledger, o pon RLEDGER"

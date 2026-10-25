@@ -1,0 +1,158 @@
+# frozen_string_literal: true
+
+require 'test_helper'
+require 'digest'
+
+class SigninTest < Minitest::Test
+  include TestHelpers
+
+  # Keeps each message instead of sending it.
+  class FakeMailer
+    attr_reader :sent
+
+    def initialize
+      @sent = []
+    end
+
+    def deliver(**message) = @sent << message
+  end
+
+  T = Time.utc(2026, 10, 24, 12, 0, 0)
+
+  def setup
+    enter_test_ledger # a fresh DATA_DIR, so a fresh database
+    @mailer = FakeMailer.new
+    Frijolero::Signin.mailer = @mailer
+    @app_url = ENV.fetch('APP_URL', nil)
+    ENV['APP_URL'] = 'https://frijolero.test'
+  end
+
+  def teardown
+    Frijolero::Signin.mailer = nil
+    @app_url ? ENV['APP_URL'] = @app_url : ENV.delete('APP_URL')
+    leave_test_ledger
+  end
+
+  def add_user(email = 'ana@example.com', status: 'active')
+    id = Frijolero::DB.insert("INSERT INTO users (email, role, status, created_at) VALUES (?, 'user', ?, ?)",
+                              email, status, T.iso8601)
+    Frijolero::Users.find(id)
+  end
+
+  # The raw token of the last link that the fake mailer got.
+  def last_token = @mailer.sent.last[:text][%r{/login/(\S+)}, 1]
+
+  def test_issue_returns_a_url_safe_token_and_the_database_keeps_only_its_sha256
+    raw = Frijolero::Signin.issue(add_user, ttl: 60)
+
+    assert_match(/\A[A-Za-z0-9_-]{43}\z/, raw) # 32 bytes
+    rows = Frijolero::DB.execute('SELECT * FROM signin_tokens')
+    assert_equal([Digest::SHA256.hexdigest(raw)], rows.map { |row| row['token_sha256'] })
+    refute_includes rows.first.values, raw
+  end
+
+  def test_redeem_returns_the_user_once
+    user = add_user
+    raw = Frijolero::Signin.issue(user, ttl: 60)
+
+    assert_equal user, Frijolero::Signin.redeem(raw)
+    assert_nil Frijolero::Signin.redeem(raw)
+  end
+
+  def test_redeem_of_an_unknown_token_is_nil
+    add_user
+
+    assert_nil Frijolero::Signin.redeem('nope')
+  end
+
+  def test_redeem_after_the_ttl_is_nil
+    raw = Frijolero::Signin.issue(add_user, ttl: 60, now: T)
+
+    assert_nil Frijolero::Signin.redeem(raw, now: T + 60)
+  end
+
+  def test_redeem_activates_an_invited_user
+    user = add_user(status: 'invited')
+
+    redeemed = Frijolero::Signin.redeem(Frijolero::Signin.issue(user, ttl: 60))
+
+    assert_equal 'active', redeemed.status
+    assert_equal 'active', Frijolero::Users.find(user.id).status
+  end
+
+  def test_redeem_for_a_blocked_user_is_nil
+    raw = Frijolero::Signin.issue(add_user(status: 'blocked'), ttl: 60)
+
+    assert_nil Frijolero::Signin.redeem(raw)
+  end
+
+  def test_link_comes_from_app_url
+    assert_equal 'https://frijolero.test/login/abc', Frijolero::Signin.link('abc')
+  end
+
+  def test_request_mails_a_link_to_an_active_user
+    add_user
+
+    Frijolero::Signin.request('ana@example.com')
+
+    assert_equal 1, @mailer.sent.size
+    message = @mailer.sent.first
+    assert_equal 'ana@example.com', message[:to]
+    assert_equal 'Tu enlace para entrar a Frijolero', message[:subject]
+    assert_includes message[:text], "https://frijolero.test/login/#{last_token}"
+    assert_includes message[:text], 'una sola vez, durante 15 minutos'
+    assert_includes message[:text], 'Si no lo pediste, ignora este correo'
+  end
+
+  def test_the_link_of_a_request_lasts_15_minutes
+    user = add_user
+    Frijolero::Signin.request(user.email, now: T)
+
+    assert_nil Frijolero::Signin.redeem(last_token, now: T + (15 * 60))
+    assert_equal user, Frijolero::Signin.redeem(last_token, now: T + (15 * 60) - 1)
+  end
+
+  def test_request_mails_an_invited_user
+    add_user(status: 'invited')
+
+    Frijolero::Signin.request('ana@example.com')
+
+    assert_equal 1, @mailer.sent.size
+  end
+
+  def test_request_for_an_unknown_email_does_nothing
+    add_user
+
+    Frijolero::Signin.request('nadie@example.com')
+
+    assert_empty @mailer.sent
+    assert_empty Frijolero::DB.execute('SELECT * FROM signin_tokens')
+  end
+
+  def test_request_for_a_blocked_user_does_nothing
+    add_user(status: 'blocked')
+
+    Frijolero::Signin.request('ana@example.com')
+
+    assert_empty @mailer.sent
+    assert_empty Frijolero::DB.execute('SELECT * FROM signin_tokens')
+  end
+
+  def test_request_sends_one_link_a_minute
+    add_user
+
+    [0, 59, 60].each { |s| Frijolero::Signin.request('ana@example.com', now: T + s) }
+
+    assert_equal 2, @mailer.sent.size
+  end
+
+  def test_request_sends_five_links_an_hour
+    add_user
+
+    (0..5).each { |m| Frijolero::Signin.request('ana@example.com', now: T + (m * 60)) }
+    assert_equal 5, @mailer.sent.size
+
+    Frijolero::Signin.request('ana@example.com', now: T + 3600)
+    assert_equal 6, @mailer.sent.size
+  end
+end

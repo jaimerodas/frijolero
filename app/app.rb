@@ -34,7 +34,7 @@ module Frijolero
       # Any S3 variable set means S3; from_env then names the missing ones. None means
       # disk, in the directory of the ledger. The keys carry the ledger's pdf_prefix.
       def s3 = @s3 || (S3::ENV_KEYS.any? { |k| ENV.key?(k) } ? S3.from_env : LocalPdfs.new(Config.pdfs_dir))
-      def repo = @repo || LedgerRepo.new(dir: Config.ledger_dir)
+      def repo = @repo || LedgerRepo.for(Ledger.current)
       def reports = @reports ||= Reports
 
       # The answer that the Bandeja keeps for one PDF.

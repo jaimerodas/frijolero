@@ -80,6 +80,28 @@ class NewLedgerTest < Minitest::Test
     end
   end
 
+  def test_prepare_returns_the_main_file
+    with_temp_dir do |tmp|
+      FileUtils.mkdir_p(File.join(tmp, 'viejo'))
+      File.write(File.join(tmp, 'viejo', 'ledger.beancount'), '')
+
+      assert_equal 'ledger.beancount', Frijolero::NewLedger.prepare(File.join(tmp, 'viejo'))
+      assert_equal 'main.beancount', Frijolero::NewLedger.prepare(File.join(tmp, 'nuevo'))
+    end
+  end
+
+  # Not `git add -A`: the rest of the directory belongs to the person.
+  def test_prepare_commits_only_the_files_of_frijolero
+    with_temp_dir do |tmp|
+      File.write(File.join(tmp, 'notas.txt'), "mías\n")
+
+      Frijolero::NewLedger.prepare(tmp)
+
+      status, = Open3.capture2(scrubbed_env, 'git', '-C', tmp, 'status', '--porcelain')
+      assert_equal "?? notas.txt\n", status
+    end
+  end
+
   private
 
   # A git hook exports GIT_DIR and friends. Scrubbed, or the script commits to this repo.
