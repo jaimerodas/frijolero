@@ -318,7 +318,7 @@ abort "rledger check: #{errors.map { "#{it[:message]} (#{it[:file]}:#{it[:line]}
 
 system(git_env, 'git', '-C', ledger, 'add', '-A', exception: true)
 system(git_env, 'git', '-C', ledger, '-c', 'user.name=Frijolero', '-c', 'user.email=frijolero@localhost',
-       'commit', '-qm', 'Ledger de demostración', exception: true)
+       '-c', 'commit.gpgsign=false', 'commit', '-qm', 'Ledger de demostración', exception: true)
 puts "Ledger de demostración en #{ledger}: #{options[:persona]}, #{options[:income]} MXN al mes, " \
      "#{months.first.strftime('%Y-%m')} a #{last_month.strftime('%Y-%m')}, semilla #{options[:seed]}."
 puts "Para verlo: LEDGER_DIR=#{ledger} bin/dev"

@@ -16,6 +16,12 @@ proxy:
   ssl: true
   host: frijolero.pati.to
   app_port: 9292
+  # One request carries at most 100 MB: a batch of statements fits, and one upload cannot
+  # fill the disk that every app on the host shares. kamal-proxy's default is 1 GB.
+  buffering:
+    requests: true
+    responses: true
+    max_request_body: 100_000_000
   healthcheck:
     path: /up
     interval: 3

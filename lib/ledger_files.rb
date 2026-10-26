@@ -44,6 +44,10 @@ module Frijolero
                  pedantic rename_accounts rx_txn_plugin sellgains split_expenses unique_prices unrealized valuation
                  zerosum].freeze
     PLUGIN = /\A(?:\w+\.)*(?:#{PLUGINS.join('|')})\z/
+    # The text that rledger may read. It needs about 23 MB of memory for each MB of text,
+    # on top of 10 MB (measured with rledger 0.24 on 0.75 and 3 MB ledgers; the user's is
+    # 0.74 MB), and Puma and its children share 256 MiB, of which Puma holds about 100.
+    MAX_BYTES = 4 * 1024 * 1024
 
     # [] while the ledger has no main file, which rledger reports, as it reports an
     # include that matches nothing.
@@ -65,17 +69,25 @@ module Frijolero
       end
 
       def files
-        unless inside?(@main)
-          raise Unsafe.new(Ledger.current.main_file, 1, 'el archivo principal está fuera del ledger')
-        end
+        refuse('el archivo principal está fuera del ledger') unless inside?(@main)
 
         files = [@main]
-        # `each` also visits what the block appends, so the walk needs no recursion.
-        files.each { |file| files.concat(included(file).uniq - files) }
+        bytes = 0
+        # `each` also visits what the block appends, so the walk needs no recursion. The size
+        # counts before the read, so a huge file is never read either.
+        files.each do |file|
+          bytes += File.size?(file).to_i
+          refuse('el ledger pasa de 4 MB de texto, más de lo que rledger puede leer aquí') if bytes > MAX_BYTES
+
+          files.concat(included(file).uniq - files)
+        end
         files
       end
 
       private
+
+      # A problem of the whole ledger, shown at the top of its main file.
+      def refuse(problem) = raise(Unsafe.new(Ledger.current.main_file, 1, problem))
 
       # The files that `file` includes, after a check of each of its directives.
       def included(file)

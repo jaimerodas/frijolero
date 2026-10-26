@@ -1,0 +1,53 @@
+#!/bin/bash
+# Keeps the backup on the server in sync with this repo: the script and the schedule are
+# what the last deploy said, not what somebody last edited by hand.
+#
+# The same droplet runs other apps that do this too, so every path here is namespaced
+# to the service, and the cron entry is a drop-in file rather than a crontab edit: no
+# app overwrites the schedule of another. Runs on the laptop, with macOS tools.
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+
+# S3_KEY_ID and S3_KEY, from 1Password. The deploy read them already, but Kamal does not
+# pass secrets to a hook.
+source .kamal/secrets
+
+deploy() { ruby -ryaml -e 'puts YAML.load_file("config/deploy.yml").dig(*ARGV)' "$@"; }
+SERVICE=$(deploy service)
+ENDPOINT=$(deploy env clear S3_ENDPOINT) # a bare host: the app adds https:// itself, the AWS CLI does not
+BUCKET=$(deploy env clear S3_BUCKET)
+
+for host in ${KAMAL_HOSTS//,/ }; do
+  echo "Updating the backup of $SERVICE on $host..."
+
+  ssh "root@$host" "cat > /usr/local/bin/$SERVICE-backup && chmod 755 /usr/local/bin/$SERVICE-backup" < bin/backup-host
+
+  # Already there when another app installed it, but this runs on a rebuilt droplet too.
+  ssh "root@$host" 'bash -s' <<'SETUP'
+    if ! command -v aws > /dev/null; then
+      echo "Installing AWS CLI..."
+      apt-get update -qq && apt-get install -y -qq unzip > /dev/null
+      curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+      unzip -qo /tmp/awscliv2.zip -d /tmp
+      /tmp/aws/install
+      rm -rf /tmp/awscliv2.zip /tmp/aws
+    fi
+SETUP
+
+  # The keys go through stdin, never on a command line, and the file is never readable
+  # by others, not even for a moment.
+  ssh "root@$host" "umask 077 && cat > /etc/$SERVICE-backup.env && chmod 600 /etc/$SERVICE-backup.env" <<ENV
+AWS_ACCESS_KEY_ID=$S3_KEY_ID
+AWS_SECRET_ACCESS_KEY=$S3_KEY
+AWS_ENDPOINT_URL=https://$ENDPOINT
+B2_BUCKET=$BUCKET
+SERVICE=$SERVICE
+ENV
+
+  # Daily at 10:15 UTC: the other apps back up at 10:00, and the host has one vCPU.
+  ssh "root@$host" "cat > /etc/cron.d/$SERVICE-backup && chmod 644 /etc/cron.d/$SERVICE-backup" <<CRON
+# $SERVICE backup to the bucket: daily at 10:15 UTC (4:15 AM in Mexico City)
+# Managed by the Kamal post-deploy hook of $SERVICE: do not edit by hand
+15 10 * * * root /usr/local/bin/$SERVICE-backup >> /var/log/$SERVICE-backup.log 2>&1
+CRON
+done

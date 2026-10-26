@@ -142,9 +142,7 @@ module Frijolero
     private
 
     # A laptop-only ledger has no remote: the commits stay local.
-    def remote?
-      !git('remote').strip.empty?
-    end
+    def remote? = !git('remote').strip.empty?
 
     def abort_rebase
       git('rebase', '--abort')
@@ -154,8 +152,12 @@ module Frijolero
 
     def staged_changes? = !git('diff', '--cached', '--name-only').empty?
 
+    # core.symlinks=false on every call, not only in the config of a clone: the first ledger
+    # and a template ledger with a remote added later have none, and a pull from the
+    # person's remote must not make a symlink there either.
     def config_flags
-      flags = ['-c', 'user.name=Frijolero', '-c', 'user.email=frijolero@localhost', '-c', 'commit.gpgsign=false']
+      flags = ['-c', 'user.name=Frijolero', '-c', 'user.email=frijolero@localhost', '-c', 'commit.gpgsign=false',
+               '-c', 'core.symlinks=false']
       return flags unless @token
 
       auth = Base64.strict_encode64("x-access-token:#{@token}")

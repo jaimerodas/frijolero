@@ -1,0 +1,42 @@
+#!/bin/bash
+# Copies a backup of Frijolero to the bucket: the database, a git bundle of each ledger
+# and each job log, in the one .tar.gz that bin/backup makes in the web container.
+# Installed on the server as /usr/local/bin/frijolero-backup by .kamal/hooks/post-deploy,
+# and run daily by /etc/cron.d/frijolero-backup. Nothing prunes old archives.
+#
+# The PDFs are not in it: they are in the same bucket already. Nor are the uploads that
+# wait in the Bandeja (a person can upload them again), or the deploy keys (private
+# keys stay on the volume). docs/restore.md has the way back.
+set -euo pipefail
+
+# cron gives /usr/bin:/bin, and the AWS CLI installs in /usr/local/bin.
+PATH="$PATH:/usr/local/bin"
+
+set -a
+source /etc/frijolero-backup.env
+set +a
+
+log() { echo "[$(date -u '+%F %T')] $*"; }
+trap 'log "El respaldo falló: no subió nada." >&2' ERR
+
+CONTAINER=$(docker ps --filter "label=service=$SERVICE" --filter label=role=web --format '{{.Names}}' | head -1)
+if [ -z "$CONTAINER" ]; then
+  log "No hay un contenedor web de $SERVICE: no hay nada que respaldar." >&2
+  exit 1
+fi
+
+# bin/backup checks the database and verifies each bundle before it writes the archive.
+# Its stdout is the path of the archive, and its stderr names a ledger it skipped.
+ARCHIVE=$(docker exec "$CONTAINER" bin/backup)
+LOCAL="/tmp/$(basename "$ARCHIVE")"
+trap 'rm -f "$LOCAL"; docker exec "$CONTAINER" rm -f "$ARCHIVE"' EXIT
+docker cp "$CONTAINER:$ARCHIVE" "$LOCAL"
+
+# Read it all once more on this side of the copy: an archive that uploads fine and
+# cannot be read is worse than a failure, because nothing tells you until you need it.
+CONTENTS=$(tar -tzf "$LOCAL")
+grep -qx './frijolero.sqlite3' <<<"$CONTENTS"
+
+aws s3 cp --only-show-errors "$LOCAL" "s3://$B2_BUCKET/$SERVICE/daily/$(basename "$LOCAL")"
+
+log "$(basename "$LOCAL"): $(du -h "$LOCAL" | cut -f1), $(grep -c '\.bundle$' <<<"$CONTENTS") ledgers"

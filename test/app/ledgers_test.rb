@@ -106,6 +106,19 @@ class LedgersTest < Minitest::Test
     assert_equal ['test'], Frijolero::Ledger.owned_by(@owner.id).map(&:id)
   end
 
+  # Each ledger holds two threads from boot, so one person cannot make them without end.
+  def test_a_person_has_at_most_five_ledgers
+    4.times { |i| Frijolero::Ledger.create(owner_id: @owner.id, name: "L#{i}") }
+
+    %w[/ledgers /ledgers/repo].each do |path|
+      post path, name: 'Otro'
+
+      assert_equal 422, last_response.status, path
+      assert_includes last_response.body, 'class="error"', path
+    end
+    assert_equal 5, Frijolero::Ledger.owned_by(@owner.id).size
+  end
+
   def test_own_repo_makes_a_key_and_asks_for_the_url
     post '/ledgers/repo', name: 'Mío'
 

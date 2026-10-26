@@ -69,8 +69,12 @@ module Frijolero
                          'El enlace sirve 15 minutos.')
     end
 
-    # Mail scanners open the links in an email, so the GET only shows a button.
-    get('/login/:token') { login_page(link: true) }
+    # Mail scanners open the links in an email, so the GET only shows a button. The page
+    # loads Google Fonts, and its URL holds the token: no Referer goes out with it.
+    get '/login/:token' do
+      headers 'Referrer-Policy' => 'no-referrer'
+      login_page(link: true)
+    end
 
     post '/login/:token' do
       user = Signin.redeem(params['token'])

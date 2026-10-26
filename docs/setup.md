@@ -162,6 +162,12 @@ mismo:
 kamal app exec --reuse 'bundle exec ruby -Ilib -e "require %q(frijolero); Frijolero::Ledger.all.each { |l| Frijolero::LedgerRepo.for(l).pull }"'
 ```
 
+### Respaldos
+
+Cada deploy instala en el servidor un respaldo diario al bucket, con la base
+de datos y el git de cada ledger. [restore.md](restore.md) explica el
+respaldo y cómo restaurarlo.
+
 ### La imagen en la laptop
 
 Con Docker no necesitas Ruby. El contenedor corre como el usuario `app`. El

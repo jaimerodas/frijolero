@@ -1,0 +1,19 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Respalda DATA_DIR en un .tar.gz: la base de datos, un bundle de git de cada ledger y
+# su log de corridas. Imprime la ruta del archivo. Ver docs/restore.md.
+#
+# Uso: bin/backup [directorio de salida, por defecto el temporal]
+# En el servidor lo corre /usr/local/bin/frijolero-backup cada día (bin/backup-host).
+
+ENV['BUNDLE_GEMFILE'] ||= File.expand_path('../Gemfile', __dir__)
+require 'bundler/setup' # the image installs the gems for Bundler, not for plain ruby
+require 'tmpdir'
+require_relative '../lib/frijolero'
+
+begin
+  puts Frijolero::Backup.create(ARGV.fetch(0) { Dir.tmpdir })
+rescue StandardError => e
+  abort "El respaldo falló: #{e.message}"
+end

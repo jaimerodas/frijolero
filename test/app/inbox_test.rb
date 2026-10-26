@@ -26,6 +26,15 @@ class InboxTest < Minitest::Test
     assert_nil item.answer
   end
 
+  # Rack already keeps only the base name of an upload; a name with a path that comes
+  # another way stays inside its directory too.
+  def test_a_name_with_a_path_stays_in_its_directory
+    item = @inbox.add(@source, '../../otro/x.pdf')
+
+    assert_equal 'x.pdf', item.filename
+    assert_equal File.join(@dir, 'incoming', item.token, 'x.pdf'), item.pdf
+  end
+
   def test_a_recorded_answer_comes_back_with_the_item
     item = @inbox.add(@source, 'a.pdf')
 

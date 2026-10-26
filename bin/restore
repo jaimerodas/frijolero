@@ -1,0 +1,20 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Restaura un respaldo de bin/backup en un directorio vacío: la base de datos, el clon
+# de cada ledger con su remoto, y los logs de corridas. Imprime una línea por ledger.
+# Ver docs/restore.md.
+#
+# Uso: bin/restore <respaldo.tar.gz> <directorio vacío>
+
+ENV['BUNDLE_GEMFILE'] ||= File.expand_path('../Gemfile', __dir__)
+require 'bundler/setup' # the image installs the gems for Bundler, not for plain ruby
+require_relative '../lib/frijolero'
+
+abort 'uso: bin/restore <respaldo.tar.gz> <directorio vacío>' unless ARGV.size == 2
+
+begin
+  Frijolero::Backup.restore(*ARGV)
+rescue StandardError => e
+  abort "La restauración falló: #{e.message}"
+end

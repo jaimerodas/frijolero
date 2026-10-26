@@ -169,6 +169,17 @@ class LedgerFilesTest < Minitest::Test
     with_main(%(option "documents" "../../other"\n)) { assert_refused '"../../other" está fuera del ledger' }
   end
 
+  # rledger needs memory in proportion to the text, and the container is small.
+  def test_a_ledger_with_more_text_than_rledger_can_hold_is_refused
+    with_main(%(include "big.beancount"\n)) do |dir|
+      write(dir, 'big.beancount', ';' * LedgerFiles::MAX_BYTES)
+
+      error = assert_raises(LedgerFiles::Unsafe) { LedgerFiles.all }
+      assert_equal ['main.beancount', 1], [error.file, error.line]
+      assert_includes error.problem, '4 MB'
+    end
+  end
+
   def test_a_documents_root_inside_the_ledger_passes
     with_main(%(option "documents" "docs"\n)) { |dir| assert_equal [File.join(dir, 'main.beancount')], LedgerFiles.all }
   end

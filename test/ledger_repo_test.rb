@@ -102,6 +102,20 @@ class LedgerRepoTest < Minitest::Test
     assert File.exist?(File.join(@work, 'NEW.txt'))
   end
 
+  # The first ledger and a template ledger have no core.symlinks=false in their config;
+  # every git call of the app sets it, so a pull from the person's remote makes no symlink.
+  def test_a_pull_never_checks_out_a_symlink
+    File.symlink('/etc/hosts', File.join(@seed, 'hosts'))
+    run_git(@seed, 'add', 'hosts')
+    seed_commit('enlace')
+    run_git(@seed, 'push', 'origin', 'HEAD:main')
+
+    Frijolero::LedgerRepo.new(dir: @work, token: nil).pull
+
+    refute File.symlink?(File.join(@work, 'hosts'))
+    assert_equal '/etc/hosts', File.read(File.join(@work, 'hosts'))
+  end
+
   def test_pull_raises_when_remote_missing
     FileUtils.remove_entry(@origin)
     repo = Frijolero::LedgerRepo.new(dir: @work, token: nil)

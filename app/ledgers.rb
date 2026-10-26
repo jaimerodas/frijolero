@@ -7,6 +7,8 @@ module Frijolero
   # repo of its own, or the person's own repo: a deploy key first, then a clone over SSH.
   # The ledger of a /ledgers/<id>/ path belongs to the user, or the answer is a 404.
   class Ledgers < Page
+    MAX_LEDGERS = 5
+
     # One ledger opens. An own repo that is not connected yet has no pages, so it shows
     # in the list, with the link to finish it.
     get '/' do
@@ -57,9 +59,14 @@ module Frijolero
         erb :ledgers_connect, locals: { ledger: ledger, key: File.read("#{key}.pub").chomp, url: url, error: error }
       end
 
+      # The name of a new ledger, while the person has fewer than MAX_LEDGERS: each ledger
+      # holds two threads from boot.
       def ledger_name
         name = params[:name].to_s.strip
         halt 422, new_ledger_page(error: 'Falta el nombre del ledger.') if name.empty?
+        if Ledger.owned_by(user.id).size >= MAX_LEDGERS
+          halt 422, new_ledger_page(error: "Ya tienes #{MAX_LEDGERS} ledgers, el máximo.")
+        end
         name
       end
 

@@ -40,10 +40,11 @@ module Frijolero
     end
 
     # A new upload: a copy of `source` under `name`, in a directory of its own.
+    # The name comes from the client: Rack keeps only its base name, and so does this.
     def add(source, name)
       token = SecureRandom.hex(8)
       FileUtils.mkdir_p(File.join(@dir, token))
-      FileUtils.cp(source, File.join(@dir, token, name))
+      FileUtils.cp(source, File.join(@dir, token, File.basename(name)))
       find(token)
     end
 

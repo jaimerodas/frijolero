@@ -48,7 +48,7 @@ lib/          the pipeline, with no Sinatra; lib/frijolero.rb requires the rest
 prompts/      one directory per prompt type: spec.json, instructions.txt, schema.json
 db/           the SQLite schema, one <n>_*.sql per version
 templates/    ledger/, the seed that bin/new-ledger copies
-bin/          dev, test, test_fast, new-ledger, demo-ledger
+bin/          dev, test, test_fast, new-ledger, demo-ledger, signin-link, backup, restore, backup-host
 config/       deploy.yml, puma.rb
 test/         mirrors app/ and lib/; fixtures/ holds sample statements and prompts
 ```
@@ -143,7 +143,7 @@ In the bucket, which other apps share: `<pdf_prefix>/accounts/<Key>/<Key> YYMM.p
   - Puma gives `PATH_INFO` as a binary string, and SQLite compares a binary string as a BLOB, which matches nothing. So a value from the path goes to SQLite as UTF-8.
 - Paths in `App` stay plain (`/accounts/AMEX`). A link gets the prefix where it is written into HTML: `ledger_path('/accounts')` in a view, or in a helper that writes an `<a>`. `set :prefixed_redirects, true` adds it to every redirect. The JavaScript reads it from `<meta name="ledger-root">` in `_head.erb`. A value that comes back to the server and is compared with plain paths stays plain: the hidden `back` field and the `action` local of the editors. The static files and `/logout` stay outside the prefix.
 - The pages outside a ledger are Sinatra middlewares between `Login` and `LedgerScope`. They inherit `Page` (`app/page.rb`), share the header `_bar.erb`, and pass down every path that they do not route. They have no current ledger: a page names its ledger by id and checks the owner.
-  - `Ledgers` (`app/ledgers.rb`) owns `/` and `/ledgers/…`. `/` opens the user's only ledger, lists them when there are several, and offers a new one when there is none. A new ledger is the template (`NewLedger`), or the person's own repo: the connect page makes a deploy key, the person adds it to GitHub or GitLab with write access, and the app clones over SSH. After the clone of an empty repo, the first push is `git push -u origin HEAD`.
+  - `Ledgers` (`app/ledgers.rb`) owns `/` and `/ledgers/…`. `/` opens the user's only ledger, lists them when there are several, and offers a new one when there is none. A new ledger is the template (`NewLedger`), or the person's own repo: the connect page makes a deploy key, the person adds it to GitHub or GitLab with write access, and the app clones over SSH. After the clone of an empty repo, the first push is `git push -u origin HEAD`. A person has at most 5 ledgers (`Ledgers::MAX_LEDGERS`), because each ledger holds two threads from boot.
   - `Admin` (`app/admin.rb`) owns `/admin/…`, for the admin only. There is no sign-up: the admin invites each person, with a link that lives 7 days (`Signin.invite`). Block and "Cerrar sesiones" add 1 to `session_version`. The cap is in USD, and empty means 3 USD. The admin cannot act on their own row, so the only admin cannot lock themselves out.
 - Inside a ledger, `/ledger` (`app/ledger_settings.rb`) renames it, changes its main file, adds a remote, and exports HEAD as `.tar.gz`. It never makes a key for a ledger with an origin: `LedgerRepo.for` would switch it to SSH and break its HTTPS pulls. `/tokens` (`app/api_tokens.rb`) makes and revokes the API tokens of the ledger, and shows a new token once.
 - `Login` (`app/login.rb`) is the outer middleware, in front of the rest. So its pages have no current ledger, and they must not read one. It owns `/login`, `/login/<token>` and `/logout`. It sends each request without a valid session to `/login`.
@@ -154,6 +154,7 @@ In the bucket, which other apps share: `<pdf_prefix>/accounts/<Key>/<Key> YYMM.p
   - A link works once, for 15 minutes. The database keeps only the SHA-256 of its token.
   - `GET /login/<token>` only shows a button, because mail scanners open the links in an email. The POST signs in.
   - `POST /login` answers with the same page for every email. A user gets at most 1 link a minute and 5 an hour.
+  - The link page sends `Referrer-Policy: no-referrer`, because its URL holds the token and it loads Google Fonts.
   - `bin/signin-link <email>` prints a link. It is the way in when the email fails: `kamal app exec --reuse 'bin/signin-link <email>'`. `/up` and the static files are outside it. `Login` serves the static files itself, so a static setting (such as `static_cache_control`) goes on `Login`; on `App` it does nothing.
 - The views are standalone ERB pages in Spanish, with no layout. Each page calls the `head` and `topbar` helpers.
 - All pages of one account are under `/accounts/<Key>`. A statement has three URLs: `/accounts/<Key>/<YYMM>` (the movements), `…/beancount` (the text) and `…/beancount/edit` (the text in the editor). The route constraints in `app/statements.rb` keep `config` and `rules` out of the period segment.
@@ -338,6 +339,7 @@ Each ledger is the data of its owner, so rledger runs only after `LedgerFiles.al
 - The regexes follow what rledger does, as measured: rledger also follows an indented `include`, and it accepts a tab or a CR between the words.
 - A glob include with `[ ] { }`, or any path with `\`, is refused. Ruby's `Dir.glob` reads those characters in another way than rledger's glob, so the walk could check other files than rledger reads.
 - `Reports.run` turns `Unsafe` into a `Reports::Error`. `Reports.check` returns it as one `UNSAFE` error at the line to fix, so the badge and the editors show it, and an edit can repair the ledger.
+- It refuses a ledger with more than 4 MB of text (`LedgerFiles::MAX_BYTES`), and counts each file before it reads it. rledger needs about 23 MB of memory for each MB of text, plus 10 MB (measured on 0.75 and 3 MB ledgers). The user's ledger is 0.74 MB.
 - On the real ledger (150 files), a walk takes 8 to 9 ms. There is no cache, because the stamp of `ledger_errors` sees only `.beancount` files.
 - `Reports.safe_capture` holds the ledger's lock from the walk through the rledger run, so no pull or write lands in between.
 - rledger runs with `PATH`, `HOME` and `TZ` only, so no secret reaches it. It reads `.rledger.toml` from its working directory. That is the app's directory, so never start rledger inside a ledger.
@@ -406,7 +408,8 @@ A failed balance (`E2001`) shows in Spanish with the gap. It links to the journa
 - `LedgerRepo` runs git as a subprocess (see "Git subprocesses"). `LedgerRepo.for(ledger)` uses the ledger's deploy key (`ledgers/<id>/deploy_key`) when the file exists. Without a key, it uses `GIT_TOKEN` over HTTPS. A ledger with a key never gets the token.
   - With a key, ssh runs with `IdentitiesOnly=yes`, `StrictHostKeyChecking=yes` and `config/known_hosts`. That file holds the published host keys of github.com and gitlab.com. When a host rotates a key, replace its lines.
   - `clone` and `add_remote` accept only `git@<host>:<path>` or `ssh://git@<host>/<path>`, with a host from `config/known_hosts`. This is the trust boundary. A local path or `file://` would clone the ledger of another user from the disk, and `ext::` or a leading `-` would run a command.
-  - `clone` sets `core.symlinks=false` in the clone's config, so no checkout or pull makes a symlink. It clones with `--no-checkout` and refuses a tree larger than 100 MB before it writes the files.
+  - Every git call runs with `-c core.symlinks=false`, so no checkout or pull makes a symlink, in any ledger. The first ledger and a template ledger have no such line in their config. A symlink from the person's remote could otherwise point an editor's write at another ledger.
+  - `clone` clones with `--no-checkout` and refuses a tree larger than 100 MB before it writes the files. A later pull has no size limit.
   - `keygen` makes an ed25519 key with `ssh-keygen`, and refuses to replace a key.
 - `NewLedger.prepare(dir)` makes a ledger from `templates/ledger`, or adds the missing files to one that exists. `bin/new-ledger` is a thin script over it.
 - `PromptSpec` joins `spec.json`, `instructions.txt` and `schema.json` from `prompts/<type>/`, and adds `_prompt`, the type, for the usage row. `plata` is the Alpaca prompt with the advisor of the user's own account, and `alpaca` the general one.
@@ -429,9 +432,16 @@ Before you commit new code that runs git:
 - **Deploy.** Kamal 2 with `config/deploy.yml`, which holds the droplet, the host, the image and the bucket. The image is built for amd64 on the laptop. The volume is `frijolero_data:/data`. A deploy takes about 40 s.
 - **Secrets.** `.kamal/secrets` gets each secret from a 1Password item with `kamal secrets fetch --adapter 1password`. The Kamal parser has no line continuations, so each command is one line. The fields are `kamal_registry_password`, `openai_api_key`, `session_secret`, `postmark_api_token`, `b2_key_id`, `b2_application_key`, `git_token` and `admin_email`. A missing field fails the deploy. The `kamal secrets fetch` line must name every field that an `extract` line reads. The fetch gets only the fields that it names, and the deploy of the database failed on a field that was missing there. The values that are not secret, `b2_bucket` and `b2_endpoint`, are in `deploy.yml`.
 - **1Password.** `kamal` and `ssh` to the droplet work only while the 1Password app is unlocked. The `op` prompt and the SSH agent go through it.
-- **Memory.** The cap is 256 MiB. Right after a boot, production uses 35 to 42 MiB of cgroup memory. Ruby keeps the heap of its largest request: after 13 days up, production used 99.6 MiB (81 MiB of heap), with a peak of 120.6 MiB. A report adds an `rledger` child of about 21 MB for about 0.1 s.
+- **Memory.** The cap is 256 MiB. Right after a boot, production uses 35 to 42 MiB of cgroup memory. Ruby keeps the heap of its largest request: after 13 days up, production used 99.6 MiB (81 MiB of heap), with a peak of 120.6 MiB. A report adds an `rledger` child of about 21 MB for about 0.1 s. kamal-proxy refuses a request body over 100 MB (`proxy.buffering.max_request_body`); its default is 1 GB.
 - **Image.** `ruby:<version>-slim`, two stages, user `app`, `TZ=America/Mexico_City`. It installs `git` and `openssh-client` (ssh and ssh-keygen, for the deploy keys) and downloads `rledger` with a pinned checksum. `templates/` is in the image, for `NewLedger`. The base image already has `tzdata`. `Gemfile.lock` pins the Bundler that the image ships, so the build installs no other one.
 - **Ruby bump.** The version is in three places: `.ruby-version`, `ARG RUBY_VERSION` in the `Dockerfile`, and `Gemfile.lock` (`bundle update --ruby`). The Gemfile reads `.ruby-version`, and Bundler refuses any other patch release. Then run `docker run --rm --platform linux/amd64 ruby:<version>-slim bundle -v` and pin that Bundler with `bundle update --bundler=<it>`.
+- **Backups.** `.kamal/hooks/post-deploy` installs a daily backup on the host, as the other apps there do:
+  - It copies `bin/backup-host` to `/usr/local/bin/frijolero-backup`, writes the B2 keys to `/etc/frijolero-backup.env` (mode 600), and adds `/etc/cron.d/frijolero-backup`, which runs at 10:15 UTC. The log is `/var/log/frijolero-backup.log`.
+  - The hook sources `.kamal/secrets`, so a deploy asks 1Password once more.
+  - The script runs `bin/backup` in the web container and uploads the archive to `frijolero/daily/` in the bucket. Nothing prunes old archives.
+  - The archive (`lib/backup.rb`) holds a copy of the database through SQLite's online backup API, a verified git bundle of each ledger with its origin, and the job logs. It holds no PDFs, no uploads and no deploy keys.
+  - `bin/backup` runs in a process of its own, so `Ledger.lock` cannot cover it. git's atomic ref updates keep each bundle whole.
+  - `bin/restore <archive> <empty dir>` and `docs/restore.md` are the way back. To run the first backup by hand: `ssh root@<host> /usr/local/bin/frijolero-backup`.
 - **Failed jobs.** The PDF stays in `/data/ledgers/<id>/incoming/<token>/`, and the upload shows in the Bandeja. A successful retry removes it, and so does Descartar. Nothing removes a directory without a PDF, which a job that fails after the extraction leaves.
 
 If `kamal` or `ssh` fails with `promptError` or "communication with agent failed", ask the user to run the command with the `!` prefix. If a failed deploy leaves a lock, run `kamal lock release`.

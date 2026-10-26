@@ -173,6 +173,7 @@ class AppTest < Minitest::Test
     assert_equal 200, last_response.status
     assert_includes last_response.body, '<button type="submit" class="primary"'
     refute_includes last_response.body, 'name="email"'
+    assert_equal 'no-referrer', last_response.headers['referrer-policy'], 'the token never leaves in a Referer'
 
     post "/login/#{token}"
 
