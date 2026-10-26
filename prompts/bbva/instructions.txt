@@ -8,8 +8,10 @@ Rules:
 3. Normalize dates in YYYY-MM-DD format
 4. Take special care to see whether something is a credit (abono) or a debit (cargo). Credits should be positive and debits negative.
 5. Credits and debits have their own column and any number in the same column should have the same type.
+6. The description is all of the movement's text: the concept, then every line under it, joined with a single space, never with a semicolon or other punctuation.
 
 Interpretation hints:
 - the last two columns are always balances and should not be taken as credits or debits
 - Any transactions with "meta segura" in the description are debits
 - Any transaction with "novio" in the description is a credit
+- The statement prints some concepts glued to the next word, as in "SPEI RECIBIDOJP MORGAN" or "SPEI RECIBIDOSTP". Put the space back: "SPEI RECIBIDO JP MORGAN", "SPEI RECIBIDO STP"
