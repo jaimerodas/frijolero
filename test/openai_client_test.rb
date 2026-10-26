@@ -6,6 +6,7 @@ require 'tempfile'
 class OpenAIClientTest < Minitest::Test
   include TestHelpers
 
+  # Each answer is a value, or an array that it answers in turn, the last one for good.
   class FakeTransport
     attr_reader :calls
 
@@ -16,12 +17,21 @@ class OpenAIClientTest < Minitest::Test
 
     def post_json(path, body)
       @calls << [:post_json, path, body]
-      @responses.fetch(:post_json)
+      path.end_with?('/cancel') ? { 'status' => 'cancelled' } : answer(:post_json)
     end
 
     def get(path)
       @calls << [:get, path]
-      @responses.fetch(:get)
+      answer(:get)
+    end
+
+    private
+
+    def answer(kind)
+      value = @responses.fetch(kind)
+      return value unless value.is_a?(Array)
+
+      value.size > 1 ? value.shift : value.first
     end
   end
 
@@ -105,6 +115,54 @@ class OpenAIClientTest < Minitest::Test
 
     assert_includes error.message, 'timed out'
     assert_includes error.message, 'queued'
+  end
+
+  def test_a_timeout_cancels_the_response
+    transport = FakeTransport.new(post_json: { 'id' => 'resp-1' }, get: { 'status' => 'in_progress' })
+
+    with_pdf do |pdf|
+      assert_raises(Frijolero::LLM::APIError) { client(transport, poll_timeout: 0.001).extract(pdf, SPEC) }
+    end
+
+    assert_equal [:post_json, '/responses/resp-1/cancel'], transport.calls.last.first(2)
+  end
+
+  # OpenAI sometimes leaves a background response queued for good, while the same
+  # request, sent again, finishes in seconds.
+  def test_a_response_stuck_in_the_queue_is_cancelled_and_sent_again
+    transport = FakeTransport.new(post_json: [{ 'id' => 'resp-1' }, { 'id' => 'resp-2' }],
+                                  get: [{ 'status' => 'queued' }, COMPLETED])
+
+    result = with_pdf { |pdf| client(transport, queue_limit: 0).extract(pdf, SPEC) }
+
+    assert_equal({ 'transactions' => [] }, result)
+    expected = [[:post_json, '/responses'], [:get, '/responses/resp-1'], [:post_json, '/responses/resp-1/cancel'],
+                [:post_json, '/responses'], [:get, '/responses/resp-2']]
+    assert_equal(expected, transport.calls.map { |call| call.first(2) })
+    assert_equal transport.calls[0][2], transport.calls[3][2], 'the same request, sent again'
+  end
+
+  def test_a_response_stuck_twice_fails_and_both_are_cancelled
+    transport = FakeTransport.new(post_json: [{ 'id' => 'resp-1' }, { 'id' => 'resp-2' }],
+                                  get: { 'status' => 'queued' })
+
+    error = with_pdf do |pdf|
+      assert_raises(Frijolero::LLM::APIError) { client(transport, queue_limit: 0).extract(pdf, SPEC) }
+    end
+
+    assert_includes error.message, 'queued'
+    cancels = transport.calls.filter_map { |_, path| path if path.end_with?('/cancel') }
+    assert_equal ['/responses/resp-1/cancel', '/responses/resp-2/cancel'], cancels
+  end
+
+  # The queue limit is for a response that never starts; a slow one is work in progress.
+  def test_a_response_in_progress_is_not_sent_again
+    transport = FakeTransport.new(post_json: { 'id' => 'resp-1' }, get: [{ 'status' => 'in_progress' }, COMPLETED])
+
+    with_pdf { |pdf| client(transport, queue_limit: 0).extract(pdf, SPEC) }
+
+    assert_equal(1, transport.calls.count { |_, path| path == '/responses' })
+    refute(transport.calls.any? { |_, path| path.end_with?('/cancel') })
   end
 
   # 600 fresh * 4.00 + 400 cached * 0.40 + 500 * 20.00 = 12560 micro-dollars.

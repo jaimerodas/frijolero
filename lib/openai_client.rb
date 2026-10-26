@@ -8,16 +8,28 @@ module Frijolero
   class OpenAIClient
     BASE_URL = 'https://api.openai.com/v1'
     POLL_INTERVAL_SECONDS = 2
+    # A response still queued after this long is stuck. On 2026-10-26, four of eight
+    # background requests stayed queued for 10 to 15 minutes, and the same requests,
+    # sent again, finished in 5 to 38 s.
+    QUEUE_LIMIT_SECONDS = 60
 
-    def initialize(api_key, transport: nil, poll_interval: POLL_INTERVAL_SECONDS, poll_timeout: nil)
+    def initialize(api_key, transport: nil, poll_interval: POLL_INTERVAL_SECONDS, poll_timeout: nil,
+                   queue_limit: QUEUE_LIMIT_SECONDS)
       @transport = transport || LLM::Transport.new(base_url: BASE_URL,
                                                    headers: { 'Authorization' => "Bearer #{api_key}" })
       @poll_interval = poll_interval
       @poll_timeout = poll_timeout || Config.llm_timeout
+      @queue_limit = queue_limit
     end
 
+    # A response stuck in the queue goes once more; a second one stuck is an APIError,
+    # which LLM.report treats as recoverable, so the job can be retried.
     def extract(pdf_path, spec)
-      data = poll_response(@transport.post_json('/responses', request_body(spec, pdf_path))['id'])
+      body = request_body(spec, pdf_path)
+      data = poll_response(create(body))
+      data ||= poll_response(create(body))
+      raise LLM::APIError, "OpenAI left the response queued for #{@queue_limit}s, twice" unless data
+
       record_usage(spec, data)
       text = response_text(data)
       raise LLM::APIError, "Failed to extract transactions: #{data}" unless text
@@ -59,8 +71,18 @@ module Frijolero
       message&.fetch('content', nil)&.find { |c| c['type'] == 'output_text' }&.fetch('text', nil)
     end
 
+    def create(body) = @transport.post_json('/responses', body)['id']
+
+    # It may have finished in between, and then there is nothing to cancel.
+    def cancel(response_id)
+      @transport.post_json("/responses/#{response_id}/cancel", {})
+    rescue LLM::Error
+      nil
+    end
+
+    # The completed response, or nil when it stayed queued past the queue limit.
     def poll_response(response_id)
-      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + @poll_timeout
+      start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
       loop do
         sleep @poll_interval
@@ -70,15 +92,25 @@ module Frijolero
         when 'completed'
           return data
         when 'queued', 'in_progress'
-          if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
-            raise LLM::APIError, "Response polling timed out after #{@poll_timeout}s (still #{data['status']})"
-          end
-
-          next
+          return unless waiting?(response_id, data['status'], Process.clock_gettime(Process::CLOCK_MONOTONIC) - start)
         else
           raise LLM::APIError, "Response failed with status: #{data['status']}"
         end
       end
+    end
+
+    # True while the response can still finish. False when it stayed queued past the
+    # queue limit, and an APIError past the timeout. A response given up on is cancelled
+    # first, so it never runs and bills later.
+    def waiting?(response_id, status, elapsed)
+      stuck = status == 'queued' && elapsed >= @queue_limit
+      return true unless stuck || elapsed >= @poll_timeout
+
+      cancel(response_id)
+      raise LLM::APIError, "Response polling timed out after #{@poll_timeout}s (still #{status})" unless stuck
+
+      Log.puts "OpenAI left the response queued for #{@queue_limit}s: sending it again"
+      false
     end
   end
 end

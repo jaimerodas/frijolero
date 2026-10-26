@@ -402,6 +402,8 @@ A failed balance (`E2001`) shows in Spanish with the gap. It links to the journa
 - `Usage.cap_micros` is the user's `monthly_cap_micros`, or 3 USD when it is NULL. The month is the calendar month in local time.
 - `Ledger.lock(id)` is one reentrant lock per ledger. It covers each git operation and each write to the ledger's files: the job's pull, its writes and commit, the editor saves, the account forms, "Aplicar reglas", "Actualizar", and the reports from the include walk through rledger. It never covers a model call. A read of HEAD or of the origin needs no lock.
 - `OpenAIClient` uses the Responses API with the PDF as `input_file`, in background mode with a 2 s poll. The classifier uses the same client.
+  - OpenAI sometimes leaves a background response `queued` for good. On 2026-10-26, four of eight stayed queued for 10 to 15 minutes, and the same requests, sent again, finished in 5 to 38 s.
+  - So a response still queued after 60 s is cancelled and sent once more. A second one stuck is an `APIError`, so the job fails and can be retried. A response past `LLM_TIMEOUT` is cancelled too, so it never runs and bills later.
 - `AnthropicClient` sends one Messages request with the PDF as a `document` block. A `stop_reason` other than `end_turn` is an `APIError`. Neither client uses a Files API.
 - `S3` is a small SigV4 client over `Net::HTTP`. `uri_encode` is the only place that turns a space into `%20`. The tests replay two official AWS test vectors.
 - `LocalPdfs` has the same three methods as `S3` (`put`, `list`, `presigned_url`) on disk.
