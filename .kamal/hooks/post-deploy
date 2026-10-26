@@ -9,8 +9,19 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 # S3_KEY_ID and S3_KEY, from 1Password. The deploy read them already, but Kamal does not
-# pass secrets to a hook.
-source .kamal/secrets
+# pass secrets to a hook. Never `source .kamal/secrets`: bash splits the unquoted $SECRETS
+# at a space inside a value, and on 2026-10-26 the failed `kamal secrets extract` printed
+# every secret. `kamal secrets print` reads the file with Kamal's own parser; its output
+# stays in this variable. The keys lose any whitespace, as S3.from_env does, because the
+# env file is sourced on the host, where `KEY= value` would run the value as a command.
+SECRETS_ENV=$(kamal secrets print)
+S3_KEY_ID=$(sed -n 's/^S3_KEY_ID=//p' <<<"$SECRETS_ENV" | tr -d '[:space:]')
+S3_KEY=$(sed -n 's/^S3_KEY=//p' <<<"$SECRETS_ENV" | tr -d '[:space:]')
+unset SECRETS_ENV
+if [ -z "$S3_KEY_ID" ] || [ -z "$S3_KEY" ]; then
+  echo "post-deploy: S3_KEY_ID or S3_KEY is empty in .kamal/secrets; the backup is not installed." >&2
+  exit 1
+fi
 
 deploy() { ruby -ryaml -e 'puts YAML.load_file("config/deploy.yml").dig(*ARGV)' "$@"; }
 SERVICE=$(deploy service)

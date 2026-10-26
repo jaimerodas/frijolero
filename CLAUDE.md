@@ -437,7 +437,7 @@ Before you commit new code that runs git:
 - **Ruby bump.** The version is in three places: `.ruby-version`, `ARG RUBY_VERSION` in the `Dockerfile`, and `Gemfile.lock` (`bundle update --ruby`). The Gemfile reads `.ruby-version`, and Bundler refuses any other patch release. Then run `docker run --rm --platform linux/amd64 ruby:<version>-slim bundle -v` and pin that Bundler with `bundle update --bundler=<it>`.
 - **Backups.** `.kamal/hooks/post-deploy` installs a daily backup on the host, as the other apps there do:
   - It copies `bin/backup-host` to `/usr/local/bin/frijolero-backup`, writes the B2 keys to `/etc/frijolero-backup.env` (mode 600), and adds `/etc/cron.d/frijolero-backup`, which runs at 10:15 UTC. The log is `/var/log/frijolero-backup.log`.
-  - The hook sources `.kamal/secrets`, so a deploy asks 1Password once more.
+  - The hook reads the B2 keys with `kamal secrets print`, so a deploy asks 1Password once more. Never `source .kamal/secrets` in bash. Bash splits the unquoted `$SECRETS` at a space inside a value, and on 2026-10-26 the failed `kamal secrets extract` printed every secret in the deploy output. The hook also strips whitespace from the keys, because `b2_application_key` once had a stray space.
   - The script runs `bin/backup` in the web container and uploads the archive to `frijolero/daily/` in the bucket. Nothing prunes old archives.
   - The archive (`lib/backup.rb`) holds a copy of the database through SQLite's online backup API, a verified git bundle of each ledger with its origin, and the job logs. It holds no PDFs, no uploads and no deploy keys.
   - `bin/backup` runs in a process of its own, so `Ledger.lock` cannot cover it. git's atomic ref updates keep each bundle whole.
