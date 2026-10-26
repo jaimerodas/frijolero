@@ -59,6 +59,27 @@ class EditorsTest < Minitest::Test
     assert_equal '/accounts/AMEX/2508?rules=1', URI(last_response.location).request_uri
   end
 
+  # Under /l/<id>/ the links and the form stay in the ledger; the hidden `back` stays plain.
+  def test_the_rules_editor_links_inside_the_ledger
+    get '/accounts/AMEX/rules', {}, 'SCRIPT_NAME' => LEDGER_ROOT
+
+    assert_ledger_links last_response.body
+
+    post '/accounts/AMEX/rules/from', { description: 'OXXO', amount: '-50', back: '/accounts/AMEX/2508' },
+         'SCRIPT_NAME' => LEDGER_ROOT
+
+    assert_includes last_response.body, 'Volver al estado de cuenta'
+    assert_includes last_response.body, '<input type="hidden" name="back" value="/accounts/AMEX/2508">'
+    assert_ledger_links last_response.body
+  end
+
+  def test_saving_from_a_statement_returns_to_it_inside_the_ledger
+    post '/accounts/AMEX/rules', { content: "start_with: {}\n", back: '/accounts/AMEX/2508' },
+         'SCRIPT_NAME' => LEDGER_ROOT
+
+    assert_equal "#{LEDGER_ROOT}/accounts/AMEX/2508?rules=1", URI(last_response.location).request_uri
+  end
+
   def test_back_is_only_honoured_for_a_statement_path
     post '/accounts/AMEX/rules', content: "start_with: {}\n", back: 'https://evil.example/'
 

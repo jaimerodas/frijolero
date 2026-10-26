@@ -8,6 +8,8 @@ const block = document.getElementById('chart-data');
 const data = JSON.parse(block.textContent);
 const section = block.parentElement;
 const query = new URLSearchParams(location.search);
+// The journal of this ledger, under the prefix that _head.erb puts in its meta tag.
+const journal = `${document.querySelector('meta[name="ledger-root"]').content}/journal`;
 let width;
 const height = 200;
 const parse = d3.utcParse('%Y-%m-%d');
@@ -23,7 +25,7 @@ const quarter = (d) => Math.floor(d.getUTCMonth() / 3) + 1;
 function link(changes) {
   const next = new URLSearchParams(query);
   for (const [key, value] of Object.entries(changes)) next.set(key, value);
-  return `/journal?${next}`;
+  return `${journal}?${next}`;
 }
 
 const amount = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -299,7 +301,7 @@ function sankey() {
     .on('pointerenter pointermove', (event, d) => showTip(event, `${name(d.source)} → ${name(d.target)}`, d.value, 'MXN'))
     .on('pointerleave', hideTip);
   const a = svg.append('g').selectAll('a').data(graph.nodes).join('a')
-    .attr('href', (d) => (d.account ? `/journal?account=${encodeURIComponent(d.account)}&period=${encodeURIComponent(data.period)}` : null))
+    .attr('href', (d) => (d.account ? `${journal}?account=${encodeURIComponent(d.account)}&period=${encodeURIComponent(data.period)}` : null))
     .attr('aria-label', (d) => `${name(d)}: ${money(d.value, 'MXN')}`)
     .on('pointerenter pointermove', (event, d) => showTip(event, name(d), d.value, 'MXN'))
     .on('pointerleave', hideTip);
@@ -334,7 +336,7 @@ function icicle() {
   const svg = figure('MXN', height);
   const cell = svg.selectAll('a').data(root.descendants()).join('a')
     .attr('class', (d) => `t${step(d.parent ? d.value / d.parent.value : 1)}`)
-    .attr('href', (d) => (d.children ? null : `/journal?account=${encodeURIComponent(name(d))}&period=${encodeURIComponent(data.period)}`))
+    .attr('href', (d) => (d.children ? null : `${journal}?account=${encodeURIComponent(name(d))}&period=${encodeURIComponent(data.period)}`))
     .attr('role', (d) => (d.children ? 'button' : null))
     .attr('aria-label', (d) => `${name(d)}: ${money(d.value, 'MXN')}`)
     .on('click', (_, d) => d.children && zoom(d))

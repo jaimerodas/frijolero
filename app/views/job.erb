@@ -21,9 +21,9 @@
     <% end %>
 
     <% if job.status == 'ok' %>
-      <p class="actions"><a class="button" href="/accounts/<%= Rack::Utils.escape_path(account) %>/<%= h(period) %>">Ver estado de cuenta</a></p>
+      <p class="actions"><a class="button" href="<%= ledger_path("/accounts/#{Rack::Utils.escape_path(account)}/#{h(period)}") %>">Ver estado de cuenta</a></p>
     <% elsif self.class.client && retryable_upload(job) %>
-      <form class="actions" method="post" action="/jobs/<%= h(job.id) %>/retry"><button type="submit">Reintentar</button></form>
+      <form class="actions" method="post" action="<%= ledger_path("/jobs/#{h(job.id)}/retry") %>"><button type="submit">Reintentar</button></form>
     <% end %>
 
     <pre><%= h(job.output) %></pre>

@@ -15,6 +15,11 @@ module Frijolero
   Ledger = Data.define(:id, :owner_id, :main_file, :pdf_prefix, :dir, :repo_dir) do
     def self.all = DB.execute('SELECT * FROM ledgers ORDER BY created_at, id').map { |row| from_row(row) }
 
+    def self.owned_by(user_id)
+      DB.execute('SELECT * FROM ledgers WHERE owner_id = ? ORDER BY created_at, id', user_id)
+        .map { |row| from_row(row) }
+    end
+
     def self.find(id)
       row = DB.first('SELECT * FROM ledgers WHERE id = ?', id)
       row && from_row(row)

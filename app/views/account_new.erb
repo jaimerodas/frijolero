@@ -14,7 +14,7 @@
     <% if error %>
       <p class="error" role="alert"><%= h(error) %></p>
     <% end %>
-    <form method="post" action="/accounts/new">
+    <form method="post" action="<%= ledger_path('/accounts/new') %>">
       <label for="key">Clave</label>
       <input type="text" id="key" name="key" value="<%= v.('key') %>" required autofocus>
       <p class="note">El nombre del archivo: <code>Clave YYMM.pdf</code></p>
@@ -44,7 +44,7 @@
       <label for="opened_on">Fecha de apertura</label>
       <input type="date" id="opened_on" name="opened_on" value="<%= v.('opened_on') %>" required>
 
-      <p class="actions"><button type="submit" class="primary">Crear</button> <a class="button" href="/accounts">Cancelar</a></p>
+      <p class="actions"><button type="submit" class="primary">Crear</button> <a class="button" href="<%= ledger_path('/accounts') %>">Cancelar</a></p>
     </form>
   </main>
 </body>

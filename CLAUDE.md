@@ -41,7 +41,7 @@ Without `LEDGER_REPO` in `.env`, `bin/dev` keeps its data in `~/.local/share/fri
 This repo:
 
 ```
-config.ru     runs the migration, then starts App behind Login and OnlyLedger
+config.ru     runs the migration, then starts App behind Login and LedgerScope
 app/          the Sinatra process: App, its route files, Dashboard, Jobs, views/
 public/       style.css, reports.js, editor.js, charts.js, and the vendored d3 files
 lib/          the pipeline, with no Sinatra; lib/frijolero.rb requires the rest
@@ -133,8 +133,15 @@ In the bucket, which other apps share: `<pdf_prefix>/accounts/<Key>/<Key> YYMM.p
 
 - `app/app.rb` holds the settings, the collaborators, the dashboard and the job pages. Each other file in `app/` reopens `App` for one area. `app/` is the only place that requires Sinatra.
 - `App` has seven collaborators: `jobs`, `inbox`, `inbox_worker`, `client`, `s3`, `repo` and `reports`. `jobs` and `inbox_worker` exist once per ledger, because each holds a thread. `inbox`, `repo` and `s3` are built for the current ledger on each call. Tests replace a collaborator through its `attr_writer`, and that one then serves every ledger.
-- The current ledger (`lib/ledger.rb`) is per thread: `Thread.current`, not `Fiber[]`, which a new thread inherits. Without one, a ledger path raises `NoLedger`, so code that forgot it fails instead of reading another ledger. `OnlyLedger` (`app/only_ledger.rb`), the outer middleware, makes the first ledger the current ledger of each request, and `Ledger.with` clears it at the end. The job body and the Bandeja worker set it with `Ledger.with`, from the ledger of the request that queued them.
-- `Login` (`app/login.rb`) is the outer middleware, in front of `OnlyLedger` and `App`. So its pages have no current ledger, and they must not read one. It owns `/login`, `/login/<token>` and `/logout`. It sends each request without a valid session to `/login`.
+- The current ledger (`lib/ledger.rb`) is per thread: `Thread.current`, not `Fiber[]`, which a new thread inherits. Without one, a ledger path raises `NoLedger`, so code that forgot it fails instead of reading another ledger. `LedgerScope` sets it for each request, and `Ledger.with` clears it at the end. The job body and the Bandeja worker set it with `Ledger.with`, from the ledger of the request that queued them.
+- Each ledger page is under `/l/<id>/`. `LedgerScope` (`app/ledger_scope.rb`), between `Login` and `App`, is the trust boundary:
+  - The ledger must exist and belong to the signed-in user. Else the answer is 404, the same for an unknown id and for the ledger of another user, admin included. `test/app/isolation_test.rb` tries each route of `App` against another user's ledger.
+  - It moves `/l/<id>` into `SCRIPT_NAME`, so the routes of `App` keep their plain paths.
+  - `/` goes to the user's first ledger. A GET to a path from before `/l/<id>/` (a bookmark) goes to the same path in that ledger. Any other method there is a 404, so a stale form cannot post to the wrong ledger.
+  - `/api/` keeps its path and uses the first ledger, until each API token names its ledger.
+  - Puma gives `PATH_INFO` as a binary string, and SQLite compares a binary string as a BLOB, which matches nothing. So a value from the path goes to SQLite as UTF-8.
+- Paths in `App` stay plain (`/accounts/AMEX`). A link gets the prefix where it is written into HTML: `ledger_path('/accounts')` in a view, or in a helper that writes an `<a>`. `set :prefixed_redirects, true` adds it to every redirect. The JavaScript reads it from `<meta name="ledger-root">` in `_head.erb`. A value that comes back to the server and is compared with plain paths stays plain: the hidden `back` field and the `action` local of the editors. The static files and `/logout` stay outside the prefix.
+- `Login` (`app/login.rb`) is the outer middleware, in front of `LedgerScope` and `App`. So its pages have no current ledger, and they must not read one. It owns `/login`, `/login/<token>` and `/logout`. It sends each request without a valid session to `/login`.
   - A session is valid while its user is active and its `session_version` matches. Login puts the user in `env['frijolero.user']`.
   - A request to `/api/` needs `Authorization: Bearer <API_TOKEN>` instead, and gets a JSON 401 without it.
   - `App` and its tests never see auth.
@@ -420,9 +427,9 @@ If `kamal` or `ssh` fails with `promptError` or "communication with agent failed
 
 ## Tests
 
-- Minitest and rack-test: about 900 tests in about 16 s. `test/` mirrors `app/` and `lib/`.
+- Minitest and rack-test: about 940 tests in about 16 s. `test/` mirrors `app/` and `lib/`.
 - `with_ledger_dir` makes a temporary ledger, in a fresh `DATA_DIR`, the current ledger of the test thread. A setup uses `enter_test_ledger` and `leave_test_ledger`. `with_db_ledger` also writes the owner and the ledger as rows.
-- No test writes into `prompts/`: `Config.prompts_dir` is the real folder. Use `test/fixtures/prompts`, or a copy of it in a temporary directory. Web tests call `App` directly, with fake collaborators. Only `test/app/app_test.rb` loads `config.ru`, for the auth wiring.
+- No test writes into `prompts/`: `Config.prompts_dir` is the real folder. Use `test/fixtures/prompts`, or a copy of it in a temporary directory. Web tests call `App` directly, with fake collaborators. `test/app/app_test.rb` and `test/app/isolation_test.rb` load `config.ru`, for the auth and the ledger wiring. A web test gets a page as production serves it with `'SCRIPT_NAME' => LEDGER_ROOT` in the env, and `assert_ledger_links` fails on a link that leaves the ledger.
 - `test_helper.rb` sets `RACK_ENV=test` before it loads the app. Sinatra reads the environment when `sinatra/base` loads, and with any other value its host authorization answers 403.
 - No test uses the network.
 - `Config.accounts` is read on each call and never memoized. The first deploy cached `{}`, because it started before the volume had a ledger.

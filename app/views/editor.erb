@@ -18,7 +18,7 @@
     <% if error %>
       <p class="error" role="alert"><%= h(error) %></p>
     <% end %>
-    <% if back %><p><a href="<%= h(back) %>">Volver al estado de cuenta</a></p><% end %>
+    <% if back %><p><a href="<%= h(ledger_path(back)) %>">Volver al estado de cuenta</a></p><% end %>
     <% if rules %>
       <details class="help">
         <summary>Cómo escribir reglas</summary>
@@ -41,7 +41,8 @@ include:
       </details>
     <% end %>
     <%# Every page here edits YAML: an account's rules, its block of accounts.yaml, or the whole file. %>
-    <form method="post" action="<%= h(action) %>" data-yaml="<%= rules ? 'rules' : 'accounts' %>">
+    <%# `action` is plain, as the save also redirects to it; the link gets the ledger's prefix here. %>
+    <form method="post" action="<%= h(ledger_path(action)) %>" data-yaml="<%= rules ? 'rules' : 'accounts' %>">
       <% if back %><input type="hidden" name="back" value="<%= h(back) %>"><% end %>
       <label for="content">Contenido</label>
       <script type="application/json" class="accounts"><%= JSON.generate(Frijolero::LedgerAccounts.active).gsub('<', '\u003c') %></script>

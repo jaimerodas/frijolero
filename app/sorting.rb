@@ -37,7 +37,7 @@ module Frijolero
         current = current_key == key
         desc = current ? direction == 'desc' : key == 'name'
         glyph = (desc ? ' ▾' : ' ▴') if current
-        href = "#{request.path_info}?#{report_query(period, sort: "#{key}-#{desc ? 'asc' : 'desc'}")}"
+        href = "#{ledger_path(request.path_info)}?#{report_query(period, sort: "#{key}-#{desc ? 'asc' : 'desc'}")}"
         %(<a href="#{Rack::Utils.escape_html(href)}"#{' aria-current="true"' if current}>#{label}#{glyph}</a>)
       end
     end
@@ -141,7 +141,7 @@ module Frijolero
 
       # A link to another page of the same journal; page 1 is the bare query. HTML.
       def journal_page_link(period, number, label, rel)
-        href = "/journal?#{report_query(period)}#{"&page=#{number}" if number > 1}"
+        href = ledger_path("/journal?#{report_query(period)}#{"&page=#{number}" if number > 1}")
         %(<a href="#{Rack::Utils.escape_html(href)}" rel="#{rel}">#{label}</a>)
       end
 

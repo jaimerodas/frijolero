@@ -4,14 +4,14 @@
   errors = ledger_errors
 %>
 <header class="topbar">
-  <a class="brand" href="/"><%= h(Frijolero::Config.title) %></a>
+  <a class="brand" href="<%= ledger_path('/') %>"><%= h(Frijolero::Config.title) %></a>
   <nav aria-label="Secciones">
     <% if errors && !errors.empty? %>
       <% label = errors.size == 1 ? '1 error' : "#{errors.size} errores" %>
-      <a class="errors" href="/errors" aria-label="<%= label %>" title="<%= label %>"<% if path == '/errors' %> aria-current="page"<% end %>><span><%= errors.size %></span></a>
+      <a class="errors" href="<%= ledger_path('/errors') %>" aria-label="<%= label %>" title="<%= label %>"<% if path == '/errors' %> aria-current="page"<% end %>><span><%= errors.size %></span></a>
     <% end %>
     <% sections.each do |label, prefixes| %>
-      <a href="<%= prefixes.first %>"<% if prefixes.any? { |p| path == p || path.start_with?("#{p}/") } %> aria-current="page"<% end %>><%= label %></a>
+      <a href="<%= ledger_path(prefixes.first) %>"<% if prefixes.any? { |p| path == p || path.start_with?("#{p}/") } %> aria-current="page"<% end %>><%= label %></a>
     <% end %>
   </nav>
   <form method="post" action="/logout"><button type="submit">Salir</button></form>

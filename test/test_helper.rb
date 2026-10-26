@@ -48,6 +48,24 @@ module TestHelpers
 
   def s3_env = Frijolero::S3::ENV_KEYS.to_h { |k| [k, 'x'] }
 
+  # An App outside a request, for a test that renders one view. The views read the
+  # request for ledger_path, so it gets an empty one.
+  def view_app = Frijolero::App.new!.tap { |app| app.request = Sinatra::Request.new(Rack::MockRequest.env_for('/')) }
+
+  # The prefix that LedgerScope gives the requests of one ledger. A web test passes
+  # 'SCRIPT_NAME' => LEDGER_ROOT in the env to get a page as production serves it.
+  LEDGER_ROOT = '/l/test0000'
+
+  # Each href, action, formaction and src of `html` that starts with / is inside
+  # LEDGER_ROOT, except the static files and Login's /logout, which live outside it.
+  def assert_ledger_links(html)
+    stray = html.scan(%r{(?:href|action|src)="(/[^"]*)"}).flatten.reject do |path|
+      path.start_with?("#{LEDGER_ROOT}/") || path == '/logout' ||
+        File.file?(File.join(Frijolero::App.public_folder, path[/\A[^?#]*/]))
+    end
+    assert_empty stray, 'links outside the ledger'
+  end
+
   # A fresh DATA_DIR with one ledger, `test`, as the current ledger of this thread, the
   # way a request or a job has one. Returns its repo directory, with config/ inside.
   # leave_test_ledger undoes it. The ledger has no row: with_db_ledger is for the

@@ -1373,4 +1373,56 @@ class ReportsPageTest < Minitest::Test
     assert_match %r{Ganancias-no-realizadas</th>\s*<td class="amount" data-label="MXN">40\.00</td>}, body
     assert_match %r{Conversiones</th>\s*<td class="amount" data-label="MXN">10\.00</td>}, body
   end
+
+  # Served under /l/<id>, as LedgerScope serves them, every link of a report stays in that ledger.
+  def test_report_pages_and_their_diagrams_link_inside_the_ledger
+    [['/reports/income', {}], ['/reports/balance', {}], ['/reports/income', { chart: 'sankey' }],
+     ['/reports/balance', { chart: 'icicle', sort: 'MXN-desc' }]].each do |path, params|
+      get path, params, 'SCRIPT_NAME' => LEDGER_ROOT
+
+      assert_includes last_response.body, %(action="#{LEDGER_ROOT}/ledger/pull"), path
+      assert_ledger_links last_response.body
+    end
+  end
+
+  # Two pages of AMEX: account links, balance rows, the running balance, the Saldo chart,
+  # the sort links and the pager, and the statement link that editor.js puts in the dialog.
+  def test_journal_pages_link_inside_the_ledger
+    amex_rows(250)
+    with_amex_balance
+    [{}, { account: 'Liabilities:AMEX', chart: 'balance' },
+     { account: 'Liabilities:AMEX', sort: 'date-asc', page: '2' }].each do |params|
+      get '/journal', params, 'SCRIPT_NAME' => LEDGER_ROOT
+
+      assert_includes last_response.body, %(data-statement="#{LEDGER_ROOT}/accounts/AMEX/2607"), params
+      assert_ledger_links last_response.body
+    end
+  end
+
+  def test_an_empty_ledger_links_inside_the_ledger
+    @reports.empty = true
+    %w[/reports/income /reports/balance /journal].each do |path|
+      get path, {}, 'SCRIPT_NAME' => LEDGER_ROOT
+
+      assert_includes last_response.body, %(<a href="#{LEDGER_ROOT}/accounts/new">), path
+      assert_ledger_links last_response.body
+    end
+    with_ledger_dir do |dir|
+      File.write(File.join(dir, 'config', 'accounts.yaml'), "AMEX:\n  beancount_account: Liabilities:AMEX\n")
+      get '/reports/income', {}, 'SCRIPT_NAME' => LEDGER_ROOT
+
+      assert_includes last_response.body, %(<a href="#{LEDGER_ROOT}/upload">)
+    end
+  end
+
+  # The form posts inside the ledger with a plain `back`, and the answer returns inside it.
+  def test_pull_form_round_trips_inside_the_ledger
+    get '/reports/balance', {}, 'SCRIPT_NAME' => LEDGER_ROOT
+    action, back = last_response.body.match(/action="(.*?)" class="ledger-head">\s*<input.*?value="(.*?)"/).captures
+    assert_equal ["#{LEDGER_ROOT}/ledger/pull", '/reports/balance'], [action, back]
+
+    post action.delete_prefix(LEDGER_ROOT), { back: back }, 'SCRIPT_NAME' => LEDGER_ROOT
+
+    assert_equal "#{LEDGER_ROOT}/reports/balance?pull=ok", URI(last_response.location).request_uri
+  end
 end

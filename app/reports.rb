@@ -36,7 +36,7 @@ module Frijolero
         parts = account.split(':')
         parts.each_index.map do |i|
           href = "/journal?account=#{Rack::Utils.escape(parts[..i].join(':'))}&#{report_query(period, filter: false)}"
-          %(<a href="#{Rack::Utils.escape_html(href)}">#{Rack::Utils.escape_html(parts[i])}</a>)
+          %(<a href="#{Rack::Utils.escape_html(ledger_path(href))}">#{Rack::Utils.escape_html(parts[i])}</a>)
         end.join(':<wbr>')
       end
 

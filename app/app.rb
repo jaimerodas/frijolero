@@ -10,6 +10,9 @@ module Frijolero
   class App < Sinatra::Base
     set :views, File.join(__dir__, 'views')
     set :public_folder, File.expand_path('../public', __dir__)
+    # Under /l/<id>/, LedgerScope puts that prefix in SCRIPT_NAME. A redirect gets it
+    # from this setting and a link from ledger_path, so each route keeps its plain path.
+    set :prefixed_redirects, true
 
     JOB_STATUS = { 'queued' => 'en cola', 'running' => 'corriendo', 'ok' => 'listo', 'failed' => 'falló' }.freeze
 
@@ -65,6 +68,10 @@ module Frijolero
       def topbar
         erb :_topbar, layout: false
       end
+
+      # A path of this App in the current ledger: '/accounts' → '/l/<id>/accounts'. The
+      # static files and Login's /logout live outside the ledger, so they do not use it.
+      def ledger_path(path) = "#{request.script_name}#{path}"
 
       # Text into HTML, escaped. Every view writes its values through this.
       def h(text) = Rack::Utils.escape_html(text.to_s)

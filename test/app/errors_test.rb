@@ -198,6 +198,26 @@ class ErrorsPageTest < Minitest::Test
                                         '100.01 menos que el saldo de 74,819.37.'
   end
 
+  # Served under /l/<id>: the file, statement and journal links stay in that ledger.
+  def test_errors_page_links_inside_the_ledger
+    File.write(File.join(@dir, 'main.beancount'), <<~BEAN)
+      2026-01-01 open Assets:BBVA
+      2027-01-01 balance Assets:BBVA  74819.37 MXN
+    BEAN
+    @reports.errors = [{ code: 'E2001',
+                         message: 'Balance failed for Assets:BBVA: expected 74819.37 MXN, got 74719.36 MXN',
+                         file: 'main.beancount', line: 2, end_line: 3 },
+                       { code: 'E1003', message: 'Unbalanced', file: 'accounts/AMEX/AMEX 2508.beancount', line: 4,
+                         end_line: 5 }]
+
+    get '/errors', {}, 'SCRIPT_NAME' => LEDGER_ROOT
+
+    body = last_response.body
+    assert_includes body, %(<a href="#{LEDGER_ROOT}/journal?account=Assets%3ABBVA&period=2026">Ver en el diario</a>)
+    assert_includes body, %(<a href="#{LEDGER_ROOT}/accounts/AMEX/2508">Ver estado de cuenta</a>)
+    assert_ledger_links body
+  end
+
   def test_a_non_balance_error_has_no_journal_link
     @reports.errors = [LedgerErrorsTest::ERROR]
 

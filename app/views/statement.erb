@@ -3,7 +3,9 @@
   index = periods.index(period)
   prev_period = periods[index - 1] if index.positive?
   next_period = periods[index + 1]
-  base = "/accounts/#{account_path}/#{period}"
+  # The links carry the ledger's prefix; the hidden `back` of "Hacer regla" stays plain for back_path.
+  root = ledger_path("/accounts/#{account_path}")
+  base = "#{root}/#{period}"
   # The arrows and the menu keep the view: from the Beancount text they land on the Beancount text.
   suffix = '/beancount' if view == :beancount
   code = { file: file, text: beancount, back: ("#{base}/beancount" if editing) }
@@ -23,11 +25,11 @@
     <%= erb :_account, layout: false, locals: { account: account, tab: :statements } %>
     <div class="toolbar">
       <form method="get" action="<%= base %><%= suffix %>" class="period">
-        <% if prev_period %><a href="/accounts/<%= account_path %>/<%= prev_period %><%= suffix %>" aria-label="Anterior">&lsaquo;</a><% else %><span aria-hidden="true">&lsaquo;</span><% end %>
+        <% if prev_period %><a href="<%= root %>/<%= prev_period %><%= suffix %>" aria-label="Anterior">&lsaquo;</a><% else %><span aria-hidden="true">&lsaquo;</span><% end %>
         <select name="period" aria-label="Periodo">
           <% periods.reverse_each do |option| %><option value="<%= option %>"<% if option == period %> selected<% end %>><%= h(period_name(option)) %></option><% end %>
         </select>
-        <% if next_period %><a href="/accounts/<%= account_path %>/<%= next_period %><%= suffix %>" aria-label="Siguiente">&rsaquo;</a><% else %><span aria-hidden="true">&rsaquo;</span><% end %>
+        <% if next_period %><a href="<%= root %>/<%= next_period %><%= suffix %>" aria-label="Siguiente">&rsaquo;</a><% else %><span aria-hidden="true">&rsaquo;</span><% end %>
       </form>
       <nav class="tabs" aria-label="Vistas">
         <% if rows %>
@@ -73,7 +75,7 @@
                   <% tx[:accounts].each do |name| %>
                     <% if name == 'Expenses:FIXME' %>
                       <span class="status missing">sin clasificar</span>
-                      <form method="post" action="/accounts/<%= account_path %>/rules/from">
+                      <form method="post" action="<%= root %>/rules/from">
                         <input type="hidden" name="description" value="<%= h(tx[:description]) %>">
                         <input type="hidden" name="amount" value="<%= h(tx[:amount]&.to_s('F')) %>">
                         <input type="hidden" name="back" value="/accounts/<%= account_path %>/<%= h(period) %>">

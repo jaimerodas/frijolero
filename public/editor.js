@@ -18,6 +18,9 @@ const RULES_TOKEN = /(?<pattern>^(?:start_with|include)(?=:)|(?<=^ {2})(?:&quot;
 // names, one level deeper under `accounts:`, stay plain.
 const ACCOUNTS_TOKEN = /(?<pattern>^[^\s#-].*?(?=:(?: |$)))|(?<comment>(?<!\S)#.*)|(?<key>(?<=^ {2})\w+(?=:))|(?<account>(?:Assets|Liabilities|Equity|Income|Expenses)(?::[\w-]+)+)/g;
 
+// The ledger's prefix (/l/<id>), which every App route the editor calls or links to needs.
+const ROOT = document.querySelector('meta[name="ledger-root"]').content;
+
 const escape = (text) => text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 // Same classes as beancount_span and beancount_head in app/statements.rb.
@@ -272,7 +275,7 @@ function editor(form) {
     }
     const line = error.file === form.elements.file.value && pre.querySelector(`#L${error.line}`);
     const link = document.createElement('a');
-    link.href = line ? `#L${error.line}` : `/files/${encodeURI(error.file)}#L${error.line}`;
+    link.href = line ? `#L${error.line}` : `${ROOT}/files/${encodeURI(error.file)}#L${error.line}`;
     link.textContent = `${error.file}:${error.line}`;
     li.append(`${error.code} ${error.message} `, link);
     // The directive's first line and the indented lines under it, as beancount_html marks them.
@@ -341,7 +344,7 @@ function editor(form) {
   // the page it came from, with its notice. A rejected one lists the errors and stays.
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const response = await fetch('/edit', { method: 'POST', body: new FormData(form) }).catch(() => null);
+    const response = await fetch(`${ROOT}/edit`, { method: 'POST', body: new FormData(form) }).catch(() => null);
     if (response?.status === 204) return dialog ? location.reload() : location.replace(`${back || location.pathname}?saved=1`);
     if (response?.status === 422) return showErrors((await response.json()).errors);
     showErrors([response ? await response.text() : 'Sin conexión']);
@@ -356,7 +359,7 @@ if (form) {
 
   // The file page's Editar, and a statement's /beancount/edit on load: fetch the whole file.
   const openFile = async () => {
-    const response = await fetch(`/edit?${new URLSearchParams({ file: form.elements.file.value })}`).catch(() => null);
+    const response = await fetch(`${ROOT}/edit?${new URLSearchParams({ file: form.elements.file.value })}`).catch(() => null);
     if (!response?.ok) return ed.showErrors([response ? await response.text() : 'Sin conexión']);
     const block = await response.json();
     ed.open(block.text, 1, block.errors);
@@ -369,7 +372,7 @@ if (form) {
     const button = event.target.closest('button.edit');
     if (!button) return;
     const { file, line, statement } = button.dataset;
-    const response = await fetch(`/edit?${new URLSearchParams({ file, line })}`).catch(() => null);
+    const response = await fetch(`${ROOT}/edit?${new URLSearchParams({ file, line })}`).catch(() => null);
     const block = response?.ok ? await response.json() : { text: '', first: 1 };
     form.elements.file.value = file;
     form.elements.line.value = line;

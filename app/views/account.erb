@@ -1,5 +1,5 @@
 <%
-  key_path = Rack::Utils.escape_path(key)
+  base = ledger_path("/accounts/#{Rack::Utils.escape_path(key)}")
   fmt_size = lambda do |bytes|
     bytes < 1_000_000 ? "#{bytes / 1000}\u00a0KB" : format('%.1f\u00a0MB', bytes / 1_000_000.0)
   end
@@ -18,7 +18,7 @@
     <% if error %>
       <p class="error" role="alert"><%= h(error) %></p>
     <% elsif rows.empty? %>
-      <p>No hay PDFs de esta cuenta. <a href="/upload">Sube el primero.</a></p>
+      <p>No hay PDFs de esta cuenta. <a href="<%= ledger_path('/upload') %>">Sube el primero.</a></p>
     <% else %>
       <div class="table-wrap">
         <table>
@@ -36,13 +36,13 @@
                 <th scope="row"><%= h(period_name(row[:period])) %></th>
                 <% if row[:missing] %>
                 <td colspan="2"></td>
-                <td data-label="Estado"><a class="status missing" href="/upload">falta</a></td>
+                <td data-label="Estado"><a class="status missing" href="<%= ledger_path('/upload') %>">falta</a></td>
                 <% else %>
                 <td data-label="Tamaño"><%= h(fmt_size.(row[:size])) %></td>
-                <td data-label="PDF"><a class="button" href="/accounts/<%= key_path %>/<%= row[:period] %>/pdf">Descargar</a></td>
+                <td data-label="PDF"><a class="button" href="<%= base %>/<%= row[:period] %>/pdf">Descargar</a></td>
                 <td data-label="Estado">
                   <% if row[:processed] %>
-                    <a class="button" href="/accounts/<%= key_path %>/<%= row[:period] %>">Ver</a>
+                    <a class="button" href="<%= base %>/<%= row[:period] %>">Ver</a>
                   <% else %>
                     <span class="note">sin procesar</span>
                   <% end %>

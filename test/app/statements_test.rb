@@ -572,6 +572,35 @@ class StatementsTest < Minitest::Test
     refute_includes body, 'Ver todos'
   end
 
+  # Under /l/<id>/ every link stays in the ledger. The hidden `back` stays plain, as back_path
+  # checks it; data-back is where the editor's Cancelar goes, so it is a link.
+  def test_the_statement_pages_link_inside_the_ledger
+    write_rules('AMEX', 'start_with' => {})
+    fixme = STATEMENT_TEXT.sub('Expenses:Food', 'Expenses:FIXME')
+    %w[2507 2508 2509].each { |p| write_statement('AMEX', p, json: {}, beancount: fixme) }
+
+    %w[/accounts/AMEX/2508 /accounts/AMEX/2508/beancount /accounts/AMEX/2508/beancount/edit].each do |path|
+      get path, {}, 'SCRIPT_NAME' => LEDGER_ROOT
+
+      assert_ledger_links last_response.body
+    end
+    assert_includes last_response.body, %(data-back="#{LEDGER_ROOT}/accounts/AMEX/2508/beancount")
+
+    get '/accounts/AMEX/2508', {}, 'SCRIPT_NAME' => LEDGER_ROOT
+
+    assert_includes last_response.body, 'Aplicar reglas'
+    assert_includes last_response.body, '<input type="hidden" name="back" value="/accounts/AMEX/2508">'
+  end
+
+  def test_the_file_page_of_a_statement_links_inside_the_ledger
+    write_statement('AMEX', '2508', json: {}, beancount: STATEMENT_TEXT)
+
+    get '/files/accounts/AMEX/AMEX%202508.beancount', {}, 'SCRIPT_NAME' => LEDGER_ROOT
+
+    assert_includes last_response.body, 'Ver estado de cuenta'
+    assert_ledger_links last_response.body
+  end
+
   private
 
   def write_accounts_yaml(extra: '')

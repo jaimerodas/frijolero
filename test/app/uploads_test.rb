@@ -175,6 +175,22 @@ class UploadsTest < Minitest::Test
     assert_includes last_response.body, '<a class="status missing" href="/inbox">1 por confirmar</a>'
   end
 
+  # Under /l/<id>/ every link of the dashboard carries the prefix, in each status.
+  def test_dashboard_links_inside_the_ledger
+    periods = Frijolero::Dashboard.new.periods
+    statement('AMEX', periods.first)
+    Frijolero::App.jobs.push(label: "BBVA #{periods.last}") { raise 'boom' }
+    Frijolero::App.jobs.work_one
+    api_upload('estado.pdf')
+
+    get '/', {}, 'SCRIPT_NAME' => LEDGER_ROOT
+
+    body = last_response.body
+    %w[received missing failed].each { |status| assert_includes body, %(<a class="status #{status}") }
+    assert_includes body, 'por confirmar'
+    assert_ledger_links(body)
+  end
+
   # The web form: one or more PDFs into the Bandeja, like the Shortcut.
   def test_upload_form_takes_several_pdfs
     get '/upload'
@@ -207,6 +223,13 @@ class UploadsTest < Minitest::Test
     get '/inbox'
 
     assert_includes last_response.body, 'Estado de cuenta – agosto.pdf'
+  end
+
+  def test_upload_page_links_inside_the_ledger
+    get '/upload', {}, 'SCRIPT_NAME' => LEDGER_ROOT
+
+    assert_includes last_response.body, %(action="#{LEDGER_ROOT}/upload")
+    assert_ledger_links(last_response.body)
   end
 
   def test_upload_without_a_file_is_rejected
@@ -419,6 +442,20 @@ class UploadsTest < Minitest::Test
     assert_match(/value="AMEX"\s+selected/, last_response.body)
     assert_includes last_response.body, %(name="period[#{token}]" value="2508")
     refute_includes last_response.body, 'Procesar los listos'
+  end
+
+  def test_inbox_links_inside_the_ledger
+    failed_job(classified('AMEX 2508.pdf'))
+    statement('BBVA', '2508')
+    classified('BBVA 2508.pdf')
+    classified('AMEX 2509.pdf')
+    classified('estado.pdf')
+
+    get '/inbox', {}, 'SCRIPT_NAME' => LEDGER_ROOT
+
+    body = last_response.body
+    ['falló', 'ya existe', 'listo', 'sin identificar'].each { |word| assert_includes body, word }
+    assert_ledger_links(body)
   end
 
   # Procesar and the job behind it.
@@ -666,6 +703,21 @@ class UploadsTest < Minitest::Test
     get "/jobs/#{job_id}"
 
     refute_includes last_response.body, 'Reintentar'
+  end
+
+  def test_job_pages_link_inside_the_ledger
+    failed = failed_job(classified('AMEX 2508.pdf'))
+    @client.extract_error = nil
+    process(classified('BBVA 2508.pdf'), 'BBVA', '2508')
+    ok = Frijolero::App.jobs.work_one.id
+
+    pages = { '/jobs' => 'AMEX 2508', "/jobs/#{failed}" => 'Reintentar', "/jobs/#{ok}" => 'Ver estado de cuenta' }
+    pages.each do |path, text|
+      get path, {}, 'SCRIPT_NAME' => LEDGER_ROOT
+
+      assert_includes last_response.body, text, path
+      assert_ledger_links(last_response.body)
+    end
   end
 
   def test_job_page_404s_for_an_unknown_id

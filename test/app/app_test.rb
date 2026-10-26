@@ -34,7 +34,7 @@ class AppTest < Minitest::Test
     @mailer = FakeMailer.new
     Frijolero::Signin.mailer = @mailer
     # A ledger in the database, as config.ru expects, but not current on this thread:
-    # each request gets it from OnlyLedger. Its owner is the admin, admin@example.com.
+    # each request gets it from LedgerScope. Its owner is the admin, admin@example.com.
     @dir = enter_db_ledger
     Frijolero::Ledger.current = nil
 
@@ -88,28 +88,28 @@ class AppTest < Minitest::Test
     assert_includes last_response.body, '<h1 class="wordmark">Frijolero</h1>'
   end
 
-  # Login sits outside OnlyLedger, so its pages run with no current ledger and read none.
+  # Login sits outside LedgerScope, so its pages run with no current ledger and read none.
   def test_login_pages_answer_with_no_current_ledger
-    app # config.ru reads the ledgers when it loads
-    Frijolero::Ledger.stub(:all, -> { flunk 'a login page reached OnlyLedger' }) do
-      get '/login'
-      assert_equal 200, last_response.status
-      post '/login', email: 'admin@example.com'
-      assert_equal 200, last_response.status
-      get "/login/#{link_token}"
-      assert_equal 200, last_response.status
-      post '/login/nope'
-      assert_equal 200, last_response.status
-    end
+    scope = ->(_env) { flunk 'a login page reached LedgerScope' }
+    Frijolero::LedgerScope.stub(:new, ->(_app) { scope }) { app } # config.ru builds the stack once
+
+    get '/login'
+    assert_equal 200, last_response.status
+    post '/login', email: 'admin@example.com'
+    assert_equal 200, last_response.status
+    get "/login/#{link_token}"
+    assert_equal 200, last_response.status
+    post '/login/nope'
+    assert_equal 200, last_response.status
   end
 
-  # OnlyLedger lends the ledger to one request. Puma reuses its threads, so the next
+  # LedgerScope lends the ledger to one request. Puma reuses its threads, so the next
   # request on this thread must not find the last one's ledger.
   def test_a_request_has_the_ledger_and_leaves_none_on_its_thread
     File.write(File.join(@dir, 'main.beancount'), %(option "title" "Casa"\n))
     sign_in
 
-    get '/'
+    get '/l/test/'
 
     assert_includes last_response.body, 'Casa', 'the page read the ledger'
     assert_raises(Frijolero::NoLedger) { Frijolero::Ledger.current }
@@ -187,6 +187,10 @@ class AppTest < Minitest::Test
 
     get '/'
 
+    assert_equal '/l/test/', URI(last_response.location).path
+
+    follow_redirect!
+
     assert_equal 200, last_response.status
   end
 
@@ -201,7 +205,7 @@ class AppTest < Minitest::Test
 
     get '/'
 
-    assert_equal 302, last_response.status
+    assert_equal '/login', URI(last_response.location).path
   end
 
   def test_an_unknown_link_shows_the_expired_page
@@ -229,7 +233,7 @@ class AppTest < Minitest::Test
 
     get '/'
 
-    assert_equal 302, last_response.status
+    assert_equal '/login', URI(last_response.location).path
   end
 
   # The session is cleared too, so an unblock does not bring it back.
@@ -245,7 +249,7 @@ class AppTest < Minitest::Test
     Frijolero::DB.execute("UPDATE users SET status = 'active' WHERE id = ?", admin.id)
     get '/'
 
-    assert_equal 302, last_response.status
+    assert_equal '/login', URI(last_response.location).path
   end
 
   # "Salir de todos lados" adds 1 to session_version.

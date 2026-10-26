@@ -68,6 +68,35 @@ class NavTest < Minitest::Test
     refute_includes last_response.body, '<table'
   end
 
+  def test_dashboard_without_accounts_links_inside_the_ledger
+    File.write(File.join(@dir, 'config', 'accounts.yaml'), '')
+
+    get '/', {}, 'SCRIPT_NAME' => LEDGER_ROOT
+
+    assert_includes last_response.body, %(href="#{LEDGER_ROOT}/accounts/new")
+    assert_ledger_links(last_response.body)
+  end
+
+  class OneError
+    def check = [{ code: 'E1001', message: 'x', file: 'main.beancount', line: 1, end_line: 1 }]
+  end
+
+  # Under /l/<id>/ each link carries the prefix, while the marks still compare the plain path.
+  def test_topbar_and_title_row_link_inside_the_ledger
+    Frijolero::App.reports = OneError.new
+    get '/accounts/new', {}, 'SCRIPT_NAME' => LEDGER_ROOT
+
+    body = last_response.body
+    assert_includes body, %(<a class="brand" href="#{LEDGER_ROOT}/">)
+    assert_includes body, %(<a class="errors" href="#{LEDGER_ROOT}/errors")
+    assert_includes body, %(<a href="#{LEDGER_ROOT}/" aria-current="page">Estados de cuenta</a>)
+    assert_includes body, %(<a href="#{LEDGER_ROOT}/accounts" aria-current="true">Cuentas</a>)
+    assert_includes body, '<form method="post" action="/logout">'
+    assert_ledger_links(body)
+  ensure
+    Frijolero::App.reports = nil
+  end
+
   def test_accounts_page_without_accounts_says_so
     File.write(File.join(@dir, 'config', 'accounts.yaml'), '')
 

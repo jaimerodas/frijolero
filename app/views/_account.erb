@@ -7,7 +7,7 @@
   <h1><%= h(account) %></h1>
   <nav class="tabs" aria-label="Páginas de <%= h(account) %>">
     <% tabs.each do |key, (href, label)| %>
-      <a href="<%= href %>"<% if key == tab %> aria-current="true"<% end %>><%= label %></a>
+      <a href="<%= ledger_path(href) %>"<% if key == tab %> aria-current="true"<% end %>><%= label %></a>
     <% end %>
   </nav>
 </div>

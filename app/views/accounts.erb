@@ -27,14 +27,14 @@
           </thead>
           <tbody>
             <% accounts.each do |key, config| %>
-              <% path = Rack::Utils.escape_path(key) %>
+              <% base = ledger_path("/accounts/#{Rack::Utils.escape_path(key)}") %>
               <tr>
-                <th scope="row"><a href="/accounts/<%= path %>"><%= h(key) %></a></th>
+                <th scope="row"><a href="<%= base %>"><%= h(key) %></a></th>
                 <td data-label="Beancount"><code><%= h(config['beancount_account']) %></code></td>
                 <td>
-                  <a class="button" href="/accounts/<%= path %>">Estados</a>
-                  <a class="button" href="/accounts/<%= path %>/config">Configuración</a>
-                  <% if rules?(key) %><a class="button" href="/accounts/<%= path %>/rules">Reglas</a><% end %>
+                  <a class="button" href="<%= base %>">Estados</a>
+                  <a class="button" href="<%= base %>/config">Configuración</a>
+                  <% if rules?(key) %><a class="button" href="<%= base %>/rules">Reglas</a><% end %>
                 </td>
               </tr>
             <% end %>
@@ -43,14 +43,14 @@
       </div>
     <% end %>
 
-    <p class="actions"><a class="button primary" href="/accounts/new">Nueva cuenta</a></p>
-    <p><a href="/accounts/yaml">Editar el archivo completo</a></p>
+    <p class="actions"><a class="button primary" href="<%= ledger_path('/accounts/new') %>">Nueva cuenta</a></p>
+    <p><a href="<%= ledger_path('/accounts/yaml') %>">Editar el archivo completo</a></p>
 
     <% unless (files = other_ledger_files).empty? %>
       <h2>Otros archivos beancount</h2>
       <ul class="files">
         <% files.each do |file| %>
-          <li><a href="/files/<%= Rack::Utils.escape_path(file) %>"><code><%= h(file) %></code></a></li>
+          <li><a href="<%= ledger_path("/files/#{Rack::Utils.escape_path(file)}") %>"><code><%= h(file) %></code></a></li>
         <% end %>
       </ul>
     <% end %>

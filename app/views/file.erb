@@ -13,7 +13,7 @@
     <%= erb :_cuentas, layout: false %>
     <div class="code-head">
       <h1 class="file"><%= h(file) %></h1>
-      <% if key %><a href="/accounts/<%= Rack::Utils.escape_path(key) %>/<%= h(period) %>">Ver estado de cuenta</a><% end %>
+      <% if key %><a href="<%= ledger_path("/accounts/#{Rack::Utils.escape_path(key)}") %>/<%= h(period) %>">Ver estado de cuenta</a><% end %>
       <button type="button" class="edit-file">Editar</button>
     </div>
     <% if notice %>

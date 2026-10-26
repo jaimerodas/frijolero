@@ -12,7 +12,7 @@
     <% unless self.class.client %>
       <p class="error" role="alert">Falta <code><%= Frijolero::LLM.key_var %></code>: sin ella la app no clasifica ni extrae. Un PDF llamado <code>Clave YYMM.pdf</code> llega a la Bandeja con su cuenta y su periodo, y se puede guardar sin procesarlo.</p>
     <% end %>
-    <form method="post" action="/upload" enctype="multipart/form-data">
+    <form method="post" action="<%= ledger_path('/upload') %>" enctype="multipart/form-data">
       <label for="pdf">Uno o más PDF</label>
       <input type="file" id="pdf" name="pdf[]" accept="application/pdf" multiple required>
       <p class="note">Los PDF esperan en la Bandeja hasta que confirmas la cuenta y el periodo de cada uno.</p>

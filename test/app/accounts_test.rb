@@ -419,6 +419,26 @@ class AccountsTest < Minitest::Test
     Frijolero::App.s3 = nil
   end
 
+  # Under /l/<id>/ every link of these pages carries the prefix.
+  def test_account_pages_link_inside_the_ledger
+    @s3.entries = %w[2506 2508].map do |period|
+      { key: "frijolero/accounts/BBVA TDC/BBVA TDC #{period}.pdf", size: 1, last_modified: Time.new(2025, 9, 1) }
+    end
+    beancount = Frijolero::Config.statement_path('BBVA TDC', '2508', 'beancount')
+    FileUtils.mkdir_p(File.dirname(beancount))
+    File.write(beancount, '')
+    File.write(Frijolero::Config.main_file, %(include "prices.beancount"\n))
+    File.write(File.join(@dir, 'prices.beancount'), '')
+
+    { '/accounts' => 'Otros archivos beancount', '/accounts/BBVA%20TDC' => 'sin procesar',
+      '/accounts/new' => 'Cancelar' }.each do |path, text|
+      get path, {}, 'SCRIPT_NAME' => LEDGER_ROOT
+
+      assert_includes last_response.body, text, path
+      assert_ledger_links(last_response.body)
+    end
+  end
+
   def test_with_every_s3_variable_the_pdfs_go_to_s3
     Frijolero::App.s3 = nil
 

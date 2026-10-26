@@ -144,7 +144,7 @@ class DashboardTest < Minitest::Test
       File.write(path, '')
 
       dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5))
-      html = Frijolero::App.new!.erb(:dashboard, locals: { dashboard: dashboard, waiting: 0 })
+      html = view_app.erb(:dashboard, locals: { dashboard: dashboard, waiting: 0 })
 
       assert_includes html, 'falta'
       assert_includes html, 'recibido'
@@ -162,7 +162,7 @@ class DashboardTest < Minitest::Test
       File.write(path, '')
 
       dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5), failed: { 'AMEX 2607' => 'job1' })
-      html = Frijolero::App.new!.erb(:dashboard, locals: { dashboard: dashboard, waiting: 0 })
+      html = view_app.erb(:dashboard, locals: { dashboard: dashboard, waiting: 0 })
 
       assert_includes html, '<a class="status missing" href="/upload">falta</a>'
       assert_includes html, '<a class="status failed" href="/jobs/job1">falló</a>'

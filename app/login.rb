@@ -4,7 +4,7 @@ require 'json'
 require 'sinatra/base'
 
 module Frijolero
-  # Middleware in config.ru, outside OnlyLedger, so its pages have no current ledger.
+  # Middleware in config.ru, outside LedgerScope, so its pages have no current ledger.
   # Owns the sign-in routes and gates everything else behind a signed cookie session
   # that holds user_id and session_version. httponly is the rack-session default.
   # secure: production? because bin/dev is plain http. The App finds the user in

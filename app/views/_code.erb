@@ -1,7 +1,7 @@
 <% errors = errors_in(file, 1, Float::INFINITY) %>
 <% digits = (text.count("\n") + 1).to_s.size %>
 <% back = nil unless defined?(back) %>
-<form class="code" method="post" action="/edit"<% if back %> data-back="<%= h(back) %>"<% end %>>
+<form class="code" method="post" action="<%= ledger_path('/edit') %>"<% if back %> data-back="<%= h(back) %>"<% end %>>
   <input type="hidden" name="file" value="<%= h(file) %>">
   <input type="hidden" name="line">
   <input type="hidden" name="original">

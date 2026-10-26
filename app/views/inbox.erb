@@ -22,7 +22,7 @@
     <% else %>
     <p class="error" role="alert">Falta <code><%= Frijolero::LLM.key_var %></code>: sin ella la app solo guarda el PDF.</p>
     <% end %>
-    <form method="post" action="/inbox/process">
+    <form method="post" action="<%= ledger_path('/inbox/process') %>">
       <%# The first submit button is the one Enter presses. Disabled, it makes Enter in a period field do nothing. %>
       <button type="submit" disabled hidden></button>
       <div class="table-wrap">
@@ -43,7 +43,7 @@
                 <th scope="row">
                   <%= h(item.filename) %><br>
                   <% if status == :failed %>
-                    <a class="status failed" href="/jobs/<%= h(row.job.id) %>">falló</a>
+                    <a class="status failed" href="<%= ledger_path("/jobs/#{h(row.job.id)}") %>">falló</a>
                   <% else %>
                     <span class="status <%= glyph %>"><%= word %></span>
                   <% end %>
@@ -66,8 +66,8 @@
                   <div class="row-actions">
                     <% if status == :exists && client %><label><input type="checkbox" name="overwrite[<%= token %>]" value="1"> Sobrescribir</label><% end %>
                     <% if client %><button type="submit" name="tokens" value="<%= token %>" data-busy="Procesando…">Procesar</button><% end %>
-                    <button type="submit" name="token" value="<%= token %>" formaction="/inbox/backup" data-busy="Guardando…">Solo guardar PDF</button>
-                    <button type="submit" name="token" value="<%= token %>" formaction="/inbox/discard">Descartar</button>
+                    <button type="submit" name="token" value="<%= token %>" formaction="<%= ledger_path('/inbox/backup') %>" data-busy="Guardando…">Solo guardar PDF</button>
+                    <button type="submit" name="token" value="<%= token %>" formaction="<%= ledger_path('/inbox/discard') %>">Descartar</button>
                   </div>
                 </td>
               </tr>

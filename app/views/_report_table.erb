@@ -1,5 +1,5 @@
 <%
-  journal_href = ->(name) { "/journal?account=#{Rack::Utils.escape(name)}&#{report_query(period, sort: nil)}" }
+  journal_href = ->(name) { ledger_path("/journal?account=#{Rack::Utils.escape(name)}&#{report_query(period, sort: nil)}") }
   cell = lambda do |row, currency|
     value = figure(row[:amounts][currency] * sign)
     next value if value.empty? || Frijolero::Reports::SYNTHETIC.include?(row[:name])

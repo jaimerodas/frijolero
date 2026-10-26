@@ -47,7 +47,25 @@ class LedgerTest < Minitest::Test
     assert_equal 'main.beancount', row('test')['main_file']
   end
 
+  # The ids sort the other way, so only created_at gives this order.
+  def test_owned_by_lists_the_ledgers_of_one_owner_oldest_first
+    other = Frijolero::DB.insert("INSERT INTO users (email, created_at) VALUES ('b@example.com', ?)", '2020-01-01')
+    insert_ledger('zzzz', @owner, '2020-01-01T00:00:00Z')
+    insert_ledger('aaaa', @owner, '2021-01-01T00:00:00Z')
+    insert_ledger('ajeno', other, '2019-01-01T00:00:00Z')
+
+    ledgers = Frijolero::Ledger.owned_by(@owner)
+
+    assert_equal %w[zzzz aaaa test], ledgers.map(&:id)
+    assert_equal Frijolero::Ledger.find('zzzz'), ledgers.first
+  end
+
   private
 
   def row(id) = Frijolero::DB.first('SELECT * FROM ledgers WHERE id = ?', id)
+
+  def insert_ledger(id, owner, created_at)
+    Frijolero::DB.execute('INSERT INTO ledgers (id, owner_id, name, pdf_prefix, created_at) ' \
+                          "VALUES (?, ?, 'Otro', 'frijolero', ?)", id, owner, created_at)
+  end
 end
