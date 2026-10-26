@@ -23,6 +23,11 @@ class UsageTest < Minitest::Test
     with_db_ledger { assert_equal 14_000, record(input: 1000, output: 500) }
   end
 
+  # gpt-6.1-sol is 2.00 / 0.10 / 10.00: 600 * 2 + 400 * 0.10 + 500 * 10 = 6240.
+  def test_cost_of_the_extraction_model
+    with_db_ledger { assert_equal 6240, record(model: 'gpt-6.1-sol', input: 1000, cached: 400, output: 500) }
+  end
+
   # 600 fresh * 4.00 + 400 cached * 0.40 = 2560, not 1000 * 4.00.
   def test_cached_tokens_cost_the_cached_rate
     with_db_ledger { assert_equal 2560, record(input: 1000, cached: 400) }

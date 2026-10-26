@@ -1,5 +1,5 @@
 {
-  "model": "gpt-6-sol",
+  "model": "gpt-6.1-sol",
   "format": {
     "type": "json_schema",
     "name": "cetes_directo_statement",
