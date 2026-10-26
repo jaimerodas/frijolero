@@ -178,7 +178,7 @@ El modelo de `spec.json` debe ser del proveedor de `LLM_PROVIDER`:
 
 | Proveedor | Extraer | Clasificar (`classify`) |
 |---|---|---|
-| `openai` | `gpt-6.1-sol` (`alpaca`: `gpt-5.6-sol`) | `gpt-5.4-mini` |
+| `openai` | `gpt-6.1-sol` | `gpt-5.4-mini` |
 | `anthropic` | `claude-opus-5` | `claude-haiku-4-5` |
 
 Con `LLM_PROVIDER=anthropic`, cambia el `model` de cada `spec.json`. Los

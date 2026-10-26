@@ -9,7 +9,7 @@ class UsageTest < Minitest::Test
   Usage = Frijolero::Usage
   DB = Frijolero::DB
 
-  def record(model: 'gpt-5.6-sol', input: 0, cached: 0, output: 0)
+  def record(model: 'gpt-6.1-sol', input: 0, cached: 0, output: 0)
     Usage.record(prompt: 'default', model: model, input_tokens: input, cached_tokens: cached, output_tokens: output)
   end
 
@@ -18,19 +18,14 @@ class UsageTest < Minitest::Test
               "VALUES (?, 'test', 'default', 'gpt-6-sol', 0, 0, ?, ?)", user_id, cost, at)
   end
 
-  # gpt-5.6-sol is 4.00 / 0.40 / 20.00: 1000 * 4 + 500 * 20 = 14000 micro-dollars (US$0.014).
+  # gpt-6.1-sol is 2.00 / 0.10 / 10.00: 1000 * 2 + 500 * 10 = 7000 micro-dollars (US$0.007).
   def test_cost_of_a_known_model
-    with_db_ledger { assert_equal 14_000, record(input: 1000, output: 500) }
+    with_db_ledger { assert_equal 7000, record(input: 1000, output: 500) }
   end
 
-  # gpt-6.1-sol is 2.00 / 0.10 / 10.00: 600 * 2 + 400 * 0.10 + 500 * 10 = 6240.
-  def test_cost_of_the_extraction_model
-    with_db_ledger { assert_equal 6240, record(model: 'gpt-6.1-sol', input: 1000, cached: 400, output: 500) }
-  end
-
-  # 600 fresh * 4.00 + 400 cached * 0.40 = 2560, not 1000 * 4.00.
+  # 600 fresh * 2.00 + 400 cached * 0.10 = 1240, not 1000 * 2.00.
   def test_cached_tokens_cost_the_cached_rate
-    with_db_ledger { assert_equal 2560, record(input: 1000, cached: 400) }
+    with_db_ledger { assert_equal 1240, record(input: 1000, cached: 400) }
   end
 
   # 1 token at 0.075 is 0.075 micros; 10 of them are 0.75, which rounds to 1.
@@ -55,7 +50,7 @@ class UsageTest < Minitest::Test
       record(input: 10, cached: 4, output: 2)
 
       row = DB.first('SELECT * FROM usage')
-      assert_equal [Frijolero::Ledger.current.owner_id, 'test', 'default', 'gpt-5.6-sol', 10, 4, 2],
+      assert_equal [Frijolero::Ledger.current.owner_id, 'test', 'default', 'gpt-6.1-sol', 10, 4, 2],
                    row.values_at('user_id', 'ledger_id', 'prompt', 'model', 'input_tokens', 'cached_tokens',
                                  'output_tokens')
       assert_match(/\A\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ\z/, row['at'])

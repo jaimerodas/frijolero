@@ -10,7 +10,6 @@ module Frijolero
     # micro-dollars per token, so the cost in micros needs no scale factor.
     PRICES = {
       'gpt-5.4-mini' => %w[0.75 0.075 4.50],
-      'gpt-5.6-sol' => %w[4.00 0.40 20.00],
       'gpt-6.1-sol' => %w[2.00 0.10 10.00]
     }.transform_values { |prices| prices.map { |price| Rational(price) }.freeze }.freeze
 

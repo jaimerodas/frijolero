@@ -40,7 +40,7 @@ class OpenAIClientTest < Minitest::Test
                                'content' => [{ 'type' => 'output_text', 'text' => '{"transactions":[]}' }] }],
                 'usage' => { 'input_tokens' => 1000, 'output_tokens' => 500,
                              'input_tokens_details' => { 'cached_tokens' => 400 } } }.freeze
-  SPEC = { '_prompt' => 'default', 'model' => 'gpt-5.6-sol' }.freeze
+  SPEC = { '_prompt' => 'default', 'model' => 'gpt-6.1-sol' }.freeze
 
   def client(transport, **)
     Frijolero::OpenAIClient.new('test-key', transport: transport, poll_interval: 0, **)
@@ -165,7 +165,7 @@ class OpenAIClientTest < Minitest::Test
     refute(transport.calls.any? { |_, path| path.end_with?('/cancel') })
   end
 
-  # 600 fresh * 4.00 + 400 cached * 0.40 + 500 * 20.00 = 12560 micro-dollars.
+  # 600 fresh * 2.00 + 400 cached * 0.10 + 500 * 10.00 = 6240 micro-dollars.
   def test_a_completed_call_records_its_usage
     transport = FakeTransport.new(post_json: { 'id' => 'resp-1' }, get: COMPLETED)
 
@@ -173,7 +173,7 @@ class OpenAIClientTest < Minitest::Test
       client(transport).extract(pdf, SPEC)
 
       row = Frijolero::DB.first('SELECT * FROM usage')
-      assert_equal ['default', 'gpt-5.6-sol', 1000, 400, 500, 12_560],
+      assert_equal ['default', 'gpt-6.1-sol', 1000, 400, 500, 6240],
                    row.values_at('prompt', 'model', 'input_tokens', 'cached_tokens', 'output_tokens', 'cost_micros')
       assert_equal 1, Frijolero::DB.first('SELECT COUNT(*) AS n FROM usage')['n']
     end
