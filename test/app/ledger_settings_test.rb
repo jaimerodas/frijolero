@@ -139,7 +139,7 @@ class LedgerSettingsTest < Minitest::Test
     assert_nil remote_url
   end
 
-  # A key would make LedgerRepo.for switch the ledger to SSH and break its HTTPS pulls.
+  # A ledger with a remote already has its key: a new one would replace it.
   def test_a_ledger_with_an_origin_gets_no_key_and_no_new_remote
     run_git(@dir, 'remote', 'add', 'origin', 'https://github.com/yo/ledger.git')
 

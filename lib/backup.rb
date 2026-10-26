@@ -82,7 +82,7 @@ module Frijolero
         copy_jobs(ledger, File.join(dir, ledger.id))
         return skipped(ledger, 'no tiene repo/') unless File.directory?(ledger.repo_dir)
 
-        repo = LedgerRepo.new(dir: ledger.repo_dir, token: nil)
+        repo = LedgerRepo.new(dir: ledger.repo_dir)
         return skipped(ledger, 'no tiene commits') if repo.git('rev-list', '-n1', '--all').empty?
 
         bundle(repo, dir, ledger.id)
@@ -115,12 +115,12 @@ module Frijolero
         puts "#{row['id']} (#{row['name']}): #{status || 'sin repo en el respaldo'}"
       end
 
-      # The origin is the one of the row, or else the one the clone had: the first ledger
-      # pulls over HTTPS and its row has no remote_url. Without either, the clone keeps no
-      # remote, which would point at the bundle. Returns the last commit and the remote.
+      # The origin is the one of the row, or else the one the clone had: the row of the
+      # first ledger has no remote_url. Without either, the clone keeps no remote, which
+      # would point at the bundle. Returns the last commit and the remote.
       def clone(bundle, dir, url)
-        LedgerRepo.new(dir: dir, token: nil).git('clone', '-q', '-c', 'core.symlinks=false', '--', bundle, 'repo')
-        repo = LedgerRepo.new(dir: File.join(dir, 'repo'), token: nil)
+        LedgerRepo.new(dir: dir).git('clone', '-q', '-c', 'core.symlinks=false', '--', bundle, 'repo')
+        repo = LedgerRepo.new(dir: File.join(dir, 'repo'))
         url ? repo.git('remote', 'set-url', 'origin', url) : repo.git('remote', 'remove', 'origin')
         "#{repo.head.values.join(' ')}, #{url || 'sin remoto'}"
       end

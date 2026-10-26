@@ -8,8 +8,9 @@ class BackupTest < Minitest::Test
   include TestHelpers
   include LedgerRepoTestGit
 
-  # Two users and three ledgers: one with commits, a job log and the HTTPS origin of the
-  # first ledger, one with a remote_url and a deploy key, and one that is not connected.
+  # Two users and three ledgers: one with commits, a job log and an origin but no
+  # remote_url, as the first ledger, one with a remote_url and a deploy key, and one that
+  # is not connected.
   def setup
     @frijolero_head = run_git(Dir.pwd, 'rev-parse', 'HEAD').strip
     @tmp = Dir.mktmpdir
@@ -60,9 +61,9 @@ class BackupTest < Minitest::Test
     copy&.close
   end
 
-  # The pull of each job needs the remote and its upstream branch. The first ledger pulls
-  # over HTTPS with GIT_TOKEN, and its row has no remote_url: the archive keeps the origin
-  # of its clone, without the credentials that a URL can carry.
+  # The pull of each job needs the remote and its upstream branch. The row of the first
+  # ledger has no remote_url: the archive keeps the origin of its clone, without the
+  # credentials that a URL can carry.
   def test_restore_sets_origin_back
     archive = create
     restore(archive)

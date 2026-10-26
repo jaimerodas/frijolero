@@ -39,7 +39,7 @@ module Frijolero
       end
 
       def commit(dir, main, message)
-        repo = LedgerRepo.new(dir: dir, token: nil)
+        repo = LedgerRepo.new(dir: dir)
         repo.git('init', '-q', '-b', 'main') unless File.directory?(File.join(dir, '.git'))
         repo.git('add', '--', *(Dir.children(TEMPLATE) - ['main.beancount']), main)
         return if repo.git('diff', '--cached', '--name-only').empty?

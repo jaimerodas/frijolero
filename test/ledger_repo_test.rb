@@ -35,7 +35,7 @@ class LedgerRepoTest < Minitest::Test
 
   def test_commit_and_push_returns_true_and_pushes
     File.write(File.join(@work, 'AMEX_2508.beancount'), "; stmt\n")
-    repo = Frijolero::LedgerRepo.new(dir: @work, token: nil)
+    repo = Frijolero::LedgerRepo.new(dir: @work)
 
     assert repo.commit_and_push('AMEX 2508')
     assert_equal 'AMEX 2508', run_git(@origin, 'log', '-1', '--format=%s').strip
@@ -48,7 +48,7 @@ class LedgerRepoTest < Minitest::Test
     local = File.join(@tmp, 'local')
     run_git(@tmp, 'init', '-q', '-b', 'main', 'local')
     File.write(File.join(local, 'README'), "solo\n")
-    repo = Frijolero::LedgerRepo.new(dir: local, token: nil)
+    repo = Frijolero::LedgerRepo.new(dir: local)
 
     assert_nil repo.pull
     assert repo.commit_and_push('sin remoto')
@@ -56,20 +56,20 @@ class LedgerRepoTest < Minitest::Test
   end
 
   def test_head_gives_the_date_and_subject_of_the_last_commit
-    repo = Frijolero::LedgerRepo.new(dir: @work, token: nil)
+    repo = Frijolero::LedgerRepo.new(dir: @work)
 
     assert_equal({ date: Date.today.iso8601, subject: 'mensaje inicial' }, repo.head)
   end
 
   def test_head_raises_outside_a_repo
-    assert_raises(Frijolero::LedgerRepo::Error) { Frijolero::LedgerRepo.new(dir: @tmp, token: nil).head }
+    assert_raises(Frijolero::LedgerRepo::Error) { Frijolero::LedgerRepo.new(dir: @tmp).head }
   end
 
   def test_origin_is_the_url_of_the_remote_or_nil
     run_git(@tmp, 'init', '-q', 'local')
 
-    assert_equal @origin, Frijolero::LedgerRepo.new(dir: @work, token: nil).origin
-    assert_nil Frijolero::LedgerRepo.new(dir: File.join(@tmp, 'local'), token: nil).origin
+    assert_equal @origin, Frijolero::LedgerRepo.new(dir: @work).origin
+    assert_nil Frijolero::LedgerRepo.new(dir: File.join(@tmp, 'local')).origin
   end
 
   # The export: the files of the last commit, not the work in progress and not .git.
@@ -77,13 +77,13 @@ class LedgerRepoTest < Minitest::Test
     File.write(File.join(@work, 'sin_commit.txt'), "x\n")
     tgz = File.join(@tmp, 'ledger.tar.gz')
 
-    File.binwrite(tgz, Frijolero::LedgerRepo.new(dir: @work, token: nil).archive)
+    File.binwrite(tgz, Frijolero::LedgerRepo.new(dir: @work).archive)
 
     assert_equal "README\n", IO.popen(['tar', '-tzf', tgz], &:read)
   end
 
   def test_commit_and_push_returns_false_when_nothing_staged
-    repo = Frijolero::LedgerRepo.new(dir: @work, token: nil)
+    repo = Frijolero::LedgerRepo.new(dir: @work)
     before = run_git(@origin, 'log', '-1', '--format=%H').strip
 
     refute repo.commit_and_push('nada que subir')
@@ -95,7 +95,7 @@ class LedgerRepoTest < Minitest::Test
     run_git(@seed, 'add', 'NEW.txt')
     seed_commit('agrega NEW.txt')
     run_git(@seed, 'push', 'origin', 'HEAD:main')
-    repo = Frijolero::LedgerRepo.new(dir: @work, token: nil)
+    repo = Frijolero::LedgerRepo.new(dir: @work)
 
     repo.pull
 
@@ -110,7 +110,7 @@ class LedgerRepoTest < Minitest::Test
     seed_commit('enlace')
     run_git(@seed, 'push', 'origin', 'HEAD:main')
 
-    Frijolero::LedgerRepo.new(dir: @work, token: nil).pull
+    Frijolero::LedgerRepo.new(dir: @work).pull
 
     refute File.symlink?(File.join(@work, 'hosts'))
     assert_equal '/etc/hosts', File.read(File.join(@work, 'hosts'))
@@ -118,7 +118,7 @@ class LedgerRepoTest < Minitest::Test
 
   def test_pull_raises_when_remote_missing
     FileUtils.remove_entry(@origin)
-    repo = Frijolero::LedgerRepo.new(dir: @work, token: nil)
+    repo = Frijolero::LedgerRepo.new(dir: @work)
 
     error = assert_raises(Frijolero::LedgerRepo::Error) { repo.pull }
 
@@ -132,7 +132,7 @@ class LedgerRepoTest < Minitest::Test
     run_git(@seed, 'push', 'origin', 'HEAD:main')
 
     File.write(File.join(@work, 'rules.yaml'), "start_with: {}\n")
-    repo = Frijolero::LedgerRepo.new(dir: @work, token: nil)
+    repo = Frijolero::LedgerRepo.new(dir: @work)
 
     assert repo.commit_and_push('work agrega rules')
     assert_equal "work agrega rules\nseed cambia README", run_git(@origin, 'log', '-2', '--format=%s').strip
@@ -146,7 +146,7 @@ class LedgerRepoTest < Minitest::Test
     run_git(@seed, 'push', 'origin', 'HEAD:main')
 
     File.write(File.join(@work, 'README'), "cambio del work\n")
-    repo = Frijolero::LedgerRepo.new(dir: @work, token: nil)
+    repo = Frijolero::LedgerRepo.new(dir: @work)
 
     error = assert_raises(Frijolero::LedgerRepo::Error) { repo.commit_and_push('work cambia README') }
     assert_includes error.message, 'git pull'
@@ -155,29 +155,19 @@ class LedgerRepoTest < Minitest::Test
     refute File.exist?(File.join(@work, '.git', 'rebase-merge'))
   end
 
-  def test_commit_and_push_with_token_against_path_remote
-    File.write(File.join(@work, 'con_token.txt'), "x\n")
-    repo = Frijolero::LedgerRepo.new(dir: @work, token: 'abc')
+  # The deploy key is the only credential: a GIT_TOKEN left in the environment of an old
+  # install reaches no git call (an http.extraheader would show in `git config --get`).
+  def test_git_gets_no_token
+    with_env('GIT_TOKEN' => 'abc') do
+      repo = Frijolero::LedgerRepo.new(dir: @work)
 
-    assert repo.commit_and_push('con token')
-  end
-
-  # The token reaches git as http.extraheader, which `git config --get` reads back.
-  def test_the_token_reaches_git_without_a_deploy_key
-    repo = Frijolero::LedgerRepo.new(dir: @work, token: 'abc')
-
-    assert_includes repo.git('config', '--get', 'http.extraheader'), 'AUTHORIZATION: basic'
-  end
-
-  def test_a_ledger_with_a_deploy_key_never_gets_the_token
-    repo = Frijolero::LedgerRepo.new(dir: @work, key: File.join(@tmp, 'deploy_key'), token: 'abc')
-
-    assert_raises(Frijolero::LedgerRepo::Error) { repo.git('config', '--get', 'http.extraheader') }
+      assert_raises(Frijolero::LedgerRepo::Error) { repo.git('config', '--get', 'http.extraheader') }
+    end
   end
 
   def test_commit_and_push_scrubs_git_dir_env
     File.write(File.join(@work, 'scrub.txt'), "x\n")
-    repo = Frijolero::LedgerRepo.new(dir: @work, token: nil)
+    repo = Frijolero::LedgerRepo.new(dir: @work)
     old_git_dir = ENV.fetch('GIT_DIR', nil)
     ENV['GIT_DIR'] = '/nonexistent/.git'
 
@@ -225,8 +215,9 @@ class LedgerRepoSshTest < Minitest::Test
   end
 
   def test_no_secret_of_the_app_reaches_git_or_ssh
-    repo = Frijolero::LedgerRepo.new(dir: clone_of_source, key: key, token: nil)
-    secrets = %w[OPENAI_API_KEY ANTHROPIC_API_KEY S3_KEY GIT_TOKEN SESSION_SECRET].to_h { |k| [k, 'secreto-123'] }
+    repo = Frijolero::LedgerRepo.new(dir: clone_of_source, key: key)
+    secrets = %w[OPENAI_API_KEY ANTHROPIC_API_KEY S3_KEY POSTMARK_API_TOKEN SESSION_SECRET]
+              .to_h { |k| [k, 'secreto-123'] }
 
     with_env(secrets) { with_fake_ssh { repo.pull } }
 
@@ -337,7 +328,7 @@ class LedgerRepoSshTest < Minitest::Test
 
   def test_add_remote_pushes_the_ledger_and_tracks_it
     run_git(@tmp, 'init', '-q', '--bare', '-b', 'main', 'nuevo.git')
-    repo = Frijolero::LedgerRepo.new(dir: @source, key: key, token: nil)
+    repo = Frijolero::LedgerRepo.new(dir: @source, key: key)
 
     with_fake_ssh { repo.add_remote('git@github.com:nuevo.git') }
 
@@ -347,7 +338,7 @@ class LedgerRepoSshTest < Minitest::Test
 
   # A remote that the push cannot reach would fail the pull of every later job.
   def test_add_remote_leaves_no_remote_when_the_push_fails
-    repo = Frijolero::LedgerRepo.new(dir: @source, key: key, token: nil)
+    repo = Frijolero::LedgerRepo.new(dir: @source, key: key)
 
     with_fake_ssh do
       assert_raises(Frijolero::LedgerRepo::Error) { repo.add_remote('git@github.com:no-existe.git') }
@@ -357,7 +348,7 @@ class LedgerRepoSshTest < Minitest::Test
   end
 
   def test_add_remote_refuses_any_url_but_ssh_to_a_known_host
-    repo = Frijolero::LedgerRepo.new(dir: @source, key: key, token: nil)
+    repo = Frijolero::LedgerRepo.new(dir: @source, key: key)
 
     with_fake_ssh do
       bad_urls.each { |url| assert_raises(Frijolero::LedgerRepo::Error, url) { repo.add_remote(url) } }

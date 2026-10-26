@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require 'base64'
 require 'fileutils'
 require 'open3'
 require 'shellwords'
@@ -15,6 +14,11 @@ module Frijolero
     # variables that a git hook exports: they override chdir:, and once sent a test's
     # commits to this repo.
     CLEAN_ENV = %w[PATH HOME TZ].freeze
+    # core.symlinks=false on every call, not only in the config of a clone: the first ledger
+    # and a template ledger with a remote added later have none, and a pull from the
+    # person's remote must not make a symlink there either.
+    CONFIG_FLAGS = ['-c', 'user.name=Frijolero', '-c', 'user.email=frijolero@localhost', '-c', 'commit.gpgsign=false',
+                    '-c', 'core.symlinks=false'].freeze
     KNOWN_HOSTS = File.expand_path('../config/known_hosts', __dir__)
     HOSTS = File.readlines(KNOWN_HOSTS, chomp: true).reject { |line| line.empty? || line.start_with?('#') }
                 .map { |line| line.split.first }.uniq.freeze
@@ -41,9 +45,9 @@ module Frijolero
       # later pull makes a symlink either.
       def clone(url, dir, key:)
         check_url(url)
-        new(dir: File.dirname(dir), key: key, token: nil)
+        new(dir: File.dirname(dir), key: key)
           .git('clone', '-q', '--no-checkout', '-c', 'core.symlinks=false', '--', url, File.expand_path(dir))
-        new(dir: dir, key: key, token: nil).tap { |repo| checkout(repo, dir) }
+        new(dir: dir, key: key).tap { |repo| checkout(repo, dir) }
       end
 
       def check_url(url)
@@ -73,12 +77,11 @@ module Frijolero
       def bytes(dir) = Dir.glob('**/*', File::FNM_DOTMATCH, base: dir).sum { |f| File.lstat(File.join(dir, f)).size }
     end
 
-    # `key` is the deploy key of an SSH remote. `token` is for the HTTPS remote of the
-    # first ledger, until it has a deploy key too. A ledger with a key never gets the token.
-    def initialize(dir:, key: nil, token: ENV.fetch('GIT_TOKEN', nil))
+    # `key` is the deploy key of the ledger's SSH remote, the only credential that git gets.
+    # A ledger without one has no remote, so its commits stay local.
+    def initialize(dir:, key: nil)
       @dir = dir
       @key = key
-      @token = token unless key
     end
 
     # A conflict would leave the clone mid-rebase and wedge every later job, so
@@ -133,7 +136,7 @@ module Frijolero
 
     # Every git subprocess of the app goes through here, for the clean environment.
     def git(*args)
-      stdout, stderr, status = Open3.capture3(env, 'git', *config_flags, *args, chdir: @dir, unsetenv_others: true)
+      stdout, stderr, status = Open3.capture3(env, 'git', *CONFIG_FLAGS, *args, chdir: @dir, unsetenv_others: true)
       raise Error, "git #{args.first}: #{stderr.strip}" unless status.success?
 
       stdout
@@ -151,18 +154,6 @@ module Frijolero
     end
 
     def staged_changes? = !git('diff', '--cached', '--name-only').empty?
-
-    # core.symlinks=false on every call, not only in the config of a clone: the first ledger
-    # and a template ledger with a remote added later have none, and a pull from the
-    # person's remote must not make a symlink there either.
-    def config_flags
-      flags = ['-c', 'user.name=Frijolero', '-c', 'user.email=frijolero@localhost', '-c', 'commit.gpgsign=false',
-               '-c', 'core.symlinks=false']
-      return flags unless @token
-
-      auth = Base64.strict_encode64("x-access-token:#{@token}")
-      flags + ['-c', "http.extraheader=AUTHORIZATION: basic #{auth}"]
-    end
 
     def env = ENV.slice(*CLEAN_ENV).merge(@key ? { 'GIT_SSH_COMMAND' => ssh_command } : {})
 

@@ -2,8 +2,8 @@
 
 module Frijolero
   # /ledger: the settings of the current ledger. Its name, its remote, and an export.
-  # A ledger with an origin never gets a deploy key here: LedgerRepo.for would then switch
-  # it to SSH and break the HTTPS pulls of the first ledger, which moves to a key by hand.
+  # A ledger with an origin never gets a deploy key here: its pulls already work, and a
+  # new key would replace the one that its remote trusts.
   class App
     get('/ledger') { ledger_settings_page }
 

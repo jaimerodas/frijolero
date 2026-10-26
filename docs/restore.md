@@ -130,8 +130,7 @@ ni guardes ediciones.
 
 Un ledger con remoto por SSH necesita su llave de deploy para pull y push.
 El respaldo no la trae, así que cada corrida de ese ledger falla hasta que
-tenga una nueva. El primer ledger usa `GIT_TOKEN` por HTTPS y no necesita
-llave.
+tenga una nueva.
 
 Para cada ledger con remoto por SSH (`bin/restore` imprime su `git@…`):
 

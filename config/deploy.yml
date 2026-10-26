@@ -57,7 +57,6 @@ env:
     - POSTMARK_API_TOKEN # the sign-in emails; without it, the links go to the log
     - S3_KEY_ID
     - S3_KEY
-    - GIT_TOKEN
 
 aliases:
   logs: app logs -f

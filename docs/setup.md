@@ -101,7 +101,6 @@ la página de la cuenta dice cuáles faltan.
 | `S3_ENDPOINT`, `S3_BUCKET`, `S3_KEY_ID`, `S3_KEY` | Un bucket compatible con S3 para los PDF. El endpoint es el host, sin `https://`. Sin las cuatro, los PDF quedan en `pdfs/` de cada ledger. |
 | `S3_REGION` | La región para la firma. Por defecto, el segundo segmento del endpoint, que es lo que esperan B2 y AWS (`s3.us-west-000.backblazeb2.com`). R2 usa `auto`, Hetzner su ubicación (`fsn1`), DigitalOcean y MinIO `us-east-1`. |
 | `S3_PATH_STYLE` | Con `1`, el bucket va en la ruta (`endpoint/bucket/llave`) y no en el host (`bucket.endpoint/llave`). Sirve para MinIO en localhost o para un bucket con punto en el nombre. |
-| `GIT_TOKEN` | Un token fine-grained de GitHub con permiso de lectura y escritura de contenido en el repo del ledger. Viaja como header HTTP en cada llamada a git. Nunca se escribe en disco. |
 | `PUMA_THREADS` | El número de threads. En producción, 3. |
 | `RLEDGER` | El binario de rustledger. Por defecto, `rledger` en el PATH. |
 
