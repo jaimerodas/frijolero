@@ -23,7 +23,9 @@ module Frijolero
     end
 
     # The account can be gone by the time the job runs: its first step is a pull.
-    def process
+    # The block runs after a good statement, in the same Ledger.lock as its writes: the
+    # job commits there.
+    def process(&)
       @account_config = Config.accounts[@account_name]
       unless @account_config
         Log.puts "✗ #{@filename}: No account configuration found for '#{@account_name}'"
@@ -34,16 +36,13 @@ module Frijolero
       Log.puts "Account: #{@account_name}"
       return OVERWRITE_DECLINED if blocked_by_existing?
 
-      run_pipeline
+      run_pipeline(&)
     end
 
     private
 
     def output_paths
-      @output_paths ||= {
-        beancount: Config.statement_path(@account_name, @date_str, 'beancount'),
-        json: Config.statement_path(@account_name, @date_str, 'json')
-      }
+      @output_paths ||= %i[beancount json].to_h { |ext| [ext, Config.statement_path(@account_name, @date_str, ext)] }
     end
 
     # There is no terminal to ask, so the caller decides with overwrite:.
@@ -62,26 +61,31 @@ module Frijolero
 
     # The order is the point. S3 has the PDF before we pay for an extraction, and the
     # local copy outlives everything that can fail, so a failed job leaves a retry
-    # sitting on disk instead of nothing at all.
+    # sitting on disk instead of nothing at all. The put and the model call take
+    # minutes, so only the writes and the block hold the lock. An error there raises,
+    # past the rescues, so the job fails with it.
     def run_pipeline
       pipeline = Pipeline.for(@account_config)
       back_up_pdf
       transactions = extract_transactions(pipeline)
       pipeline.validate!(transactions)
       discard_local_pdf
-
       Log.puts pipeline.summary(transactions)
-      save_json(transactions)
-      run_detailer if pipeline.runs_detailer?
-      convert_to_beancount(pipeline)
-      merge_into_ledger
-      OK
     rescue *LLM::HANDLED => e
       LLM.report(e)
       ERROR
     rescue StandardError => e
       Log.puts "✗ ERROR processing #{@filename}: #{e.message}"
       ERROR
+    else
+      Ledger.lock do
+        save_json(transactions)
+        run_detailer if pipeline.runs_detailer?
+        convert_to_beancount(pipeline)
+        merge_into_ledger
+        yield if block_given?
+      end
+      OK
     end
 
     def back_up_pdf

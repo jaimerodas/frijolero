@@ -10,13 +10,12 @@ module Frijolero
   # secure: production? because bin/dev is plain http. The App finds the user in
   # env['frijolero.user'].
   #
-  # /api/ is for the iOS Shortcut, which has no cookie: it sends API_TOKEN as a
-  # bearer token instead. Without API_TOKEN, /api/ is closed.
+  # /api/ is for the iOS Shortcut, which has no cookie: it sends a token of ApiTokens as
+  # a bearer token instead, and the token names the ledger.
   class Login < Sinatra::Base
     set :views, App.views
     set :public_folder, App.public_folder # style.css before the filter
     set :static_cache_control, [:no_cache] # a deploy changes the files under the same names
-    set :api_token, -> { ENV.fetch('API_TOKEN', '') }
     NO_SECRET = 'SESSION_SECRET is not set: it signs the session cookie, and rack-session needs ' \
                 '64 bytes or more (openssl rand -hex 64)'
     set :session_secret, -> { ENV.fetch('SESSION_SECRET') { raise KeyError, NO_SECRET } }
@@ -28,7 +27,10 @@ module Frijolero
 
     before do
       if request.path_info.start_with?('/api/')
-        halt 401, { 'content-type' => 'application/json' }, JSON.generate(error: 'Token inválido') unless api_token?
+        ledger_id = ApiTokens.ledger_id_for(bearer_token)
+        halt 401, { 'content-type' => 'application/json' }, JSON.generate(error: 'Token inválido') unless ledger_id
+        # LedgerScope serves /api/ in the ledger that the token names.
+        env['frijolero.api_ledger'] = ledger_id
       elsif !OPEN.match?(request.path_info)
         env['frijolero.user'] = session_user
         sign_out unless env['frijolero.user']
@@ -36,10 +38,7 @@ module Frijolero
     end
 
     helpers do
-      def api_token?
-        token = request.get_header('HTTP_AUTHORIZATION').to_s.delete_prefix('Bearer ')
-        !settings.api_token.empty? && Rack::Utils.secure_compare(token, settings.api_token)
-      end
+      def bearer_token = request.get_header('HTTP_AUTHORIZATION').to_s.delete_prefix('Bearer ')
 
       # The user of the cookie, while that user is active and the cookie has its
       # session_version.

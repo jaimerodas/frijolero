@@ -15,7 +15,7 @@ module Frijolero
       # One cached answer per ledger.
       def ledger_errors
         stamp = ledger_stamp
-        key = [reports, stamp]
+        key = [reports, stamp, Ledger.current.main_file] # /ledger can change the main file
         cache = (@ledger_errors ||= {})
         entry = cache[Config.ledger_dir]
         entry = cache[Config.ledger_dir] = [key, checked_errors] unless stamp && entry&.first == key

@@ -16,9 +16,8 @@ class LedgerTest < Minitest::Test
     ledger = Frijolero::Ledger.create(owner_id: @owner, name: 'Casa')
 
     assert_match(/\A[a-z0-9]{8}\z/, ledger.id)
-    assert_equal [@owner, 'main.beancount', "frijolero/ledgers/#{ledger.id}"],
-                 [ledger.owner_id, ledger.main_file, ledger.pdf_prefix]
-    assert_equal 'Casa', row(ledger.id)['name']
+    assert_equal [@owner, 'Casa', 'main.beancount', "frijolero/ledgers/#{ledger.id}"],
+                 [ledger.owner_id, ledger.name, ledger.main_file, ledger.pdf_prefix]
     assert_equal File.join(ENV.fetch('DATA_DIR'), 'ledgers', ledger.id), ledger.dir
     assert_path_exists ledger.dir
     refute_path_exists ledger.repo_dir, 'the caller makes the repo'
@@ -58,6 +57,29 @@ class LedgerTest < Minitest::Test
 
     assert_equal %w[zzzz aaaa test], ledgers.map(&:id)
     assert_equal Frijolero::Ledger.find('zzzz'), ledgers.first
+  end
+
+  # A second thread waits for the lock of the same ledger, but not for another ledger's.
+  def test_lock_holds_one_ledger_at_a_time
+    order = Queue.new
+    inside = Queue.new
+    holder = Thread.new do
+      Frijolero::Ledger.lock('test') do
+        inside << true
+        sleep 0.2
+        order << :first
+      end
+    end
+    inside.pop
+    Frijolero::Ledger.lock('otro') { order << :other }
+    Frijolero::Ledger.lock('test') { order << :second }
+    holder.join
+
+    assert_equal %i[other first second], Array.new(3) { order.pop }
+  end
+
+  def test_lock_is_reentrant_and_defaults_to_the_current_ledger
+    assert_equal(:ok, Frijolero::Ledger.lock { Frijolero::Ledger.lock('test') { :ok } })
   end
 
   private

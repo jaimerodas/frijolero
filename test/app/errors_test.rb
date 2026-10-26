@@ -68,6 +68,16 @@ class LedgerErrorsTest < Minitest::Test
     end
   end
 
+  def test_a_new_main_file_runs_the_check_again
+    with_main do
+      Frijolero::App.ledger_errors
+      Frijolero::Ledger.current = Frijolero::Ledger.current.with(main_file: 'otro.beancount')
+      Frijolero::App.ledger_errors
+
+      assert_equal 2, @reports.calls
+    end
+  end
+
   def test_a_check_that_fails_is_nil
     with_main do
       @reports.failure = 'rustledger no está instalado'
@@ -107,6 +117,17 @@ class ErrorsPageTest < Minitest::Test
     assert_includes link, 'aria-label="1 error"'
     assert_includes link, '<span>1</span>'
     refute_includes link, 'aria-current'
+  end
+
+  # Beside the wordmark, out of the section links, so on a phone the sections and
+  # Opciones keep their own line.
+  def test_badge_sits_next_to_the_wordmark
+    @reports.errors = [LedgerErrorsTest::ERROR]
+
+    get '/'
+
+    assert_match %r{<a class="brand"[^>]*>[^<]*</a>\s*<a class="errors"}, last_response.body
+    refute_includes last_response.body[%r{<nav aria-label="Secciones">.*?</nav>}m], 'class="errors"'
   end
 
   def test_badge_is_plural_for_more_than_one_error

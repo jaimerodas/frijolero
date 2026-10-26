@@ -59,4 +59,65 @@ class UsersTest < Minitest::Test
 
     assert_equal 'blocked', Frijolero::Users.find(id).status
   end
+
+  def test_all_lists_every_user_by_id
+    ids = [add_user('ana@example.com'), add_user('beto@example.com', status: 'blocked')]
+
+    assert_equal(ids, Frijolero::Users.all.map(&:id))
+    assert_equal %w[active blocked], Frijolero::Users.all.map(&:status)
+  end
+
+  def test_invite_makes_an_invited_user
+    user = Frijolero::Users.invite(email: ' ana@example.com ', name: ' Ana ')
+
+    assert_equal ['ana@example.com', 'Ana', 'user', 'invited'], [user.email, user.name, user.role, user.status]
+    assert_equal user, Frijolero::Users.find(user.id)
+  end
+
+  def test_invite_without_a_name_keeps_none
+    assert_nil Frijolero::Users.invite(email: 'ana@example.com', name: ' ').name
+  end
+
+  def test_invite_of_an_email_that_exists_is_nil_and_adds_no_user
+    add_user('ana@example.com')
+
+    assert_nil Frijolero::Users.invite(email: 'Ana@Example.com')
+    assert_equal 1, Frijolero::Users.all.size
+  end
+
+  # Login checks both, so the cookie of every device dies at once.
+  def test_block_blocks_and_signs_out_everywhere
+    id = add_user('ana@example.com')
+
+    Frijolero::Users.block(id)
+
+    assert_equal ['blocked', 2], Frijolero::Users.find(id).to_h.values_at(:status, :session_version)
+  end
+
+  def test_unblock_makes_a_blocked_user_active
+    id = add_user('ana@example.com', status: 'blocked')
+
+    Frijolero::Users.unblock(id)
+
+    assert_equal 'active', Frijolero::Users.find(id).status
+  end
+
+  def test_sign_out_everywhere_adds_one_to_the_session_version
+    id = add_user('ana@example.com')
+
+    2.times { Frijolero::Users.sign_out_everywhere(id) }
+
+    assert_equal 3, Frijolero::Users.find(id).session_version
+    assert_equal 'active', Frijolero::Users.find(id).status
+  end
+
+  def test_set_cap_stores_micros_and_nil_means_the_default
+    id = add_user('ana@example.com')
+
+    Frijolero::Users.set_cap(id, 5_500_000)
+    assert_equal 5_500_000, Frijolero::Usage.cap_micros(id)
+
+    Frijolero::Users.set_cap(id, nil)
+    assert_equal Frijolero::Usage::DEFAULT_CAP_MICROS, Frijolero::Usage.cap_micros(id)
+  end
 end

@@ -15,7 +15,7 @@ class NavTest < Minitest::Test
   def app = Frijolero::App
 
   def setup
-    @dir = enter_test_ledger
+    @dir = enter_db_ledger
     FileUtils.mkdir_p(File.join(@dir, 'config', 'rules'))
     File.write(File.join(@dir, 'config', 'accounts.yaml'), "AMEX:\n  beancount_account: \"Liabilities:Amex\"\n")
     File.write(File.join(@dir, 'config', 'rules', 'AMEX.yaml'), "start_with: {}\n")
@@ -117,6 +117,47 @@ class NavTest < Minitest::Test
 
     nav = last_response.body[%r{<nav aria-label="Secciones">.*?</nav>}m]
     assert_equal ['Estados de cuenta', 'Reportes'], nav.scan(%r{>([^<]+)</a>}).flatten
+  end
+
+  # The menu: a generic name, because the wordmark already names the ledger and a name can
+  # be long; the settings, a new ledger and Salir, so the header fits on a phone.
+  def test_ledger_menu_has_the_settings_a_new_ledger_and_salir
+    get '/accounts', {}, 'SCRIPT_NAME' => LEDGER_ROOT, 'frijolero.user' => owner
+
+    assert_includes menu, '<summary>Opciones</summary>'
+    assert_includes menu, %(<a href="#{LEDGER_ROOT}/ledger">Configuración</a>)
+    assert_includes menu, '<a href="/ledgers/new">Nuevo ledger</a>'
+    assert_includes menu, '<form method="post" action="/logout">'
+    assert_equal 1, last_response.body.scan('action="/logout"').size, 'Salir only in the menu'
+    refute_includes menu, 'href="/l/test/"', 'one ledger: nothing to switch to'
+    assert_ledger_links(last_response.body)
+  end
+
+  # An own repo that is not connected yet has no pages: its link finishes it.
+  def test_ledger_menu_switches_between_two_ledgers_or_more
+    other = Frijolero::Ledger.create(owner_id: owner.id, name: 'Negocio')
+    FileUtils.mkdir_p(other.repo_dir)
+    unconnected = Frijolero::Ledger.create(owner_id: owner.id, name: 'Mío')
+
+    get '/', {}, 'frijolero.user' => owner
+
+    assert_includes menu, '<a href="/l/test/" aria-current="true">Prueba</a>'
+    assert_includes menu, %(<a href="/l/#{other.id}/">Negocio</a>)
+    assert_includes menu, %(<a href="/ledgers/#{unconnected.id}/connect">Mío</a>)
+  end
+
+  def test_ledger_menu_marks_the_settings_page
+    get '/ledger', {}, 'frijolero.user' => owner
+
+    assert_includes menu, '<a href="/ledger" aria-current="page">Configuración</a>'
+  end
+
+  def test_ledger_menu_has_admin_only_for_an_admin
+    get '/', {}, 'frijolero.user' => owner
+    assert_includes menu, '<a href="/admin">Admin</a>'
+
+    get '/', {}, 'frijolero.user' => owner.with(role: 'user')
+    refute_includes last_response.body, 'href="/admin"'
   end
 
   def test_dashboard_is_recientes_with_its_peers_beside_it_and_the_upload_cta
@@ -234,4 +275,11 @@ class NavTest < Minitest::Test
 
     assert_equal 404, last_response.status
   end
+
+  private
+
+  # The owner of the test ledger, an admin, as Login puts the user in env.
+  def owner = Frijolero::Users.find_by_email('admin@example.com')
+
+  def menu = last_response.body[%r{<details class="menu">.*?</details>}m].to_s
 end

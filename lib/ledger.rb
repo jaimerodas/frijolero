@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'fileutils'
+require 'monitor'
 require 'securerandom'
 require 'time'
 
@@ -12,7 +13,18 @@ module Frijolero
   # One ledger: `repo_dir` is its git clone, `dir` holds the rest (the job log, the
   # uploads, the PDFs without a bucket, the deploy key). The rows are in DB; `from_row`
   # puts both directories under DATA_DIR, and a test can point them anywhere.
-  Ledger = Data.define(:id, :owner_id, :main_file, :pdf_prefix, :dir, :repo_dir) do
+  Ledger = Data.define(:id, :owner_id, :name, :main_file, :pdf_prefix, :dir, :repo_dir) do
+    @locks = {}
+    @locks_mutex = Mutex.new
+
+    # One lock per ledger, around git and the writes to its files: a job's pull and its
+    # writes, an editor save, a pull, a report's check of the includes and its rledger run.
+    # Never around a model call, which can take minutes. A Monitor, so a locked block can
+    # call code that locks again.
+    def self.lock(id = current.id, &)
+      @locks_mutex.synchronize { @locks[id] ||= Monitor.new }.synchronize(&)
+    end
+
     def self.all = DB.execute('SELECT * FROM ledgers ORDER BY created_at, id').map { |row| from_row(row) }
 
     def self.owned_by(user_id)
@@ -27,8 +39,8 @@ module Frijolero
 
     def self.from_row(row)
       dir = File.join(Config.data_dir, 'ledgers', row['id'])
-      new(id: row['id'], owner_id: row['owner_id'], main_file: row['main_file'], pdf_prefix: row['pdf_prefix'],
-          dir: dir, repo_dir: File.join(dir, 'repo'))
+      new(id: row['id'], owner_id: row['owner_id'], name: row['name'], main_file: row['main_file'],
+          pdf_prefix: row['pdf_prefix'], dir: dir, repo_dir: File.join(dir, 'repo'))
     end
 
     # 8 characters from [a-z0-9]. The primary key refuses a repeat, which 36^8 makes rare.

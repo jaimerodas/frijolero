@@ -99,7 +99,7 @@ module Frijolero
     # Production reads the droplet's clone, which only pulls at the start of a
     # job. This brings in what the laptop pushed. A conflict aborts and shows.
     post '/ledger/pull' do
-      self.class.repo.pull
+      Ledger.lock { self.class.repo.pull }
       redirect "#{report_back || '/reports/income'}?pull=ok", 303
     rescue LedgerRepo::Error => e
       redirect "#{report_back || '/reports/income'}?pull=#{Rack::Utils.escape(e.message)}", 303

@@ -146,6 +146,37 @@ class SigninTest < Minitest::Test
     assert_equal 2, @mailer.sent.size
   end
 
+  def test_invite_mails_a_link_that_signs_in_once_and_activates
+    user = add_user(status: 'invited')
+
+    Frijolero::Signin.invite(user)
+
+    assert_equal 1, @mailer.sent.size
+    message = @mailer.sent.first
+    assert_equal ['ana@example.com', 'Te invitaron a Frijolero'], message.values_at(:to, :subject)
+    assert_includes message[:text], "https://frijolero.test/login/#{last_token}"
+    assert_includes message[:text], '7 días'
+    assert_equal 'active', Frijolero::Signin.redeem(last_token).status
+    assert_nil Frijolero::Signin.redeem(last_token)
+  end
+
+  def test_the_link_of_an_invitation_lasts_7_days
+    user = add_user(status: 'invited')
+    Frijolero::Signin.invite(user, now: T)
+
+    assert_nil Frijolero::Signin.redeem(last_token, now: T + Frijolero::Signin::INVITE_TTL)
+    assert_equal user.id, Frijolero::Signin.redeem(last_token, now: T + Frijolero::Signin::INVITE_TTL - 1).id
+    assert_equal 7 * 24 * 3600, Frijolero::Signin::INVITE_TTL
+  end
+
+  # A link that lives 7 days is for an invitation only: the others last 15 minutes.
+  def test_invite_of_a_user_who_is_not_invited_sends_nothing
+    %w[active blocked].each { |status| Frijolero::Signin.invite(add_user("#{status}@example.com", status: status)) }
+
+    assert_empty @mailer.sent
+    assert_empty Frijolero::DB.execute('SELECT * FROM signin_tokens')
+  end
+
   def test_request_sends_five_links_an_hour
     add_user
 

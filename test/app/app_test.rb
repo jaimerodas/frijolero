@@ -275,50 +275,74 @@ class AppTest < Minitest::Test
     assert_equal 'admin@example.com', last_response.body
   end
 
-  # The iOS Shortcut has no cookie: a bearer token opens /api/, and only /api/.
-  def test_api_with_the_token_reaches_the_app
+  # The iOS Shortcut has no cookie: a bearer token of api_tokens opens /api/, and only /api/.
+  def test_api_with_a_token_reaches_the_app
     File.write(File.join(@dir, 'config', 'accounts.yaml'), "AMEX:\n  beancount_account: \"Liabilities:Amex\"\n")
     pdf = Rack::Test::UploadedFile.new(StringIO.new('%PDF'), 'application/pdf', original_filename: 'AMEX 2608.pdf')
 
-    with_env('API_TOKEN' => 'tok') do
-      header 'Authorization', 'Bearer tok'
-      post '/api/upload', pdf: pdf
-    end
+    header 'Authorization', "Bearer #{Frijolero::ApiTokens.create('test', 'iPhone')}"
+    post '/api/upload', pdf: pdf
 
     assert_equal 202, last_response.status
     assert_equal ['AMEX 2608.pdf'], Frijolero::App.inbox.items.map(&:filename)
   end
 
-  def test_api_without_the_token_is_a_json_401_not_a_redirect
-    with_env('API_TOKEN' => 'tok') { post '/api/upload' }
+  # The token names the ledger: an upload goes to the ledger of its token.
+  def test_api_runs_in_the_ledger_of_the_token
+    other = Frijolero::Ledger.create(owner_id: admin.id, name: 'Otro')
+    seen = []
+    app_call = lambda do |env|
+      seen << [env['PATH_INFO'], Frijolero::Ledger.current.id]
+      [202, {}, []]
+    end
+    app # config.ru builds the stack once, before the stub
 
-    assert_equal 401, last_response.status
-    assert_equal({ 'error' => 'Token inválido' }, JSON.parse(last_response.body))
+    header 'Authorization', "Bearer #{Frijolero::ApiTokens.create(other.id, 'iPad')}"
+    Frijolero::App.stub(:call, app_call) { post '/api/upload' }
+
+    assert_equal [['/api/upload', other.id]], seen
   end
 
-  def test_api_with_a_wrong_token_is_unauthorized
+  def test_api_without_a_token_is_a_json_401_not_a_redirect
+    Frijolero::ApiTokens.create('test', 'iPhone')
+
+    post '/api/upload'
+
+    assert_api_unauthorized
+  end
+
+  def test_api_with_an_unknown_token_is_unauthorized
+    Frijolero::ApiTokens.create('test', 'iPhone')
+
+    header 'Authorization', 'Bearer nope'
+    post '/api/upload'
+
+    assert_api_unauthorized
+  end
+
+  def test_api_with_a_revoked_token_is_unauthorized
+    raw = Frijolero::ApiTokens.create('test', 'iPhone')
+    Frijolero::ApiTokens.revoke('test', Frijolero::ApiTokens.for_ledger('test').first['token_sha256'])
+
+    header 'Authorization', "Bearer #{raw}"
+    post '/api/upload'
+
+    assert_api_unauthorized
+  end
+
+  # Before api_tokens, API_TOKEN opened /api/. Migration reads it once; Login never does.
+  def test_api_token_in_env_opens_nothing
     with_env('API_TOKEN' => 'tok') do
-      header 'Authorization', 'Bearer nope'
+      header 'Authorization', 'Bearer tok'
       post '/api/upload'
     end
 
-    assert_equal 401, last_response.status
-  end
-
-  def test_api_without_api_token_set_is_closed
-    with_env('API_TOKEN' => nil) do
-      header 'Authorization', 'Bearer '
-      post '/api/upload'
-    end
-
-    assert_equal 401, last_response.status
+    assert_api_unauthorized
   end
 
   def test_the_token_opens_nothing_outside_api
-    with_env('API_TOKEN' => 'tok') do
-      header 'Authorization', 'Bearer tok'
-      get '/'
-    end
+    header 'Authorization', "Bearer #{Frijolero::ApiTokens.create('test', 'iPhone')}"
+    get '/'
 
     assert_equal 302, last_response.status
     assert last_response.location.end_with?('/login')
@@ -332,6 +356,11 @@ class AppTest < Minitest::Test
   end
 
   private
+
+  def assert_api_unauthorized
+    assert_equal 401, last_response.status
+    assert_equal({ 'error' => 'Token inválido' }, JSON.parse(last_response.body))
+  end
 
   # Rack::Builder.parse_file returns just the app on Rack 3, but historically
   # returned [app, options] — handle both.

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%= head('Ledgers') %>
+</head>
+<body>
+  <%= bar %>
+  <main>
+    <h1>Ledgers</h1>
+    <ul class="files">
+      <% ledgers.each do |ledger| %>
+        <% if connected?(ledger) %>
+          <li><a href="/l/<%= ledger.id %>/"><%= h(ledger.name) %></a></li>
+        <% else %>
+          <li><a href="/ledgers/<%= ledger.id %>/connect"><%= h(ledger.name) %></a> <span class="status missing">sin conectar</span></li>
+        <% end %>
+      <% end %>
+    </ul>
+    <p class="actions"><a class="button primary" href="/ledgers/new">Nuevo ledger</a></p>
+  </main>
+</body>
+</html>

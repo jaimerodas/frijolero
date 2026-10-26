@@ -14,7 +14,21 @@ module Frijolero
       'gpt-6-sol' => %w[2.00 0.20 10.00]
     }.transform_values { |prices| prices.map { |price| Rational(price) }.freeze }.freeze
 
+    # The monthly cap of a user whose users.monthly_cap_micros is NULL: 3 USD.
+    DEFAULT_CAP_MICROS = 3_000_000
+
     class << self
+      def cap_micros(user_id)
+        DB.first('SELECT monthly_cap_micros FROM users WHERE id = ?', user_id)&.fetch('monthly_cap_micros') ||
+          DEFAULT_CAP_MICROS
+      end
+
+      # At the cap or past it: the app makes no new model call for this user this month.
+      def capped?(user_id, now: Time.now) = month_micros(user_id, now: now) >= cap_micros(user_id)
+
+      # 1_234_567 → '1.23', for the pages. The records keep the micros.
+      def usd(micros) = format('%.2f', Rational(micros, 1_000_000))
+
       # Returns the cost in micro-dollars. The call is already paid, so an unknown model
       # costs 0 and a warning, and never raises.
       def record(prompt:, model:, input_tokens:, cached_tokens:, output_tokens:)

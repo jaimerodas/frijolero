@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%= head('Tokens de la API') %>
+</head>
+<body>
+  <%= topbar %>
+  <main>
+    <p class="meta"><a href="<%= ledger_path('/ledger') %>">Configuración</a></p>
+    <h1>Tokens de la API</h1>
+    <p class="note">Con un token, el atajo de iOS sube PDF a la Bandeja de este ledger. Un token no abre nada más.</p>
+
+    <% if new_token %>
+      <div class="notice" role="status">
+        <label for="new-token">Tu token nuevo</label>
+        <input type="text" id="new-token" value="<%= h(new_token) %>" size="48" readonly autofocus>
+        <p>Cópialo ahora: no se vuelve a mostrar.</p>
+        <p>En el atajo, la acción "Obtener contenido de URL" hace un <code>POST</code> a <code><%= h(ENV.fetch('APP_URL', '')) %>/api/upload</code>, con el header <code>Authorization</code> igual a <code>Bearer</code>, un espacio y el token. El PDF va en un campo de archivo llamado <code>pdf</code>.</p>
+      </div>
+    <% end %>
+
+    <% if tokens.empty? %>
+      <p>Este ledger no tiene tokens. Crea uno para el atajo de iOS.</p>
+    <% else %>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Último uso</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% tokens.each do |token| %>
+              <tr>
+                <th scope="row"><%= h(token['name']) %></th>
+                <td class="date" data-label="Último uso"><%= token['last_used_at'] ? h(local_time(token['last_used_at'])) : 'nunca' %></td>
+                <td>
+                  <form method="post" action="<%= ledger_path('/tokens/revoke') %>">
+                    <input type="hidden" name="token" value="<%= h(token['token_sha256']) %>">
+                    <button type="submit" aria-label="Revocar <%= h(token['name']) %>">Revocar</button>
+                  </form>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+
+    <h2>Nuevo token</h2>
+    <form method="post" action="<%= ledger_path('/tokens') %>">
+      <label for="name">Nombre</label>
+      <input type="text" id="name" name="name" maxlength="80" placeholder="iPhone de Ana" required>
+      <p class="note">Para reconocerlo en esta lista, por ejemplo el teléfono que lo usa.</p>
+      <p class="actions"><button type="submit" class="primary">Crear token</button></p>
+    </form>
+  </main>
+</body>
+</html>

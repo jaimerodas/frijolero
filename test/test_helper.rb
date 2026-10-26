@@ -56,11 +56,15 @@ module TestHelpers
   # 'SCRIPT_NAME' => LEDGER_ROOT in the env to get a page as production serves it.
   LEDGER_ROOT = '/l/test0000'
 
+  # The paths outside this ledger: Login's /logout, the pages of Ledgers and Admin, and
+  # the dashboard of another ledger (the switcher).
+  OUTSIDE_LEDGERS = %r{\A/(logout|ledgers(/.*)?|admin(/.*)?|l/[a-z0-9]+/)?\z}
+
   # Each href, action, formaction and src of `html` that starts with / is inside
-  # LEDGER_ROOT, except the static files and Login's /logout, which live outside it.
+  # LEDGER_ROOT, except the static files and OUTSIDE_LEDGERS.
   def assert_ledger_links(html)
     stray = html.scan(%r{(?:href|action|src)="(/[^"]*)"}).flatten.reject do |path|
-      path.start_with?("#{LEDGER_ROOT}/") || path == '/logout' ||
+      path.start_with?("#{LEDGER_ROOT}/") || path.match?(OUTSIDE_LEDGERS) ||
         File.file?(File.join(Frijolero::App.public_folder, path[/\A[^?#]*/]))
     end
     assert_empty stray, 'links outside the ledger'
@@ -75,7 +79,7 @@ module TestHelpers
     @test_data_dir = Dir.mktmpdir
     ENV['DATA_DIR'] = @test_data_dir
     dir = File.join(@test_data_dir, 'ledgers', 'test')
-    Frijolero::Ledger.current = Frijolero::Ledger.new(id: 'test', owner_id: 1, main_file: main_file,
+    Frijolero::Ledger.current = Frijolero::Ledger.new(id: 'test', owner_id: 1, name: 'Prueba', main_file: main_file,
                                                       pdf_prefix: 'frijolero', dir: dir,
                                                       repo_dir: File.join(dir, 'repo'))
     FileUtils.mkdir_p(File.join(dir, 'repo', 'config'))

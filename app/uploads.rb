@@ -43,7 +43,8 @@ module Frijolero
 
       add_to_inbox(pdfs)
       status 202
-      JSON.generate(inbox: url('/inbox'))
+      # /api/ has no ledger prefix, so the link names the token's ledger itself.
+      JSON.generate(inbox: url("/l/#{Ledger.current.id}/inbox"))
     end
 
     get '/inbox' do
@@ -53,7 +54,7 @@ module Frijolero
     # One button for one row and for "Procesar los listos": `tokens` lists the rows,
     # and each row sends its own account[token], period[token] and overwrite[token].
     post '/inbox/process' do
-      halt 422, "Falta #{LLM.key_var}: la extracción la necesita" unless self.class.client
+      extraction_allowed!
       choices = params[:tokens].to_s.split.uniq.map { |token| inbox_choice(token) }
       halt 422, 'Nada que procesar' if choices.empty?
 
@@ -150,7 +151,9 @@ module Frijolero
     # Pull before the work and push after it, so the statement is written on top of
     # the latest ledger; a job that fails leaves the upload where it is, for a retry.
     # The block runs after a good statement and rides on the same commit. The worker
-    # thread has no ledger of its own, so the body takes the request's.
+    # thread has no ledger of its own, so the body takes the request's. The pull holds
+    # the ledger's lock, and so do the writes with the block and the commit; the model
+    # call between them does not.
     def run_job(label, statement, upload_dir, &after)
       repo = self.class.repo
       ledger = Ledger.current
@@ -160,12 +163,13 @@ module Frijolero
     end
 
     def process_statement(repo, statement, label, upload_dir, after)
-      repo.pull
-      status = statement.process
+      Ledger.lock { repo.pull }
+      status = statement.process do
+        after&.call
+        repo.commit_and_push(label)
+      end
       raise "Statement terminó con #{status}" unless status == Statement::OK
 
-      after&.call
-      repo.commit_and_push(label)
       FileUtils.rm_rf(upload_dir)
     end
   end

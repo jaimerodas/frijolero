@@ -1,0 +1,8 @@
+<%# The header of the pages outside a ledger (Page). The wordmark goes to /, which lists the user's ledgers. %>
+<header class="topbar">
+  <a class="brand" href="/">Frijolero</a>
+  <nav aria-label="Secciones">
+    <% if user.admin? %><a href="/admin"<% if request.path_info.start_with?('/admin') %> aria-current="page"<% end %>>Admin</a><% end %>
+  </nav>
+  <form method="post" action="/logout"><button type="submit">Salir</button></form>
+</header>

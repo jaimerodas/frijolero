@@ -160,8 +160,9 @@ class ReportsPageTest < Minitest::Test
     @repo = FakeRepo.new
     Frijolero::App.reports = @reports
     Frijolero::App.repo = @repo
-    Frijolero::Ledger.current = Frijolero::Ledger.new(id: 'test', owner_id: 1, main_file: 'main.beancount',
-                                                      pdf_prefix: 'frijolero', dir: '/data', repo_dir: '/data/ledger')
+    Frijolero::Ledger.current = Frijolero::Ledger.new(id: 'test', owner_id: 1, name: 'Prueba',
+                                                      main_file: 'main.beancount', pdf_prefix: 'frijolero',
+                                                      dir: '/data', repo_dir: '/data/ledger')
   end
 
   def teardown

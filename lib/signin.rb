@@ -9,6 +9,7 @@ module Frijolero
   # their SHA-256, so a copy of the database signs nobody in. A token works once.
   module Signin
     LOGIN_TTL = 15 * 60
+    INVITE_TTL = 7 * 24 * 3600
     # Links per user: seconds => at most. So the form cannot fill an inbox.
     LIMITS = { 60 => 1, 3600 => 5 }.freeze
 
@@ -34,6 +35,23 @@ module Frijolero
         # The count and the insert in one transaction, so two requests at once send one link.
         raw = DB.transaction { issue(user, ttl: LOGIN_TTL, now: now) unless limited?(user, now) }
         mailer.deliver(to: user.email, subject: 'Tu enlace para entrar a Frijolero', text: message(link(raw))) if raw
+      end
+
+      # Mails an invitation that lives INVITE_TTL. Only to an invited user: every other
+      # link lasts LOGIN_TTL. Returns nil for any other user. A Postmark::Error goes up.
+      def invite(user, now: Time.now)
+        return unless user.status == 'invited'
+
+        raw = issue(user, ttl: INVITE_TTL, now: now)
+        mailer.deliver(to: user.email, subject: 'Te invitaron a Frijolero', text: <<~TEXT)
+          Te invitaron a Frijolero, la app que convierte tus estados de cuenta en un ledger de Beancount.
+
+          Entra con este enlace:
+
+          #{link(raw)}
+
+          Funciona una sola vez, durante 7 días. Después, pide un enlace nuevo con tu correo.
+        TEXT
       end
 
       # The user of an unused token that has not expired, or nil. One UPDATE marks it used,

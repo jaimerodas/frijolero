@@ -74,7 +74,7 @@ class UploadsTest < Minitest::Test
   end
 
   def setup
-    @dir = enter_test_ledger
+    @dir = enter_db_ledger
     File.write(File.join(@dir, 'config', 'accounts.yaml'), <<~YAML)
       AMEX:
         beancount_account: "Liabilities:Amex"
@@ -191,6 +191,14 @@ class UploadsTest < Minitest::Test
     assert_ledger_links(body)
   end
 
+  def test_dashboard_shows_the_month_usage_of_the_owner_against_the_cap
+    spend(1_200_000)
+
+    get '/'
+
+    assert_includes last_response.body, 'Uso del mes: 1.20 de 3.00 USD'
+  end
+
   # The web form: one or more PDFs into the Bandeja, like the Shortcut.
   def test_upload_form_takes_several_pdfs
     get '/upload'
@@ -281,9 +289,15 @@ class UploadsTest < Minitest::Test
 
     assert_equal 202, last_response.status
     assert_equal 'application/json', last_response.media_type
-    assert_equal({ 'inbox' => 'http://example.org/inbox' }, JSON.parse(last_response.body))
     assert_equal ['estado.pdf'], Frijolero::App.inbox.items.map(&:filename)
     assert_empty @client.extractions
+  end
+
+  # /api/ has no ledger prefix, so the link names the ledger of the token.
+  def test_api_upload_links_the_inbox_of_its_ledger
+    post '/api/upload', pdf: pdf_upload('estado.pdf')
+
+    assert_equal({ 'inbox' => 'http://example.org/l/test/inbox' }, JSON.parse(last_response.body))
   end
 
   def test_api_upload_queues_the_classification
@@ -581,6 +595,58 @@ class UploadsTest < Minitest::Test
     assert_empty Frijolero::App.jobs.all
   end
 
+  # The monthly cap of the owner, who pays: no new model call past it.
+  def test_at_the_cap_procesar_queues_nothing
+    token = classified('AMEX 2508.pdf')
+    spend(Frijolero::Usage::DEFAULT_CAP_MICROS)
+
+    process(token, 'AMEX', '2508')
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, 'Llegaste al límite del mes'
+    assert_empty Frijolero::App.jobs.all
+  end
+
+  def test_at_the_cap_reintentar_queues_nothing
+    job_id = failed_job(classified('AMEX 2508.pdf'))
+    spend(Frijolero::Usage::DEFAULT_CAP_MICROS)
+
+    post "/jobs/#{job_id}/retry"
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, 'Llegaste al límite del mes'
+    assert_equal [job_id], Frijolero::App.jobs.all.map(&:id)
+  end
+
+  def test_at_the_cap_the_classifier_calls_no_model
+    spend(Frijolero::Usage::DEFAULT_CAP_MICROS)
+
+    classified('estado.pdf')
+    get '/inbox'
+
+    assert_empty @client.extractions
+    assert_equal({ 'error' => 'Límite del mes' }, Frijolero::App.inbox.items.first.answer)
+    assert_includes last_response.body, '<span class="status failed">no se clasificó</span>'
+  end
+
+  def test_at_the_cap_a_known_filename_and_solo_guardar_pdf_still_work
+    spend(Frijolero::Usage::DEFAULT_CAP_MICROS)
+
+    token = classified('AMEX 2508.pdf')
+    assert_equal %w[AMEX 2508], Frijolero::App.inbox.items.first.answer.values_at('account', 'period')
+
+    post '/inbox/backup', token: token, account: { token => 'AMEX' }, period: { token => '2508' }
+    assert_equal 303, last_response.status
+    assert_equal ['frijolero/accounts/AMEX/AMEX 2508.pdf'], @s3.calls
+  end
+
+  def test_a_job_queued_before_the_cap_still_runs
+    process(classified('AMEX 2508.pdf'), 'AMEX', '2508')
+    spend(Frijolero::Usage::DEFAULT_CAP_MICROS)
+
+    assert_equal 'ok', Frijolero::App.jobs.work_one.status
+  end
+
   # Solo guardar PDF and Descartar.
   def test_saving_only_the_pdf_puts_it_in_s3_without_a_job
     token = classified('estado.pdf')
@@ -797,6 +863,13 @@ class UploadsTest < Minitest::Test
     @client.extract_error = Frijolero::LLM::RateLimitError.new('rate limited', status: 429)
     process(token, 'AMEX', '2508')
     Frijolero::App.jobs.work_one.id
+  end
+
+  # A model call of the owner of the ledger, this month.
+  def spend(micros)
+    Frijolero::DB.insert('INSERT INTO usage (user_id, ledger_id, prompt, model, input_tokens, output_tokens, ' \
+                         "cost_micros, at) VALUES (?, 'test', 'default', 'gpt-6-sol', 0, 0, ?, ?)",
+                         Frijolero::Ledger.current.owner_id, micros, Time.now.utc.iso8601)
   end
 
   def statement(account, period)

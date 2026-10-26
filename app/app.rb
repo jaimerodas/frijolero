@@ -40,11 +40,13 @@ module Frijolero
       def repo = @repo || LedgerRepo.for(Ledger.current)
       def reports = @reports ||= Reports
 
-      # The answer that the Bandeja keeps for one PDF.
+      # The answer that the Bandeja keeps for one PDF. At the owner's monthly cap there is
+      # no model to ask, but the filename shortcut still answers.
       def classify(pdf)
-        Classifier.new(client: client).classify(pdf).to_h
+        capped = Usage.capped?(Ledger.current.owner_id)
+        Classifier.new(client: capped ? nil : client).classify(pdf).to_h
       rescue Classifier::NoClient
-        { error: "Falta #{LLM.key_var}" }
+        { error: capped ? 'Límite del mes' : "Falta #{LLM.key_var}" }
       end
 
       private
@@ -102,6 +104,22 @@ module Frijolero
       end
     end
 
+    helpers do
+      # '1.20 de 3.00 USD': what the model cost the owner of the ledger, who pays, this
+      # month, against the owner's cap.
+      def month_usage
+        owner = Ledger.current.owner_id
+        "#{Usage.usd(Usage.month_micros(owner))} de #{Usage.usd(Usage.cap_micros(owner))} USD"
+      end
+
+      # A 422 unless a new extraction can start: it needs the model key, and the owner
+      # under the monthly cap. A job already in the queue runs anyway.
+      def extraction_allowed!
+        halt 422, "Falta #{LLM.key_var}: la extracción la necesita" unless self.class.client
+        halt 422, "Llegaste al límite del mes: #{month_usage}" if Usage.capped?(Ledger.current.owner_id)
+      end
+    end
+
     # The job page and the Bitácora: Spanish status words, local time, and the check
     # behind the retry button (also run by the retry route itself).
     helpers do
@@ -151,7 +169,7 @@ module Frijolero
     post '/jobs/:id/retry' do
       job = self.class.jobs.find(params[:id])
       halt 404, 'No existe esa corrida' unless job
-      halt 422, "Falta #{LLM.key_var}: la extracción la necesita" unless self.class.client
+      extraction_allowed!
 
       account, period, pdf_path = retryable_upload(job)
       halt 422, 'Esta corrida no se puede reintentar' unless account
@@ -172,3 +190,5 @@ require_relative 'edits'
 require_relative 'charts'
 require_relative 'sorting'
 require_relative 'errors'
+require_relative 'ledger_settings'
+require_relative 'api_tokens'

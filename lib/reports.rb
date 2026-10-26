@@ -207,10 +207,8 @@ module Frijolero
       end
     end
 
-    # rledger runs only on a ledger that LedgerFiles passed.
     def run(bql)
-      LedgerFiles.all
-      out, err, code = capture('query', '--no-cache', '-q', '-f', 'json', Config.main_file, bql)
+      out, err, code = safe_capture('query', '--no-cache', '-q', '-f', 'json', Config.main_file, bql)
       return out if code.zero?
 
       raise Error, err.strip.empty? ? "rledger salió con #{code}" : err.strip
@@ -227,8 +225,7 @@ module Frijolero
     # A ledger that LedgerFiles refuses is one UNSAFE error at the line to fix, and rledger
     # does not run. So the badge and the editors show it, and an edit can repair it.
     def check
-      LedgerFiles.all
-      out, err, code = capture('check', '--no-cache', '-f', 'json', Config.main_file)
+      out, err, code = safe_capture('check', '--no-cache', '-f', 'json', Config.main_file)
       JSON.parse(out).fetch('diagnostics').select { |d| d['severity'] == 'error' }.map { |d| check_error(d) }.uniq
     rescue LedgerFiles::Unsafe => e
       [unsafe_error(e)]
@@ -249,6 +246,15 @@ module Frijolero
     # bin/dev reaches the ledger through one, so the root is the real path too.
     def ledger_file(file)
       file.delete_prefix("#{File.realpath(Config.ledger_dir)}/")
+    end
+
+    # `capture`, only on a ledger that LedgerFiles passed. The lock keeps a pull or a
+    # write from landing between the walk and the rledger run.
+    def safe_capture(*)
+      Ledger.lock do
+        LedgerFiles.all
+        capture(*)
+      end
     end
 
     # [stdout, stderr, exit status] of one rledger call. The one seam the tests stub.

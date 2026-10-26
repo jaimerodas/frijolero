@@ -125,8 +125,11 @@ module Frijolero
       rules = Config.rules_path(account)
       halt 422, 'No hay reglas para esta cuenta' unless File.exist?(rules)
 
-      stats = BeancountDetailer.new(beancount, rules).run
-      self.class.repo.commit_and_push("detail #{account} #{period}") if stats[:detailed].positive?
+      stats = Ledger.lock do
+        result = BeancountDetailer.new(beancount, rules).run
+        self.class.repo.commit_and_push("detail #{account} #{period}") if result[:detailed].positive?
+        result
+      end
       redirect_path = "/accounts/#{Rack::Utils.escape_path(account)}/#{period}"
       redirect "#{redirect_path}?detailed=#{stats[:detailed]}&remaining=#{stats[:remaining]}", 303
     end

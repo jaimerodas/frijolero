@@ -88,7 +88,7 @@ class ConfigTest < Minitest::Test
   end
 
   def test_pdf_key_of_another_ledger_uses_its_own_prefix
-    ledger = Frijolero::Ledger.new(id: 'abc', owner_id: 2, main_file: 'main.beancount',
+    ledger = Frijolero::Ledger.new(id: 'abc', owner_id: 2, name: 'Otro', main_file: 'main.beancount',
                                    pdf_prefix: 'frijolero/ledgers/abc', dir: '/x', repo_dir: '/x/repo')
     Frijolero::Ledger.with(ledger) do
       assert_equal 'frijolero/ledgers/abc/accounts/AMEX/AMEX 2508.pdf', Frijolero::Config.pdf_key('AMEX', '2508')

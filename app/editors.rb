@@ -107,9 +107,7 @@ module Frijolero
         "Regla nueva para «#{description}» (monto #{params[:amount]}). Completa payee y account, luego guarda."
       end
 
-      def saved_notice
-        params[:saved] && 'Guardado'
-      end
+      def saved_notice = params[:saved] && 'Guardado'
     end
 
     helpers do
@@ -136,9 +134,11 @@ module Frijolero
       end
 
       def save_config!(path, content, message)
-        FileUtils.mkdir_p(File.dirname(path))
-        File.write(path, content.gsub("\r\n", "\n")) # a browser submits a textarea with CRLF
-        self.class.repo.commit_and_push(message)
+        Ledger.lock do
+          FileUtils.mkdir_p(File.dirname(path))
+          File.write(path, content.gsub("\r\n", "\n")) # a browser submits a textarea with CRLF
+          self.class.repo.commit_and_push(message)
+        end
       end
     end
   end

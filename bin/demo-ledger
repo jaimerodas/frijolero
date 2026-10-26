@@ -233,7 +233,7 @@ git_env = ENV.keys.grep(/\AGIT_/).to_h { |k| [k, nil] }
 system(git_env, File.expand_path('new-ledger', __dir__), ledger, out: File::NULL, exception: true)
 # The single-user layout, with the job log and the PDFs next to the ledger: bin/dev
 # adopts it into DATA_DIR/ledgers/ on its first boot.
-Frijolero::Ledger.current = Frijolero::Ledger.new(id: 'demo', owner_id: 1, main_file: 'main.beancount',
+Frijolero::Ledger.current = Frijolero::Ledger.new(id: 'demo', owner_id: 1, name: 'Demo', main_file: 'main.beancount',
                                                   pdf_prefix: 'frijolero', dir: DIR, repo_dir: ledger)
 
 today = Date.today

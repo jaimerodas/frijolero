@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%= head("Conectar #{ledger.name}") %>
+  <script src="/reports.js" defer></script>
+</head>
+<body>
+  <%= bar %>
+  <main>
+    <h1>Conectar <%= h(ledger.name) %></h1>
+    <% if error %>
+      <p class="error" role="alert"><%= h(error) %></p>
+    <% end %>
+    <%= erb :_deploy_key, layout: false, locals: { key: key, url: url, action: "/ledgers/#{ledger.id}/connect" } %>
+  </main>
+</body>
+</html>

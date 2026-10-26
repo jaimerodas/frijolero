@@ -1,0 +1,13 @@
+<%# The deploy key and the SSH URL of the person's repo: the connect page of a new ledger (Ledgers), and the settings of a ledger without a remote (App). %>
+<p>Frijolero hizo una llave para este ledger. Agrégala a tu repo como <em>deploy key</em>, con permiso de escritura:</p>
+<ul>
+  <li>En GitHub: Settings → Deploy keys → Add deploy key. Marca <em>Allow write access</em>.</li>
+  <li>En GitLab: Settings → Repository → Deploy keys. Marca <em>Grant write permissions to this key</em>.</li>
+</ul>
+<pre><%= h(key) %></pre>
+<form method="post" action="<%= action %>">
+  <label for="url">URL SSH del repo</label>
+  <input type="text" id="url" name="url" value="<%= h(url) %>" placeholder="git@github.com:usuario/ledger.git" size="40" required>
+  <p class="note">Por ejemplo <code>git@github.com:usuario/ledger.git</code> o <code>ssh://git@gitlab.com/usuario/ledger.git</code>.</p>
+  <p class="actions"><button type="submit" class="primary" data-busy="Conectando…">Conectar</button></p>
+</form>

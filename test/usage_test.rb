@@ -85,6 +85,32 @@ class UsageTest < Minitest::Test
     end
   end
 
+  def test_the_cap_is_3_usd_unless_the_user_has_one
+    with_db_ledger do
+      me = Frijolero::Ledger.current.owner_id
+      assert_equal 3_000_000, Usage.cap_micros(me)
+
+      DB.execute('UPDATE users SET monthly_cap_micros = 10000000 WHERE id = ?', me)
+      assert_equal 10_000_000, Usage.cap_micros(me)
+    end
+  end
+
+  def test_capped_at_the_cap_and_past_it
+    with_db_ledger do
+      me = Frijolero::Ledger.current.owner_id
+      now = Time.new(2026, 10, 15, 12)
+      add_row(me, Time.new(2026, 10, 2).utc.iso8601, 2_999_999)
+      refute Usage.capped?(me, now: now)
+
+      add_row(me, Time.new(2026, 10, 3).utc.iso8601, 1)
+      assert Usage.capped?(me, now: now)
+    end
+  end
+
+  def test_usd_shows_two_decimals
+    assert_equal(['0.00', '1.23', '3.00'], [0, 1_234_567, 3_000_000].map { |micros| Usage.usd(micros) })
+  end
+
   def test_every_model_of_the_prompts_has_a_price
     models = Dir[File.expand_path('../prompts/*/spec.json', __dir__)].map { |f| JSON.parse(File.read(f))['model'] }
 

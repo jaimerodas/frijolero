@@ -35,10 +35,12 @@ module Frijolero
       values = NewAccount::FIELDS.to_h { |f| [f, params[f].to_s.strip] }
       key, entry, opened_on = NewAccount.parse!(values)
 
-      yaml = NewAccount.append_block(File.read(Config.accounts_file), key, entry)
-      File.write(Config.accounts_file, yaml)
-      NewAccount.add_open_line(Config.account_opens_file, opened_on, entry['beancount_account'])
-      self.class.repo.commit_and_push("cuenta #{key}")
+      Ledger.lock do
+        yaml = NewAccount.append_block(File.read(Config.accounts_file), key, entry)
+        File.write(Config.accounts_file, yaml)
+        NewAccount.add_open_line(Config.account_opens_file, opened_on, entry['beancount_account'])
+        self.class.repo.commit_and_push("cuenta #{key}")
+      end
       redirect '/upload', 303
     rescue NewAccount::Invalid => e
       status 422
@@ -90,18 +92,19 @@ module Frijolero
       raise EditorError, "El bloque debe definir solo #{key}" unless data.keys == [key]
       raise EditorError, "#{key}: falta beancount_account" unless account_entry_valid?(data[key])
 
-      text = AccountBlock.replace(File.read(Config.accounts_file), key, content)
-      validate_accounts_yaml!(text)
-      save_config!(Config.accounts_file, text, "accounts #{key}")
+      # From the read to the push, so a job's cutoff day is not lost in between.
+      Ledger.lock do
+        text = AccountBlock.replace(File.read(Config.accounts_file), key, content)
+        validate_accounts_yaml!(text)
+        save_config!(Config.accounts_file, text, "accounts #{key}")
+      end
       redirect "/accounts/#{Rack::Utils.escape_path(key)}/config?saved=1", 303
     rescue EditorError => e
       render_editor(status: 422, **account_config_locals(key, content: content, error: e.message))
     end
 
     helpers do
-      def yaml_locals(**extra)
-        { title: 'accounts.yaml', action: '/accounts/yaml' }.merge(extra)
-      end
+      def yaml_locals(**extra) = { title: 'accounts.yaml', action: '/accounts/yaml' }.merge(extra)
 
       def account_config_locals(key, **extra)
         action = "/accounts/#{Rack::Utils.escape_path(key)}/config"

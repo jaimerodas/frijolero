@@ -124,6 +124,13 @@ module Frijolero
       end
     end
 
+    # The URL of origin, or nil: a ledger made in the app has none until it gets one.
+    # A URL has no whitespace, and `config --default` prints an empty line for no origin.
+    def origin = git('config', '--default', '', '--get', 'remote.origin.url')[/\S+/]
+
+    # The export: the files of the last commit, as a .tar.gz, without .git.
+    def archive = git('archive', '--format=tar.gz', 'HEAD')
+
     # Every git subprocess of the app goes through here, for the clean environment.
     def git(*args)
       stdout, stderr, status = Open3.capture3(env, 'git', *config_flags, *args, chdir: @dir, unsetenv_others: true)

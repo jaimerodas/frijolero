@@ -33,11 +33,14 @@ module Frijolero
     # The save writes the block, checks the whole ledger, and commits and pushes.
     # A failed check is 422 with the errors as JSON, so the editor can mark the
     # lines; every other failure is plain text. The file is back as it was on
-    # 422, and saved but only committed locally on 502.
+    # 422, and saved but only committed locally on 502. The lock keeps a job and a pull
+    # out from the first check to the push.
     post '/edit' do
-      edit = ledger_edit
-      text = edit.save(original: params[:original], edited: params[:content])
-      self.class.repo.commit_and_push(edit.commit_message(original: params[:original], edited: text))
+      Ledger.lock do
+        edit = ledger_edit
+        text = edit.save(original: params[:original], edited: params[:content])
+        self.class.repo.commit_and_push(edit.commit_message(original: params[:original], edited: text))
+      end
       status 204
     rescue LedgerEdit::NotFound
       halt 404, 'No existe esa transacción'

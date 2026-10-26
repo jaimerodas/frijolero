@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%= head('Configuración del ledger') %>
+  <script src="/reports.js" defer></script>
+</head>
+<body>
+  <%= topbar %>
+  <main>
+    <h1>Configuración del ledger</h1>
+    <% if error %>
+      <p class="error" role="alert"><%= h(error) %></p>
+    <% end %>
+
+    <form method="post" action="<%= ledger_path('/ledger/name') %>">
+      <label for="name">Nombre</label>
+      <input type="text" id="name" name="name" value="<%= h(ledger.name) %>" maxlength="80" required>
+      <p class="actions"><button type="submit">Guardar</button></p>
+    </form>
+
+    <form method="post" action="<%= ledger_path('/ledger/main') %>">
+      <label for="main_file">Archivo principal</label>
+      <select id="main_file" name="main_file">
+        <% main_files.each do |file| %>
+          <option value="<%= h(file) %>"<%= ' selected' if file == ledger.main_file %>><%= h(file) %></option>
+        <% end %>
+      </select>
+      <p class="note">El archivo que leen los reportes. Frijolero le agrega un <code>include</code> por cada estado de cuenta.</p>
+      <p class="actions"><button type="submit">Guardar</button></p>
+    </form>
+
+    <h2>Remoto</h2>
+    <% if origin %>
+      <p><code><%= h(origin) %></code></p>
+      <p class="note">Cada corrida hace pull al empezar y push al terminar.</p>
+    <% elsif key %>
+      <%= erb :_deploy_key, layout: false, locals: { key: key, url: url, action: ledger_path('/ledger/remote') } %>
+    <% else %>
+      <p>Este ledger no tiene remoto: sus commits se quedan en el servidor.</p>
+      <form method="post" action="<%= ledger_path('/ledger/key') %>">
+        <p class="actions"><button type="submit">Agregar un remoto</button></p>
+      </form>
+    <% end %>
+
+    <h2>Exportar</h2>
+    <p>Los archivos del último commit, en un <code>.tar.gz</code>.</p>
+    <p class="actions"><a class="button" href="<%= ledger_path('/ledger/export') %>">Descargar</a></p>
+
+    <h2>API</h2>
+    <p class="files"><a href="<%= ledger_path('/tokens') %>">Tokens de la API</a></p>
+  </main>
+</body>
+</html>

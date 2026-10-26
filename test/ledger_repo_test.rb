@@ -1,20 +1,7 @@
 # frozen_string_literal: true
 
 require 'test_helper'
-require 'open3'
-
-# git for the setup of these tests. It scrubs every GIT_* env var before it shells out,
-# because a git hook exports them to child processes and they override chdir:. See
-# lib/ledger_repo.rb.
-module LedgerRepoTestGit
-  def run_git(dir, *args)
-    env = ENV.keys.grep(/\AGIT_/).to_h { |k| [k, nil] }
-    stdout, stderr, status = Open3.capture3(env, 'git', *args, chdir: dir)
-    raise "git #{args.join(' ')} failed: #{stderr}" unless status.success?
-
-    stdout
-  end
-end
+require 'fake_github'
 
 class LedgerRepoTest < Minitest::Test
   include TestHelpers
@@ -76,6 +63,23 @@ class LedgerRepoTest < Minitest::Test
 
   def test_head_raises_outside_a_repo
     assert_raises(Frijolero::LedgerRepo::Error) { Frijolero::LedgerRepo.new(dir: @tmp, token: nil).head }
+  end
+
+  def test_origin_is_the_url_of_the_remote_or_nil
+    run_git(@tmp, 'init', '-q', 'local')
+
+    assert_equal @origin, Frijolero::LedgerRepo.new(dir: @work, token: nil).origin
+    assert_nil Frijolero::LedgerRepo.new(dir: File.join(@tmp, 'local'), token: nil).origin
+  end
+
+  # The export: the files of the last commit, not the work in progress and not .git.
+  def test_archive_is_a_tar_gz_of_head
+    File.write(File.join(@work, 'sin_commit.txt'), "x\n")
+    tgz = File.join(@tmp, 'ledger.tar.gz')
+
+    File.binwrite(tgz, Frijolero::LedgerRepo.new(dir: @work, token: nil).archive)
+
+    assert_equal "README\n", IO.popen(['tar', '-tzf', tgz], &:read)
   end
 
   def test_commit_and_push_returns_false_when_nothing_staged
@@ -187,20 +191,10 @@ end
 class LedgerRepoSshTest < Minitest::Test
   include TestHelpers
   include LedgerRepoTestGit
+  include FakeGithub
 
   KNOWN_HOSTS = File.expand_path('../config/known_hosts', __dir__)
   URL = 'git@github.com:source.git'
-
-  # It notes its arguments and its environment, then runs the git command that it gets.
-  # An ssh:// URL sends an absolute path, so the leading slash goes.
-  FAKE_SSH = <<~'SH'
-    #!/bin/sh
-    here=$(dirname "$0")
-    printf '%s\n' "$@" > "$here/args"
-    env > "$here/env"
-    for last; do :; done
-    cd "$here/.." && eval "git $(printf '%s' "${last#git-}" | sed "s|'/|'|")"
-  SH
 
   def setup
     @frijolero_head = run_git(Dir.pwd, 'rev-parse', 'HEAD').strip
@@ -361,14 +355,6 @@ class LedgerRepoSshTest < Minitest::Test
 
   private
 
-  def with_fake_ssh(&)
-    bin = File.join(@tmp, 'bin')
-    FileUtils.mkdir_p(bin)
-    File.write(File.join(bin, 'ssh'), FAKE_SSH)
-    File.chmod(0o755, File.join(bin, 'ssh'))
-    with_env('PATH' => "#{bin}:#{ENV.fetch('PATH')}", &)
-  end
-
   def ssh_args = File.readlines(File.join(@tmp, 'bin', 'args'), chomp: true)
 
   # The fake ssh never reads it.
@@ -399,7 +385,7 @@ class LedgerRepoSshTest < Minitest::Test
   def ledger_at(repo_dir)
     dir = File.join(@tmp, 'ledger')
     FileUtils.mkdir_p(dir)
-    Frijolero::Ledger.new(id: 'abc', owner_id: 1, main_file: 'main.beancount', pdf_prefix: 'frijolero/ledgers/abc',
-                          dir: dir, repo_dir: repo_dir)
+    Frijolero::Ledger.new(id: 'abc', owner_id: 1, name: 'Otro', main_file: 'main.beancount',
+                          pdf_prefix: 'frijolero/ledgers/abc', dir: dir, repo_dir: repo_dir)
   end
 end

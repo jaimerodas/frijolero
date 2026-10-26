@@ -95,7 +95,6 @@ la página de la cuenta dice cuáles faltan.
 | `SESSION_SECRET` | Firma la cookie de sesión, que dura 30 días. Obligatoria, de 64 bytes o más: `openssl rand -hex 64`. Si la cambias, todos los dispositivos cierran sesión. `bin/dev` pone una fija. |
 | `APP_URL` | La dirección de la app, para los enlaces de los correos de entrada. Obligatoria. `bin/dev` usa `http://localhost:3000`. |
 | `POSTMARK_API_TOKEN`, `MAIL_FROM` | El token de Postmark y el remitente de los correos de entrada. Sin el token, el enlace sale en el log. |
-| `API_TOKEN` | El token del atajo de iOS (ver [Subir desde el iPhone](#subir-desde-el-iphone)). Solo abre `/api/upload`. Sin él, `/api/` está cerrado. |
 | `LLM_PROVIDER` | El proveedor del modelo: `openai` (por defecto) o `anthropic`. |
 | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` | La llave del proveedor. Sin ella, la app no clasifica ni extrae: solo guarda los PDF. |
 | `LLM_TIMEOUT` | Los segundos que la app espera al modelo en una extracción. Por defecto, 900. |
@@ -186,10 +185,9 @@ Un atajo de iOS manda un PDF desde la hoja de compartir de otra app, por
 ejemplo la app de tu banco. El PDF espera en la Bandeja hasta que lo
 confirmas. La app no procesa nada sin tu confirmación.
 
-1. Crea un token con `openssl rand -hex 32`.
-2. Ponlo en `API_TOKEN`. En producción, ponlo en el campo `api_token` del
-   item de 1Password antes del deploy. Sin ese campo, el deploy falla.
-3. En la app Atajos, crea un atajo que recibe PDF de la hoja de compartir.
+1. En la app, abre el ledger, luego el menú con su nombre → "Configuración" → "Tokens de la API", y crea
+   un token. La página muestra el token una sola vez: cópialo.
+2. En la app Atajos, crea un atajo que recibe PDF de la hoja de compartir.
    Para cada PDF, el atajo hace este request con la acción "Obtener
    contenido de URL" (Get Contents of URL):
 
@@ -199,12 +197,16 @@ confirmas. La app no procesa nada sin tu confirmación.
    Cuerpo: formulario, con el PDF en un campo de tipo archivo llamado pdf
    ```
 
-4. Al final, el atajo abre `https://<tu host>/inbox`.
+3. Al final, el atajo abre `https://<tu host>/inbox`.
+
+Cada subida va al ledger de su token. Para subir a otro ledger, crea un token
+en ese ledger. "Revocar" cierra un token: el atajo que lo usa recibe `401`.
 
 La respuesta siempre es JSON, porque al atajo le cuesta leer el status:
 
 - `202` y `{"inbox": "https://…/inbox"}`: el PDF está en la Bandeja.
-- `401` y `{"error": "Token inválido"}`: falta el token o no es correcto.
+- `401` y `{"error": "Token inválido"}`: falta el token, no es correcto o
+  está revocado.
 - `422` y `{"error": "…"}`: el archivo no es un PDF, o no hay cuentas.
 
 Para ver los errores en el teléfono, toma el valor `error` del diccionario.

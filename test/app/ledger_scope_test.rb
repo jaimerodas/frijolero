@@ -58,6 +58,15 @@ class LedgerScopeTest < Minitest::Test
     assert_nil @seen
   end
 
+  def test_an_own_repo_that_is_not_connected_goes_to_its_connect_page
+    ledger = Frijolero::Ledger.create(owner_id: @owner.id, name: 'Mío')
+
+    status, headers, = request("/l/#{ledger.id}/accounts")
+
+    assert_equal [302, "/ledgers/#{ledger.id}/connect"], [status, headers['location']]
+    assert_nil @seen
+  end
+
   def test_any_other_l_shape_is_the_same_404
     unknown = request('/l/nope0000/')
 
@@ -72,13 +81,6 @@ class LedgerScopeTest < Minitest::Test
 
     assert_equal 302, status
     assert_equal '/l/test/', headers['location']
-  end
-
-  def test_root_without_a_ledger_says_so
-    status, _, body = request('/', user: Frijolero::Users.find(insert_user('c@example.com')))
-
-    assert_equal 200, status
-    assert_equal ['Todavía no tienes un ledger.'], body
   end
 
   # A bookmark from before /l/<id>/ still opens, with its query.
@@ -102,18 +104,22 @@ class LedgerScopeTest < Minitest::Test
     assert_equal 404, request('/reports', user: Frijolero::Users.find(insert_user('c@example.com')))[0]
   end
 
-  # Login has checked the bearer token, and there is no user. Until the token names its
-  # ledger (4C), /api/ writes to the first one.
-  def test_api_runs_in_the_first_ledger_with_its_path
-    request('/api/upload', user: nil, method: 'POST')
+  # Login has checked the bearer token and put its ledger in env. There is no user.
+  def test_api_runs_in_the_ledger_of_its_token_with_its_path
+    @scope.call(api_env(@foreign.id))
 
-    assert_equal({ script_name: '', path_info: '/api/upload', ledger: 'test' }, @seen)
+    assert_equal({ script_name: '', path_info: '/api/upload', ledger: @foreign.id }, @seen)
+  end
+
+  def test_api_without_a_ledger_is_a_404
+    assert_equal 404, @scope.call(api_env(nil))[0]
+    assert_nil @seen
   end
 
   # Puma reuses its threads: the next request on this one must find no ledger.
   def test_no_ledger_stays_on_the_thread
     request('/l/test/')
-    request('/api/upload', user: nil, method: 'POST')
+    @scope.call(api_env('test'))
 
     assert_raises(Frijolero::NoLedger) { Frijolero::Ledger.current }
   end
@@ -143,6 +149,8 @@ class LedgerScopeTest < Minitest::Test
   end
 
   def request(path, **) = @scope.call(env_for(path, **))
+
+  def api_env(ledger_id) = env_for('/api/upload', user: nil, method: 'POST').merge('frijolero.api_ledger' => ledger_id)
 
   def in_app(&) = Frijolero::Ledger.with(Frijolero::Ledger.find('test'), &)
 

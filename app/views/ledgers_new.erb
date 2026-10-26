@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%= head('Nuevo ledger') %>
+</head>
+<body>
+  <%= bar %>
+  <main>
+    <h1>Nuevo ledger</h1>
+    <% if error %>
+      <p class="error" role="alert"><%= h(error) %></p>
+    <% end %>
+
+    <h2>Un ledger vacío</h2>
+    <p class="note">Frijolero lo guarda en un repo de git en el servidor. Después le puedes agregar un remoto tuyo.</p>
+    <form method="post" action="/ledgers">
+      <label for="name">Nombre</label>
+      <input type="text" id="name" name="name" maxlength="80" required>
+      <p class="actions"><button type="submit" class="primary">Crear</button></p>
+    </form>
+
+    <h2>Mi propio repo</h2>
+    <p class="note">Un repo de git en GitHub o GitLab, vacío o con un ledger de Beancount. Frijolero hace una llave para leerlo y escribir en él.</p>
+    <form method="post" action="/ledgers/repo">
+      <label for="repo-name">Nombre</label>
+      <input type="text" id="repo-name" name="name" maxlength="80" required>
+      <p class="actions"><button type="submit">Siguiente</button></p>
+    </form>
+  </main>
+</body>
+</html>
