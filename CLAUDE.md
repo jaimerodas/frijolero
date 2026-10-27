@@ -97,7 +97,7 @@ kamal app exec --reuse 'bundle exec ruby -Ilib -e "require %q(frijolero); Frijol
 
 On the volume (`DATA_DIR`, which is `/data` in production):
 
-- `frijolero.sqlite3`: the users, the ledgers, the sign-in and API tokens, and one usage row per model call. The schema is `db/*.sql`.
+- `frijolero.sqlite3`: the users, the ledgers, the sign-in and API tokens, the passkeys, and one usage row per model call. The schema is `db/*.sql`.
 - `ledgers/<id>/repo/`: the clone of each ledger.
 - `ledgers/<id>/jobs.jsonl`: the append-only job log of that ledger.
 - `ledgers/<id>/incoming/<token>/`: one directory for each upload, with `<original name>.pdf` and, after the classifier, `classification.json`. A successful job removes it.
@@ -117,7 +117,7 @@ In the bucket, which other apps share: `<pdf_prefix>/accounts/<Key>/<Key> YYMM.p
 | `LLM_PROVIDER`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` | `LLM_PROVIDER` is `openai` (default) or `anthropic`. Without the key of that provider, `LLM.client` is nil and the app cannot classify or extract. The model names are in `prompts/*/spec.json`, so a change of provider changes them too. |
 | `LLM_TIMEOUT` | Default 900 s. It is the poll deadline for OpenAI and the read timeout for Anthropic. |
 | `SESSION_SECRET` | Signs the session cookie (30 days). rack-session needs 64 bytes or more. A new secret logs out every device. In 1Password, the field is `session_secret`. `bin/dev` sets a fixed one. |
-| `APP_URL` | The base of the sign-in links (`https://frijolero.pati.to`). The links never come from the request's Host header, because a forged header could point a link at another site. `bin/dev` uses `http://localhost:$PORT`. |
+| `APP_URL` | The base of the sign-in links (`https://frijolero.pati.to`), and the origin and site of the passkeys. The links never come from the request's Host header, because a forged header could point a link at another site. `bin/dev` uses `http://localhost:$PORT`. |
 | `POSTMARK_API_TOKEN`, `MAIL_FROM` | The sign-in emails go through the HTTP API of Postmark, because DigitalOcean blocks SMTP. Without the token, `Postmark.deliver` writes the email to the log. In 1Password, the field is `postmark_api_token`. |
 | `S3_ENDPOINT`, `S3_BUCKET`, `S3_KEY_ID`, `S3_KEY` | Any S3-compatible store (B2 in production). The endpoint is a bare host. With none of the four, the PDFs go to disk (`LocalPdfs`). With only some, `S3.from_env` raises and names the missing ones. It also removes whitespace from the keys: a stray space from 1Password once caused `Signature validation failed`. |
 | `S3_REGION`, `S3_PATH_STYLE` | Optional. The default region is the second segment of the endpoint, which is correct for B2 and AWS. R2 needs `auto`, Hetzner its location, and DigitalOcean and MinIO `us-east-1`. `S3_PATH_STYLE=1` puts the bucket in the path, for MinIO on localhost or a bucket name with a dot. |
@@ -144,17 +144,28 @@ In the bucket, which other apps share: `<pdf_prefix>/accounts/<Key>/<Key> YYMM.p
 - The pages outside a ledger are Sinatra middlewares between `Login` and `LedgerScope`. They inherit `Page` (`app/page.rb`), share the header `_bar.erb`, and pass down every path that they do not route. They have no current ledger: a page names its ledger by id and checks the owner.
   - `Ledgers` (`app/ledgers.rb`) owns `/` and `/ledgers/…`. `/` opens the user's only ledger, lists them when there are several, and offers a new one when there is none. A new ledger is the template (`NewLedger`), or the person's own repo: the connect page makes a deploy key, the person adds it to GitHub or GitLab with write access, and the app clones over SSH. After the clone of an empty repo, the first push is `git push -u origin HEAD`. A person has at most 5 ledgers (`Ledgers::MAX_LEDGERS`), because each ledger holds two threads from boot.
   - `Admin` (`app/admin.rb`) owns `/admin/…`, for the admin only. There is no sign-up: the admin invites each person, with a link that lives 7 days (`Signin.invite`). Block and "Cerrar sesiones" add 1 to `session_version`. The cap is in USD, and empty means 3 USD. The admin cannot act on their own row, so the only admin cannot lock themselves out.
+  - `PasskeysPage` (`app/passkeys.rb`) owns `/passkeys…`: the passkeys of the signed-in user (see Sign-in). The delete has the user in its `WHERE`, so a person cannot delete the passkey of another.
 - Inside a ledger, `/ledger` (`app/ledger_settings.rb`) renames it, changes its main file, adds a remote, and exports HEAD as `.tar.gz`. It never makes a key for a ledger with an origin: its remote already trusts the key that the ledger has. `/tokens` (`app/api_tokens.rb`) makes and revokes the API tokens of the ledger, and shows a new token once.
-- `Login` (`app/login.rb`) is the outer middleware, in front of the rest. So its pages have no current ledger, and they must not read one. It owns `/login`, `/login/<token>` and `/logout`. It sends each request without a valid session to `/login`.
+- `Login` (`app/login.rb`) is the outer middleware, in front of the rest. So its pages have no current ledger, and they must not read one. It owns `/login`, `/login/<token>`, `/login/challenge`, `/login/passkey` and `/logout`. It sends each request without a valid session to `/login`.
   - A session is valid while its user is active and its `session_version` matches. Login puts the user in `env['frijolero.user']`.
   - A request to `/api/` needs `Authorization: Bearer <token>` instead, with a token from `api_tokens` (`lib/api_tokens.rb`) whose ledger has an active owner, and gets a JSON 401 without it. The database keeps only the SHA-256 of a token, and the token names its ledger. The Shortcut's token was `API_TOKEN` until Stage 4; the migration of Stage 1 put it in the table.
   - `App` and its tests never see auth.
-- Sign-in is by email link (`lib/signin.rb`). There are no passwords.
+- Sign-in is by email link (`lib/signin.rb`) or by passkey. There are no passwords.
   - A link works once, for 15 minutes. The database keeps only the SHA-256 of its token.
   - `GET /login/<token>` only shows a button, because mail scanners open the links in an email. The POST signs in.
   - `POST /login` answers with the same page for every email. A user gets at most 1 link a minute and 5 an hour.
   - The link page sends `Referrer-Policy: no-referrer`, because its URL holds the token and it loads Google Fonts.
   - `bin/signin-link <email>` prints a link. It is the way in when the email fails: `kamal app exec --reuse 'bin/signin-link <email>'`. `/up` and the static files are outside it. `Login` serves the static files itself, so a static setting (such as `static_cache_control`) goes on `Login`; on `App` it does nothing.
+- A passkey (`lib/passkeys.rb`, `public/passkeys.js`) is the other way in. An invited person enters the first time with the email link. Then they make a passkey at `/passkeys` (Opciones → "Llaves de acceso").
+  - The login page offers the passkeys in the autofill of the email field (`autocomplete="email webauthn"`, conditional mediation). `passkeys.js` fetches the options from `POST /login/challenge`. So the challenge is never in the page, and `POST /login` still answers the same page for every email.
+  - The challenge waits in the session for 5 minutes. The first answer removes it, so an answer works once.
+  - The site is the host of `APP_URL`, and the origin is `APP_URL`. A new domain makes every passkey useless. The email link still works.
+  - The app asks for no attestation, so it parses no CBOR. The browser gives the public key as DER (`getPublicKey()`), and OpenSSL checks the signature. The algorithms are ES256 and RS256. The `webauthn` gem would add 7 gems for the same checks.
+  - A sign-in needs the UV flag (Face ID, Touch ID or a PIN), because the passkey replaces the email. It ignores the sign count, because a synced passkey always sends 0.
+  - The passkey routes come before `/login/:token` in `app/login.rb`. Else Sinatra takes `challenge` and `passkey` as tokens.
+  - Block stops the passkeys of a user, because the user is not active. "Cerrar sesiones" keeps them.
+  - A passkey that the person deletes at `/passkeys` stays on the device, and the autofill still offers it. The sign-in then fails with a message.
+  - `test/fake_passkey.rb` is an authenticator for the tests. There is no JavaScript test. In a browser, the WebAuthn panel of Chrome DevTools gives a virtual authenticator.
 - The views are standalone ERB pages in Spanish, with no layout. Each page calls the `head` and `topbar` helpers.
 - All pages of one account are under `/accounts/<Key>`. A statement has three URLs: `/accounts/<Key>/<YYMM>` (the movements), `…/beancount` (the text) and `…/beancount/edit` (the text in the editor). The route constraints in `app/statements.rb` keep `config` and `rules` out of the period segment.
 - With no account in `accounts.yaml`, a filter sends every `/upload` route to `/accounts/new`, and `/api/upload` answers 422. So no model call can happen before the first account exists.
@@ -449,7 +460,7 @@ If `kamal` or `ssh` fails with `promptError` or "communication with agent failed
 
 ## Tests
 
-- Minitest and rack-test: about 1030 tests in about 24 s. `test/` mirrors `app/` and `lib/`.
+- Minitest and rack-test: about 1080 tests in about 24 s. `test/` mirrors `app/` and `lib/`.
 - `with_ledger_dir` makes a temporary ledger, in a fresh `DATA_DIR`, the current ledger of the test thread. A setup uses `enter_test_ledger` and `leave_test_ledger`. `with_db_ledger` also writes the owner and the ledger as rows.
 - No test writes into `prompts/`: `Config.prompts_dir` is the real folder. Use `test/fixtures/prompts`, or a copy of it in a temporary directory. Web tests call `App` directly, with fake collaborators. `test/app/app_test.rb` and `test/app/isolation_test.rb` load `config.ru`, for the auth and the ledger wiring. A web test gets a page as production serves it with `'SCRIPT_NAME' => LEDGER_ROOT` in the env, and `assert_ledger_links` fails on a link that leaves the ledger.
 - `test_helper.rb` sets `RACK_ENV=test` before it loads the app. Sinatra reads the environment when `sinatra/base` loads, and with any other value its host authorization answers 403.

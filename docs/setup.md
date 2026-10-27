@@ -93,7 +93,7 @@ la página de la cuenta dice cuáles faltan.
 | `ADMIN_EMAIL` | El correo del primer admin. La app lo crea en el primer arranque. `bin/dev` usa `admin@localhost`. |
 | `LEDGER_DIR`, `LEDGER_MAIN_FILE` | Solo para el primer arranque: el clon que la app adopta (por defecto `DATA_DIR/ledger`) y su archivo principal (por defecto `main.beancount`). La app guarda los dos en la base de datos. |
 | `SESSION_SECRET` | Firma la cookie de sesión, que dura 30 días. Obligatoria, de 64 bytes o más: `openssl rand -hex 64`. Si la cambias, todos los dispositivos cierran sesión. `bin/dev` pone una fija. |
-| `APP_URL` | La dirección de la app, para los enlaces de los correos de entrada. Obligatoria. `bin/dev` usa `http://localhost:3000`. |
+| `APP_URL` | La dirección de la app, para los enlaces de los correos de entrada y para las llaves de acceso. Obligatoria. Si cambia el dominio, las llaves de acceso dejan de servir y hay que entrar por correo. `bin/dev` usa `http://localhost:3000`. |
 | `POSTMARK_API_TOKEN`, `MAIL_FROM` | El token de Postmark y el remitente de los correos de entrada. Sin el token, el enlace sale en el log. |
 | `LLM_PROVIDER` | El proveedor del modelo: `openai` (por defecto) o `anthropic`. |
 | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` | La llave del proveedor. Sin ella, la app no clasifica ni extrae: solo guarda los PDF. |

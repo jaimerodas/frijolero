@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%= head('Llaves de acceso') %>
+  <script src="/passkeys.js" defer></script>
+</head>
+<body>
+  <%= bar %>
+  <main>
+    <h1>Llaves de acceso</h1>
+    <p class="note">Con una llave de acceso entras con Face ID, Touch ID o el PIN de tu dispositivo, sin esperar un correo. El enlace por correo sigue funcionando.</p>
+    <% if notice %>
+      <p class="notice" role="status"><%= h(notice) %></p>
+    <% end %>
+    <% if error %>
+      <p class="error" role="alert"><%= h(error) %></p>
+    <% end %>
+
+    <% if passkeys.empty? %>
+      <p>Todavía no tienes llaves de acceso. Crea una para entrar sin correo.</p>
+    <% else %>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Llave</th>
+              <th>Último uso</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% passkeys.each do |passkey| %>
+              <% created = local_time(passkey['created_at']) %>
+              <tr>
+                <th scope="row">Creada el <%= h(created) %></th>
+                <td class="date" data-label="Último uso"><%= passkey['last_used_at'] ? h(local_time(passkey['last_used_at'])) : 'nunca' %></td>
+                <td>
+                  <form method="post" action="/passkeys/delete">
+                    <input type="hidden" name="id" value="<%= h(passkey['id']) %>">
+                    <button type="submit" aria-label="Borrar la llave creada el <%= h(created) %>">Borrar</button>
+                  </form>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+
+    <%# public/passkeys.js asks the browser for a new passkey, puts the answer in credential
+        and posts the form. A cancelled prompt posts null, and the page says so. %>
+    <form method="post" action="/passkeys" id="passkey-create" data-options="/passkeys/challenge">
+      <input type="hidden" name="credential">
+      <p class="actions"><button type="submit" class="primary">Crear llave de acceso</button></p>
+    </form>
+  </main>
+</body>
+</html>

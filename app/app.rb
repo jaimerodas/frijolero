@@ -7,6 +7,17 @@ require_relative 'dashboard'
 require_relative 'inbox'
 
 module Frijolero
+  # A helper of App and of the pages outside a ledger (Page).
+  module LocalTime
+    # UTC ISO 8601 → local time, e.g. '4 sep 2026, 06:22'. TZ is the Dockerfile's job.
+    def local_time(iso)
+      return '' unless iso
+
+      t = Time.iso8601(iso).localtime
+      "#{t.day} #{Period::MONTHS[t.month - 1][0, 3]} #{t.year}, #{t.strftime('%H:%M')}"
+    end
+  end
+
   class App < Sinatra::Base
     set :views, File.join(__dir__, 'views')
     set :public_folder, File.expand_path('../public', __dir__)
@@ -122,17 +133,10 @@ module Frijolero
 
     # The job page and the Bitácora: Spanish status words, local time, and the check
     # behind the retry button (also run by the retry route itself).
+    helpers LocalTime
     helpers do
       # 'queued' → 'en cola', etc. The dashboard has its own 'falló' for the same word.
       def job_status(status) = JOB_STATUS.fetch(status, status)
-
-      # UTC ISO 8601 → local time, e.g. '4 sep 2026, 06:22'. TZ is the Dockerfile's job.
-      def local_time(iso)
-        return '' unless iso
-
-        t = Time.iso8601(iso).localtime
-        "#{t.day} #{Period::MONTHS[t.month - 1][0, 3]} #{t.year}, #{t.strftime('%H:%M')}"
-      end
 
       # [account, period, pdf_path] for a failed job whose upload can still be retried,
       # or nil: it needs its token, the account, no statement yet, and the PDF still on disk.

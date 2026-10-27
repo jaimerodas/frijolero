@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <%= erb :_head, layout: false, locals: { title: 'Entrar', refresh: nil } %>
+  <script src="/passkeys.js" defer></script>
 </head>
 <body class="login">
   <main>
@@ -22,9 +23,14 @@
       <form method="post" action="/login">
         <label for="email">Correo</label>
         <div class="row">
-          <input id="email" type="email" name="email" autocomplete="email" autofocus required>
+          <input id="email" type="email" name="email" autocomplete="email webauthn" autofocus required>
           <button type="submit" class="primary">Mandar enlace</button>
         </div>
+      </form>
+      <%# The autofill of the email field offers the passkeys of the site. When the person
+          picks one, public/passkeys.js puts the answer in credential and posts this form. %>
+      <form method="post" action="/login/passkey" id="passkey-signin" data-options="/login/challenge" hidden>
+        <input type="hidden" name="credential">
       </form>
     <% end %>
   </main>

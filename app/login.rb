@@ -5,10 +5,10 @@ require 'sinatra/base'
 
 module Frijolero
   # Middleware in config.ru, outside LedgerScope, so its pages have no current ledger.
-  # Owns the sign-in routes and gates everything else behind a signed cookie session
-  # that holds user_id and session_version. httponly is the rack-session default.
-  # secure: production? because bin/dev is plain http. The App finds the user in
-  # env['frijolero.user'].
+  # Owns the sign-in routes (an email link or a passkey) and gates everything else
+  # behind a signed cookie session that holds user_id and session_version. httponly is
+  # the rack-session default. secure: production? because bin/dev is plain http. The
+  # App finds the user in env['frijolero.user'].
   #
   # /api/ is for the iOS Shortcut, which has no cookie: it sends a token of ApiTokens as
   # a bearer token instead, and the token names the ledger.
@@ -53,6 +53,14 @@ module Frijolero
       end
 
       def login_page(notice: nil, error: nil, link: false) = erb(:login, locals: { notice:, error:, link: })
+
+      # The old session can hold anything, so it goes first.
+      def start_session(user)
+        session.clear
+        session[:user_id] = user.id
+        session[:session_version] = user.session_version
+        redirect '/'
+      end
     end
 
     get('/login') { login_page }
@@ -69,6 +77,25 @@ module Frijolero
                          'El enlace sirve 15 minutos.')
     end
 
+    # The passkey routes come before /login/:token, which would take their names as tokens.
+    # A token has 43 characters, so it is never one of these names.
+    #
+    # The options of the passkey autofill on the login page. public/passkeys.js fetches
+    # them, so the challenge waits in the session and never shows in the page.
+    post '/login/challenge' do
+      pending = session[:passkey_challenge] = Passkeys.challenge
+      content_type :json
+      JSON.generate(Passkeys.request_options(pending.first))
+    end
+
+    # The challenge leaves the session at the first answer, so an answer works once.
+    post '/login/passkey' do
+      start_session(Passkeys.authenticate(params['credential'], session.delete(:passkey_challenge)))
+    rescue Passkeys::Error => e
+      Log.puts "✗ Llave de acceso: #{e.message}"
+      login_page(error: 'Esa llave de acceso no sirvió. Prueba otra vez o pide un enlace.')
+    end
+
     # Mail scanners open the links in an email, so the GET only shows a button. The page
     # loads Google Fonts, and its URL holds the token: no Referer goes out with it.
     get '/login/:token' do
@@ -80,10 +107,7 @@ module Frijolero
       user = Signin.redeem(params['token'])
       halt login_page(error: 'Este enlace ya no sirve: ya se usó o venció. Pide otro.') unless user
 
-      session.clear
-      session[:user_id] = user.id
-      session[:session_version] = user.session_version
-      redirect '/'
+      start_session(user)
     end
 
     post('/logout') { sign_out }
