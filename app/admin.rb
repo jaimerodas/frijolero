@@ -20,7 +20,7 @@ module Frijolero
     ERRORS = {
       'email' => 'Escribe un correo válido.',
       'exists' => 'Ese correo ya tiene una cuenta.',
-      'mail' => 'No se pudo mandar el correo. Prueba otra vez con «Reenviar invitación».',
+      'mail' => 'No se pudo mandar el correo. Prueba otra vez con «Reenviar».',
       'not_invited' => 'Esa persona ya entró: solo se reenvía una invitación pendiente.',
       'self' => 'No puedes hacer eso con tu propia cuenta: te quedarías fuera.',
       'cap' => 'El tope es una cantidad en dólares, como 5 o 5.50. Vacío es el tope de siempre, 3 dólares.'
@@ -30,7 +30,7 @@ module Frijolero
 
     # The buttons of a row, by status: path => label. The admin's own row has none.
     ACTIONS = {
-      'invited' => { 'resend' => 'Reenviar invitación', 'block' => 'Bloquear' },
+      'invited' => { 'resend' => 'Reenviar', 'block' => 'Bloquear' },
       'active' => { 'sign_out' => 'Cerrar sesiones', 'block' => 'Bloquear' },
       'blocked' => { 'unblock' => 'Desbloquear' }
     }.freeze
@@ -59,8 +59,10 @@ module Frijolero
       end
     end
 
+    # The invitation form is closed, except after a refused invitation, which the person types again.
     get '/admin' do
-      erb :admin, locals: { users: Users.all, notice: NOTICES[params['notice']], error: ERRORS[params['error']] }
+      erb :admin, locals: { users: Users.all, notice: NOTICES[params['notice']], error: ERRORS[params['error']],
+                            inviting: %w[email exists].include?(params['error']) }
     end
 
     post '/admin/invite' do

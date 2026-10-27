@@ -154,7 +154,7 @@ class NavTest < Minitest::Test
 
   def test_ledger_menu_has_admin_only_for_an_admin
     get '/', {}, 'frijolero.user' => owner
-    assert_includes menu, '<a href="/admin">Admin</a>'
+    assert_includes menu, '<a href="/admin">Usuarios</a>'
 
     get '/', {}, 'frijolero.user' => owner.with(role: 'user')
     refute_includes last_response.body, 'href="/admin"'

@@ -3,7 +3,7 @@
   <a class="brand" href="/">Frijolero</a>
   <nav aria-label="Secciones">
     <a href="/passkeys"<% if request.path_info == '/passkeys' %> aria-current="page"<% end %>>Llaves de acceso</a>
-    <% if user.admin? %><a href="/admin"<% if request.path_info.start_with?('/admin') %> aria-current="page"<% end %>>Admin</a><% end %>
+    <% if user.admin? %><a href="/admin"<% if request.path_info.start_with?('/admin') %> aria-current="page"<% end %>>Usuarios</a><% end %>
   </nav>
   <form method="post" action="/logout"><button type="submit">Salir</button></form>
 </header>

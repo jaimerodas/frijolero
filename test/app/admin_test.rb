@@ -112,11 +112,24 @@ class AdminTest < Minitest::Test
     get '/admin'
 
     assert_equal 200, last_response.status
-    row = last_response.body[%r{<tr>\s*<th scope="row">beto@example.com</th>.*?</tr>}m]
-    assert row, 'a row for Beto'
-    ['Beto', 'Casa de Beto', 'activo', 'value="5.50"', '1.25', '0.50'].each { |text| assert_includes row, text }
-    assert_includes last_response.body, '<th scope="row">admin@example.com</th>'
+    assert_includes last_response.body, '<a href="/admin" aria-current="page">Usuarios</a>', 'the header names the page'
+    row = last_response.body[%r{<tr>\s*<th scope="row">Beto <span class="note">beto@example.com</span></th>.*?</tr>}m]
+    assert row, 'a row for Beto, the name over the email'
+    ['Casa de Beto', 'activo', 'value="5.50"', '1.25', '0.50'].each { |text| assert_includes row, text }
+    assert_includes last_response.body, '<th scope="row">admin@example.com</th>', 'no name: the email alone'
     assert_includes last_response.body, 'name="email"', 'the invitation form'
+  end
+
+  # Inviting is rare, so the form waits behind its button. A refused invitation opens it again.
+  def test_the_invitation_form_is_closed_until_an_invitation_is_refused
+    get '/admin'
+
+    assert_includes last_response.body, '<details class="invite">'
+
+    post '/admin/invite', email: 'Beto@Example.com'
+    follow_redirect!
+
+    assert_includes last_response.body, '<details class="invite" open>'
   end
 
   def test_invite_makes_an_invited_user_and_mails_the_link

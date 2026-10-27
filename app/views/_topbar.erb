@@ -40,7 +40,7 @@
         <li><a href="<%= ledger_path('/ledger') %>"<% if path == '/ledger' %> aria-current="page"<% end %>>Configuración</a></li>
         <li><a href="/ledgers/new">Nuevo ledger</a></li>
         <li><a href="/passkeys">Llaves de acceso</a></li>
-        <% if user&.admin? %><li><a href="/admin">Admin</a></li><% end %>
+        <% if user&.admin? %><li><a href="/admin">Usuarios</a></li><% end %>
       </ul>
       <ul>
         <li><form method="post" action="/logout"><button type="submit">Salir</button></form></li>
