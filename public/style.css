@@ -109,6 +109,9 @@ h2 { font-size: 1.125rem; font-weight: 600; margin: 2.5rem 0 0.75rem; padding-bo
 .notice, .error { padding: 0.75rem 1rem; margin-block: 1rem; border: 1px solid var(--ink); }
 .error { border-color: var(--red); border-left-width: 6px; }
 
+/* Mi cuenta: the name and the email forms, under Editar, as wide as a form needs. */
+.profile-edit form { max-width: 32rem; }
+
 /* Status: a glyph and a word, so color is never the only signal.
    recibido / ok ●   pendiente / queued ○   running ◐   falta ▲   falló ■ */
 .status { --glyph: "○"; color: var(--muted); white-space: nowrap; }

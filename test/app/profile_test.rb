@@ -84,6 +84,31 @@ class ProfileTest < Minitest::Test
     assert_includes last_response.body, 'Todavía no hay llamadas al modelo.'
   end
 
+  # The heading is the person: the name, and the email under it. Without a name, the email.
+  def test_the_heading_is_the_name_or_else_the_email
+    get '/profile'
+
+    assert_includes last_response.body, '<h1>admin@example.com</h1>'
+
+    Frijolero::Users.rename(@owner.id, 'Ana')
+    env 'frijolero.user', Frijolero::Users.find(@owner.id)
+    get '/profile'
+
+    assert_includes last_response.body, '<h1>Ana</h1>'
+    assert_includes last_response.body, '<p class="meta">admin@example.com</p>'
+  end
+
+  # The forms wait behind Editar. An email error opens them again, next to its message.
+  def test_the_forms_wait_behind_editar_and_an_email_error_opens_them
+    get '/profile'
+
+    assert_includes last_response.body, '<details class="profile-edit">'
+
+    get '/profile?error=email'
+
+    assert_includes last_response.body, '<details class="profile-edit" open>'
+  end
+
   def test_rename_saves_the_name_and_empty_is_none
     post '/profile/name', name: '  Ana  '
 

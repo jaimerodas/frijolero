@@ -7,7 +7,8 @@
 <body>
   <%= bar %>
   <main>
-    <h1>Mi cuenta</h1>
+    <h1><%= h(user.name || user.email) %></h1>
+    <% if user.name %><p class="meta"><%= h(user.email) %></p><% end %>
     <% if notice %>
       <p class="notice" role="status"><%= h(notice) %></p>
     <% end %>
@@ -15,18 +16,25 @@
       <p class="error" role="alert"><%= h(error) %></p>
     <% end %>
 
-    <form method="post" action="/profile/name">
-      <label for="name">Nombre</label>
-      <input type="text" id="name" name="name" value="<%= h(user.name) %>" maxlength="80" autocomplete="name">
-      <p class="actions"><button type="submit">Guardar</button></p>
-    </form>
-
-    <form method="post" action="/profile/email">
-      <label for="email">Correo</label>
-      <input type="email" id="email" name="email" value="<%= h(user.email) %>" autocomplete="email" required>
-      <p class="note">Te mandamos un enlace al correo nuevo. Cambia cuando entras con él.</p>
-      <p class="actions"><button type="submit" data-busy="Mandando…">Cambiar correo</button></p>
-    </form>
+    <%# Every error of this page is about the email. %>
+    <details class="profile-edit"<% if error %> open<% end %>>
+      <summary class="button">Editar</summary>
+      <form method="post" action="/profile/name">
+        <label for="name">Nombre</label>
+        <div class="row">
+          <input type="text" id="name" name="name" value="<%= h(user.name) %>" maxlength="80" autocomplete="name">
+          <button type="submit">Guardar</button>
+        </div>
+      </form>
+      <form method="post" action="/profile/email">
+        <label for="email">Correo nuevo</label>
+        <div class="row">
+          <input type="email" id="email" name="email" autocomplete="email" required>
+          <button type="submit" data-busy="Mandando…">Mandar enlace</button>
+        </div>
+        <p class="note">Tu correo cambia cuando entras con el enlace que te llega.</p>
+      </form>
+    </details>
 
     <h2>Ledgers</h2>
     <%= erb :_person_ledgers, layout: false, locals: { ledgers: Frijolero::Ledger.owned_by(user.id) } %>
