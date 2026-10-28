@@ -46,6 +46,7 @@ class AdminTest < Minitest::Test
     Frijolero::App.jobs = Frijolero::Jobs.new(log_path: File.join(dir, 'jobs.jsonl'))
     Frijolero::App.inbox = Frijolero::Inbox.new(File.join(dir, 'incoming'))
     Frijolero::App.inbox_worker = Frijolero::Inbox::Worker.new(Frijolero::App.inbox) { {} }
+    Frijolero::App.s3 = Frijolero::LocalPdfs.new(File.join(dir, 'bucket'))
     @app = Rack::Builder.parse_file(CONFIG_RU)
     sign_in(@admin)
   end
@@ -58,6 +59,7 @@ class AdminTest < Minitest::Test
     Frijolero::App.jobs = nil
     Frijolero::App.inbox = nil
     Frijolero::App.inbox_worker = nil
+    Frijolero::App.s3 = nil
   end
 
   attr_reader :app
@@ -91,7 +93,8 @@ class AdminTest < Minitest::Test
       missing = [last_response.status, last_response.content_type, last_response.body]
 
       [[:get, '/admin'], [:get, '/admin/'], [:get, '/admin/nope'], [:post, '/admin/invite'],
-       *%w[resend block unblock sign_out cap].map { |action| [:post, "/admin/users/#{@admin.id}/#{action}"] }]
+       [:get, "/admin/users/#{@admin.id}"], [:get, "/admin/users/#{@admin.id}/delete"],
+       *%w[resend block unblock sign_out cap delete].map { |action| [:post, "/admin/users/#{@admin.id}/#{action}"] }]
         .each do |verb, path|
           send(verb, path, email: 'nuevo@example.com', cap: '1')
 
@@ -113,10 +116,12 @@ class AdminTest < Minitest::Test
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, '<a href="/admin" aria-current="page">Usuarios</a>', 'the header names the page'
-    row = last_response.body[%r{<tr>\s*<th scope="row">Beto <span class="note">beto@example.com</span></th>.*?</tr>}m]
-    assert row, 'a row for Beto, the name over the email'
+    name = %(<a href="/admin/users/#{@beto.id}">Beto <span class="note">beto@example.com</span></a>)
+    row = last_response.body[%r{<tr>\s*<th scope="row">#{name}</th>.*?</tr>}m]
+    assert row, 'a row for Beto, the name over the email, with a link to his page'
     ['Casa de Beto', 'activo', 'value="5.50"', '1.25', '0.50'].each { |text| assert_includes row, text }
-    assert_includes last_response.body, '<th scope="row">admin@example.com</th>', 'no name: the email alone'
+    assert_includes last_response.body, %(<a href="/admin/users/#{@admin.id}">admin@example.com</a></th>),
+                    'no name: the email alone'
     assert_includes last_response.body, 'name="email"', 'the invitation form'
   end
 
@@ -247,6 +252,109 @@ class AdminTest < Minitest::Test
       assert_includes notice, 'dólares', cap
       assert_equal 4_000_000, Frijolero::Usage.cap_micros(@beto.id), cap
     end
+  end
+
+  def test_the_page_of_a_person_shows_their_buttons_ledgers_and_usage
+    add_usage(@beto, at: Time.now, micros: 1_250_000)
+
+    get "/admin/users/#{@beto.id}"
+
+    body = last_response.body
+    assert_equal 200, last_response.status
+    assert_includes body, '<h1>Beto</h1>'
+    assert_includes body, %(action="/admin/users/#{@beto.id}/block")
+    assert_includes body, '<input type="hidden" name="from" value="person">'
+    assert_includes body, 'primero bloquéala'
+    refute_includes body, %(href="/admin/users/#{@beto.id}/delete"), 'an active user is blocked first'
+    assert_includes body, %(href="/ledgers/#{@beto_ledger.id}/delete")
+    refute_includes body, %(href="/l/#{@beto_ledger.id}/"), 'the admin cannot open the ledger of another user'
+    assert_includes body, 'Este mes: 1.25 de 3.00 USD.'
+  end
+
+  def test_an_action_from_the_page_of_a_person_goes_back_there
+    post "/admin/users/#{@beto.id}/block", from: 'person'
+
+    assert_equal ["/admin/users/#{@beto.id}", 'notice=blocked'],
+                 [URI(last_response.location).path, URI(last_response.location).query]
+    follow_redirect!
+    assert_includes last_response.body, 'Bloqueado'
+    assert_includes last_response.body, %(href="/admin/users/#{@beto.id}/delete")
+  end
+
+  def test_the_page_of_an_unknown_user_is_a_404
+    get '/admin/users/999'
+
+    assert_equal 404, last_response.status
+  end
+
+  # Their ledgers go with their files, then the rows. The usage stays, without a name.
+  def test_deleting_a_blocked_user_deletes_their_ledgers_and_rows
+    as_beto { sign_in(@beto) }
+    Frijolero::Users.block(@beto.id)
+    add_usage(@beto, at: Time.now, micros: 500_000)
+
+    get "/admin/users/#{@beto.id}/delete"
+    assert_includes last_response.body, 'Casa de Beto'
+    assert_includes last_response.body, 'beto@example.com'
+
+    post "/admin/users/#{@beto.id}/delete", confirm: ' BETO@example.com '
+
+    assert_includes notice, 'Usuario borrado'
+    assert_nil Frijolero::Users.find(@beto.id)
+    assert_nil Frijolero::Ledger.find(@beto_ledger.id)
+    refute_path_exists @beto_ledger.dir
+    assert_equal 1, Frijolero::DB.first('SELECT COUNT(*) AS n FROM usage WHERE user_id = ?', @beto.id)['n']
+    as_beto do
+      get '/admin'
+      assert_equal '/login', URI(last_response.location).path
+    end
+  end
+
+  # The email is free again, for a new invitation.
+  def test_deleting_an_invited_user_frees_the_email
+    carla = Frijolero::Users.invite(email: 'carla@example.com')
+
+    post "/admin/users/#{carla.id}/delete", confirm: 'carla@example.com'
+
+    assert_includes notice, 'Usuario borrado'
+    assert Frijolero::Users.invite(email: 'carla@example.com')
+  end
+
+  def test_an_active_user_is_blocked_before_the_delete
+    %i[get post].each do |method|
+      send(method, "/admin/users/#{@beto.id}/delete", confirm: 'beto@example.com')
+
+      assert_includes notice, 'Bloquea a esa persona', method
+    end
+    assert Frijolero::Users.find(@beto.id)
+  end
+
+  def test_delete_without_the_email_deletes_nothing
+    Frijolero::Users.block(@beto.id)
+
+    post "/admin/users/#{@beto.id}/delete", confirm: 'Beto'
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, 'escribe su correo: beto@example.com'
+    assert Frijolero::Users.find(@beto.id)
+    assert Frijolero::Ledger.find(@beto_ledger.id)
+  end
+
+  def test_delete_waits_for_a_job_in_progress
+    Frijolero::Users.block(@beto.id)
+    Frijolero::App.jobs.push(label: 'AMEX 2610') { nil }
+
+    post "/admin/users/#{@beto.id}/delete", confirm: 'beto@example.com'
+
+    assert_equal 409, last_response.status
+    assert Frijolero::Users.find(@beto.id)
+  end
+
+  def test_the_admin_cannot_delete_their_own_user
+    post "/admin/users/#{@admin.id}/delete", confirm: 'admin@example.com'
+
+    assert_includes notice, 'tu propia cuenta'
+    assert Frijolero::Users.find(@admin.id)
   end
 
   # That would lock the only admin out.

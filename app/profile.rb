@@ -9,7 +9,7 @@ module Frijolero
   class ProfilePage < Page
     NOTICES = {
       'name' => 'Nombre guardado.',
-      'deleted' => 'Ledger borrado.'
+      'ledger_deleted' => 'Ledger borrado.'
     }.freeze
 
     get '/profile' do

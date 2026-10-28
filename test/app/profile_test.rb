@@ -118,7 +118,7 @@ class ProfileTest < Minitest::Test
 
     post "/ledgers/#{@casa.id}/delete", confirm: ' Casa '
 
-    assert_equal [303, '/profile', 'notice=deleted'],
+    assert_equal [303, '/profile', 'notice=ledger_deleted'],
                  [last_response.status, URI(last_response.location).path, URI(last_response.location).query]
     assert_nil Frijolero::Ledger.find(@casa.id)
     refute_path_exists @casa.dir
@@ -167,15 +167,17 @@ class ProfileTest < Minitest::Test
     assert Frijolero::Ledger.find(@casa.id)
   end
 
-  # The same answer as an unknown id. The adopted ledger gets it too.
+  # The same answer as an unknown id, for the ledger of another user (the admin aside) and,
+  # for everyone, the adopted ledger.
   def test_another_users_ledger_and_the_adopted_ledger_are_the_404_of_an_unknown_id
     foreign = Frijolero::Ledger.create(owner_id: user('b@example.com').id, name: 'Ajeno')
     get '/ledgers/nope0000/delete'
     unknown = [last_response.status, last_response.body]
 
-    [foreign.id, 'test'].each do |id|
+    [[user('c@example.com'), foreign.id, 'Ajeno'], [@owner, 'test', 'Prueba']].each do |actor, id, name|
+      env 'frijolero.user', actor
       %i[get post].each do |method|
-        send(method, "/ledgers/#{id}/delete", confirm: id == 'test' ? 'Prueba' : 'Ajeno')
+        send(method, "/ledgers/#{id}/delete", confirm: name)
 
         assert_equal unknown, [last_response.status, last_response.body], "#{method} #{id}"
       end
@@ -183,6 +185,24 @@ class ProfileTest < Minitest::Test
     assert_equal 404, unknown.first
     assert Frijolero::Ledger.find(foreign.id)
     assert Frijolero::Ledger.find('test')
+  end
+
+  # The admin deletes the ledger of another user from that user's page, and goes back there.
+  def test_the_admin_deletes_the_ledger_of_another_user
+    beto = user('b@example.com')
+    foreign = Frijolero::Ledger.create(owner_id: beto.id, name: 'Ajeno')
+    Frijolero::NewLedger.prepare(foreign.repo_dir)
+
+    get "/ledgers/#{foreign.id}/delete"
+
+    assert_includes last_response.body, 'esta es su única copia'
+    refute_includes last_response.body, 'ledger/export', 'the admin cannot open the ledger of another user'
+    assert_includes last_response.body, %(href="/admin/users/#{beto.id}">Cancelar)
+
+    post "/ledgers/#{foreign.id}/delete", confirm: 'Ajeno'
+
+    assert_equal "/admin/users/#{beto.id}", URI(last_response.location).path
+    assert_nil Frijolero::Ledger.find(foreign.id)
   end
 
   private

@@ -54,7 +54,7 @@
           <% users.each do |person| %>
             <% glyph, word = Frijolero::Admin::STATUS[person.status] %>
             <tr>
-              <th scope="row"><% if person.name %><%= h(person.name) %> <span class="note"><%= h(person.email) %></span><% else %><%= h(person.email) %><% end %></th>
+              <th scope="row"><a href="/admin/users/<%= person.id %>"><% if person.name %><%= h(person.name) %> <span class="note"><%= h(person.email) %></span><% else %><%= h(person.email) %><% end %></a></th>
               <td data-label="Estado"><span class="status <%= glyph %>"><%= word %></span></td>
               <td data-label="Ledgers"><%= h(Frijolero::Ledger.owned_by(person.id).map(&:name).join(', ')) %></td>
               <td data-label="Tope (USD)">

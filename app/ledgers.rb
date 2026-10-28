@@ -6,10 +6,9 @@ module Frijolero
   # / and /ledgers/…: the user's ledgers, a new one, and the delete of one. A new ledger is
   # the template in a repo of its own, or the person's own repo: a deploy key first, then a
   # clone over SSH. The ledger of a /ledgers/<id>/ path belongs to the user, or the answer
-  # is a 404.
+  # is a 404. Only the delete lets the admin act on the ledger of another user.
   class Ledgers < Page
     MAX_LEDGERS = 5
-    BUSY = 'Hay una corrida o una clasificación en curso. Espera a que termine y vuelve a intentarlo.'
 
     # One ledger opens. An own repo that is not connected yet has no pages, so it shows
     # in the list, with the link to finish it.
@@ -60,9 +59,9 @@ module Frijolero
       halt 409, delete_page(ledger, error: BUSY) if busy?(ledger)
 
       destroy_ledger(ledger)
-      redirect '/profile?notice=deleted', 303
+      redirect "#{owner_page(ledger)}?notice=ledger_deleted", 303
     rescue S3::Error => e
-      halt 502, delete_page(ledger, error: "No se pudieron borrar los PDF del bucket. Prueba otra vez. (#{e.message})")
+      halt 502, delete_page(ledger, error: "#{BUCKET_FAILED} (#{e.message})")
     end
 
     helpers do
@@ -111,14 +110,17 @@ module Frijolero
 
     def delete_page(ledger, error: nil)
       erb :delete, locals: { title: "Borrar el ledger #{ledger.name}", ledgers: [ledger], person: nil,
-                             word: ledger.name, back: '/profile', error: error }
+                             word: ledger.name, back: owner_page(ledger), error: error }
     end
 
-    # A ledger of the user. The adopted ledger shares its PDF prefix with every other
-    # ledger, so the app never deletes it: it gets the 404 too.
+    # Mi cuenta for the owner, the owner's page in Usuarios for the admin.
+    def owner_page(ledger) = ledger.owner_id == user.id ? '/profile' : "/admin/users/#{ledger.owner_id}"
+
+    # A ledger of the user, or of anyone for the admin. The adopted ledger shares its PDF
+    # prefix with every other ledger, so the app never deletes it: it gets the 404 too.
     def ledger_to_delete
       ledger = Ledger.find(params[:id])
-      halt(*LedgerScope.not_found) unless ledger&.owner_id == user.id && ledger.own_pdfs?
+      halt(*LedgerScope.not_found) unless ledger && (ledger.owner_id == user.id || user.admin?) && ledger.own_pdfs?
       ledger
     end
   end

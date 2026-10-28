@@ -6,7 +6,8 @@ require_relative 'page'
 module Frijolero
   # /admin: the users, for the admin only. There is no sign-up: the admin invites each
   # person. Any other user gets, on every /admin path and method, the 404 of a page that
-  # does not exist. Each action redirects back to /admin with the code of its message.
+  # does not exist. Each action redirects back to /admin with the code of its message, or
+  # to the page of the person when the form says so.
   class Admin < Page
     NOTICES = {
       'invited' => 'Le mandamos la invitación. El enlace sirve 7 días.',
@@ -14,7 +15,9 @@ module Frijolero
       'blocked' => 'Bloqueado: ya no puede entrar, y se cerraron todas sus sesiones.',
       'unblocked' => 'Desbloqueado: ya puede entrar otra vez.',
       'signed_out' => 'Se cerraron todas sus sesiones.',
-      'cap' => 'Tope guardado.'
+      'cap' => 'Tope guardado.',
+      'deleted' => 'Usuario borrado.',
+      'ledger_deleted' => 'Ledger borrado.'
     }.freeze
 
     ERRORS = {
@@ -23,6 +26,7 @@ module Frijolero
       'mail' => 'No se pudo mandar el correo. Prueba otra vez con «Reenviar».',
       'not_invited' => 'Esa persona ya entró: solo se reenvía una invitación pendiente.',
       'self' => 'No puedes hacer eso con tu propia cuenta: te quedarías fuera.',
+      'not_blocked' => 'Bloquea a esa persona antes de borrarla, para que no empiece nada nuevo.',
       'cap' => 'El tope es una cantidad en dólares, como 5 o 5.50. Vacío es el tope de siempre, 3 dólares.'
     }.freeze
 
@@ -48,7 +52,20 @@ module Frijolero
       # lock out the only admin.
       def other_person = person.tap { |found| back(error: 'self') if found.id == user.id }
 
-      def back(**message) = redirect("/admin?#{Rack::Utils.build_query(message)}", 303)
+      def back(**message)
+        page = params['from'] == 'person' ? "/admin/users/#{params['id'].to_i}" : '/admin'
+        redirect("#{page}?#{Rack::Utils.build_query(message)}", 303)
+      end
+
+      # A user who can start nothing new, invited or blocked, and never the admin.
+      def deletable_person
+        other_person.tap { |found| back(error: 'not_blocked') unless %w[invited blocked].include?(found.status) }
+      end
+
+      def delete_user_page(person, error: nil)
+        erb :delete, locals: { title: "Borrar a #{person.name || person.email}", ledgers: Ledger.owned_by(person.id),
+                               person: person, word: person.email, back: "/admin/users/#{person.id}", error: error }
+      end
 
       def mail_invitation(person, notice)
         Signin.invite(person)
@@ -63,6 +80,31 @@ module Frijolero
     get '/admin' do
       erb :admin, locals: { users: Users.all, notice: NOTICES[params['notice']], error: ERRORS[params['error']],
                             inviting: %w[email exists].include?(params['error']) }
+    end
+
+    # One person: the buttons of their row, their ledgers and their use of the model.
+    get '/admin/users/:id' do
+      erb :admin_user, locals: { person: person, notice: NOTICES[params['notice']], error: ERRORS[params['error']] }
+    end
+
+    # The page says what goes and what stays, and the admin types the email of the person.
+    get('/admin/users/:id/delete') { delete_user_page(deletable_person) }
+
+    # Each ledger first, then the rows. A bucket error stops it with the user and the
+    # ledgers that remain, so a second click finishes.
+    post '/admin/users/:id/delete' do
+      found = deletable_person
+      unless params['confirm'].to_s.strip.casecmp?(found.email)
+        halt 422, delete_user_page(found, error: "Para borrarla, escribe su correo: #{found.email}")
+      end
+      ledgers = Ledger.owned_by(found.id)
+      halt 409, delete_user_page(found, error: BUSY) if ledgers.any? { busy?(it) }
+
+      ledgers.each { destroy_ledger(it) }
+      Users.delete(found.id)
+      back(notice: 'deleted')
+    rescue S3::Error => e
+      halt 502, delete_user_page(found, error: "#{BUCKET_FAILED} (#{e.message})")
     end
 
     post '/admin/invite' do

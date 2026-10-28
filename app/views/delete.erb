@@ -21,14 +21,16 @@
       <% end %>
       <% ledgers.each do |ledger| %>
         <li>
-          El ledger <strong><%= h(ledger.name) %></strong>: su copia en este servidor, sus PDF, sus corridas, su Bandeja y sus tokens de la API.
           <% if !connected?(ledger) %>
-            Todavía no tiene repo.
-          <% elsif (url = origin(ledger)) %>
-            Su repo en <code><%= h(url) %></code> se queda como está, con todo su historial. Quita de ese repo la llave de deploy de Frijolero.
+            El ledger <strong><%= h(ledger.name) %></strong>, que todavía no tiene repo.
           <% else %>
-            No tiene remoto: esta es su única copia.
-            <% if ledger.owner_id == user.id %><a href="/l/<%= ledger.id %>/ledger/export">Descárgalo antes</a>.<% end %>
+            El ledger <strong><%= h(ledger.name) %></strong>: su copia en este servidor, sus PDF, sus corridas, su Bandeja y sus tokens de la API.
+            <% if (url = origin(ledger)) %>
+              Su repo en <code><%= h(url) %></code> se queda como está, con todo su historial. Quita de ese repo la llave de deploy de Frijolero.
+            <% else %>
+              No tiene remoto: esta es su única copia.
+              <% if ledger.owner_id == user.id %><a href="/l/<%= ledger.id %>/ledger/export">Descárgalo antes</a>.<% end %>
+            <% end %>
           <% end %>
         </li>
       <% end %>

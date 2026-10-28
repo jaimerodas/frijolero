@@ -12,6 +12,9 @@ module Frijolero
   class Page < Sinatra::Base
     set :views, App.views
 
+    BUSY = 'Hay una corrida o una clasificación en curso. Espera a que termine y vuelve a intentarlo.'
+    BUCKET_FAILED = 'No se pudieron borrar los PDF del bucket. Prueba otra vez.'
+
     helpers LocalTime
     helpers do
       def user = env['frijolero.user']
