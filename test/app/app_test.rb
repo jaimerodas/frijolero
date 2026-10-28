@@ -209,6 +209,28 @@ class AppTest < Minitest::Test
     assert_equal '/login', URI(last_response.location).path
   end
 
+  def test_a_link_that_changes_the_email_signs_in_with_the_new_one
+    token = Frijolero::Signin.issue(admin, ttl: 60, new_email: 'nuevo@example.com')
+
+    post "/login/#{token}"
+
+    assert_equal '/', URI(last_response.location).path
+    assert_equal 1, Frijolero::Users.find_by_email('nuevo@example.com').id
+  end
+
+  # Another user took the email between the request and the click.
+  def test_a_link_to_an_email_of_another_user_says_so_and_signs_in_nobody
+    token = Frijolero::Signin.issue(admin, ttl: 60, new_email: 'beto@example.com')
+    Frijolero::Users.invite(email: 'beto@example.com')
+
+    post "/login/#{token}"
+
+    assert_includes last_response.body, 'Ese correo ya es de otra cuenta'
+    assert Frijolero::Users.find_by_email('admin@example.com')
+    get '/'
+    assert_equal '/login', URI(last_response.location).path
+  end
+
   def test_an_unknown_link_shows_the_expired_page
     post '/login/nope'
 

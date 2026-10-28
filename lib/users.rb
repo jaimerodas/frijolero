@@ -34,6 +34,12 @@ module Frijolero
         DB.execute('UPDATE users SET name = ? WHERE id = ?', name.empty? ? nil : name, id)
       end
 
+      # The user with the new email, or nil when another user has it. The UNIQUE column
+      # decides, so two changes at once cannot both take one email.
+      def change_email(id, email)
+        one("UPDATE OR IGNORE users SET email = ? WHERE id = ? RETURNING #{COLUMNS}", email.to_s.strip, id)
+      end
+
       def activate(id) = DB.execute("UPDATE users SET status = 'active' WHERE id = ? AND status = 'invited'", id)
 
       # The new session_version ends the session of every device at once.

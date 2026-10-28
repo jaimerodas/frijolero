@@ -95,6 +95,53 @@ class ProfileTest < Minitest::Test
     assert_nil Frijolero::Users.find(@owner.id).name
   end
 
+  def test_change_email_mails_the_link_and_keeps_the_email_until_the_click
+    with_mailer do |mailer|
+      post '/profile/email', email: ' nuevo@example.com '
+
+      assert_equal ['/profile', 'notice=email'], [URI(last_response.location).path, URI(last_response.location).query]
+      assert_equal(['nuevo@example.com'], mailer.sent.map { it[:to] })
+      assert_equal 'admin@example.com', Frijolero::Users.find(@owner.id).email
+    end
+  end
+
+  # A second submit within the minute (a double tap, a password manager) is over the limit:
+  # it sends nothing and says the same as the first, which did send.
+  def test_a_second_submit_within_the_minute_sends_nothing_and_says_the_same
+    with_mailer do |mailer|
+      2.times do
+        post '/profile/email', email: 'nuevo@example.com'
+
+        assert_equal 'notice=email', URI(last_response.location).query
+      end
+      assert_equal 1, mailer.sent.size
+    end
+  end
+
+  def test_change_email_refuses_a_bad_or_the_same_email
+    with_mailer do |mailer|
+      { 'nuevo' => 'error=email', 'ADMIN@example.com' => 'error=same' }.each do |email, query|
+        post '/profile/email', email: email
+
+        assert_equal query, URI(last_response.location).query, email
+      end
+      assert_empty mailer.sent
+    end
+  end
+
+  def test_a_mail_failure_on_change_email_says_so
+    failing = Object.new
+    def failing.deliver(**) = raise(Frijolero::Postmark::Error, 'Postmark: inactive recipient')
+    Frijolero::Log.sink = StringIO.new
+    with_mailer(failing) do
+      post '/profile/email', email: 'nuevo@example.com'
+
+      assert_equal 'error=mail', URI(last_response.location).query
+    end
+  ensure
+    Frijolero::Log.sink = nil
+  end
+
   def test_the_delete_page_says_what_goes_and_links_the_export
     get "/ledgers/#{@casa.id}/delete"
 
@@ -206,6 +253,14 @@ class ProfileTest < Minitest::Test
   end
 
   private
+
+  # Signin's mailer and APP_URL for its links, put back after the block.
+  def with_mailer(mailer = Struct.new(:sent) { def deliver(**message) = sent << message }.new([]))
+    Frijolero::Signin.mailer = mailer
+    with_env('APP_URL' => 'https://frijolero.test') { yield mailer }
+  ensure
+    Frijolero::Signin.mailer = nil
+  end
 
   # The row of this month in the history.
   def month_row

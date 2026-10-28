@@ -86,6 +86,53 @@ class SigninTest < Minitest::Test
     assert_nil Frijolero::Signin.redeem(raw)
   end
 
+  # The email stays until the click, which proves that the person reads the new inbox.
+  def test_change_email_mails_a_link_to_the_new_address
+    user = add_user
+
+    Frijolero::Signin.change_email(user, 'nueva@example.com', now: T)
+
+    assert_equal([['nueva@example.com', 'Confirma tu correo nuevo de Frijolero']],
+                 @mailer.sent.map { it.values_at(:to, :subject) })
+    assert_includes @mailer.sent.first[:text], 'https://frijolero.test/login/'
+    assert_equal 'ana@example.com', Frijolero::Users.find(user.id).email
+  end
+
+  def test_the_link_changes_the_email_and_tells_the_old_address
+    user = add_user
+    Frijolero::Signin.change_email(user, 'nueva@example.com')
+
+    moved = Frijolero::Signin.redeem(last_token)
+
+    assert_equal [user.id, 'nueva@example.com'], [moved.id, moved.email]
+    assert_equal user.id, Frijolero::Users.find_by_email('nueva@example.com').id
+    assert_equal ['ana@example.com', 'Tu correo de Frijolero cambió'], @mailer.sent.last.values_at(:to, :subject)
+  end
+
+  # Nothing told the person that the email had a user, so the click is where it fails.
+  def test_the_link_to_an_email_that_another_user_has_changes_nothing
+    user = add_user
+    Frijolero::Signin.change_email(user, 'beto@example.com')
+    add_user('Beto@example.com')
+
+    assert_raises(Frijolero::Signin::EmailTaken) { Frijolero::Signin.redeem(last_token) }
+
+    assert_equal 'ana@example.com', Frijolero::Users.find(user.id).email
+  end
+
+  # The two kinds go to two inboxes, so each has its own count: a person who just entered
+  # with a link can change the email at once, but not ask for two changes in a minute.
+  def test_change_links_have_their_own_limit
+    user = add_user
+    Frijolero::Signin.request(user.email, now: T)
+
+    assert Frijolero::Signin.change_email(user, 'nueva@example.com', now: T + 10)
+    assert_nil Frijolero::Signin.change_email(user, 'nueva@example.com', now: T + 30)
+    Frijolero::Signin.request(user.email, now: T + 70)
+
+    assert_equal(%w[ana@example.com nueva@example.com ana@example.com], @mailer.sent.map { it[:to] })
+  end
+
   def test_link_comes_from_app_url
     assert_equal 'https://frijolero.test/login/abc', Frijolero::Signin.link('abc')
   end

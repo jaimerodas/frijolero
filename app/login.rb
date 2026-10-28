@@ -108,6 +108,8 @@ module Frijolero
       halt login_page(error: 'Este enlace ya no sirve: ya se usó o venció. Pide otro.') unless user
 
       start_session(user)
+    rescue Signin::EmailTaken
+      login_page(error: 'Ese correo ya es de otra cuenta, así que tu correo no cambió.')
     end
 
     post('/logout') { sign_out }
