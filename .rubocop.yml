@@ -57,10 +57,14 @@ Metrics/MethodLength:
 # Statement#initialize takes the six things a job knows about one PDF (client, bucket,
 # account, period, overwrite, dry run); they are optional keywords with defaults,
 # and an options hash would only hide them.
+#
+# Usage.record takes the six facts of one model call (prompt, model, PDF and three token
+# counts); the keywords name them at both clients.
 Metrics/ParameterLists:
   Exclude:
     - 'bin/demo-ledger'
     - 'lib/statement.rb'
+    - 'lib/usage.rb'
 
 # `s3` is what the class (Frijolero::S3) and the collaborator are called everywhere
 # else, so it is the name the keyword argument has to have. The rest of the list is
@@ -120,6 +124,9 @@ Metrics/ClassLength:
     # for the upload and the Bandeja.
     - 'app/app.rb'
     - 'app/uploads.rb'
+    # S3 is the SigV4 signature (canonical request, string to sign, key derivation)
+    # plus its four calls, ~110 lines; the signature is the class.
+    - 'lib/s3.rb'
 
 # Reports is one BQL query per report plus the parsing of what comes back and the
 # three made-up equity rows of the balance sheet. ~110 lines of small functions

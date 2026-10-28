@@ -2,7 +2,8 @@
 # Copies a backup of Frijolero to the bucket: the database, a git bundle of each ledger
 # and each job log, in the one .tar.gz that bin/backup makes in the web container.
 # Installed on the server as /usr/local/bin/frijolero-backup by .kamal/hooks/post-deploy,
-# and run daily by /etc/cron.d/frijolero-backup. Nothing prunes old archives.
+# and run daily by /etc/cron.d/frijolero-backup. A lifecycle rule of the bucket deletes
+# each archive after 30 days.
 #
 # The PDFs are not in it: they are in the same bucket already. Nor are the uploads that
 # wait in the Bandeja (a person can upload them again), or the deploy keys (private

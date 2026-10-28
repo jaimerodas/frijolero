@@ -37,6 +37,16 @@ class LocalPdfsTest < Minitest::Test
     assert_empty @store.list('frijolero/accounts/HSBC/')
   end
 
+  def test_delete_prefix_deletes_only_the_files_under_the_prefix
+    @store.put('frijolero/ledgers/abc/accounts/AMEX/AMEX 2608.pdf', @pdf)
+    @store.put('frijolero/ledgers/abcd/accounts/AMEX/AMEX 2608.pdf', @pdf)
+
+    @store.delete_prefix('frijolero/ledgers/abc/')
+
+    assert_empty @store.list('frijolero/ledgers/abc/accounts/AMEX/')
+    assert_equal 1, @store.list('frijolero/ledgers/abcd/accounts/AMEX/').size
+  end
+
   def test_presigned_url_is_the_app_route_with_the_key_escaped
     assert_equal '/pdfs/frijolero/accounts/BBVA%20TDC/BBVA%20TDC%202608.pdf', @store.presigned_url(KEY)
   end

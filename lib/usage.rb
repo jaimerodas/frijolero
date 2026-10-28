@@ -29,14 +29,15 @@ module Frijolero
       def usd(micros) = format('%.2f', Rational(micros, 1_000_000))
 
       # Returns the cost in micro-dollars. The call is already paid, so an unknown model
-      # costs 0 and a warning, and never raises.
-      def record(prompt:, model:, input_tokens:, cached_tokens:, output_tokens:)
+      # costs 0 and a warning, and never raises. The directory of `pdf` is the token of
+      # its upload (incoming/<token>/), so a second extraction of one upload is a retry.
+      def record(prompt:, model:, pdf:, input_tokens:, cached_tokens:, output_tokens:)
         cost = cost_micros(model, input_tokens, cached_tokens, output_tokens)
         ledger = Ledger.current
-        DB.insert('INSERT INTO usage (user_id, ledger_id, prompt, model, input_tokens, cached_tokens, ' \
-                  'output_tokens, cost_micros, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                  ledger.owner_id, ledger.id, prompt, model, input_tokens, cached_tokens, output_tokens, cost,
-                  Time.now.utc.iso8601)
+        DB.insert('INSERT INTO usage (user_id, ledger_id, upload, prompt, model, input_tokens, cached_tokens, ' \
+                  'output_tokens, cost_micros, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                  ledger.owner_id, ledger.id, File.basename(File.dirname(pdf)), prompt, model, input_tokens,
+                  cached_tokens, output_tokens, cost, Time.now.utc.iso8601)
         cost
       end
 

@@ -34,8 +34,15 @@ class S3Test < Minitest::Test
     def get(uri, headers)
       @uri = uri
       @headers = headers
-      @get_response
+      @get_response.is_a?(Array) ? @get_response.shift : @get_response
     end
+
+    def delete(uri, headers)
+      (@deleted ||= []) << [uri.to_s, headers]
+      :ok
+    end
+
+    def deleted = @deleted || []
   end
 
   AWS_KEY_ID = 'AKIAIOSFODNN7EXAMPLE'
@@ -224,6 +231,28 @@ class S3Test < Minitest::Test
     assert_equal Time.iso8601('2026-09-05T14:30:05.000Z'), entries[0][:last_modified]
     assert_equal 'frijolero/accounts/AT&T/AT&T 2508.pdf', entries[1][:key]
     assert_equal 999, entries[1][:size]
+  end
+
+  # list reads one page of 1000 keys, so delete_prefix lists again until nothing is left.
+  def test_delete_prefix_deletes_each_listed_key_until_the_list_is_empty
+    page = lambda do |*keys|
+      contents = keys.map { "<Contents><Key>#{it}</Key><LastModified>2026-09-05T14:30:05Z</LastModified></Contents>" }
+      "<ListBucketResult>#{contents.join}</ListBucketResult>"
+    end
+    transport = FakeTransport.new
+    transport.get_response = [page.call('l/a/A 2608.pdf', 'l/a/A 2609.pdf'), page.call('l/b/B 2608.pdf'), page.call]
+    client = s3
+    client.transport = transport
+
+    client.delete_prefix('l/')
+
+    assert_equal ['https://my-bucket.s3.us-west-004.backblazeb2.com/l/a/A%202608.pdf',
+                  'https://my-bucket.s3.us-west-004.backblazeb2.com/l/a/A%202609.pdf',
+                  'https://my-bucket.s3.us-west-004.backblazeb2.com/l/b/B%202608.pdf'],
+                 transport.deleted.map(&:first)
+    headers = transport.deleted.first.last
+    assert_equal EMPTY_SHA256, headers['x-amz-content-sha256']
+    assert_match(/\AAWS4-HMAC-SHA256 Credential=KEYID.*Signature=\h{64}\z/, headers['authorization'])
   end
 
   def test_transport_get_returns_the_body_on_success

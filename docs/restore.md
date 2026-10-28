@@ -13,7 +13,8 @@ Cada día a las 10:15 UTC, el servidor sube un respaldo al bucket, en
 
 Antes de subirlo, el respaldo revisa la base de datos con
 `PRAGMA integrity_check` y cada bundle con `git bundle verify`. Si una
-revisión falla, no sube nada. Nada borra los respaldos viejos.
+revisión falla, no sube nada. Una regla del bucket borra cada respaldo a los
+30 días (ver [Las reglas del bucket](#las-reglas-del-bucket)).
 
 El respaldo no tiene:
 
@@ -147,3 +148,46 @@ Para cada ledger con remoto por SSH (`bin/restore` imprime su `git@…`):
 2. En GitHub, abre el repo del ledger → Settings → Deploy keys. Borra la
    llave vieja. Agrega la nueva y marca "Allow write access".
 3. En la app, presiona "Actualizar" en un reporte para probar el pull.
+
+## Las reglas del bucket
+
+Un bucket de B2 guarda cada versión de un archivo. Cuando la app borra un PDF,
+B2 solo lo oculta, y lo sigue guardando y cobrando. Dos reglas del bucket
+hacen el borrado de verdad. Ponlas a mano en la página del bucket en
+Backblaze → Lifecycle Settings → Use custom lifecycle rules. El bucket es de
+varias apps, así que cada regla nombra un prefijo de Frijolero:
+
+| Prefijo | Ocultar a los | Borrar lo oculto a los |
+|---|---|---|
+| `frijolero/ledgers/` | (vacío) | 30 días |
+| `frijolero/daily/` | 30 días | 1 día |
+
+La primera borra los PDF de un ledger borrado, y las versiones viejas que
+deja "Sobrescribir". La segunda borra cada respaldo a los 30 días.
+
+## Recuperar un ledger borrado
+
+Durante 30 días después de borrar un ledger, un respaldo de antes del borrado
+todavía tiene su repo, y el bucket todavía tiene sus PDF ocultos. Después, no
+queda nada.
+
+1. Baja un respaldo de antes del borrado (paso 1 de [Restaurar](#restaurar)).
+2. Saca el bundle del ledger y clónalo:
+
+   ```bash
+   tar -xzf <archivo> ./ledgers/<id>.bundle
+   git clone ledgers/<id>.bundle <id>
+   ```
+
+3. Lista las versiones de sus PDF y baja la que quieras, con las llaves del
+   paso 1:
+
+   ```bash
+   aws s3api list-object-versions --bucket <bucket> --prefix frijolero/ledgers/<id>/ \
+     --endpoint-url https://<endpoint>
+   aws s3api get-object --bucket <bucket> --key '<Key>' --version-id <VersionId> <archivo>.pdf \
+     --endpoint-url https://<endpoint>
+   ```
+
+El repo y los PDF quedan en la laptop. Para usarlos en la app, crea un ledger
+nuevo con el repo como remoto, y sube los PDF otra vez.

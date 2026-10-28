@@ -4,8 +4,8 @@ require 'fileutils'
 require 'rack/utils'
 
 module Frijolero
-  # Where the PDFs go when no bucket is set: the three calls the app makes on S3,
-  # over one directory. `presigned_url` is the app's own /pdfs route.
+  # Where the PDFs go when no bucket is set: the calls the app makes on S3, over one
+  # directory. `presigned_url` is the app's own /pdfs route.
   class LocalPdfs
     def initialize(dir)
       @dir = dir
@@ -25,6 +25,8 @@ module Frijolero
     end
 
     def presigned_url(key) = "/pdfs/#{Rack::Utils.escape_path(key)}"
+
+    def delete_prefix(prefix) = FileUtils.rm_rf(File.join(@dir, prefix))
 
     # The file for a key, or nil when it is missing or outside the directory.
     def path(key)

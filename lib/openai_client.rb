@@ -30,7 +30,7 @@ module Frijolero
       data ||= poll_response(create(body))
       raise LLM::APIError, "OpenAI left the response queued for #{@queue_limit}s, twice" unless data
 
-      record_usage(spec, data)
+      record_usage(spec, pdf_path, data)
       text = response_text(data)
       raise LLM::APIError, "Failed to extract transactions: #{data}" unless text
 
@@ -57,11 +57,12 @@ module Frijolero
     end
 
     # Before the text is parsed: the call is paid even if the parsing fails.
-    def record_usage(spec, data)
+    def record_usage(spec, pdf_path, data)
       usage = data['usage']
       Log.puts 'Warning: the response has no usage; recording zeros' unless usage
       usage ||= {}
-      Usage.record(prompt: spec['_prompt'], model: spec['model'], input_tokens: usage['input_tokens'] || 0,
+      Usage.record(prompt: spec['_prompt'], model: spec['model'], pdf: pdf_path,
+                   input_tokens: usage['input_tokens'] || 0,
                    cached_tokens: usage.dig('input_tokens_details', 'cached_tokens') || 0,
                    output_tokens: usage['output_tokens'] || 0)
     end

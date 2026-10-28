@@ -41,6 +41,16 @@ module Frijolero
         DB.execute('UPDATE users SET session_version = session_version + 1 WHERE id = ?', id)
       end
 
+      # The user's rows, after Ledger.destroy of each of their ledgers: the foreign key of
+      # ledgers refuses the delete before that. Their usage rows stay, without a name.
+      def delete(id)
+        DB.transaction do
+          DB.execute('DELETE FROM passkeys WHERE user_id = ?', id)
+          DB.execute('DELETE FROM signin_tokens WHERE user_id = ?', id)
+          DB.execute('DELETE FROM users WHERE id = ?', id)
+        end
+      end
+
       # nil means Usage::DEFAULT_CAP_MICROS.
       def set_cap(id, micros) = DB.execute('UPDATE users SET monthly_cap_micros = ? WHERE id = ?', micros, id)
 

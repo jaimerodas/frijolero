@@ -51,9 +51,32 @@ module Frijolero
     def self.create(owner_id:, name:)
       id = new_id
       DB.execute('INSERT INTO ledgers (id, owner_id, name, main_file, pdf_prefix, created_at) ' \
-                 "VALUES (?, ?, ?, 'main.beancount', ?, ?)", id, owner_id, name, "frijolero/ledgers/#{id}",
+                 "VALUES (?, ?, ?, 'main.beancount', ?, ?)", id, owner_id, name, own_prefix(id),
                  Time.now.utc.iso8601)
       find(id).tap { |ledger| FileUtils.mkdir_p(ledger.dir) }
+    end
+
+    def self.own_prefix(id) = "frijolero/ledgers/#{id}"
+
+    # The PDFs under its prefix belong to this ledger alone. Not so for the adopted ledger:
+    # its prefix, frijolero, holds every other ledger and the backups.
+    def own_pdfs? = pdf_prefix == Ledger.own_prefix(id)
+
+    # Its PDFs (an S3 or a LocalPdfs), then its directory (the clone, the job log, the
+    # uploads and the deploy key), then its rows. The bucket goes first because it is the
+    # step that can fail: the row stays until the rest is gone, so the delete can run again.
+    # Its usage rows stay: the cap of the month counts them.
+    def self.destroy(ledger, pdfs)
+      raise ArgumentError, "El ledger #{ledger.id} comparte sus PDF con otros: se borra a mano" unless ledger.own_pdfs?
+
+      lock(ledger.id) do
+        pdfs.delete_prefix("#{ledger.pdf_prefix}/")
+        FileUtils.rm_rf(ledger.dir)
+        DB.transaction do
+          DB.execute('DELETE FROM api_tokens WHERE ledger_id = ?', ledger.id)
+          DB.execute('DELETE FROM ledgers WHERE id = ?', ledger.id)
+        end
+      end
     end
 
     # The column names come from this list, never from the caller. The app appends to

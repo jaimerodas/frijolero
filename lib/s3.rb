@@ -63,6 +63,10 @@ module Frijolero
         request_and_raise(Net::HTTP::Get.new(uri, headers), uri, 'GET').body
       end
 
+      def delete(uri, headers)
+        request_and_raise(Net::HTTP::Delete.new(uri, headers), uri, 'DELETE')
+      end
+
       private
 
       def request_and_raise(request, uri, verb)
@@ -128,6 +132,15 @@ module Frijolero
       ListParser.parse(transport.get(URI("https://#{host}#{bucket_path}?#{query}"), headers))
     end
 
+    # DELETE each object under `prefix`. list reads one page, so this lists again until
+    # nothing is left. On a versioned bucket (a B2 bucket always is), a DELETE only hides
+    # the object: a lifecycle rule of the bucket deletes it later.
+    def delete_prefix(prefix)
+      until (objects = list(prefix)).empty?
+        objects.each { |object| delete(object[:key]) }
+      end
+    end
+
     # A GET URL signed with query parameters, valid for `expires_in` seconds.
     def presigned_url(key, expires_in: 600)
       host, uri_path = host_and_path(key)
@@ -139,6 +152,13 @@ module Frijolero
     end
 
     private
+
+    def delete(key)
+      host, uri_path = host_and_path(key)
+      headers = { 'host' => host, 'x-amz-content-sha256' => hex(''), 'x-amz-date' => amz_date }
+      headers['authorization'] = authorization('DELETE', uri_path, '', headers)
+      transport.delete(URI("https://#{host}#{uri_path}"), headers)
+    end
 
     def transport
       @transport ||= Transport.new

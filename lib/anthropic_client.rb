@@ -19,7 +19,7 @@ module Frijolero
 
     def extract(pdf_path, spec)
       data = @transport.post_json('/messages', request_body(spec, pdf_path))
-      record_usage(spec, data['usage'] || {})
+      record_usage(spec, pdf_path, data['usage'] || {})
       check_stop(data)
 
       text = data['content']&.find { |c| c['type'] == 'text' }&.fetch('text', nil)
@@ -51,11 +51,11 @@ module Frijolero
 
     # Before the stop_reason check: those tokens are paid too. Anthropic's input_tokens
     # leaves the cache out, but Usage counts cached tokens as part of the input.
-    def record_usage(spec, usage)
+    def record_usage(spec, pdf_path, usage)
       cached = usage['cache_read_input_tokens'] || 0
       input = (usage['input_tokens'] || 0) + cached + (usage['cache_creation_input_tokens'] || 0)
-      Usage.record(prompt: spec['_prompt'], model: spec['model'], input_tokens: input, cached_tokens: cached,
-                   output_tokens: usage['output_tokens'] || 0)
+      Usage.record(prompt: spec['_prompt'], model: spec['model'], pdf: pdf_path, input_tokens: input,
+                   cached_tokens: cached, output_tokens: usage['output_tokens'] || 0)
     end
 
     def document(pdf_path)

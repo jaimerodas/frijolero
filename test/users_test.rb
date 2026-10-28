@@ -111,6 +111,32 @@ class UsersTest < Minitest::Test
     assert_equal 'active', Frijolero::Users.find(id).status
   end
 
+  def test_delete_removes_the_user_their_passkeys_and_links_and_keeps_the_usage
+    id = add_user('ana@example.com')
+    Frijolero::DB.execute("INSERT INTO passkeys (id, user_id, public_key, created_at) VALUES ('k', ?, x'00', '')", id)
+    Frijolero::Signin.issue(Frijolero::Users.find(id), ttl: 60)
+    Frijolero::DB.execute('INSERT INTO usage (user_id, ledger_id, prompt, model, input_tokens, output_tokens, ' \
+                          "cost_micros, at) VALUES (?, 'gone', 'default', 'm', 1, 1, 5, '')", id)
+
+    Frijolero::Users.delete(id)
+
+    assert_nil Frijolero::Users.find(id)
+    %w[passkeys signin_tokens].each do |table|
+      assert_equal 0, Frijolero::DB.first("SELECT COUNT(*) AS n FROM #{table}")['n'], table
+    end
+    assert_equal 1, Frijolero::DB.first('SELECT COUNT(*) AS n FROM usage WHERE user_id = ?', id)['n']
+  end
+
+  # Ledger.destroy goes first: it deletes the files that the rows point to.
+  def test_delete_of_a_user_who_still_has_a_ledger_is_refused
+    id = add_user('ana@example.com')
+    Frijolero::Ledger.create(owner_id: id, name: 'Casa')
+
+    assert_raises(SQLite3::ConstraintException) { Frijolero::Users.delete(id) }
+
+    assert Frijolero::Users.find(id)
+  end
+
   def test_set_cap_stores_micros_and_nil_means_the_default
     id = add_user('ana@example.com')
 

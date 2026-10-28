@@ -10,7 +10,8 @@ class UsageTest < Minitest::Test
   DB = Frijolero::DB
 
   def record(model: 'gpt-6.1-sol', input: 0, cached: 0, output: 0)
-    Usage.record(prompt: 'default', model: model, input_tokens: input, cached_tokens: cached, output_tokens: output)
+    Usage.record(prompt: 'default', model: model, pdf: '/data/incoming/0123abcd/AMEX.pdf', input_tokens: input,
+                 cached_tokens: cached, output_tokens: output)
   end
 
   def add_row(user_id, at, cost)
@@ -50,9 +51,9 @@ class UsageTest < Minitest::Test
       record(input: 10, cached: 4, output: 2)
 
       row = DB.first('SELECT * FROM usage')
-      assert_equal [Frijolero::Ledger.current.owner_id, 'test', 'default', 'gpt-6.1-sol', 10, 4, 2],
-                   row.values_at('user_id', 'ledger_id', 'prompt', 'model', 'input_tokens', 'cached_tokens',
-                                 'output_tokens')
+      assert_equal [Frijolero::Ledger.current.owner_id, 'test', '0123abcd', 'default', 'gpt-6.1-sol', 10, 4, 2],
+                   row.values_at('user_id', 'ledger_id', 'upload', 'prompt', 'model', 'input_tokens',
+                                 'cached_tokens', 'output_tokens')
       assert_match(/\A\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ\z/, row['at'])
     end
   end
@@ -104,6 +105,29 @@ class UsageTest < Minitest::Test
 
       add_row(me, Time.new(2026, 10, 3).utc.iso8601, 1)
       assert Usage.capped?(me, now: now)
+    end
+  end
+
+  # Version 4 rebuilds the table without its foreign keys.
+  def test_the_rows_of_before_version_4_stay
+    with_temp_dir do |dir|
+      with_env('DATA_DIR' => dir) do
+        db = SQLite3::Database.new(DB.path)
+        DB::MIGRATIONS.first(3).each { db.execute_batch(File.read(it)) }
+        db.execute_batch(<<~SQL)
+          PRAGMA user_version = 3;
+          INSERT INTO users (id, email, created_at) VALUES (1, 'a@example.com', '');
+          INSERT INTO ledgers (id, owner_id, name, pdf_prefix, created_at) VALUES ('l', 1, 'L', 'p', '');
+          INSERT INTO usage (user_id, ledger_id, prompt, model, input_tokens, output_tokens, cost_micros, at)
+            VALUES (1, 'l', 'default', 'm', 1, 2, 3, '2026-10-01T00:00:00Z');
+        SQL
+        db.close
+
+        DB.execute('DELETE FROM ledgers')
+
+        rows = DB.execute('SELECT user_id, ledger_id, upload, cost_micros FROM usage').map(&:values)
+        assert_equal [[1, 'l', nil, 3]], rows
+      end
     end
   end
 
