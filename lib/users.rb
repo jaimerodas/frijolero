@@ -28,6 +28,12 @@ module Frijolero
             Time.now.utc.iso8601)
       end
 
+      # An empty name is none.
+      def rename(id, name)
+        name = name.to_s.strip
+        DB.execute('UPDATE users SET name = ? WHERE id = ?', name.empty? ? nil : name, id)
+      end
+
       def activate(id) = DB.execute("UPDATE users SET status = 'active' WHERE id = ? AND status = 'invited'", id)
 
       # The new session_version ends the session of every device at once.

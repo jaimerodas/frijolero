@@ -3,11 +3,13 @@
 require_relative 'page'
 
 module Frijolero
-  # / and /ledgers/…: the user's ledgers and a new one. A new ledger is the template in a
-  # repo of its own, or the person's own repo: a deploy key first, then a clone over SSH.
-  # The ledger of a /ledgers/<id>/ path belongs to the user, or the answer is a 404.
+  # / and /ledgers/…: the user's ledgers, a new one, and the delete of one. A new ledger is
+  # the template in a repo of its own, or the person's own repo: a deploy key first, then a
+  # clone over SSH. The ledger of a /ledgers/<id>/ path belongs to the user, or the answer
+  # is a 404.
   class Ledgers < Page
     MAX_LEDGERS = 5
+    BUSY = 'Hay una corrida o una clasificación en curso. Espera a que termine y vuelve a intentarlo.'
 
     # One ledger opens. An own repo that is not connected yet has no pages, so it shows
     # in the list, with the link to finish it.
@@ -47,9 +49,23 @@ module Frijolero
       connect_page(ledger, url: url, error: e.message)
     end
 
-    helpers do
-      def connected?(ledger) = File.directory?(ledger.repo_dir)
+    # The page says what goes and what stays, and the person types the name of the ledger.
+    get('/ledgers/:id/delete') { delete_page(ledger_to_delete) }
 
+    post '/ledgers/:id/delete' do
+      ledger = ledger_to_delete
+      unless params[:confirm].to_s.strip == ledger.name
+        halt 422, delete_page(ledger, error: "Para borrarlo, escribe el nombre del ledger: #{ledger.name}")
+      end
+      halt 409, delete_page(ledger, error: BUSY) if busy?(ledger)
+
+      destroy_ledger(ledger)
+      redirect '/profile?notice=deleted', 303
+    rescue S3::Error => e
+      halt 502, delete_page(ledger, error: "No se pudieron borrar los PDF del bucket. Prueba otra vez. (#{e.message})")
+    end
+
+    helpers do
       def new_ledger_page(error: nil) = erb(:ledgers_new, locals: { error: error })
 
       # The page makes the deploy key the first time that it shows it.
@@ -91,6 +107,19 @@ module Frijolero
     rescue LedgerRepo::Error
       FileUtils.rm_rf(ledger.repo_dir)
       raise
+    end
+
+    def delete_page(ledger, error: nil)
+      erb :delete, locals: { title: "Borrar el ledger #{ledger.name}", ledgers: [ledger], person: nil,
+                             word: ledger.name, back: '/profile', error: error }
+    end
+
+    # A ledger of the user. The adopted ledger shares its PDF prefix with every other
+    # ledger, so the app never deletes it: it gets the 404 too.
+    def ledger_to_delete
+      ledger = Ledger.find(params[:id])
+      halt(*LedgerScope.not_found) unless ledger&.owner_id == user.id && ledger.own_pdfs?
+      ledger
     end
   end
 end

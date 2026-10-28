@@ -48,6 +48,21 @@ module Frijolero
                  user_id, from, to)['total']
       end
 
+      # One row per local month with a call, newest first: the files that reached the model,
+      # the extractions that read a file again (retries), and the cost. A row from before
+      # the upload column has no upload, so its extraction counts as a file of its own.
+      def history(user_id)
+        DB.execute(<<~SQL, user_id)
+          SELECT month, COUNT(DISTINCT file) AS files,
+                 SUM(extraction) - COUNT(DISTINCT CASE WHEN extraction THEN file END) AS retries,
+                 SUM(cost_micros) AS micros
+          FROM (SELECT strftime('%Y-%m', at, 'localtime') AS month, cost_micros, prompt <> 'classify' AS extraction,
+                       COALESCE(upload, CASE WHEN prompt <> 'classify' THEN 'call ' || id END) AS file
+                FROM usage WHERE user_id = ?)
+          GROUP BY month ORDER BY month DESC
+        SQL
+      end
+
       private
 
       # The UTC ISO 8601 start of this month and of the next, from local midnights.

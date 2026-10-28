@@ -56,9 +56,9 @@ module TestHelpers
   # 'SCRIPT_NAME' => LEDGER_ROOT in the env to get a page as production serves it.
   LEDGER_ROOT = '/l/test0000'
 
-  # The paths outside this ledger: Login's /logout, the pages of Ledgers, Admin and
-  # PasskeysPage, and the dashboard of another ledger (the switcher).
-  OUTSIDE_LEDGERS = %r{\A/(logout|ledgers(/.*)?|admin(/.*)?|passkeys|l/[a-z0-9]+/)?\z}
+  # The paths outside this ledger: Login's /logout, the pages of Ledgers, Admin,
+  # PasskeysPage and ProfilePage, and the dashboard of another ledger (the switcher).
+  OUTSIDE_LEDGERS = %r{\A/(logout|ledgers(/.*)?|admin(/.*)?|passkeys|profile|l/[a-z0-9]+/)?\z}
 
   # Each href, action, formaction and src of `html` that starts with / is inside
   # LEDGER_ROOT, except the static files and OUTSIDE_LEDGERS.

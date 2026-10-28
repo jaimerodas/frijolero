@@ -1,0 +1,33 @@
+<%# The use of the model by `person`: this month against the cap, then month by month. %>
+<% usage = Frijolero::Usage %>
+<p>Este mes: <%= usage.usd(usage.month_micros(person.id)) %> de <%= usage.usd(usage.cap_micros(person.id)) %> USD.</p>
+<% months = usage_months(person) %>
+<% if months.empty? %>
+  <p class="note">Todavía no hay llamadas al modelo.</p>
+<% else %>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Mes</th>
+          <th>Archivos</th>
+          <th>Reintentos</th>
+          <th>Corridas fallidas</th>
+          <th>USD</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% months.each do |row| %>
+          <tr>
+            <th scope="row"><%= month_name(row['month']) %></th>
+            <td data-label="Archivos"><%= row['files'] %></td>
+            <td data-label="Reintentos"><%= row['retries'] %></td>
+            <td data-label="Corridas fallidas"><%= row['failed'] %></td>
+            <td data-label="USD"><%= usage.usd(row['micros']) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">Archivos: los PDF que leyó el modelo. Reintentos: las veces que el modelo leyó otra vez un PDF.</p>
+<% end %>

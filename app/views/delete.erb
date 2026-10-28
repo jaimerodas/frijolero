@@ -1,0 +1,48 @@
+<%# The confirmation of a delete: of one ledger (person is nil), or of a user and every
+    ledger of theirs. It says what goes and what stays, and the form posts to this page. %>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%= head(title) %>
+  <script src="/reports.js" defer></script>
+</head>
+<body>
+  <%= bar %>
+  <main>
+    <h1><%= h(title) %></h1>
+    <% if error %>
+      <p class="error" role="alert"><%= h(error) %></p>
+    <% end %>
+
+    <p>Esto no se puede deshacer. Se borra:</p>
+    <ul>
+      <% if person %>
+        <li>La cuenta de <%= h(person.email) %>, con sus llaves de acceso y sus sesiones.</li>
+      <% end %>
+      <% ledgers.each do |ledger| %>
+        <li>
+          El ledger <strong><%= h(ledger.name) %></strong>: su copia en este servidor, sus PDF, sus corridas, su Bandeja y sus tokens de la API.
+          <% if !connected?(ledger) %>
+            Todavía no tiene repo.
+          <% elsif (url = origin(ledger)) %>
+            Su repo en <code><%= h(url) %></code> se queda como está, con todo su historial. Quita de ese repo la llave de deploy de Frijolero.
+          <% else %>
+            No tiene remoto: esta es su única copia.
+            <% if ledger.owner_id == user.id %><a href="/l/<%= ledger.id %>/ledger/export">Descárgalo antes</a>.<% end %>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+    <p class="note"><% if person %>El uso del modelo se queda, sin nombre.<% else %>El uso del modelo se queda y cuenta para el tope del mes.<% end %> Los respaldos diarios guardan una copia 30 días. Después, no queda nada.</p>
+
+    <form method="post">
+      <label for="confirm">Para confirmar, escribe <strong><%= h(word) %></strong></label>
+      <input type="text" id="confirm" name="confirm" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+      <p class="actions">
+        <button type="submit" data-busy="Borrando…">Borrar</button>
+        <a href="<%= back %>">Cancelar</a>
+      </p>
+    </form>
+  </main>
+</body>
+</html>

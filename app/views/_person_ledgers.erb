@@ -1,0 +1,28 @@
+<%# The ledgers of one person, with their remote and the link to delete each one. The owner
+    gets a link that opens each ledger. The adopted ledger has no delete: its PDFs share a
+    prefix with every other ledger. %>
+<% if ledgers.empty? %>
+  <p>No hay ledgers.</p>
+<% else %>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Ledger</th>
+          <th>Remoto</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% ledgers.each do |ledger| %>
+          <% url = origin(ledger) %>
+          <tr>
+            <th scope="row"><% if ledger.owner_id != user.id %><%= h(ledger.name) %><% elsif connected?(ledger) %><a href="/l/<%= ledger.id %>/"><%= h(ledger.name) %></a><% else %><a href="/ledgers/<%= ledger.id %>/connect"><%= h(ledger.name) %></a><% end %></th>
+            <td data-label="Remoto"><% if !connected?(ledger) %><span class="status missing">sin conectar</span><% elsif url %><code><%= h(url) %></code><% else %>sin remoto<% end %></td>
+            <td><% if ledger.own_pdfs? %><a class="button" href="/ledgers/<%= ledger.id %>/delete">Borrar…</a><% end %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>

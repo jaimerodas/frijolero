@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <%= head('Mi cuenta') %>
+</head>
+<body>
+  <%= bar %>
+  <main>
+    <h1>Mi cuenta</h1>
+    <% if notice %>
+      <p class="notice" role="status"><%= h(notice) %></p>
+    <% end %>
+
+    <form method="post" action="/profile/name">
+      <label for="name">Nombre</label>
+      <input type="text" id="name" name="name" value="<%= h(user.name) %>" maxlength="80" autocomplete="name">
+      <p class="actions"><button type="submit">Guardar</button></p>
+    </form>
+    <p>Correo: <%= h(user.email) %></p>
+
+    <h2>Ledgers</h2>
+    <%= erb :_person_ledgers, layout: false, locals: { ledgers: Frijolero::Ledger.owned_by(user.id) } %>
+    <p class="actions"><a class="button" href="/ledgers/new">Nuevo ledger</a></p>
+
+    <h2>Uso del modelo</h2>
+    <%= erb :_usage, layout: false, locals: { person: user } %>
+
+    <h2>Llaves de acceso</h2>
+    <p>Entra con Face ID, Touch ID o el PIN de tu dispositivo, sin esperar un correo.</p>
+    <p class="files"><a href="/passkeys">Llaves de acceso</a></p>
+  </main>
+</body>
+</html>

@@ -14,9 +14,9 @@ class UsageTest < Minitest::Test
                  cached_tokens: cached, output_tokens: output)
   end
 
-  def add_row(user_id, at, cost)
-    DB.insert('INSERT INTO usage (user_id, ledger_id, prompt, model, input_tokens, output_tokens, cost_micros, at) ' \
-              "VALUES (?, 'test', 'default', 'gpt-6-sol', 0, 0, ?, ?)", user_id, cost, at)
+  def add_row(user_id, at, cost, upload: nil, prompt: 'default')
+    DB.insert('INSERT INTO usage (user_id, ledger_id, upload, prompt, model, input_tokens, output_tokens, ' \
+              "cost_micros, at) VALUES (?, 'test', ?, ?, 'gpt-6-sol', 0, 0, ?, ?)", user_id, upload, prompt, cost, at)
   end
 
   # gpt-6.1-sol is 2.00 / 0.10 / 10.00: 1000 * 2 + 500 * 10 = 7000 micro-dollars (US$0.007).
@@ -105,6 +105,21 @@ class UsageTest < Minitest::Test
 
       add_row(me, Time.new(2026, 10, 3).utc.iso8601, 1)
       assert Usage.capped?(me, now: now)
+    end
+  end
+
+  # October: upload a is classified, extracted and extracted again (a retry); b is only
+  # classified; a row from before the upload column is one file. September: one file.
+  def test_history_counts_files_retries_and_cost_by_local_month
+    with_db_ledger do
+      me = Frijolero::Ledger.current.owner_id
+      october = Time.new(2026, 10, 15, 12).utc.iso8601
+      [['a', 'classify', 1], ['a', 'default', 10], ['a', 'default', 10], ['b', 'classify', 1], [nil, 'default', 7]]
+        .each { |upload, prompt, cost| add_row(me, october, cost, upload: upload, prompt: prompt) }
+      add_row(me, Time.new(2026, 9, 30, 23).utc.iso8601, 20, upload: 'c')
+      add_row(me + 1, october, 500, upload: 'z')
+
+      assert_equal [['2026-10', 3, 1, 29], ['2026-09', 1, 0, 20]], Usage.history(me).map(&:values)
     end
   end
 
