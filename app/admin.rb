@@ -82,8 +82,10 @@ module Frijolero
                             inviting: %w[email exists].include?(params['error']) }
     end
 
-    # One person: the buttons of their row, their ledgers and their use of the model.
+    # One person: the buttons of their row, their ledgers and their use of the model. The
+    # admin's own row has no buttons, so it is Mi cuenta.
     get '/admin/users/:id' do
+      redirect '/profile' if person.id == user.id
       erb :admin_user, locals: { person: person, notice: NOTICES[params['notice']], error: ERRORS[params['error']] }
     end
 

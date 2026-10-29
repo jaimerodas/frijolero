@@ -271,6 +271,14 @@ class AdminTest < Minitest::Test
     assert_includes body, 'Este mes: 1.25 de 3.00 USD.'
   end
 
+  # The admin's own row has no buttons, and Mi cuenta edits the name and the email.
+  def test_the_page_of_the_admin_is_mi_cuenta
+    get "/admin/users/#{@admin.id}"
+
+    assert_equal 302, last_response.status
+    assert_equal '/profile', URI(last_response.location).path
+  end
+
   def test_an_action_from_the_page_of_a_person_goes_back_there
     post "/admin/users/#{@beto.id}/block", from: 'person'
 

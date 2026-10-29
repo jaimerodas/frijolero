@@ -17,21 +17,19 @@
       <p class="error" role="alert"><%= h(error) %></p>
     <% end %>
 
-    <% unless person.id == user.id %>
-      <div class="actions">
-        <% Frijolero::Admin::ACTIONS[person.status].each do |action, label| %>
-          <form method="post" action="/admin/users/<%= person.id %>/<%= action %>">
-            <input type="hidden" name="from" value="person">
-            <button type="submit"<% if action == 'resend' %> data-busy="Mandando…"<% end %>><%= label %></button>
-          </form>
-        <% end %>
-        <% if person.status == 'active' %>
-          <span class="note">Para borrar a esta persona, primero bloquéala.</span>
-        <% else %>
-          <a class="button" href="/admin/users/<%= person.id %>/delete">Borrar usuario…</a>
-        <% end %>
-      </div>
-    <% end %>
+    <div class="actions">
+      <% Frijolero::Admin::ACTIONS[person.status].each do |action, label| %>
+        <form method="post" action="/admin/users/<%= person.id %>/<%= action %>">
+          <input type="hidden" name="from" value="person">
+          <button type="submit"<% if action == 'resend' %> data-busy="Mandando…"<% end %>><%= label %></button>
+        </form>
+      <% end %>
+      <% if person.status == 'active' %>
+        <span class="note">Para borrar a esta persona, primero bloquéala.</span>
+      <% else %>
+        <a class="button" href="/admin/users/<%= person.id %>/delete">Borrar usuario…</a>
+      <% end %>
+    </div>
 
     <h2>Ledgers</h2>
     <%= erb :_person_ledgers, layout: false, locals: { ledgers: Frijolero::Ledger.owned_by(person.id) } %>
