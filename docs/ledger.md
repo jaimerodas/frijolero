@@ -67,8 +67,11 @@ sueltas, los precios y las aserciones de saldo pueden ir ahí o en archivos
 aparte con su propio `include`. A Beancount no le importa en qué archivo está
 cada entrada.
 
-Si el archivo principal tiene `option "title"`, la app muestra ese nombre en
-cada página. Si no, muestra Frijolero.
+La app muestra en cada página el nombre del ledger, que se cambia en
+Configuración. También escribe ese nombre como `option "title"` en el archivo
+principal, para que Fava y las otras herramientas muestren el mismo. La app
+nunca lee esa línea: si la cambias a mano, el próximo cambio de nombre la
+reemplaza.
 
 En el bucket, los PDF viven en `frijolero/accounts/<Key>/<Key> YYMM.pdf`. Todo
 va bajo el prefijo `frijolero/`, así que otras apps pueden usar el mismo

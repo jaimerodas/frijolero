@@ -8,11 +8,10 @@ module Frijolero
     get('/ledger') { ledger_settings_page }
 
     post '/ledger/name' do
-      name = params[:name].to_s.strip
+      name = Ledger.clean_name(params[:name])
       halt 422, ledger_settings_page(error: 'Falta el nombre del ledger.') if name.empty?
 
-      Ledger.update(Ledger.current.id, name: name)
-      redirect '/ledger', 303
+      save_ledger(name: name)
     end
 
     # The app appends to the main file, so it is one of the files that the page lists.
@@ -22,8 +21,7 @@ module Frijolero
         halt 422, ledger_settings_page(error: 'El archivo principal es un .beancount en la raíz del ledger.')
       end
 
-      Ledger.update(Ledger.current.id, main_file: main)
-      redirect '/ledger', 303
+      save_ledger(main_file: main)
     end
 
     # The first step of a remote: the key, which the page then shows with the URL form.
@@ -74,6 +72,26 @@ module Frijolero
         origin = self.class.repo.origin&.sub(%r{//[^/@]*@}, '//')
         key = File.read("#{ledger.deploy_key}.pub").chomp if !origin && File.exist?(ledger.deploy_key)
         erb :ledger_settings, locals: { ledger: ledger, origin: origin, key: key, url: url, error: error }
+      end
+
+      # The row, then the name as `option "title"` of the main file: a new name, or a main
+      # file that may not have it. The row is the name, so it stays when git fails, and the
+      # commit goes up with the next push.
+      def save_ledger(**fields)
+        Ledger.update(Ledger.current.id, **fields)
+        Ledger.current = Ledger.find(Ledger.current.id)
+        commit_title
+        redirect '/ledger', 303
+      rescue LedgerRepo::Error => e
+        status 502
+        ledger_settings_page(error: "Guardado en el servidor, pero no se pudo subir: #{e.message}")
+      end
+
+      def commit_title
+        Ledger.lock do
+          NewLedger.write_title(Config.main_file, Ledger.current.name)
+          self.class.repo.commit_and_push('Nombre del ledger')
+        end
       end
     end
   end

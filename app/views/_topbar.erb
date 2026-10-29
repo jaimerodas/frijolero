@@ -11,7 +11,7 @@
   <%# The error badge beside the wordmark: the errors are of the ledger it names, and on a
       phone the sections and Opciones keep their own line. %>
   <div class="brand-row">
-    <a class="brand" href="<%= ledger_path('/') %>"><%= h(Frijolero::Config.title) %></a>
+    <a class="brand" href="<%= ledger_path('/') %>"><%= h(current.name) %></a>
     <% if errors && !errors.empty? %>
       <% label = errors.size == 1 ? '1 error' : "#{errors.size} errores" %>
       <a class="errors" href="<%= ledger_path('/errors') %>" aria-label="<%= label %>" title="<%= label %>"<% if path == '/errors' %> aria-current="page"<% end %>><span><%= errors.size %></span></a>

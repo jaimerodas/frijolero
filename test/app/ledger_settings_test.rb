@@ -54,6 +54,36 @@ class LedgerSettingsTest < Minitest::Test
     assert_equal 'Casa', Frijolero::Ledger.find('test').name
   end
 
+  # For Fava and the other tools, which read the main file.
+  def test_a_rename_commits_the_title_option
+    post '/ledger/name', { name: 'Casa' }, 'SCRIPT_NAME' => LEDGER_ROOT
+
+    assert_includes File.read(File.join(@dir, 'main.beancount')), %(option "title" "Casa"\n)
+    assert_equal 'Nombre del ledger', run_git(@dir, 'log', '-1', '--format=%s').strip
+    assert_empty run_git(@dir, 'status', '--porcelain')
+  end
+
+  # A line break would start a directive in the main file.
+  def test_a_name_is_one_line
+    post '/ledger/name', { name: "Casa\ninclude \"x\"\t " }, 'SCRIPT_NAME' => LEDGER_ROOT
+
+    assert_equal 'Casa include "x"', Frijolero::Ledger.find('test').name
+    assert_includes File.read(File.join(@dir, 'main.beancount')), %(option "title" "Casa include \\"x\\""\n)
+  end
+
+  # The row is the name: it stays, and the commit goes up with the next push.
+  def test_a_failed_push_keeps_the_name_and_the_commit
+    run_git(@dir, 'remote', 'add', 'origin', File.join(@tmp, 'no-existe.git'))
+
+    post '/ledger/name', { name: 'Casa' }, 'SCRIPT_NAME' => LEDGER_ROOT
+
+    assert_equal 502, last_response.status
+    assert_includes last_response.body, 'class="error"'
+    assert_includes last_response.body, 'value="Casa"'
+    assert_equal 'Casa', Frijolero::Ledger.find('test').name
+    assert_equal 'Nombre del ledger', run_git(@dir, 'log', '-1', '--format=%s').strip
+  end
+
   def test_a_rename_needs_a_name
     post '/ledger/name', { name: ' ' }, 'SCRIPT_NAME' => LEDGER_ROOT
 
@@ -85,6 +115,8 @@ class LedgerSettingsTest < Minitest::Test
     assert_equal 303, last_response.status
     assert_equal "#{LEDGER_ROOT}/ledger", URI(last_response.location).path
     assert_equal 'otro.beancount', Frijolero::Ledger.find('test').main_file
+    assert_equal %(option "title" "Prueba"\n), File.read(File.join(@dir, 'otro.beancount'))
+    assert_empty run_git(@dir, 'status', '--porcelain')
   end
 
   def test_the_main_file_is_one_of_the_files_at_the_root

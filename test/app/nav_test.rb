@@ -49,13 +49,17 @@ class NavTest < Minitest::Test
     end
   end
 
-  def test_brand_and_page_title_are_the_ledger_title
-    File.write(File.join(@dir, 'main.beancount'), %(option "title" "Casa <Rodas>"\n))
+  # The app writes `option "title"` for the other tools and never reads it.
+  def test_brand_and_page_title_are_the_ledger_name
+    File.write(File.join(@dir, 'main.beancount'), %(option "title" "Del archivo"\n))
+    Frijolero::Ledger.update('test', name: 'Casa <Rodas>')
+    Frijolero::Ledger.current = Frijolero::Ledger.find('test')
 
     get '/'
 
     assert_includes last_response.body, '<a class="brand" href="/">Casa &lt;Rodas&gt;</a>'
     assert_includes last_response.body, '<title>Casa &lt;Rodas&gt;</title>'
+    refute_includes last_response.body, 'Del archivo'
   end
 
   def test_dashboard_without_accounts_points_at_the_new_account_form

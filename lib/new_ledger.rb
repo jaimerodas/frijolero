@@ -8,19 +8,33 @@ module Frijolero
   # the app (prompts/), not to the ledger.
   module NewLedger
     TEMPLATE = File.expand_path('../templates/ledger', __dir__)
+    TITLE = /^[ \t]*option[ \t]+"title"[ \t].*\n?/
 
     class << self
       # Adds main.beancount only when `dir` has no *.beancount: an existing ledger keeps
-      # its own main file, whatever its name. Then git init if needed, and one commit
-      # of the paths of the template and the main file, never the rest of the directory.
+      # its own main file, whatever its name. With `title`, the main file gets it as its
+      # `option "title"`. Then git init if needed, and one commit of the paths of the
+      # template and the main file, never the rest of the directory.
       # Yields the commit message when it commits. Returns the name of the main file.
-      def prepare(dir, &)
+      def prepare(dir, title: nil, &)
         message = File.directory?(dir) ? 'Configuración de Frijolero' : 'Ledger nuevo'
         FileUtils.mkdir_p(dir)
         main = Dir.glob('*.beancount', base: dir).first || 'main.beancount'
         template_files(main).each { |file| copy(file, dir) }
+        write_title(File.join(dir, main), title) if title
         commit(dir, main, message, &)
         main
+      end
+
+      # The name of the ledger as `option "title"`, for Fava and the other tools. The app
+      # writes it and never reads it: the name is the ledger's row. The line goes where the
+      # first title line was, or at the top, and the other title lines go, because Beancount
+      # keeps the last one.
+      def write_title(path, name)
+        text = File.exist?(path) ? File.read(path) : ''
+        line = %(option "title" "#{name.gsub(/["\\]/) { |char| "\\#{char}" }}"\n)
+        updated = text.gsub(TITLE, '').insert(text.index(TITLE) || 0, line)
+        File.write(path, updated) unless updated == text
       end
 
       private

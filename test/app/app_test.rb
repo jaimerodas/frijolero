@@ -106,7 +106,7 @@ class AppTest < Minitest::Test
   # LedgerScope lends the ledger to one request. Puma reuses its threads, so the next
   # request on this thread must not find the last one's ledger.
   def test_a_request_has_the_ledger_and_leaves_none_on_its_thread
-    File.write(File.join(@dir, 'main.beancount'), %(option "title" "Casa"\n))
+    Frijolero::Ledger.update('test', name: 'Casa')
     sign_in
 
     get '/l/test/'

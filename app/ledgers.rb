@@ -24,7 +24,8 @@ module Frijolero
 
     post '/ledgers' do
       ledger = Ledger.create(owner_id: user.id, name: ledger_name)
-      Ledger.lock(ledger.id) { NewLedger.prepare(ledger.repo_dir) } # a new directory: always main.beancount
+      # A new directory: always main.beancount.
+      Ledger.lock(ledger.id) { NewLedger.prepare(ledger.repo_dir, title: ledger.name) }
       redirect "/l/#{ledger.id}/", 303
     end
 
@@ -77,7 +78,7 @@ module Frijolero
       # The name of a new ledger, while the person has fewer than MAX_LEDGERS: each ledger
       # holds two threads from boot.
       def ledger_name
-        name = params[:name].to_s.strip
+        name = Ledger.clean_name(params[:name])
         halt 422, new_ledger_page(error: 'Falta el nombre del ledger.') if name.empty?
         if Ledger.owned_by(user.id).size >= MAX_LEDGERS
           halt 422, new_ledger_page(error: "Ya tienes #{MAX_LEDGERS} ledgers, el máximo.")
@@ -97,10 +98,11 @@ module Frijolero
 
     # A failure after the clone removes it, so the person can try again: the connect
     # page is there only while repo/ is not. After the clone of an empty repo there is
-    # no origin/main to pull, so this is a plain push, not commit_and_push.
+    # no origin/main to pull, so this is a plain push, not commit_and_push. The name that
+    # the person typed replaces the title of the repo.
     def connect(ledger, url)
       repo = LedgerRepo.clone(url, ledger.repo_dir, key: ledger.deploy_key)
-      main = NewLedger.prepare(ledger.repo_dir)
+      main = NewLedger.prepare(ledger.repo_dir, title: ledger.name)
       repo.git('push', '-u', 'origin', 'HEAD')
       Ledger.update(ledger.id, main_file: main, remote_url: url)
     rescue LedgerRepo::Error

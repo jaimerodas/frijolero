@@ -58,6 +58,10 @@ module Frijolero
 
     def self.own_prefix(id) = "frijolero/ledgers/#{id}"
 
+    # A name from a form, in one line: it also goes into the main file as `option "title"`,
+    # where a line break would start a directive.
+    def self.clean_name(text) = text.to_s.gsub(/(?:[[:space:]]|[[:cntrl:]])+/, ' ').strip
+
     # The PDFs under its prefix belong to this ledger alone. Not so for the adopted ledger:
     # its prefix, frijolero, holds every other ledger and the backups.
     def own_pdfs? = pdf_prefix == Ledger.own_prefix(id)

@@ -73,7 +73,7 @@ module Frijolero
 
     helpers do
       # The <head> every page shares. `refresh` adds a meta refresh in seconds.
-      def head(title = Config.title, refresh: nil)
+      def head(title = Ledger.current.name, refresh: nil)
         erb :_head, layout: false, locals: { title: title, refresh: refresh }
       end
 

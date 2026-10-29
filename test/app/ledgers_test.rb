@@ -92,7 +92,7 @@ class LedgersTest < Minitest::Test
     assert_equal "/l/#{ledger.id}/", URI(last_response.location).path
     assert_equal 'Casa', ledger.name
     assert_equal 'main.beancount', ledger.main_file
-    assert_path_exists File.join(ledger.repo_dir, 'main.beancount')
+    assert_includes File.read(File.join(ledger.repo_dir, 'main.beancount')), %(option "title" "Casa"\n)
     assert_equal "Ledger nuevo\n", run_git(ledger.repo_dir, 'log', '--format=%s')
   end
 
@@ -169,6 +169,17 @@ class LedgersTest < Minitest::Test
     assert_equal "Configuración de Frijolero\nmío\n",
                  run_git(File.join(@tmp, 'ledger.git'), 'log', '--format=%s')
     assert_path_exists File.join(ledger.repo_dir, 'config', 'accounts.yaml')
+  end
+
+  # The name that the person typed wins over the title of the repo.
+  def test_connect_writes_the_name_as_the_title
+    seed_repo('ledger.git', 'ledger.beancount' => %(option "title" "Viejo"\n2020-01-01 open Assets:Banco\n))
+    ledger = Frijolero::Ledger.create(owner_id: @owner.id, name: 'Mío')
+
+    with_fake_ssh { post "/ledgers/#{ledger.id}/connect", url: 'git@github.com:ledger.git' }
+
+    assert_equal %(option "title" "Mío"\n2020-01-01 open Assets:Banco\n),
+                 run_git(File.join(@tmp, 'ledger.git'), 'show', 'HEAD:ledger.beancount')
   end
 
   # The usual failure: the deploy key is not in the repo yet. The person can try again.

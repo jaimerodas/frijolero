@@ -102,6 +102,49 @@ class NewLedgerTest < Minitest::Test
     end
   end
 
+  def test_prepare_with_a_title_writes_it_in_the_first_commit
+    with_temp_dir do |tmp|
+      Frijolero::NewLedger.prepare(tmp, title: 'Casa')
+
+      assert_equal 'option "title" "Casa"', File.foreach(File.join(tmp, 'main.beancount')).first.chomp
+      status, = Open3.capture2(scrubbed_env, 'git', '-C', tmp, 'status', '--porcelain')
+      assert_empty status
+    end
+  end
+
+  def test_write_title_adds_the_line_at_the_top
+    with_temp_dir do |tmp|
+      main = File.join(tmp, 'main.beancount')
+      File.write(main, %(option "operating_currency" "MXN"\n))
+
+      Frijolero::NewLedger.write_title(main, 'Casa')
+
+      assert_equal %(option "title" "Casa"\noption "operating_currency" "MXN"\n), File.read(main)
+    end
+  end
+
+  # Beancount keeps the last title, so an old one further down must not stay.
+  def test_write_title_replaces_the_first_line_and_drops_the_others
+    with_temp_dir do |tmp|
+      main = File.join(tmp, 'main.beancount')
+      File.write(main, %(; mío\noption "title" "Viejo"\noption "x" "y"\n  option\t"title" "Otro"\n))
+
+      Frijolero::NewLedger.write_title(main, 'Casa')
+
+      assert_equal %(; mío\noption "title" "Casa"\noption "x" "y"\n), File.read(main)
+    end
+  end
+
+  def test_write_title_escapes_quotes_and_backslashes
+    with_temp_dir do |tmp|
+      main = File.join(tmp, 'main.beancount')
+
+      Frijolero::NewLedger.write_title(main, 'Casa "R" \\ x')
+
+      assert_equal %(option "title" "Casa \\"R\\" \\\\ x"\n), File.read(main)
+    end
+  end
+
   private
 
   # A git hook exports GIT_DIR and friends. Scrubbed, or the script commits to this repo.

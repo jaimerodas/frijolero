@@ -151,7 +151,7 @@ class UploadsTest < Minitest::Test
   def test_dashboard_renders_the_shared_head
     get '/'
 
-    assert_includes last_response.body, '<title>Frijolero</title>'
+    assert_includes last_response.body, '<title>Prueba</title>'
     assert_includes last_response.body, 'fonts.googleapis.com/css2'
     assert_equal 1, last_response.body.scan('<meta charset').size
   end
