@@ -17,8 +17,15 @@ module Frijolero
                                                    headers: { 'x-api-key' => api_key, 'anthropic-version' => VERSION })
     end
 
-    def extract(pdf_path, spec)
-      data = @transport.post_json('/messages', request_body(spec, pdf_path))
+    def extract(pdf_path, spec) = respond(spec, document(pdf_path), pdf_path)
+
+    # Text in place of a PDF (Revisar's guesses): no upload to name in the usage row.
+    def ask(text, spec) = respond(spec, { type: 'text', text: text }, nil)
+
+    private
+
+    def respond(spec, content, pdf_path)
+      data = @transport.post_json('/messages', request_body(spec, content))
       record_usage(spec, pdf_path, data['usage'] || {})
       check_stop(data)
 
@@ -28,18 +35,16 @@ module Frijolero
       JSON.parse(text)
     end
 
-    private
-
     # The same spec as OpenAI's: `instructions` is the system prompt, `format.schema`
     # the structured output, and any other key (max_tokens, thinking, output_config's
     # effort) goes as-is. Keys prefixed with `_` are documentation and are dropped.
-    def request_body(spec, pdf_path)
+    def request_body(spec, content)
       body = spec.reject { |key, _| key.to_s.start_with?('_') }
       body['system'] = body.delete('instructions')
       body['max_tokens'] ||= MAX_TOKENS
       format = { 'type' => 'json_schema', 'schema' => body.delete('format')['schema'] }
       body['output_config'] = (body['output_config'] || {}).merge('format' => format)
-      body['messages'] = [{ role: 'user', content: [document(pdf_path)] }]
+      body['messages'] = [{ role: 'user', content: [content] }]
       body
     end
 

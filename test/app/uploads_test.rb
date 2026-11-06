@@ -11,7 +11,14 @@ class UploadsTest < Minitest::Test
 
   class FakeClient
     attr_reader :extractions
-    attr_accessor :classification, :extract_error
+    attr_accessor :classification, :extract_error, :guess_error
+
+    # Revisar's guesses, after a good job: the first row goes to Expenses:Food.
+    def ask(_text, _spec)
+      raise @guess_error if @guess_error
+
+      { 'rows' => [{ 'row' => 1, 'accounts' => %w[Expenses:Food] }] }
+    end
 
     def initialize
       @extractions = []
@@ -499,6 +506,30 @@ class UploadsTest < Minitest::Test
     assert_equal %i[pull put commit_and_push], @order
     assert_equal ['AMEX 2508'], @repo.messages
     assert_equal ['frijolero/accounts/AMEX/AMEX 2508.pdf'], @s3.calls
+  end
+
+  def test_a_good_job_then_saves_the_guesses_of_revisar
+    File.write(File.join(@dir, 'main.beancount'), "2026-01-01 open Expenses:Food\n")
+    process(classified('AMEX 2508.pdf'), 'AMEX', '2508')
+
+    job = Frijolero::App.jobs.work_one
+
+    assert_equal 'ok', job.status
+    assert_includes job.output, 'Sugerencias guardadas: 1'
+    assert_equal({ '2025-08-03 X' => %w[Expenses:Food] }, Frijolero::Suggestions.read('AMEX', '2508'))
+  end
+
+  # The statement is already pushed: a guess that fails is one line of the log.
+  def test_a_failed_guess_leaves_the_job_ok
+    File.write(File.join(@dir, 'main.beancount'), "2026-01-01 open Expenses:Food\n")
+    @client.guess_error = Frijolero::LLM::RateLimitError.new('slow down')
+    process(classified('AMEX 2508.pdf'), 'AMEX', '2508')
+
+    job = Frijolero::App.jobs.work_one
+
+    assert_equal 'ok', job.status
+    assert_includes job.output, '✗ Sin sugerencias: slow down'
+    assert_empty Frijolero::Suggestions.read('AMEX', '2508')
   end
 
   # A clone that cannot pull is a clone that cannot push either, so there is no point

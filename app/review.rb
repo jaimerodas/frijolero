@@ -39,10 +39,13 @@ module Frijolero
         statement_page(account, period, view: :review, review: { values: review_values }.merge(review))
       end
 
-      # Revisar's form: what a refused save shows again, and the autocomplete.
-      def review_locals(view, review)
-        { review: { error: nil, errors: {}, values: {} }.merge(review),
-          accounts: view == :review ? LedgerAccounts.active : [] }
+      # Revisar's form: what a refused save shows again, the autocomplete and the guesses.
+      # The other views read none of it.
+      def review_locals(account, period, view, review)
+        return {} unless view == :review
+
+        { review: { error: nil, errors: {}, values: {} }.merge(review), accounts: LedgerAccounts.active,
+          **suggest_locals(account, period) }
       end
 
       # Under the ledger's lock: { classified:, rules:, remaining:, push: }. The digest is the file

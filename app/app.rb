@@ -188,6 +188,7 @@ end
 require_relative 'uploads'
 require_relative 'statements'
 require_relative 'review'
+require_relative 'suggest'
 require_relative 'editors'
 require_relative 'accounts'
 require_relative 'reports'

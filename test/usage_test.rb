@@ -123,6 +123,18 @@ class UsageTest < Minitest::Test
     end
   end
 
+  # Revisar's guesses read no file: they cost, but they are no file and no retry.
+  def test_history_counts_a_suggestion_only_in_the_cost
+    with_db_ledger do
+      me = Frijolero::Ledger.current.owner_id
+      october = Time.new(2026, 10, 15, 12).utc.iso8601
+      add_row(me, october, 10, upload: 'a')
+      add_row(me, october, 3, prompt: 'suggest')
+
+      assert_equal [['2026-10', 1, 0, 13]], Usage.history(me).map(&:values)
+    end
+  end
+
   # Version 4 rebuilds the table without its foreign keys.
   def test_the_rows_of_before_version_4_stay
     with_temp_dir do |dir|

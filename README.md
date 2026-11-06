@@ -40,8 +40,9 @@ Cada estado de cuenta tiene su página, con tres vistas: Movimientos, Revisar y
 Beancount. En Movimientos, la fecha de un movimiento abre un editor de esa
 transacción. "Hacer regla" crea una regla desde un movimiento. "▲ N sin
 clasificar" abre Revisar: los movimientos sin clasificar en un solo
-formulario, con su cuenta, su payee y su narración. "Guardar" los guarda
-todos en un solo commit.
+formulario, con su cuenta, su payee y su narración. El modelo sugiere tres
+cuentas para cada uno, a partir de los movimientos que ya clasificaste, y la
+primera ya está en el campo. "Guardar" los guarda todos en un solo commit.
 
 **Reportes** tiene tres páginas: Estado de resultados, Balance general y
 Diario. Los dos reportes van por año, trimestre o mes, en MXN o por moneda.

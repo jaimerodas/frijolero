@@ -127,4 +127,18 @@ class AnthropicClientTest < Minitest::Test
 
     assert_equal [{ 'input_tokens' => 5, 'output_tokens' => 9 }], rows
   end
+
+  # Revisar's guesses read no PDF: the text is the message, and the usage row names no upload.
+  def test_ask_sends_text_instead_of_a_pdf_and_records_no_upload
+    transport = FakeTransport.new(DONE.merge('usage' => { 'input_tokens' => 5, 'output_tokens' => 9 }))
+
+    rows = with_db_ledger do
+      client = Frijolero::AnthropicClient.new('k', transport: transport)
+      assert_equal({ 'transactions' => [] }, client.ask('Which account?', SPEC.merge('_prompt' => 'suggest')))
+      Frijolero::DB.execute('SELECT prompt, upload FROM usage').map(&:values)
+    end
+
+    assert_equal [{ type: 'text', text: 'Which account?' }], transport.calls.first[1]['messages'].first[:content]
+    assert_equal [['suggest', nil]], rows
+  end
 end

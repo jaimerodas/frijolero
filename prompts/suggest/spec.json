@@ -1,0 +1,9 @@
+{
+  "_comment": "Revisar's guesses: three accounts for each unclassified row of one statement, from the closest past transactions of the ledger. Suggestions fills the account enum from the open accounts at request time. The model is the one measured on the 2026 statements.",
+  "model": "gpt-5.4-mini",
+  "format": {
+    "type": "json_schema",
+    "name": "suggestions",
+    "strict": true
+  }
+}

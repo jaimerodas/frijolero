@@ -31,12 +31,13 @@ module Frijolero
       # Returns the cost in micro-dollars. The call is already paid, so an unknown model
       # costs 0 and a warning, and never raises. The directory of `pdf` is the token of
       # its upload (incoming/<token>/), so a second extraction of one upload is a retry.
+      # A call that reads no PDF (Revisar's guesses) has no upload.
       def record(prompt:, model:, pdf:, input_tokens:, cached_tokens:, output_tokens:)
         cost = cost_micros(model, input_tokens, cached_tokens, output_tokens)
         ledger = Ledger.current
         DB.insert('INSERT INTO usage (user_id, ledger_id, upload, prompt, model, input_tokens, cached_tokens, ' \
                   'output_tokens, cost_micros, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                  ledger.owner_id, ledger.id, File.basename(File.dirname(pdf)), prompt, model, input_tokens,
+                  ledger.owner_id, ledger.id, pdf && File.basename(File.dirname(pdf)), prompt, model, input_tokens,
                   cached_tokens, output_tokens, cost, Time.now.utc.iso8601)
         cost
       end
@@ -51,13 +52,15 @@ module Frijolero
       # One row per local month with a call, newest first: the files that reached the model,
       # the extractions that read a file again (retries), and the cost. A row from before
       # the upload column has no upload, so its extraction counts as a file of its own.
+      # A guess of Revisar (suggest) reads no file: it counts only in the cost.
       def history(user_id)
         DB.execute(<<~SQL, user_id)
           SELECT month, COUNT(DISTINCT file) AS files,
                  SUM(extraction) - COUNT(DISTINCT CASE WHEN extraction THEN file END) AS retries,
                  SUM(cost_micros) AS micros
-          FROM (SELECT strftime('%Y-%m', at, 'localtime') AS month, cost_micros, prompt <> 'classify' AS extraction,
-                       COALESCE(upload, CASE WHEN prompt <> 'classify' THEN 'call ' || id END) AS file
+          FROM (SELECT strftime('%Y-%m', at, 'localtime') AS month, cost_micros,
+                       prompt NOT IN ('classify', 'suggest') AS extraction,
+                       COALESCE(upload, CASE WHEN prompt NOT IN ('classify', 'suggest') THEN 'call ' || id END) AS file
                 FROM usage WHERE user_id = ?)
           GROUP BY month ORDER BY month DESC
         SQL

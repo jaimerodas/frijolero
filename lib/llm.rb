@@ -7,9 +7,9 @@ require 'openssl'
 require 'base64'
 
 module Frijolero
-  # What the app needs from a model: a PDF and a prompt spec in, JSON out. Each
-  # provider is one class with `extract(pdf_path, spec)`. LLM_PROVIDER picks it and
-  # the key comes from that provider's own variable. The spec is the app's
+  # What the app needs from a model: a PDF or a text and a prompt spec in, JSON out.
+  # Each provider is one class with `extract(pdf_path, spec)` and `ask(text, spec)`.
+  # LLM_PROVIDER picks it and the key comes from that provider's own variable. The spec is the app's
   # prompts/<type> (PromptSpec): model, instructions, format (the JSON
   # schema) and any other key, which each client forwards to its API as-is.
   module LLM

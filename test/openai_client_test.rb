@@ -206,4 +206,18 @@ class OpenAIClientTest < Minitest::Test
   ensure
     Frijolero::Log.sink = $stdout
   end
+
+  # Revisar's guesses read no PDF: the text goes as the input, and the usage row names no upload.
+  def test_ask_sends_text_instead_of_a_pdf_and_records_no_upload
+    transport = FakeTransport.new(post_json: { 'id' => 'resp-1' }, get: COMPLETED)
+
+    rows = with_db_ledger do
+      answer = client(transport).ask('Which account?', SPEC.merge('_prompt' => 'suggest'))
+      assert_equal({ 'transactions' => [] }, answer)
+      Frijolero::DB.execute('SELECT prompt, upload FROM usage').map(&:values)
+    end
+
+    assert_equal [{ type: 'input_text', text: 'Which account?' }], transport.calls.first[2]['input'].first[:content]
+    assert_equal [['suggest', nil]], rows
+  end
 end

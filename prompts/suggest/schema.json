@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["rows"],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "description": "One entry for each transaction of the list.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["row", "accounts"],
+        "properties": {
+          "row": {
+            "type": "integer",
+            "description": "The number of the transaction in the list."
+          },
+          "accounts": {
+            "type": "array",
+            "description": "The three most likely accounts, best first.",
+            "items": { "type": "string", "enum": [] }
+          }
+        }
+      }
+    }
+  }
+}

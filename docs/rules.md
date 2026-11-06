@@ -91,8 +91,10 @@ Revisar muestra los movimientos sin clasificar de un estado de cuenta en un
 solo formulario. Es la forma rápida de clasificar muchos movimientos.
 
 1. En el estado de cuenta, presiona "▲ N sin clasificar" o "Revisar".
-2. En cada movimiento que conoces, escribe la cuenta. Al escribir, la app
-   sugiere las cuentas abiertas del ledger.
+2. Revisa la cuenta de cada movimiento. La app ya llenó la que adivinó (ver
+   [Cuentas sugeridas](#cuentas-sugeridas)). Si no es la correcta, presiona
+   otra de las sugeridas o escribe la cuenta. Al escribir, la app sugiere las
+   cuentas abiertas del ledger.
 3. Si quieres, cambia el payee y la narración.
 4. Si el comercio se repite, marca "Regla". Abajo aparece el patrón: la
    descripción sin el RFC, la referencia ni el monto en dólares. Si es
@@ -110,7 +112,26 @@ ledger una vez y hace un solo commit, `Revisión <Key> YYMM`.
 Si una fila tiene un error, como una cuenta que no existe, la app no guarda
 nada. Marca la fila con el error y conserva lo que escribiste. Si el estado de
 cuenta cambió mientras lo revisabas, por una corrida o un pull, la app no
-guarda nada y muestra los movimientos otra vez, vacíos.
+guarda nada y muestra los movimientos otra vez, como una página nueva.
+
+### Cuentas sugeridas
+
+Al terminar cada corrida, la app pide al modelo tres cuentas para cada
+movimiento sin clasificar. El modelo ve los cinco movimientos pasados del
+ledger que más se parecen y la cuenta que elegiste para cada uno. Revisar
+llena la cuenta con la primera y muestra las tres abajo. Guardar guarda lo
+que dicen los campos: una sugerida que no cambias se guarda igual que una que
+escribes.
+
+- Un movimiento que una regla toca pero sin `account`, como Amazon, no tiene
+  sugerencia, porque lo revisas en otro lado.
+- En las pruebas con los estados de cuenta de 2026, la primera sugerida fue
+  la correcta en 64 % de los movimientos, y una de las tres en 78 %. Un estado
+  de cuenta de 36 movimientos cuesta cerca de 0.01 USD, y cuenta en el límite
+  del mes.
+- Si un estado de cuenta no tiene sugerencias, porque se procesó antes o
+  porque falló la llamada, Revisar muestra "Sugerir cuentas". El botón crea
+  una corrida, y al terminar la corrida lleva de vuelta a Revisar.
 
 ## Hacer una regla desde un movimiento
 

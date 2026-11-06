@@ -87,12 +87,28 @@ class ReviewTest < Minitest::Test
     File.write(@rules, RULES)
     Frijolero::App.repo = @repo = Repo.new
     Frijolero::App.reports = @checker = Checker.new
+    Frijolero::App.jobs = Frijolero::Jobs.new(log_path: File.join(@dir, 'jobs.jsonl'))
   end
 
   def teardown
     leave_test_ledger
     Frijolero::App.repo = nil
     Frijolero::App.reports = nil
+    Frijolero::App.jobs = nil
+    Frijolero::App.client = nil
+  end
+
+  # The model of "Sugerir cuentas": it answers the first row of the list.
+  class Client
+    def ask(_text, _spec) = { 'rows' => [{ 'row' => 1, 'accounts' => %w[Expenses:Utilities:Phone] }] }
+  end
+
+  TELCEL = '2026-10-04 PORTAL TELCEL CLARO MEXICO RFCRDI841003QJ4 /REFE580559D7FA1'
+
+  def guesses(map)
+    path = Frijolero::Suggestions.path('AMEX', '2610')
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, JSON.generate(map))
   end
 
   def app
@@ -264,5 +280,62 @@ class ReviewTest < Minitest::Test
 
     assert_includes last_response.body, %(action="#{LEDGER_ROOT}/accounts/AMEX/2610/review")
     assert_ledger_links last_response.body
+  end
+
+  def test_each_row_starts_with_its_first_guess_and_offers_the_three
+    guesses(TELCEL => %w[Expenses:Utilities:Phone Expenses:Home:Supplies Expenses:Travel:Flights])
+
+    get '/accounts/AMEX/2610/review'
+
+    body = last_response.body
+    assert_includes body, 'name="choice[1][account]" value="Expenses:Utilities:Phone"'
+    assert_includes body, '<button type="button" class="guess" data-account="Expenses:Home:Supplies">'
+    assert_includes body, 'name="choice[15][account]" value=""'
+  end
+
+  def test_a_refused_save_keeps_the_account_that_the_person_cleared
+    guesses(TELCEL => %w[Expenses:Utilities:Phone])
+
+    save('1' => { account: '' }, '15' => { account: 'Expenses:Nope' })
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, 'name="choice[1][account]" value=""'
+  end
+
+  def test_sugerir_shows_only_while_there_are_no_guesses_and_a_model
+    Frijolero::App.client = Client.new
+    get '/accounts/AMEX/2610/review'
+    assert_includes last_response.body, 'action="/accounts/AMEX/2610/suggest"'
+
+    guesses(TELCEL => %w[Expenses:Utilities:Phone])
+    get '/accounts/AMEX/2610/review'
+    refute_includes last_response.body, '/suggest"'
+
+    Frijolero::App.client = nil
+    File.delete(Frijolero::Suggestions.path('AMEX', '2610'))
+    without_env('OPENAI_API_KEY') { get '/accounts/AMEX/2610/review' }
+    refute_includes last_response.body, '/suggest"'
+  end
+
+  # The call runs as a corrida, never in the request; its page leads back to Revisar.
+  def test_sugerir_queues_a_corrida_that_writes_the_guesses
+    Frijolero::App.client = Client.new
+
+    post '/accounts/AMEX/2610/suggest'
+
+    assert_equal 303, last_response.status
+    job = Frijolero::App.jobs.find(last_response.location[%r{/jobs/(.+)\z}, 1])
+    assert_equal 'Sugerencias AMEX 2610', job.label
+    get '/accounts/AMEX/2610/review'
+    assert_includes last_response.body, "href=\"/jobs/#{job.id}\">Sugiriendo cuentas</a>"
+    refute_includes last_response.body, '/suggest"'
+
+    Frijolero::App.jobs.work_one
+
+    assert_equal ['ok', "Sugerencias guardadas: 1\n"], [job.status, job.output]
+    get "/jobs/#{job.id}"
+    assert_includes last_response.body, 'href="/accounts/AMEX/2610/review">Revisar</a>'
+    get '/accounts/AMEX/2610/review'
+    assert_includes last_response.body, 'name="choice[1][account]" value="Expenses:Utilities:Phone"'
   end
 end

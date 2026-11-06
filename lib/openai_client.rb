@@ -22,10 +22,17 @@ module Frijolero
       @queue_limit = queue_limit
     end
 
+    def extract(pdf_path, spec) = respond(spec, input_file(pdf_path), pdf_path)
+
+    # Text in place of a PDF (Revisar's guesses): no upload to name in the usage row.
+    def ask(text, spec) = respond(spec, { type: 'input_text', text: text }, nil)
+
+    private
+
     # A response stuck in the queue goes once more; a second one stuck is an APIError,
     # which LLM.report treats as recoverable, so the job can be retried.
-    def extract(pdf_path, spec)
-      body = request_body(spec, pdf_path)
+    def respond(spec, content, pdf_path)
+      body = request_body(spec, content)
       data = poll_response(create(body))
       data ||= poll_response(create(body))
       raise LLM::APIError, "OpenAI left the response queued for #{@queue_limit}s, twice" unless data
@@ -37,16 +44,14 @@ module Frijolero
       JSON.parse(text)
     end
 
-    private
-
     # The spec already mirrors the request body (model, instructions, reasoning and
     # anything else set in spec.json), so it goes as-is: only `format` moves under
-    # `text.format`, and the PDF and `background` are added. Keys prefixed with `_`
+    # `text.format`, and the content and `background` are added. Keys prefixed with `_`
     # (e.g. `_comment`) are documentation and are dropped.
-    def request_body(spec, pdf_path)
+    def request_body(spec, content)
       body = spec.reject { |key, _| key.to_s.start_with?('_') }
       body['text'] = { 'format' => body.delete('format') }
-      body['input'] = [{ role: 'user', content: [input_file(pdf_path)] }]
+      body['input'] = [{ role: 'user', content: [content] }]
       body['background'] = true
       body
     end

@@ -101,6 +101,7 @@ On the volume (`DATA_DIR`, which is `/data` in production):
 - `ledgers/<id>/repo/`: the clone of each ledger.
 - `ledgers/<id>/jobs.jsonl`: the append-only job log of that ledger.
 - `ledgers/<id>/incoming/<token>/`: one directory for each upload, with `<original name>.pdf` and, after the classifier, `classification.json`. A successful job removes it.
+- `ledgers/<id>/suggestions/<Key> YYMM.json`: Revisar's guesses for one statement (see Revisar). The backup leaves them out, because they are made again by one click.
 - `ledgers/<id>/pdfs/`: the PDFs, when no bucket is set.
 
 Before the database, the volume held one ledger: `ledger/`, with `jobs.jsonl`, `incoming/` and `pdfs/` next to it. At boot, `Migration` makes the admin from `ADMIN_EMAIL` when there is no admin. When there is no ledger, it also adopts that old ledger (`LEDGER_DIR`, by default `DATA_DIR/ledger`): one row, and each file moved by a rename. A second boot does nothing. The rehearsal on a copy of production, on 2026-10-23, moved the ledger, `jobs.jsonl` and `incoming/`, and every page served as before.
@@ -149,7 +150,7 @@ In the bucket, which other apps share: `<pdf_prefix>/accounts/<Key>/<Key> YYMM.p
   - "Borrar usuario" shows only for an invited or blocked user, so nothing new starts during the delete. The admin types the email. It refuses while a job or a classification runs in any ledger of the person, then runs `Ledger.destroy` on each ledger and `Users.delete`. A bucket error stops it with the ledgers that remain, so a second click finishes. The email is then free for a new invitation.
   - `PasskeysPage` (`app/passkeys.rb`) owns `/passkeys…`: the passkeys of the signed-in user (see Sign-in). The delete has the user in its `WHERE`, so a person cannot delete the passkey of another.
   - `ProfilePage` (`app/profile.rb`) owns `/profile…`, "Mi cuenta" in the menus: the name and the email, the ledgers with the link to delete each one, and the use of the model. The path is not `/account`, because `/accounts` is Cuentas, the bank accounts of a ledger.
-  - The use of the model is one row per month: Archivos (the uploads that the model read), Reintentos (a second extraction of one upload), Corridas fallidas and USD. The first three come from `Usage.history`. The failures come from the job log of each ledger, so a deleted ledger takes its failures with it.
+  - The use of the model is one row per month: Archivos (the uploads that the model read), Reintentos (a second extraction of one upload), Corridas fallidas and USD. The first three come from `Usage.history`. A guess of Revisar (prompt `suggest`) reads no file, so it counts only in USD. The failures come from the job log of each ledger, so a deleted ledger takes its failures with it.
 - Inside a ledger, `/ledger` (`app/ledger_settings.rb`) renames it, changes its main file, adds a remote, and exports HEAD as `.tar.gz`. It never makes a key for a ledger with an origin: its remote already trusts the key that the ledger has. `/tokens` (`app/api_tokens.rb`) makes and revokes the API tokens of the ledger, and shows a new token once.
 - The name of a ledger is its row. The wordmark and the page titles show it. A new ledger, a connect, a rename and a change of main file also write it as `option "title"` in the main file and commit, so Fava shows the same name (`NewLedger.write_title`). The app never reads that line, so a hand edit lasts until the next rename. On a connect, the name that the person typed replaces the title of their repo. A name is one line (`Ledger.clean_name`), because a line break in the title would start a directive.
 - `Login` (`app/login.rb`) is the outer middleware, in front of the rest. So its pages have no current ledger, and they must not read one. It owns `/login`, `/login/<token>`, `/login/challenge`, `/login/passkey` and `/logout`. It sends each request without a valid session to `/login`.
@@ -230,7 +231,7 @@ The Bandeja holds the uploads that wait for a person. The API answers in JSON, e
 
 ### Jobs (`app/jobs.rb`)
 
-Each ledger has its own `Jobs`: one `Queue`, one worker thread and its `jobs.jsonl`. So the jobs of one ledger run in order, and one ledger never waits for another. `Log.sink` is per thread, so two jobs at once keep their output apart. At boot, it marks the jobs left `running` or `queued` as failed. The job body is `repo.pull` under the ledger's lock, then `Statement#process`, whose block runs the cutoff day and `repo.commit_and_push("<Key> YYMM")` inside the lock of its writes, then the removal of the upload directory. The body writes its output through `Log.sink`. The UI calls a job a "corrida".
+Each ledger has its own `Jobs`: one `Queue`, one worker thread and its `jobs.jsonl`. So the jobs of one ledger run in order, and one ledger never waits for another. `Log.sink` is per thread, so two jobs at once keep their output apart. At boot, it marks the jobs left `running` or `queued` as failed. The job body is `repo.pull` under the ledger's lock, then `Statement#process`, whose block runs the cutoff day and `repo.commit_and_push("<Key> YYMM")` inside the lock of its writes, then the removal of the upload directory, then Revisar's guesses outside the lock (see Revisar). The body writes its output through `Log.sink`. The UI calls a job a "corrida".
 
 A failed job shows "Reintentar" only when a model key is set and `retryable_upload` is true:
 
@@ -286,11 +287,23 @@ Revisar shows the unclassified rows of one statement as one form. A row is a tra
 - The rules never run on a row that the person filled. The AMAZON rule has `narration: ''`, and `Rules.merge` drops only nil, so it would blank the narration that the person typed.
 - Regla adds a `start_with` entry with only the fields that the row gives (`RulesText.with_rule`). The pattern starts as the description cut at the RFC, the `/REF` or the amount in dollars (`StatementReview.pattern`), because these change with each charge. The pattern must be the start of the description, it must be new, and the rule needs a field.
 - A row that cannot be saved (an unknown account, a bad pattern) refuses the whole save with 422. The page shows the message on each such row and keeps every value. The account list is `LedgerAccounts.active`, the same as the editors use.
-- The form sends the SHA-256 of the file that it showed. If a job, a pull or another tab changed the file, the answer is 409, and the page shows the current rows with empty fields, because the lines moved.
+- The form sends the SHA-256 of the file that it showed. If a job, a pull or another tab changed the file, the answer is 409, and the page shows the current rows as a fresh page does (empty, or with their guesses), because the lines moved.
 - The rules file is written only after the statement passes the check, so a refused save leaves both files as they were. A failed push keeps the commit and says so in the notice.
 - The account field is an `<input>` with a native `<datalist>`. The editors need a script because a textarea cannot use one.
 - Enter in a field does nothing: the first submit button of the form is hidden and disabled. ⌘↩ (Ctrl+↩ off a Mac) saves through Guardar (`reports.js`). Guardar stays at the bottom of the window.
 - After a save, the page goes back to Revisar with the rows left, or to the movements when no row is left.
+
+#### Guesses (`lib/suggestions.rb`, `app/suggest.rb`, `prompts/suggest/`)
+
+Revisar starts each Cuenta with the model's first guess, and shows its three guesses as buttons under the fields. A click puts one in Cuenta (`reports.js`). A guess is only a value in the field: Guardar saves what the fields show.
+
+- Each row goes to the model with the five closest past rows of the ledger, by shared words weighed by how rare they are (TF-IDF), and the account that the person chose for each. The words leave out the `/REF`, the amount in dollars and any word with a digit, and keep the RFC as one word. The past rows are every classified row of `accounts/*/*.beancount` whose account the model can answer.
+- The answer is an enum of the open Expenses, Income and Equity accounts, filled at request time like the classifier's. A transfer to a bank is no guess and no example.
+- A rule that matches a row but gives no account (AMAZON, PETCO) opts the row out: it gets no guess, because the person checks it elsewhere.
+- Eight rows per call (`ROWS_PER_CALL`). Measured on 203 rows of the 2026 statements that the rules missed, each statement with only what came before it, with gpt-5.4-mini: one row per call, 66 % first guess right and 80 % in the three; eight rows, 64 % and 78 %; a whole statement in one call, 63 % and 74 %. Eight rows cost about 0.01 USD for a 36-row statement.
+- The guesses come after each good job, outside the lock, and the job log says how many. A failure there is one line of the log, never a failed job, because the statement is already pushed. At the cap there is no call.
+- For a statement processed before the guesses, or whose guesses failed, Revisar offers "Sugerir cuentas". It queues a corrida ("Sugerencias <Key> YYMM"), never a call in the request, because the call can take longer than the 30 s that kamal-proxy waits. The job page then leads back to Revisar. The button shows while there is a model key, no guesses file, no such corrida in the queue, and room under the cap.
+- The guesses are in `ledgers/<id>/suggestions/<Key> YYMM.json`, outside the ledger, keyed by date and description (`Suggestions.key`), so a save that moves the lines keeps the guesses of the rows left.
 
 ### Rules (`lib/detailer/`, `lib/beancount_detailer.rb`, `app/editors.rb`)
 
@@ -429,7 +442,7 @@ A failed balance (`E2001`) shows in Spanish with the gap. It links to the journa
 ### Infrastructure (`lib/`)
 
 - `LLM` (`lib/llm.rb`) is the seam between providers: the typed errors, one shared `Transport` over `Net::HTTP`, `LLM.client`, `LLM.key_var` and `LLM.report`.
-- A client has one method, `extract(pdf_path, spec) -> Hash`. The spec is a `PromptSpec` of the app, and its other keys go to the API as they are. Keys that start with `_` never reach the API.
+- A client has two methods: `extract(pdf_path, spec) -> Hash` for a PDF, and `ask(text, spec) -> Hash` for text (Revisar's guesses). The spec is a `PromptSpec` of the app, and its other keys go to the API as they are. Keys that start with `_` never reach the API.
 - Each client writes one `Usage` row per call, before it parses the answer, because the call is paid either way. `Usage::PRICES` is USD per million tokens (input, cached input, output) from the OpenAI price page, which is also micro-dollars per token. A test makes sure that each model in `prompts/` has a price. An unknown model, such as each Anthropic model today, costs 0 with a warning in the job log. The owner of the ledger pays, so the row names the owner. The row also names the upload: the directory of the PDF, `incoming/<token>/`. So a second extraction of one upload counts as a retry. A new provider is one class and one entry in `LLM::PROVIDERS`.
 - `usage` has no foreign keys (`db/4_*.sql`). A row outlives its ledger and its user, so the cap still counts the calls of a deleted ledger, and the costs stay for the totals.
 - `Usage.cap_micros` is the user's `monthly_cap_micros`, or 3 USD when it is NULL. The month is the calendar month in local time.
@@ -488,7 +501,7 @@ If `kamal` or `ssh` fails with `promptError` or "communication with agent failed
 
 ## Tests
 
-- Minitest and rack-test: about 1140 tests in about 30 s. `test/` mirrors `app/` and `lib/`.
+- Minitest and rack-test: about 1160 tests in about 30 s. `test/` mirrors `app/` and `lib/`.
 - `with_ledger_dir` makes a temporary ledger, in a fresh `DATA_DIR`, the current ledger of the test thread. A setup uses `enter_test_ledger` and `leave_test_ledger`. `with_db_ledger` also writes the owner and the ledger as rows.
 - No test writes into `prompts/`: `Config.prompts_dir` is the real folder. Use `test/fixtures/prompts`, or a copy of it in a temporary directory. Web tests call `App` directly, with fake collaborators. `test/app/app_test.rb` and `test/app/isolation_test.rb` load `config.ru`, for the auth and the ledger wiring. A web test gets a page as production serves it with `'SCRIPT_NAME' => LEDGER_ROOT` in the env, and `assert_ledger_links` fails on a link that leaves the ledger.
 - `test_helper.rb` sets `RACK_ENV=test` before it loads the app. Sinatra reads the environment when `sinatra/base` loads, and with any other value its host authorization answers 403.

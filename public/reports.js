@@ -36,6 +36,11 @@ document.querySelector('form.review')?.addEventListener('keydown', (event) => {
   event.preventDefault();
   event.currentTarget.requestSubmit(event.currentTarget.querySelector('button.primary'));
 });
+// Revisar: a suggested account goes into the Cuenta of its row.
+document.querySelector('form.review')?.addEventListener('click', (event) => {
+  const guess = event.target.closest('button.guess');
+  if (guess) guess.closest('li').querySelector('input.account').value = guess.dataset.account;
+});
 window.addEventListener('pageshow', () => {
   for (const button of document.querySelectorAll('button[data-idle]')) {
     button.textContent = button.dataset.idle;

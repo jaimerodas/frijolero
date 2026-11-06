@@ -94,7 +94,7 @@ module Frijolero
         erb :statement, locals: {
           account: account, period: period, view: view, editing: editing, periods: Config.statement_periods(account),
           notice: statement_notice, **statement_text(paths[:beancount]), **statement_rows(account, paths),
-          **review_locals(view, review)
+          **review_locals(account, period, view, review)
         }
       end
 

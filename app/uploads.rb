@@ -145,7 +145,7 @@ module Frijolero
     def enqueue_statement(account:, period:, pdf_path:, overwrite:, &after)
       statement = Statement.new(pdf_path, client: self.class.client, s3: self.class.s3, account: account,
                                           period: period, overwrite: overwrite)
-      run_job("#{account} #{period}", statement, File.dirname(pdf_path), &after)
+      run_job(account, period, statement, File.dirname(pdf_path), &after)
     end
 
     # Pull before the work and push after it, so the statement is written on top of
@@ -153,12 +153,17 @@ module Frijolero
     # The block runs after a good statement and rides on the same commit. The worker
     # thread has no ledger of its own, so the body takes the request's. The pull holds
     # the ledger's lock, and so do the writes with the block and the commit; the model
-    # call between them does not.
-    def run_job(label, statement, upload_dir, &after)
+    # calls between them and after them (Revisar's guesses) do not.
+    def run_job(account, period, statement, upload_dir, &after)
       repo = self.class.repo
+      client = self.class.client
       ledger = Ledger.current
+      label = "#{account} #{period}"
       self.class.jobs.push(label: label, token: File.basename(upload_dir)) do
-        Ledger.with(ledger) { process_statement(repo, statement, label, upload_dir, after) }
+        Ledger.with(ledger) do
+          process_statement(repo, statement, label, upload_dir, after)
+          suggest_after_job(client, account, period)
+        end
       end
     end
 
