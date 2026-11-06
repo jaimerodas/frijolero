@@ -855,7 +855,12 @@ class ReportsPageTest < Minitest::Test
 
     body = last_response.body
     assert_includes body, '<script src="/editor.js" defer></script>'
-    dialog = ['<dialog id="edit">', '<p class="meta"><a class="statement"></a></p>',
+    dialog = ['<dialog id="edit">', '<button type="button" data-tab="fields" aria-pressed="true">Campos</button>',
+              '<button type="button" data-tab="code" aria-pressed="false">Beancount</button>',
+              '<p class="meta"><a class="statement"></a></p>',
+              '<form class="fields" method="post" action="/edit">',
+              '<input id="edit-payee" name="payee" list="edit-payees"', '<datalist id="edit-payees">',
+              '<input id="edit-narration" name="narration"', '<div class="postings" role="group"',
               '<form class="code" method="post" action="/edit">', '<input type="hidden" name="line">',
               '<textarea name="content" hidden'].map { |s| Regexp.escape(s) }.join('.*')
     assert_match(/#{dialog}/m, body)
@@ -1112,8 +1117,39 @@ class ReportsPageTest < Minitest::Test
 
       assert_equal 200, last_response.status
       assert_includes last_response.content_type, 'application/json'
-      assert_equal({ 'first' => 1, 'last' => 3, 'text' => STATEMENT.lines[0..2].join, 'errors' => [] },
-                   JSON.parse(last_response.body))
+      fields = { 'flag' => '*', 'payee' => 'AMAZON', 'narration' => 'compra', 'description' => ['compra'],
+                 'source_desc' => false,
+                 'postings' => [{ 'index' => 1, 'account' => 'Liabilities:AMEX', 'rest' => '-150.00 MXN' },
+                                { 'index' => 2, 'account' => 'Expenses:Compras', 'rest' => '' }] }
+      assert_equal({ 'first' => 1, 'last' => 3, 'text' => STATEMENT.lines[0..2].join, 'errors' => [],
+                     'fields' => fields }, JSON.parse(last_response.body))
+    end
+  end
+
+  def test_edit_gives_the_description_split_at_the_rfc_and_no_fields_off_a_transaction
+    with_statement do |path|
+      File.write(path, "2026-07-05 * \"OXXO CUERNAVACA RFCCCO8605231N4\"\n  Liabilities:AMEX  -9 MXN\n  Expenses:X\n" \
+                       "2026-07-31 balance Liabilities:AMEX  -9 MXN\n")
+      get '/edit', file: 'accounts/AMEX/AMEX 2607.beancount', line: 1
+
+      assert_equal ['OXXO CUERNAVACA', 'RFCCCO8605231N4'], JSON.parse(last_response.body).dig('fields', 'description')
+
+      get '/edit', file: 'accounts/AMEX/AMEX 2607.beancount', line: 4
+
+      refute JSON.parse(last_response.body).key?('fields')
+    end
+  end
+
+  def test_saving_the_fields_writes_them_into_the_transaction_and_commits_it
+    with_statement do |path|
+      original = STATEMENT.lines[0..2].join
+      post '/edit', file: 'accounts/AMEX/AMEX 2607.beancount', line: 2, original: original,
+                    payee: 'Amazon', narration: 'Cables', account: { '2' => 'Expenses:Casa' }
+
+      assert_equal 204, last_response.status
+      assert_equal ["2026-07-05 * \"Amazon\" \"Cables\"\n", "  source_desc: \"compra\"\n",
+                    "  Liabilities:AMEX  -150.00 MXN\n", "  Expenses:Casa\n"], File.read(path).lines[0..3]
+      assert_equal 'Edición AMEX 2607: 2026-07-05 AMAZON', @repo.messages.first.lines.first.chomp
     end
   end
 

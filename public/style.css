@@ -166,8 +166,8 @@ a.rules { font-size: 0.875rem; margin-left: 0.5rem; color: var(--muted); }
 }
 .ledger time, .ledger data { font-family: var(--mono); font-size: 0.9375rem; white-space: nowrap; }
 .ledger data { text-align: right; font-variant-numeric: tabular-nums; }
-:is(.ledger, .net) data.credit { color: var(--credit); }
-:is(.ledger, .net) data.debit { color: var(--debit); }
+:is(.ledger, .net, dialog .posting) data.credit { color: var(--credit); }
+:is(.ledger, .net, dialog .posting) data.debit { color: var(--debit); }
 .ledger .entry { min-width: 0; overflow-wrap: anywhere; }
 .ledger .tail { color: var(--muted); font-size: 0.875rem; }
 .ledger .posting code { color: var(--blue); }
@@ -222,13 +222,40 @@ a.rules { font-size: 0.875rem; margin-left: 0.5rem; color: var(--muted); }
 .ledger .edit:hover { text-decoration: underline; }
 .ledger .edit:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
-/* Edit dialog: one transaction as text, over the dimmed page. */
+/* Edit dialog: one transaction over the dimmed page, in two tabs. Campos lays it out as its text
+   does: the row as the statement shows it, the payee and the narration of the header, then the
+   account of each posting with the rest of its line. The labels sit in the date's column and
+   the fields in the description's. Beancount is the text editor. */
 dialog { width: min(40rem, 100% - 2rem); padding: 1.5rem; border: 1px solid var(--ink); color: var(--ink); background: var(--bg); }
 dialog::backdrop { background: rgb(0 0 0 / 0.5); }
 dialog h2 { margin-top: 0; border-bottom: 3px solid var(--ink); }
-dialog .meta { font-family: var(--mono); font-size: 0.875rem; }
+dialog .bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 1.5rem; margin-top: -0.5rem; }
+dialog .bar p { margin: 0; }
+dialog .meta { font-family: var(--mono); font-size: 0.875rem; overflow-wrap: anywhere; }
 dialog .meta a:not([href]) { color: inherit; }
 dialog .code { margin-bottom: 0; }
+dialog .ledger { margin: 0; }
+dialog .ledger > li { grid-template-columns: 6.5rem 1fr; }
+dialog .fields .grid { display: grid; grid-template-columns: 6.5rem 1fr; gap: 0.75rem 1rem; align-items: baseline; margin-top: 1rem; }
+dialog .fields :is(label, .label) { margin: 0; font-weight: 600; }
+dialog .fields input:not([type="hidden"]) { width: 100%; box-sizing: border-box; padding-block: 0.375rem; }
+dialog .fields input.account { font-family: var(--mono); font-size: 0.9375rem; }
+dialog .fields .hint { margin: 0.25rem 0 0; font-size: 0.875rem; }
+dialog .postings { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem 1rem; }
+dialog .posting { position: relative; grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: baseline; }
+dialog .posting data { font-family: var(--mono); font-size: 0.9375rem; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+/* The account list opens under the field, as wide as it: the field's text and the names line up. */
+dialog .posting .suggestions { margin-left: 0; box-sizing: border-box; }
+dialog .fields .actions .keys { margin-left: auto; }
+@media (max-width: 40rem) {
+  dialog { padding: 1rem; }
+  dialog .fields .grid { grid-template-columns: 1fr; row-gap: 0.25rem; }
+  dialog .fields .grid > :is(label, .label):not(:first-child) { margin-top: 0.75rem; }
+  /* An account as wide as the screen, and its amount under it. */
+  dialog .postings { grid-template-columns: 1fr; row-gap: 0.75rem; }
+  dialog .posting { row-gap: 0.25rem; }
+  dialog .posting data:empty { display: none; }
+}
 
 /* Reports: an account tree, one column per currency. Parents carry the sum of their subtree.
    On a wide screen the sections sit side by side: income and expenses, assets and the rest. */
@@ -319,12 +346,12 @@ dialog .code { margin-bottom: 0; }
   display: flex; flex-wrap: wrap; align-items: center; gap: 0 2rem;
   border-block: 1px solid var(--rule);
 }
-:is(.toolbar, .chart, .account-head) .tabs { display: flex; gap: 1rem; }
-.chart .tabs button { all: unset; font-family: var(--sans); cursor: pointer; }
-.chart .tabs button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-:is(.toolbar, .chart, .page-head, .account-head) .tabs :is(a, button) { display: inline-flex; align-items: center; min-height: 2.75rem; color: var(--muted); text-decoration: none; }
-:is(.toolbar, .chart, .page-head, .account-head) .tabs :is(a, button):hover { color: var(--ink); text-decoration: underline; }
-:is(.toolbar, .chart, .page-head, .account-head) .tabs :is(a[aria-current], button[aria-pressed="true"]) { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px var(--ink); }
+:is(.toolbar, .chart, .account-head, dialog) .tabs { display: flex; gap: 1rem; }
+:is(.chart, dialog) .tabs button { all: unset; font-family: var(--sans); cursor: pointer; }
+:is(.chart, dialog) .tabs button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+:is(.toolbar, .chart, .page-head, .account-head, dialog) .tabs :is(a, button) { display: inline-flex; align-items: center; min-height: 2.75rem; color: var(--muted); text-decoration: none; }
+:is(.toolbar, .chart, .page-head, .account-head, dialog) .tabs :is(a, button):hover { color: var(--ink); text-decoration: underline; }
+:is(.toolbar, .chart, .page-head, .account-head, dialog) .tabs :is(a[aria-current], button[aria-pressed="true"]) { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px var(--ink); }
 .toolbar .period { display: flex; align-items: center; gap: 0.25rem; margin: 0; }
 .toolbar .period a, .toolbar .period span[aria-hidden] { display: inline-flex; justify-content: center; align-items: center; width: 2rem; min-height: 2.75rem; font-size: 1.25rem; text-decoration: none; color: var(--ink); }
 .toolbar .period span[aria-hidden] { color: var(--rule); }
@@ -518,9 +545,9 @@ pre {
   overflow: hidden;
   resize: none;
 }
-.code .errors { margin-block: 0.75rem 0; padding-left: 2.5rem; font-family: var(--mono); font-size: 0.875rem; }
-.code .errors li { overflow-wrap: anywhere; }
-.code .actions { margin-block: 0.75rem 0; }
+:is(.code, .fields) .errors { margin-block: 0.75rem 0; padding-left: 2.5rem; font-family: var(--mono); font-size: 0.875rem; }
+:is(.code, .fields) .errors li { overflow-wrap: anywhere; }
+:is(.code, .fields) .actions { margin-block: 0.75rem 0; }
 .code-head { display: flex; align-items: baseline; gap: 1rem; margin: 2.5rem 0 0.75rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--rule); }
 .code-head :is(h1, h2) { flex: 1; margin: 0; padding: 0; border: 0; overflow-wrap: anywhere; }
 .code-head h1.file { font-family: var(--mono); font-size: 1.25rem; }
@@ -678,14 +705,15 @@ summary { cursor: pointer; font-weight: 600; }
 /* Compact for a mouse, 44 px for a finger. Under 16 px, iOS Safari zooms the page into a field. */
 @media (pointer: coarse) {
   .review .fields input:not([type="checkbox"]), .review .fields label, .review .guess { min-height: 2.75rem; box-sizing: border-box; }
-  .review .fields :is(.account, .pattern) { font-size: 1rem; }
+  .review .fields :is(.account, .pattern), dialog .fields input.account { font-size: 1rem; }
+  dialog .fields input:not([type="hidden"]) { min-height: 2.75rem; }
   .review .remember { width: 1.25rem; height: 1.25rem; }
 }
 /* A phone has no ⌘↩, and the bar would take a sixth of its screen. */
 @media (max-width: 40rem) {
   .review .actions { flex-wrap: nowrap; gap: 0.75rem; }
   .review .actions .note { font-size: 0.875rem; }
-  .review .actions .keys { display: none; }
+  :is(.review, dialog) .actions .keys { display: none; }
 }
 .review .entry > .status { display: block; margin-top: 0.5rem; color: var(--ink); white-space: normal; overflow-wrap: anywhere; }
 .review .entry > .status::before { color: var(--red); }

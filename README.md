@@ -40,8 +40,12 @@ Desde el iPhone, un atajo de iOS manda los PDF a la Bandeja desde la hoja de
 compartir (ver [setup.md](docs/setup.md#subir-desde-el-iphone)).
 
 Cada estado de cuenta tiene su página, con tres vistas: Movimientos, Revisar y
-Beancount. En Movimientos, la fecha de un movimiento abre un editor de esa
-transacción. "Hacer regla" crea una regla desde un movimiento. "▲ N sin
+Beancount. En Movimientos y en el Diario, la fecha de un movimiento abre esa
+transacción: su payee, su narración y sus cuentas, con la lista de los payees
+del ledger y la de las cuentas abiertas. Si cambias la narración, la original
+queda en `source_desc`. La pestaña Beancount edita el texto, para la fecha,
+los montos o una división.
+"Hacer regla" crea una regla desde un movimiento. "▲ N sin
 clasificar" abre Revisar: los movimientos sin clasificar en un solo
 formulario, con su cuenta, su payee y su narración. El modelo sugiere tres
 cuentas para cada uno, a partir de los movimientos que ya clasificaste, y la

@@ -89,11 +89,7 @@
       <% end %>
     <% end %>
 
-    <dialog id="edit">
-      <h2>Editar transacción</h2>
-      <p class="meta"><a class="statement"></a></p>
-      <%= erb :_code, layout: false, locals: { file: '', text: '' } %>
-    </dialog>
+    <%= erb :_edit_dialog, layout: false %>
   </main>
 </body>
 </html>

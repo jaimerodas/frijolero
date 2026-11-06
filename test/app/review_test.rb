@@ -135,6 +135,15 @@ class ReviewTest < Minitest::Test
     assert_includes body, 'name="choice[15][pattern]" value="UNITED AIRLINES HOUSTON"'
   end
 
+  def test_each_payee_field_offers_the_payees_of_the_ledger
+    File.write(File.join(@dir, 'main.beancount'), %(include "accounts/AMEX/*.beancount"\n), mode: 'a')
+    get '/accounts/AMEX/2610/review'
+
+    body = last_response.body
+    assert_includes body, '<datalist id="review-payees"><option value="Amazon"><option value="Uber"></datalist>'
+    assert_equal 4, body.scan(/name="choice\[\d+\]\[payee\]"[^>]* list="review-payees"/).size
+  end
+
   def test_the_unclassified_status_opens_revisar
     get '/accounts/AMEX/2610'
 

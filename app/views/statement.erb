@@ -91,11 +91,7 @@
           <% end %>
         </ol>
       </section>
-      <dialog id="edit">
-        <h2>Editar transacción</h2>
-        <p class="meta"><a class="statement"></a></p>
-        <%= erb :_code, layout: false, locals: { file: '', text: '' } %>
-      </dialog>
+      <%= erb :_edit_dialog, layout: false %>
     <% elsif rows && view == :review %>
       <% if review[:error] %><p class="error" role="alert"><%= h(review[:error]) %></p><% end %>
       <% if review_rows.empty? %>
@@ -112,6 +108,7 @@
           <button type="submit" disabled hidden></button>
           <input type="hidden" name="digest" value="<%= digest %>">
           <datalist id="review-accounts"><% accounts.each do |name| %><option value="<%= h(name) %>"><% end %></datalist>
+          <datalist id="review-payees"><% payees.each do |name| %><option value="<%= h(name) %>"><% end %></datalist>
           <ol class="ledger">
             <% review_rows.each do |tx| %>
               <%
@@ -132,7 +129,7 @@
                   <% if tail %><div class="tail"><%= h(tail) %></div><% end %>
                   <div class="fields">
                     <input name="choice[<%= line %>][account]" value="<%= h(chosen) %>" class="account" list="review-accounts" placeholder="Cuenta" aria-label="Cuenta de <%= h(merchant) %>" autocomplete="off" spellcheck="false">
-                    <input name="choice[<%= line %>][payee]" value="<%= h(given.fetch('payee', tx[:payee])) %>" placeholder="Payee" aria-label="Payee de <%= h(merchant) %>">
+                    <input name="choice[<%= line %>][payee]" value="<%= h(given.fetch('payee', tx[:payee])) %>" list="review-payees" placeholder="Payee" aria-label="Payee de <%= h(merchant) %>">
                     <input name="choice[<%= line %>][narration]" value="<%= h(given.fetch('narration', tx[:narration])) %>" placeholder="Narración" aria-label="Narración de <%= h(merchant) %>">
                     <label><input type="checkbox" name="choice[<%= line %>][rule]" value="1" class="remember"<% if given['rule'] %> checked<% end %>> Regla</label>
                     <%# Shown only while Regla is ticked: the rule applies to every description that starts with it. %>

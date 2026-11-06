@@ -1,12 +1,28 @@
 # frozen_string_literal: true
 
 module Frijolero
-  # The edit dialog of the journal. Reopens App to keep reports.rb the reports.
+  # The edit dialog of one transaction (Campos and the text) and the editor of a whole file.
+  # Reopens App to keep reports.rb the reports.
   class App
     helpers do
       # `file` and `line` are checked by LedgerEdit itself: the trust boundary for both.
       def ledger_edit
         LedgerEdit.new(file: params[:file], line: params[:line], checker: self.class.reports)
+      end
+
+      # The text that a save writes: the Beancount tab's `content`, or Campos's fields on the original.
+      def edited_text
+        return params[:content] if params.key?('content')
+
+        accounts = params[:account].is_a?(Hash) ? params[:account] : {}
+        TransactionFields.apply(params[:original], payee: params[:payee], narration: params[:narration],
+                                                   accounts: accounts)
+      end
+
+      # Campos of a transaction, its description cut where the statement page cuts it; nil off one.
+      def edit_fields(text)
+        fields = TransactionFields.of(text)
+        fields&.merge(description: split_description(fields[:description]))
       end
 
       # The main file and every file it includes outside accounts/, whose files the statement
@@ -21,11 +37,13 @@ module Frijolero
     end
 
     # One transaction as text, by file and line, or the whole file without a
-    # line: {first, last, text, errors}, the errors that start inside it.
+    # line: {first, last, text, errors, fields}, the errors that start inside it,
+    # and Campos when the block is a transaction that the dialog can rewrite.
     get '/edit' do
       block = ledger_edit.block
+      fields = edit_fields(block[:text]) if params[:line].to_i.positive?
       content_type :json
-      JSON.generate(block.merge(errors: errors_in(params[:file], block[:first], block[:last])))
+      JSON.generate(block.merge(errors: errors_in(params[:file], block[:first], block[:last]), fields: fields).compact)
     rescue LedgerEdit::NotFound
       halt 404, 'No existe esa transacción'
     end
@@ -38,7 +56,7 @@ module Frijolero
     post '/edit' do
       Ledger.lock do
         edit = ledger_edit
-        text = edit.save(original: params[:original], edited: params[:content])
+        text = edit.save(original: params[:original], edited: edited_text)
         self.class.repo.commit_and_push(edit.commit_message(original: params[:original], edited: text))
       end
       status 204

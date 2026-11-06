@@ -45,7 +45,7 @@ module Frijolero
         return {} unless view == :review
 
         { review: { error: nil, errors: {}, values: {} }.merge(review), accounts: LedgerAccounts.active,
-          **suggest_locals(account, period) }
+          payees: LedgerAccounts.payees, **suggest_locals(account, period) }
       end
 
       # Under the ledger's lock: { classified:, rules:, remaining:, push: }. The digest is the file

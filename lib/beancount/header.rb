@@ -42,10 +42,11 @@ module Frijolero
         @eol = eol
       end
 
-      # Renders the line with the given overrides; nil means "leave as it was".
+      # Renders the line with the given overrides; nil means "leave as it was", and an empty
+      # payee removes it (the edit dialog's cleared field), while an empty narration stays `""`.
       # The flag is never touched — a `!` someone set stays a `!`.
       def render(payee: nil, narration: nil)
-        strings = [payee || @payee, narration || @narration].compact
+        strings = [payee == '' ? nil : payee || @payee, narration || @narration].compact
         parts = [@date, @flag, *strings.map { |string| %("#{Quoting.escape(string)}") }, @trailing]
 
         "#{parts.reject { |part| part.nil? || part.empty? }.join(' ')}#{@eol}"

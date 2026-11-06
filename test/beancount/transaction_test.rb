@@ -227,6 +227,17 @@ class BeancountTransactionTest < Minitest::Test
     assert_equal from_json, render(tx)
   end
 
+  def test_apply_with_an_empty_payee_removes_it_and_an_empty_narration_stays
+    tx = detailed
+    tx.apply(payee: '')
+
+    assert_equal %(2025-01-15 * "AWS"\n), render(tx).lines.first
+
+    tx.apply(payee: 'Amazon', narration: '')
+
+    assert_equal %(2025-01-15 * "Amazon" ""\n), render(tx).lines.first
+  end
+
   def test_apply_does_not_duplicate_an_existing_source_desc
     tx = detailed
     tx.apply(narration: 'Amazon Web Services')

@@ -1,0 +1,32 @@
+<%# The edit dialog of one transaction, which the date of an entry opens (editor.js). Campos changes the
+    payee, the narration and the accounts; Beancount is the text, for the date, the amounts and the rest.
+    The script fills both from GET /edit and shows one; the tab that the person leaves resets. %>
+<dialog id="edit">
+  <h2>Editar transacción</h2>
+  <div class="bar">
+    <p class="tabs"><button type="button" data-tab="fields" aria-pressed="true">Campos</button><button type="button" data-tab="code" aria-pressed="false">Beancount</button></p>
+    <p class="meta"><a class="statement"></a></p>
+  </div>
+  <form class="fields" method="post" action="<%= ledger_path('/edit') %>">
+    <input type="hidden" name="file">
+    <input type="hidden" name="line">
+    <input type="hidden" name="original">
+    <%# The row that the person clicked, as the statement shows it. %>
+    <ol class="ledger"><li><time></time><div class="entry"></div></li></ol>
+    <div class="grid">
+      <label for="edit-payee">Payee</label>
+      <input id="edit-payee" name="payee" list="edit-payees" autocomplete="off">
+      <datalist id="edit-payees"><% Frijolero::LedgerAccounts.payees.each do |name| %><option value="<%= h(name) %>"><% end %></datalist>
+      <label for="edit-narration">Narración</label>
+      <div>
+        <input id="edit-narration" name="narration" autocomplete="off">
+        <p class="hint note" hidden>La descripción original queda en source_desc.</p>
+      </div>
+      <span class="label" id="edit-accounts">Cuentas</span>
+      <div class="postings" role="group" aria-labelledby="edit-accounts"></div>
+    </div>
+    <ul class="errors error" role="alert" hidden></ul>
+    <p class="actions"><button type="submit" class="primary">Guardar</button><button type="button" value="cancel">Cancelar</button><span class="note keys">↩ guarda</span></p>
+  </form>
+  <%= erb :_code, layout: false, locals: { file: '', text: '' } %>
+</dialog>

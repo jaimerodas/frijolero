@@ -48,6 +48,7 @@ require_relative 'new_ledger'
 require_relative 'ledger_files'
 require_relative 'reports'
 require_relative 'ledger_edit'
+require_relative 'transaction_fields'
 require_relative 'period'
 
 module Frijolero

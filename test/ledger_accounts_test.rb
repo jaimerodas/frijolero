@@ -22,6 +22,28 @@ class LedgerAccountsTest < Minitest::Test
     end
   end
 
+  # The payee lists of the edit dialog and Revisar: each payee once, the most used first, from
+  # every file the ledger reads. A header with only a narration, or an empty payee, gives none.
+  def test_payees_most_used_first_unescaped_from_every_file
+    with_ledger_dir do |dir|
+      File.write(File.join(dir, 'main.beancount'), <<~BEAN)
+        include "accounts/*.beancount"
+        2020-01-01 open Assets:Main
+        2020-01-02 * "Plata" "Inversión"
+        2020-01-03 * "Solo narración"
+        2020-01-04 * "" "Sin payee"
+      BEAN
+      FileUtils.mkdir_p(File.join(dir, 'accounts'))
+      File.write(File.join(dir, 'accounts', 'x.beancount'), <<~BEAN)
+        2020-01-05 ! "Uber" "Viaje" #trabajo
+        2020-01-06 * "Uber" "Uber Eats"
+        2020-01-07 txn "Rest \\"El Fogón\\"" "Cena"
+      BEAN
+
+      assert_equal ['Uber', 'Plata', 'Rest "El Fogón"'], Frijolero::LedgerAccounts.payees
+    end
+  end
+
   # The editors still open on a ledger that LedgerFiles refuses, so the badge can say why.
   def test_an_unsafe_ledger_has_no_accounts
     with_ledger_dir do |dir|

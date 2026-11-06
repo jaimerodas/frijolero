@@ -302,7 +302,7 @@ Revisar shows the unclassified rows of one statement as one form. A row is a tra
 - A row that cannot be saved (an unknown account, a bad pattern) refuses the whole save with 422. The page shows the message on each such row and keeps every value. The account list is `LedgerAccounts.active`, the same as the editors use.
 - The form sends the SHA-256 of the file that it showed. If a job, a pull or another tab changed the file, the answer is 409, and the page shows the current rows as a fresh page does (empty, or with their guesses), because the lines moved.
 - The rules file is written only after the statement passes the check, so a refused save leaves both files as they were. A failed push keeps the commit and says so in the notice.
-- The account field is an `<input>` with a native `<datalist>`. The editors need a script because a textarea cannot use one.
+- The account field is an `<input>` with a native `<datalist>`. The editors need a script because a textarea cannot use one. The payee field has a `<datalist>` of the ledger's payees, the same list as the edit dialog.
 - Enter in a field does nothing: the first submit button of the form is hidden and disabled. ⌘↩ (Ctrl+↩ off a Mac) saves through Guardar (`reports.js`). Guardar stays at the bottom of the window. Under 40rem the bar drops the ⌘↩ hint, because a phone has no ⌘↩.
 - On a touch screen, the fields, Regla and the guesses are 44 px tall, and Cuenta is 16 px. Under 16 px, iOS Safari zooms the page when a field gets the focus.
 - After a save, the page goes back to Revisar with the rows left, or to the movements when no row is left.
@@ -336,6 +336,18 @@ The rules editor:
 ### Editors (`app/edits.rb`, `lib/ledger_edit.rb`, `app/views/_code.erb`, `public/editor.js`)
 
 One editor shows and edits Beancount text. It works in three places: the Beancount view of a statement, any ledger file at `/files/<path>`, and the edit dialog of one transaction. The dialog opens from a date in the journal or on a statement. The YAML editors (rules and `accounts.yaml`) use the same surface, with their own colors.
+
+#### The edit dialog (`app/views/_edit_dialog.erb`, `lib/transaction_fields.rb`)
+
+The dialog has two tabs. It opens on Campos: Payee, Narración, and the account of each posting, with the rest of the posting's line (the amount, a cost, a price) next to it. The Beancount tab is the text editor, for the date, the flag, the amounts and a split.
+
+- `GET /edit` gives `fields` when `TransactionFields.of` can read the block. Else (a `balance`, an `event`, a header with three strings) the dialog shows the text alone, with no tabs.
+- Campos posts to the same `POST /edit`, with no `content`. `TransactionFields.apply` writes the fields into `original` with `Transaction#apply`. So a new narration keeps the first one in `source_desc`, as the rules do. A field as it was changes nothing. An empty account keeps the account. An empty payee removes the payee (`Header.render`).
+- The save, the check, the 409 and the commit message are the ones of the text.
+- A switch of tab fills the tab again from the server's block. So the tab that the person leaves loses its changes.
+- The focus goes to the `Expenses:FIXME` account, or else to the last posting, with its text selected. Enter saves. In an account field with the list open, Enter picks the suggestion.
+- The account fields use the editors' list, not a `<datalist>`, for its matching by segment (`ex:co:ca`). The list opens under the field, as wide as the field, and above it when the dialog has no room below.
+- Payee has a native `<datalist>` of `LedgerAccounts.payees`: each payee of the ledger once, the most used first. The scan costs about 12 ms on the real ledger (142 payees). In Safari, while the list shows, the first Enter closes the list and the second Enter saves.
 
 A `pre` shows the colored, numbered lines. In edit mode, a transparent textarea with the same font, padding and wrapping lies on top. The `pre` sets the height, so there is no scroll to sync. Three rules keep the caret on the text:
 

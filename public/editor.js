@@ -128,10 +128,13 @@ let autocompleteId = 0;
 
 // The account suggestion list floating over `textarea`, under the word being typed, in the
 // textarea's parent, which is its positioning context. It never touches a line's height.
-// `accounts` comes from a `script.accounts` next to it; `spot` says where a word is an account;
-// `accepted` runs after a pick (the Beancount editor redraws its colored copy).
+// `textarea` can also be an <input> (the edit dialog's Campos): the list then opens under it.
+// `accounts` comes from a `script.accounts` in its form, or else in the page; `spot` says where
+// a word is an account; `accepted` runs after a pick (the Beancount editor redraws its colored copy).
 function accountAutocomplete(textarea, spot, accepted = () => {}) {
-  const accounts = JSON.parse(textarea.form.querySelector('script.accounts')?.textContent || '[]');
+  const field = textarea.tagName === 'INPUT';
+  const source = textarea.form?.querySelector('script.accounts') ?? document.querySelector('script.accounts');
+  const accounts = JSON.parse(source?.textContent || '[]');
   const id = `ac${autocompleteId++}`;
   const list = document.createElement('ul');
   list.className = 'suggestions';
@@ -146,9 +149,14 @@ function accountAutocomplete(textarea, spot, accepted = () => {}) {
   let selected = 0;
 
   function position() {
-    const point = caretPoint(textarea, current.start);
+    const point = field ? { top: textarea.offsetHeight, left: 0 } : caretPoint(textarea, current.start);
     list.style.top = `${textarea.offsetTop + point.top}px`;
     list.style.left = `${textarea.offsetLeft + point.left}px`;
+    if (!field) return;
+    // As wide as the field, and above it when the dialog, which clips it, has no room below.
+    list.style.width = `${textarea.offsetWidth}px`;
+    const bottom = textarea.closest('dialog')?.getBoundingClientRect().bottom ?? Infinity;
+    if (textarea.getBoundingClientRect().bottom + list.offsetHeight > bottom) list.style.top = `${textarea.offsetTop - list.offsetHeight}px`;
   }
 
   function select(i) {
@@ -193,8 +201,9 @@ function accountAutocomplete(textarea, spot, accepted = () => {}) {
     show(context, matches);
   }
 
-  // Consumes ArrowDown/ArrowUp/Tab/Escape while the list shows; Enter is left alone; a
-  // caller returning false runs its own handling for the key (Tab's two spaces, mainly).
+  // Consumes ArrowDown/ArrowUp/Tab/Escape while the list shows, and Enter in an <input>, where it
+  // would save; in a textarea Enter breaks the line. A caller returning false runs its own
+  // handling for the key (Tab's two spaces, mainly).
   function handleKey(event) {
     if (list.hidden) return false;
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -202,7 +211,7 @@ function accountAutocomplete(textarea, spot, accepted = () => {}) {
       select((selected + (event.key === 'ArrowDown' ? 1 : list.children.length - 1)) % list.children.length);
       return true;
     }
-    if (event.key === 'Tab') {
+    if (event.key === 'Tab' || (field && event.key === 'Enter')) {
       event.preventDefault();
       accept(current.accounts[selected]);
       return true;
@@ -244,6 +253,15 @@ function codeSurface(textarea, pre, paint, spot) {
   textarea.addEventListener('input', () => draw());
   for (const type of ['keyup', 'click', 'focus', 'blur']) textarea.addEventListener(type, mark);
   return { draw, mark, handleKey: accountAutocomplete(textarea, spot, () => draw()).handleKey };
+}
+
+// Posts an edit form to /edit: true on a clean save, else false, with the errors shown through
+// `show`: the check's when it refused the edit (422), or the server's one line.
+async function postEdit(form, show) {
+  const response = await fetch(`${ROOT}/edit`, { method: 'POST', body: new FormData(form) }).catch(() => null);
+  if (response?.status === 204) return true;
+  show(response?.status === 422 ? (await response.json()).errors : [response ? await response.text() : 'Sin conexión']);
+  return false;
 }
 
 // Wires one form.code. `open(text, first)` puts `text` in the editor, numbered from file
@@ -305,7 +323,7 @@ function editor(form) {
     textarea.hidden = false;
     actions.hidden = false;
     showErrors(found);
-    dialog?.showModal();
+    if (dialog && !dialog.open) dialog.showModal();
     // The caret at the top, focused where the page already is: not a jump to the file's end.
     textarea.setSelectionRange(0, 0);
     textarea.focus({ preventScroll: true });
@@ -344,10 +362,8 @@ function editor(form) {
   // the page it came from, with its notice. A rejected one lists the errors and stays.
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const response = await fetch(`${ROOT}/edit`, { method: 'POST', body: new FormData(form) }).catch(() => null);
-    if (response?.status === 204) return dialog ? location.reload() : location.replace(`${back || location.pathname}?saved=1`);
-    if (response?.status === 422) return showErrors((await response.json()).errors);
-    showErrors([response ? await response.text() : 'Sin conexión']);
+    if (!await postEdit(form, showErrors)) return;
+    if (dialog) location.reload(); else location.replace(`${back || location.pathname}?saved=1`);
   });
 
   return { open, showErrors };
@@ -367,19 +383,117 @@ if (form) {
   document.querySelector('button.edit-file')?.addEventListener('click', openFile);
   if (form.dataset.back) openFile();
 
-  // The journal: the date of an entry opens the dialog with that one transaction.
+  const dialog = form.closest('dialog');
+  if (dialog) editDialog(dialog, ed);
+}
+
+// The dialog's Campos: the payee, the narration and the account of each posting, from GET /edit's
+// `fields`. The save sends them without `content`, and the server writes the text, so the narration
+// that it replaces stays in source_desc, as with the rules. `open(block)` fills it and focuses the
+// account to classify, its text selected, so typing replaces it: Enter picks a suggestion, then saves.
+function fieldsForm(form) {
+  const dialog = form.closest('dialog');
+  const row = form.querySelector('.ledger li');
+  const postings = form.querySelector('.postings');
+  const hint = form.querySelector('.hint');
+  const errors = form.querySelector('.errors');
+  const { payee, narration } = form.elements;
+  let kept = false;
+  let busy = false;
+
+  const element = (tag, props) => Object.assign(document.createElement(tag), props);
+
+  function showErrors(list) {
+    errors.replaceChildren(...list.map((e) => element('li', { textContent: typeof e === 'string' ? e : `${e.code} ${e.message}` })));
+    errors.hidden = list.length === 0;
+  }
+
+  // One posting: its account, with the list where it can be any open account, and the rest of
+  // its line (the amount, a cost, a price) as it is in the text.
+  function posting({ index, account, rest }, n) {
+    const line = element('div', { className: 'posting' });
+    const input = element('input', { name: `account[${index}]`, value: account, className: 'account', autocomplete: 'off', spellcheck: false });
+    input.setAttribute('autocapitalize', 'off');
+    input.setAttribute('aria-label', rest ? `Cuenta ${n + 1}, ${rest}` : `Cuenta ${n + 1}`);
+    line.append(input, element('data', { textContent: rest, className: rest.startsWith('-') ? 'debit' : 'credit' }));
+    const { handleKey } = accountAutocomplete(input, /^\s*$/);
+    input.addEventListener('keydown', handleKey);
+    return line;
+  }
+
+  function open(block) {
+    const { fields } = block;
+    form.elements.original.value = block.text;
+    const [merchant, tail] = fields.description;
+    row.querySelector('time').textContent = block.text.slice(0, 10);
+    const first = element('div', { textContent: merchant });
+    if (fields.flag === '!') first.append(' ', element('span', { className: 'flag', textContent: '!' }));
+    row.querySelector('.entry').replaceChildren(first, ...(tail ? [element('div', { className: 'tail', textContent: tail })] : []));
+    payee.value = fields.payee;
+    narration.value = narration.defaultValue = fields.narration;
+    kept = fields.source_desc;
+    hint.hidden = true;
+    postings.replaceChildren(...fields.postings.map(posting));
+    showErrors(block.errors || []);
+    if (!dialog.open) dialog.showModal();
+    const accounts = [...postings.querySelectorAll('input')];
+    const target = accounts.find((input) => input.value === 'Expenses:FIXME') ?? accounts.at(-1) ?? payee;
+    target.focus();
+    target.select();
+  }
+
+  narration.addEventListener('input', () => { hint.hidden = kept || narration.value === narration.defaultValue; });
+  form.querySelector('button[value="cancel"]').addEventListener('click', () => dialog.close());
+
+  // Enter in any field saves, as in any one form. A second Enter while the first save runs
+  // would post a stale original: 409.
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (busy) return;
+    busy = true;
+    if (await postEdit(form, showErrors)) return location.reload();
+    busy = false;
+  });
+
+  return { form, open };
+}
+
+// The dialog of one transaction, which the date of an entry opens: Campos when the server can read
+// the transaction's fields, else the text alone, with no tabs. A tab is filled from the server's block
+// each time it shows, so the tab that the person leaves resets.
+function editDialog(dialog, ed) {
+  const code = dialog.querySelector('form.code');
+  const fields = fieldsForm(dialog.querySelector('form.fields'));
+  const tabs = dialog.querySelector('.tabs');
+  let block;
+
+  function show(tab) {
+    for (const button of tabs.children) button.setAttribute('aria-pressed', button.dataset.tab === tab);
+    fields.form.hidden = tab !== 'fields';
+    code.hidden = tab !== 'code';
+    if (tab === 'fields') fields.open(block); else ed.open(block.text, block.first, block.errors);
+  }
+
+  tabs.addEventListener('click', (event) => {
+    const button = event.target.closest('button');
+    if (button && button.getAttribute('aria-pressed') !== 'true') show(button.dataset.tab);
+  });
+
   document.addEventListener('click', async (event) => {
     const button = event.target.closest('button.edit');
     if (!button) return;
     const { file, line, statement } = button.dataset;
     const response = await fetch(`${ROOT}/edit?${new URLSearchParams({ file, line })}`).catch(() => null);
-    const block = response?.ok ? await response.json() : { text: '', first: 1 };
-    form.elements.file.value = file;
-    form.elements.line.value = line;
-    const link = form.closest('dialog').querySelector('.statement');
+    block = response?.ok ? await response.json() : { text: '', first: 1 };
+    for (const form of [code, fields.form]) {
+      form.elements.file.value = file;
+      form.elements.line.value = line;
+    }
+    const link = dialog.querySelector('.statement');
     link.textContent = file;
     if (statement) link.href = statement; else link.removeAttribute('href');
-    ed.open(block.text, block.first, block.errors);
+    tabs.hidden = !block.fields;
+    show(block.fields ? 'fields' : 'code');
     if (!response?.ok) ed.showErrors([response ? await response.text() : 'Sin conexión']);
   });
 }
