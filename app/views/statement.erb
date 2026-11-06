@@ -121,6 +121,9 @@
                 given = {} unless given.is_a?(Hash)
                 error = review[:errors][line]
                 guessed = guesses[Frijolero::Suggestions.key(tx)] || []
+                # The first guess starts in the field, so Guardar saves it unless the person changes it.
+                chosen = given.fetch('account', guessed.first)
+                others = guessed - [chosen]
               %>
               <li<% if error %> class="err"<% end %>>
                 <time datetime="<%= h(tx[:date]) %>"><%= h(tx[:date]) %></time>
@@ -128,22 +131,22 @@
                   <div><%= h(merchant) %><% if tx[:flag] == '!' %> <span class="flag">!</span><% end %></div>
                   <% if tail %><div class="tail"><%= h(tail) %></div><% end %>
                   <div class="fields">
-                    <%# The first guess starts in the field, so Guardar saves it unless the person changes it. %>
-                    <input name="choice[<%= line %>][account]" value="<%= h(given.fetch('account', guessed.first)) %>" class="account" list="review-accounts" placeholder="Cuenta" aria-label="Cuenta de <%= h(merchant) %>" autocomplete="off" spellcheck="false">
+                    <input name="choice[<%= line %>][account]" value="<%= h(chosen) %>" class="account" list="review-accounts" placeholder="Cuenta" aria-label="Cuenta de <%= h(merchant) %>" autocomplete="off" spellcheck="false">
                     <input name="choice[<%= line %>][payee]" value="<%= h(given.fetch('payee', tx[:payee])) %>" placeholder="Payee" aria-label="Payee de <%= h(merchant) %>">
                     <input name="choice[<%= line %>][narration]" value="<%= h(given.fetch('narration', tx[:narration])) %>" placeholder="Narración" aria-label="Narración de <%= h(merchant) %>">
                     <label><input type="checkbox" name="choice[<%= line %>][rule]" value="1" class="remember"<% if given['rule'] %> checked<% end %>> Regla</label>
                     <%# Shown only while Regla is ticked: the rule applies to every description that starts with it. %>
                     <input name="choice[<%= line %>][pattern]" value="<%= h(given['pattern'] || Frijolero::StatementReview.pattern(tx[:description])) %>" class="pattern" aria-label="La regla aplica a lo que empieza con" spellcheck="false">
                   </div>
-                  <% if guessed.any? %><p class="guesses">Sugeridas: <% guessed.each do |name| %><button type="button" class="guess" data-account="<%= h(name) %>"><%= h(name) %></button><% end %></p><% end %>
+                  <%# The guesses that the field does not hold: "Otras" says that the field holds one. %>
+                  <% if others.any? %><p class="guesses"><%= others.size < guessed.size ? 'Otras:' : 'Sugeridas:' %> <% others.each do |name| %><button type="button" class="guess" data-account="<%= h(name) %>"><%= h(name) %></button><% end %></p><% end %>
                   <% if error %><span class="status failed"><%= h(error) %></span><% end %>
                 </div>
                 <data class="<%= tx[:amount]&.negative? ? 'debit' : 'credit' %>" value="<%= h(tx[:amount]&.to_s('F')) %>"><%= money(tx[:amount]) %> <%= h(tx[:currency]) %></data>
               </li>
             <% end %>
           </ol>
-          <p class="actions"><button type="submit" class="primary" data-busy="Guardando…">Guardar</button><span class="note">⌘↩ guarda. Lo que dejes vacío queda sin clasificar, y las reglas de la cuenta se aplican a eso.</span></p>
+          <p class="actions"><button type="submit" class="primary" data-busy="Guardando…">Guardar</button><span class="note"><span class="keys">⌘↩ guarda. </span>Lo que dejes vacío queda sin clasificar, y las reglas de la cuenta se aplican a eso.</span></p>
         </form>
       <% end %>
     <% else %>

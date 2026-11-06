@@ -119,7 +119,8 @@ guarda nada y muestra los movimientos otra vez, como una página nueva.
 Al terminar cada corrida, la app pide al modelo tres cuentas para cada
 movimiento sin clasificar. El modelo ve los cinco movimientos pasados del
 ledger que más se parecen y la cuenta que elegiste para cada uno. Revisar
-llena la cuenta con la primera y muestra las tres abajo. Guardar guarda lo
+llena la cuenta con la primera y muestra las otras dos abajo, en "Otras". Si
+presionas una, pasa al campo. Guardar guarda lo
 que dicen los campos: una sugerida que no cambias se guarda igual que una que
 escribes.
 

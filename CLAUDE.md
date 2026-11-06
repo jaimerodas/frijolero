@@ -290,12 +290,13 @@ Revisar shows the unclassified rows of one statement as one form. A row is a tra
 - The form sends the SHA-256 of the file that it showed. If a job, a pull or another tab changed the file, the answer is 409, and the page shows the current rows as a fresh page does (empty, or with their guesses), because the lines moved.
 - The rules file is written only after the statement passes the check, so a refused save leaves both files as they were. A failed push keeps the commit and says so in the notice.
 - The account field is an `<input>` with a native `<datalist>`. The editors need a script because a textarea cannot use one.
-- Enter in a field does nothing: the first submit button of the form is hidden and disabled. ⌘↩ (Ctrl+↩ off a Mac) saves through Guardar (`reports.js`). Guardar stays at the bottom of the window.
+- Enter in a field does nothing: the first submit button of the form is hidden and disabled. ⌘↩ (Ctrl+↩ off a Mac) saves through Guardar (`reports.js`). Guardar stays at the bottom of the window. Under 40rem the bar drops the ⌘↩ hint, because a phone has no ⌘↩.
+- On a touch screen, the fields, Regla and the guesses are 44 px tall, and Cuenta is 16 px. Under 16 px, iOS Safari zooms the page when a field gets the focus.
 - After a save, the page goes back to Revisar with the rows left, or to the movements when no row is left.
 
 #### Guesses (`lib/suggestions.rb`, `app/suggest.rb`, `prompts/suggest/`)
 
-Revisar starts each Cuenta with the model's first guess, and shows its three guesses as buttons under the fields. A click puts one in Cuenta (`reports.js`). A guess is only a value in the field: Guardar saves what the fields show.
+Revisar starts each Cuenta with the model's first guess, and shows the other two as buttons under the fields ("Otras"). When the field does not hold the first guess, as after a refused save where the person cleared it, all three show ("Sugeridas"). A click puts one in Cuenta (`reports.js`). A guess is only a value in the field: Guardar saves what the fields show.
 
 - Each row goes to the model with the five closest past rows of the ledger, by shared words weighed by how rare they are (TF-IDF), and the account that the person chose for each. The words leave out the `/REF`, the amount in dollars and any word with a digit, and keep the RFC as one word. The past rows are every classified row of `accounts/*/*.beancount` whose account the model can answer.
 - The answer is an enum of the open Expenses, Income and Equity accounts, filled at request time like the classifier's. A transfer to a bank is no guess and no example.

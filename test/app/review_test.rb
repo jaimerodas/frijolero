@@ -282,17 +282,20 @@ class ReviewTest < Minitest::Test
     assert_ledger_links last_response.body
   end
 
-  def test_each_row_starts_with_its_first_guess_and_offers_the_three
+  # The first guess is already in the field: the buttons are the others.
+  def test_each_row_starts_with_its_first_guess_and_offers_the_others
     guesses(TELCEL => %w[Expenses:Utilities:Phone Expenses:Home:Supplies Expenses:Travel:Flights])
 
     get '/accounts/AMEX/2610/review'
 
     body = last_response.body
     assert_includes body, 'name="choice[1][account]" value="Expenses:Utilities:Phone"'
-    assert_includes body, '<button type="button" class="guess" data-account="Expenses:Home:Supplies">'
+    assert_includes body, 'Otras: <button type="button" class="guess" data-account="Expenses:Home:Supplies">'
+    refute_includes body, 'data-account="Expenses:Utilities:Phone"'
     assert_includes body, 'name="choice[15][account]" value=""'
   end
 
+  # A field that no longer holds the first guess offers it again.
   def test_a_refused_save_keeps_the_account_that_the_person_cleared
     guesses(TELCEL => %w[Expenses:Utilities:Phone])
 
@@ -300,6 +303,8 @@ class ReviewTest < Minitest::Test
 
     assert_equal 422, last_response.status
     assert_includes last_response.body, 'name="choice[1][account]" value=""'
+    assert_includes last_response.body,
+                    'Sugeridas: <button type="button" class="guess" data-account="Expenses:Utilities:Phone">'
   end
 
   def test_sugerir_shows_only_while_there_are_no_guesses_and_a_model
