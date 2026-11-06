@@ -30,6 +30,12 @@ document.addEventListener('submit', (event) => {
   button.textContent = button.dataset.busy;
   button.form.inert = true;
 });
+// Revisar: ⌘↩ (Ctrl+↩ off a Mac) saves from any field, through Guardar so that it says so.
+document.querySelector('form.review')?.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' || !(event.metaKey || event.ctrlKey)) return;
+  event.preventDefault();
+  event.currentTarget.requestSubmit(event.currentTarget.querySelector('button.primary'));
+});
 window.addEventListener('pageshow', () => {
   for (const button of document.querySelectorAll('button[data-idle]')) {
     button.textContent = button.dataset.idle;

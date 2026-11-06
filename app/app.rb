@@ -187,6 +187,7 @@ end
 # Each file reopens App with the routes of one page, so app.rb stays a table of contents.
 require_relative 'uploads'
 require_relative 'statements'
+require_relative 'review'
 require_relative 'editors'
 require_relative 'accounts'
 require_relative 'reports'

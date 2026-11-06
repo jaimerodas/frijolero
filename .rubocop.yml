@@ -121,9 +121,11 @@ Metrics/ClassLength:
     - 'lib/converters/cetes_directo.rb'
     - 'lib/converters/alpaca.rb'
     # App: routes are a table; each handler is a few lines. uploads.rb reopens App
-    # for the upload and the Bandeja.
+    # for the upload and the Bandeja, statements.rb for the statement page with its
+    # three views (movements, Beancount, Revisar) and the Beancount coloring.
     - 'app/app.rb'
     - 'app/uploads.rb'
+    - 'app/statements.rb'
     # S3 is the SigV4 signature (canonical request, string to sign, key derivation)
     # plus its four calls, ~110 lines; the signature is the class.
     - 'lib/s3.rb'

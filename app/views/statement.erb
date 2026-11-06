@@ -7,7 +7,7 @@
   root = ledger_path("/accounts/#{account_path}")
   base = "#{root}/#{period}"
   # The arrows and the menu keep the view: from the Beancount text they land on the Beancount text.
-  suffix = '/beancount' if view == :beancount
+  suffix = "/#{view}" unless view == :entries
   code = { file: file, text: beancount, back: ("#{base}/beancount" if editing) }
 %>
 <!DOCTYPE html>
@@ -17,8 +17,7 @@
   <script src="/editor.js" defer></script>
   <script src="/reports.js" defer></script>
 </head>
-<%# "N sin clasificar" targets the body, so the filter in style.css changes the list and not the scroll. %>
-<body<% if rows && fixme_count.positive? %> id="sin-clasificar"<% end %>>
+<body>
   <%= topbar %>
   <main>
     <%= erb :_cuentas, layout: false %>
@@ -34,6 +33,7 @@
       <nav class="tabs" aria-label="Vistas">
         <% if rows %>
           <a href="<%= base %>"<% if view == :entries %> aria-current="true"<% end %>>Movimientos</a>
+          <% if review_rows.any? || view == :review %><a href="<%= base %>/review"<% if view == :review %> aria-current="true"<% end %>>Revisar</a><% end %>
           <a href="<%= base %>/beancount"<% if view == :beancount %> aria-current="true"<% end %>>Beancount</a>
         <% else %>
           <a href="<%= base %>" aria-current="true">Beancount</a>
@@ -47,7 +47,7 @@
           <%# The sums wait behind the ⓘ: a hover on a desk, a tap on a phone. %>
           <% unless totals.empty? %><span class="info"><button type="button" aria-label="Cargos y abonos" aria-describedby="totals">i</button><span class="panel" id="totals" role="tooltip"><% totals.each do |currency, sides| %><% sides.zip(%w[cargo abono], %w[debit credit]).each do |(count, sum), noun, side| %><% next if count.zero? %><span class="count"><%= thousands(count) %> <%= noun %><%= 's' unless count == 1 %></span><data class="<%= side %>" value="<%= sum.to_s('F') %>"><%= money(sum) %> <%= h(currency) %></data><% end %><% end %></span></span><% end %>
         <% elsif summary %><span class="count"><%= h(summary) %></span><% end %>
-        <% if fixme_count.zero? %><span class="status received">Todo clasificado</span><% elsif rows %><a class="status missing" href="<%= base %>#sin-clasificar"><%= fixme_count %> sin clasificar</a><a class="show-all" href="<%= base %>">Ver todos</a><% else %><span class="status missing"><%= fixme_count %> sin clasificar</span><% end %>
+        <% if fixme_count.zero? %><span class="status received">Todo clasificado</span><% elsif rows %><a class="status missing" href="<%= base %>/review"><%= fixme_count %> sin clasificar</a><% else %><span class="status missing"><%= fixme_count %> sin clasificar</span><% end %>
         <%# The fix sits beside the status it fixes: the detailer touches only the unclassified postings. %>
         <% if rules?(account) && fixme_count.positive? && File.exist?(Frijolero::Config.rules_path(account)) %><form method="post" action="<%= base %>/detail"><button type="submit">Aplicar reglas</button></form><% end %>
       </div>
@@ -62,8 +62,7 @@
         <ol class="ledger">
           <% rows.each do |tx| %>
             <% merchant, tail = split_description(tx[:description]) %>
-            <% fixme = tx[:accounts].include?('Expenses:FIXME') %>
-            <li<% if fixme %> class="fixme"<% end %>>
+            <li>
               <%# The date opens the same edit dialog the journal uses, for a one-off hand edit. %>
               <time datetime="<%= h(tx[:date]) %>"><button type="button" class="edit" data-file="<%= h(file) %>" data-line="<%= tx[:line] %>"><%= h(tx[:date]) %></button></time>
               <div class="entry">
@@ -97,6 +96,47 @@
         <p class="meta"><a class="statement"></a></p>
         <%= erb :_code, layout: false, locals: { file: '', text: '' } %>
       </dialog>
+    <% elsif rows && view == :review %>
+      <% if review[:error] %><p class="error" role="alert"><%= h(review[:error]) %></p><% end %>
+      <% if review_rows.empty? %>
+        <p>Nada que revisar: cada movimiento tiene su cuenta. <a href="<%= base %>">Ver los movimientos</a></p>
+      <% else %>
+        <form method="post" action="<%= base %>/review" class="review">
+          <%# The first submit button is the one Enter presses. Disabled, it makes Enter in a field do nothing: ⌘↩ saves. %>
+          <button type="submit" disabled hidden></button>
+          <input type="hidden" name="digest" value="<%= digest %>">
+          <datalist id="review-accounts"><% accounts.each do |name| %><option value="<%= h(name) %>"><% end %></datalist>
+          <ol class="ledger">
+            <% review_rows.each do |tx| %>
+              <%
+                line = tx[:line].to_s
+                merchant, tail = split_description(tx[:description])
+                given = review[:values][line]
+                given = {} unless given.is_a?(Hash)
+                error = review[:errors][line]
+              %>
+              <li<% if error %> class="err"<% end %>>
+                <time datetime="<%= h(tx[:date]) %>"><%= h(tx[:date]) %></time>
+                <div class="entry">
+                  <div><%= h(merchant) %><% if tx[:flag] == '!' %> <span class="flag">!</span><% end %></div>
+                  <% if tail %><div class="tail"><%= h(tail) %></div><% end %>
+                  <div class="fields">
+                    <input name="choice[<%= line %>][account]" value="<%= h(given['account']) %>" class="account" list="review-accounts" placeholder="Cuenta" aria-label="Cuenta de <%= h(merchant) %>" autocomplete="off" spellcheck="false">
+                    <input name="choice[<%= line %>][payee]" value="<%= h(given.fetch('payee', tx[:payee])) %>" placeholder="Payee" aria-label="Payee de <%= h(merchant) %>">
+                    <input name="choice[<%= line %>][narration]" value="<%= h(given.fetch('narration', tx[:narration])) %>" placeholder="Narración" aria-label="Narración de <%= h(merchant) %>">
+                    <label><input type="checkbox" name="choice[<%= line %>][rule]" value="1" class="remember"<% if given['rule'] %> checked<% end %>> Regla</label>
+                    <%# Shown only while Regla is ticked: the rule applies to every description that starts with it. %>
+                    <input name="choice[<%= line %>][pattern]" value="<%= h(given['pattern'] || Frijolero::StatementReview.pattern(tx[:description])) %>" class="pattern" aria-label="La regla aplica a lo que empieza con" spellcheck="false">
+                  </div>
+                  <% if error %><span class="status failed"><%= h(error) %></span><% end %>
+                </div>
+                <data class="<%= tx[:amount]&.negative? ? 'debit' : 'credit' %>" value="<%= h(tx[:amount]&.to_s('F')) %>"><%= money(tx[:amount]) %> <%= h(tx[:currency]) %></data>
+              </li>
+            <% end %>
+          </ol>
+          <p class="actions"><button type="submit" class="primary" data-busy="Guardando…">Guardar</button><span class="note">⌘↩ guarda. Lo que dejes vacío queda sin clasificar, y las reglas de la cuenta se aplican a eso.</span></p>
+        </form>
+      <% end %>
     <% else %>
       <%# Editar rides in the code's top-right corner; the edit view has the editor open and no link. %>
       <div class="code-box"><% unless editing %><a class="edit-file" href="<%= base %>/beancount/edit">Editar</a><% end %><%= erb :_code, layout: false, locals: code %></div>

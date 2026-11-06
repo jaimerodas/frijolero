@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'digest'
+
 module Frijolero
   # Statement page and its actions. Reopens App to keep app.rb a table of contents.
   class App
@@ -15,9 +17,10 @@ module Frijolero
 
     # The period segment is four digits, so /accounts/<Key>/config and /rules never land here.
     PERIOD = { mustermann_opts: { capture: { yymm: /\d{4}/ } } }.freeze
-    # The statement's views: `view` is only beancount and `action` only edit, so …/pdf and the
-    # other routes under a period never land on the statement page.
-    STATEMENT_VIEWS = { mustermann_opts: { capture: { yymm: /\d{4}/, view: 'beancount', action: 'edit' } } }.freeze
+    # The statement's views: `view` is only beancount or review and `action` only edit, so …/pdf
+    # and the other routes under a period never land on the statement page.
+    STATEMENT_VIEWS = { mustermann_opts: { capture: { yymm: /\d{4}/, view: %w[beancount review], action: 'edit' } } }
+                      .freeze
 
     helpers do
       # Beancount text → one `span.line#L<n>` per line, colored, split on "\n" with the trailing
@@ -66,44 +69,62 @@ module Frijolero
     end
 
     # One URL per view, so a reload or a link lands on the view it names: the movements at
-    # /accounts/<Key>/<YYMM>, the Beancount text at …/beancount, and the editor at …/beancount/edit.
+    # /accounts/<Key>/<YYMM>, the Beancount text at …/beancount, the editor at …/beancount/edit,
+    # and Revisar, the unclassified rows as one form, at …/review.
     get '/accounts/:account/:yymm(/:view(/:action)?)?', STATEMENT_VIEWS do
       account = params[:account]
       period = params[:yymm]
       halt 404, 'Cuenta desconocida' unless Config.accounts.key?(account)
       # The period menu submits ?period= to the page it is on, and lands on the same view of that statement.
       if params[:period].to_s.match?(/\A\d{4}\z/) && params[:period] != period
-        redirect "/accounts/#{Rack::Utils.escape_path(account)}/#{params[:period]}#{'/beancount' if params[:view]}"
+        view = "/#{params[:view]}" if params[:view]
+        redirect "/accounts/#{Rack::Utils.escape_path(account)}/#{params[:period]}#{view}"
       end
+      halt 404, 'Esta cuenta no usa reglas' if params[:view] == 'review' && !rules?(account)
 
-      paths = statement_paths(account, period)
-      halt 404, 'No existe ese estado de cuenta' unless File.exist?(paths[:beancount])
-
-      config = Config.accounts[account]
-      pipeline = Pipeline.for(config)
-      # Only the Default pipeline's transactions read as rows; an investment statement
-      # (Fintual, Alpaca, CETES) shows the extraction summary and the Beancount text only.
-      rows = StatementRows.read(paths[:beancount], config) if pipeline.runs_detailer?
-      data = JSON.parse(File.read(paths[:json])) if rows.nil? && File.exist?(paths[:json])
-      beancount = File.read(paths[:beancount])
-
-      erb :statement, locals: {
-        account: account, period: period,
-        view: params[:view] ? :beancount : :entries, editing: params[:action] == 'edit',
-        summary: data && pipeline.summary(data),
-        rows: rows,
-        totals: rows && StatementRows.totals(rows),
-        periods: Config.statement_periods(account),
-        fixme_count: beancount.scan(/^\s+Expenses:FIXME\b/).size,
-        beancount: beancount,
-        file: paths[:beancount].delete_prefix("#{File.expand_path(Config.ledger_dir)}/"),
-        notice: statement_notice
-      }
+      statement_page(account, period, view: params[:view]&.to_sym || :entries, editing: params[:action] == 'edit')
     end
 
     helpers do
+      # The statement page. `review` is what a refused Revisar save shows again: the message,
+      # the message of each row, and the values that the person typed.
+      def statement_page(account, period, view:, editing: false, review: {})
+        paths = statement_paths(account, period)
+        halt 404, 'No existe ese estado de cuenta' unless File.exist?(paths[:beancount])
+        erb :statement, locals: {
+          account: account, period: period, view: view, editing: editing, periods: Config.statement_periods(account),
+          notice: statement_notice, **statement_text(paths[:beancount]), **statement_rows(account, paths),
+          **review_locals(view, review)
+        }
+      end
+
+      # The text, its FIXME postings, its path in the ledger, and its digest, the version that a Revisar save expects.
+      def statement_text(path)
+        beancount = File.read(path)
+        { beancount: beancount, fixme_count: beancount.scan(/^\s+Expenses:FIXME\b/).size,
+          file: ledger_relative(path), digest: Digest::SHA256.hexdigest(beancount) }
+      end
+
+      def ledger_relative(path) = path.delete_prefix("#{File.expand_path(Config.ledger_dir)}/")
+    end
+
+    helpers do
+      # Only the Default pipeline's transactions read as rows; an investment statement
+      # (Fintual, Alpaca, CETES) shows the extraction summary and the Beancount text only.
+      def statement_rows(account, paths)
+        pipeline = Pipeline.for(Config.accounts[account])
+        unless pipeline.runs_detailer?
+          data = JSON.parse(File.read(paths[:json])) if File.exist?(paths[:json])
+          return { rows: nil, review_rows: nil, totals: nil, summary: data && pipeline.summary(data) }
+        end
+
+        rows = StatementRows.read(paths[:beancount], Config.accounts[account])
+        { rows: rows, review_rows: review_rows(rows), totals: StatementRows.totals(rows), summary: nil }
+      end
+
       def statement_notice
         return "#{params[:detailed]} clasificadas, #{params[:remaining]} sin clasificar" if params[:detailed]
+        return review_notice if params[:classified]
         return 'Guardado' if params[:saved]
 
         'Reglas guardadas. Aplica las reglas para usarlas.' if params[:rules]

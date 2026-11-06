@@ -35,7 +35,7 @@ module Frijolero
 
       rules = YAML.safe_load(content)&.dig('start_with')
       known = rules.is_a?(Hash) && rules.key?(description)
-      new_content, caret = known ? [content, nil] : with_rule(content, description)
+      new_content, caret = known ? [content, nil] : RulesText.with_rule(content, description)
       render_editor(**rules_locals(params[:account], content: new_content, caret: caret,
                                                      notice: rule_added_notice(description)))
     end
@@ -71,38 +71,8 @@ module Frijolero
       end
     end
 
-    # "Hacer regla": a new entry, written into the text.
+    # "Hacer regla": a new entry, written into the text by RulesText.
     helpers do
-      # [content with an empty `start_with` entry for `description` closing that section, the
-      # offset after its `account: `]. Text, not YAML.dump, so the file keeps its comments,
-      # quotes and order. The fields are empty, not '', because the rules skip an empty field:
-      # a payee left blank keeps the transaction's own. The caret goes where the autocomplete helps.
-      def with_rule(content, description)
-        content += "\n" unless content.empty? || content.end_with?("\n")
-        lines = content.sub(/^start_with:\s*\{\s*\}[ \t]*$/, 'start_with:').lines
-        at = rule_slot(lines)
-        lines.insert(at, rule_entry(description))
-        [lines.join, lines[..at].join.size - 1]
-      end
-
-      # The key as YAML writes a value, quoted only when it must be; as a key Psych would switch
-      # to the `? key` form past 128 characters, and a BBVA description often is longer.
-      def rule_entry(description)
-        key = YAML.dump(description, line_width: -1).delete_prefix('--- ').chomp
-        "  #{key}:\n    payee:\n    narration:\n    account: \n"
-      end
-
-      # Where the entry goes: after the last indented line of `start_with:`, before the next
-      # top-level key; a file without the section gets one.
-      def rule_slot(lines)
-        head = lines.index { |line| line.start_with?('start_with:') }
-        return lines.push("start_with:\n").size unless head
-
-        body = lines[(head + 1)..].take_while { |line| !line.match?(/\A[^\s#]/) }
-        last = body.rindex { |line| line.match?(/\A\s+\S/) }
-        last ? head + last + 2 : head + 1
-      end
-
       def rule_added_notice(description)
         "Regla nueva para «#{description}» (monto #{params[:amount]}). Completa payee y account, luego guarda."
       end

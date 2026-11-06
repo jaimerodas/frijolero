@@ -20,32 +20,39 @@ module Frijolero
     # How many transactions the rules classified, and how many still post to FIXME.
     def run
       blocks = Beancount::Parser.parse(@file)
-      candidates = detailable(blocks)
-      matches = matches(candidates, Detailer::Rules.load(@config_path))
-      matches.each { |transaction, matched| apply(transaction, matched) }
-      File.write(@file, blocks.flat_map { |block| block[:lines] }.join, encoding: 'UTF-8') unless matches.empty?
-      { detailed: matches.size, remaining: candidates.size - matches.size }
+      result = self.class.apply(blocks, Detailer::Rules.load(@config_path))
+      text = blocks.flat_map { |block| block[:lines] }.join
+      File.write(@file, text, encoding: 'UTF-8') if result[:detailed].positive?
+      result
     end
 
-    private
+    # Applies `rules` to the parsed `blocks`, in place. Revisar calls it with its own blocks
+    # and rules, before it writes anything.
+    def self.apply(blocks, rules)
+      candidates = detailable(blocks)
+      matches = matches(candidates, rules)
+      matches.each { |transaction, matched| detail(transaction, matched) }
+      { detailed: matches.size, remaining: candidates.size - matches.size }
+    end
 
     # Parsed transactions with exactly one FIXME posting. None means it is classified
     # already, by hand or by an earlier run; more than one leaves no way to tell which
     # one a rule meant. A `!` transaction is one someone flagged by hand: never touched.
-    def detailable(blocks)
+    def self.detailable(blocks)
       blocks.filter_map { |block| Beancount::Transaction.new(block) if block[:type] == :transaction }
             .select { |t| t.parsed? && t.flag != '!' && t.postings_to(FIXME).size == 1 }
     end
 
     # {transaction => the rules that match it}, for the ones some rule matches.
-    def matches(candidates, rules)
+    def self.matches(candidates, rules)
       candidates.to_h { |t| [t, rules.matches_for(description: t.description, amount: t.amount)] }
                 .reject { |_, matched| matched.empty? }
     end
 
-    def apply(transaction, matched)
+    def self.detail(transaction, matched)
       transaction.apply(**Detailer::Rules.merge(matched).transform_keys(&:to_sym),
                         posting_index: transaction.postings_to(FIXME).first[:index])
     end
+    private_class_method :detailable, :matches, :detail
   end
 end

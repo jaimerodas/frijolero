@@ -3,8 +3,8 @@
 Una regla clasifica una transacción por su descripción. Le pone un `payee`,
 una `narration` y una cuenta de gastos o ingresos. Una transacción sin regla
 queda en `Expenses:FIXME`, y la página del estado de cuenta la marca como
-"sin clasificar". "▲ N sin clasificar", arriba de la lista, muestra solo los
-movimientos sin clasificar. "Ver todos" muestra la lista completa otra vez.
+"sin clasificar". "▲ N sin clasificar", arriba de la lista, abre Revisar (ver
+[Revisar los movimientos sin clasificar](#revisar-los-movimientos-sin-clasificar)).
 
 Solo las cuentas de los pipelines Default y Multi usan reglas. Las cuentas de
 CetesDirecto, Fintual y Alpaca no tienen archivo de reglas ni editor.
@@ -84,6 +84,33 @@ primera sugerencia.
 Al guardar, la app valida el YAML y prueba el archivo con el motor de reglas.
 Si el archivo es inválido, la app no lo guarda y muestra el error. Si es
 válido, la app hace commit con el mensaje `rules <Key>`.
+
+## Revisar los movimientos sin clasificar
+
+Revisar muestra los movimientos sin clasificar de un estado de cuenta en un
+solo formulario. Es la forma rápida de clasificar muchos movimientos.
+
+1. En el estado de cuenta, presiona "▲ N sin clasificar" o "Revisar".
+2. En cada movimiento que conoces, escribe la cuenta. Al escribir, la app
+   sugiere las cuentas abiertas del ledger.
+3. Si quieres, cambia el payee y la narración.
+4. Si el comercio se repite, marca "Regla". Abajo aparece el patrón: la
+   descripción sin el RFC, la referencia ni el monto en dólares. Si es
+   necesario, acórtalo.
+5. Presiona "Guardar" o ⌘↩.
+
+Lo que dejas vacío queda sin clasificar. Así, un cargo de Amazon puede esperar
+hasta que lo revises en Amazon.
+
+Al guardar, la app clasifica cada movimiento que llenaste y agrega las reglas
+nuevas al final de `start_with`. Después aplica las reglas de la cuenta, las
+viejas y las nuevas, a los movimientos que dejaste vacíos. Luego revisa el
+ledger una vez y hace un solo commit, `Revisión <Key> YYMM`.
+
+Si una fila tiene un error, como una cuenta que no existe, la app no guarda
+nada. Marca la fila con el error y conserva lo que escribiste. Si el estado de
+cuenta cambió mientras lo revisabas, por una corrida o un pull, la app no
+guarda nada y muestra los movimientos otra vez, vacíos.
 
 ## Hacer una regla desde un movimiento
 

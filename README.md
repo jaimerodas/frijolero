@@ -36,10 +36,12 @@ extrae nada. Recientes dice cuántos hay por confirmar.
 Desde el iPhone, un atajo de iOS manda los PDF a la Bandeja desde la hoja de
 compartir (ver [setup.md](docs/setup.md#subir-desde-el-iphone)).
 
-Cada estado de cuenta tiene su página, con dos vistas: Movimientos y
+Cada estado de cuenta tiene su página, con tres vistas: Movimientos, Revisar y
 Beancount. En Movimientos, la fecha de un movimiento abre un editor de esa
-transacción. "▲ N sin clasificar" muestra solo los movimientos sin
-clasificar. "Hacer regla" crea una regla desde un movimiento.
+transacción. "Hacer regla" crea una regla desde un movimiento. "▲ N sin
+clasificar" abre Revisar: los movimientos sin clasificar en un solo
+formulario, con su cuenta, su payee y su narración. "Guardar" los guarda
+todos en un solo commit.
 
 **Reportes** tiene tres páginas: Estado de resultados, Balance general y
 Diario. Los dos reportes van por año, trimestre o mes, en MXN o por moneda.

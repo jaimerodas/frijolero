@@ -174,7 +174,7 @@ In the bucket, which other apps share: `<pdf_prefix>/accounts/<Key>/<Key> YYMM.p
   - A passkey that the person deletes at `/passkeys` stays on the device, and the autofill still offers it. The sign-in then fails with a message.
   - `test/fake_passkey.rb` is an authenticator for the tests. There is no JavaScript test. In a browser, the WebAuthn panel of Chrome DevTools gives a virtual authenticator.
 - The views are standalone ERB pages in Spanish, with no layout. Each page calls the `head` and `topbar` helpers.
-- All pages of one account are under `/accounts/<Key>`. A statement has three URLs: `/accounts/<Key>/<YYMM>` (the movements), `…/beancount` (the text) and `…/beancount/edit` (the text in the editor). The route constraints in `app/statements.rb` keep `config` and `rules` out of the period segment.
+- All pages of one account are under `/accounts/<Key>`. A statement has four URLs: `/accounts/<Key>/<YYMM>` (the movements), `…/review` (Revisar), `…/beancount` (the text) and `…/beancount/edit` (the text in the editor). The route constraints in `app/statements.rb` keep `config` and `rules` out of the period segment.
 - With no account in `accounts.yaml`, a filter sends every `/upload` route to `/accounts/new`, and `/api/upload` answers 422. So no model call can happen before the first account exists.
 
 ### Design rules (`public/style.css`)
@@ -269,13 +269,28 @@ Only `Default` and `Multi` have rules. For the other pipelines there are no rule
 
 The page reads the `.beancount` file, not the JSON. The JSON is fixed at job time, but the rules, the edit dialog and hand edits change the file. `StatementRows` takes the amount from the source posting (on `beancount_account`, or on an account of a Multi). The other postings are the classification, and `Expenses:FIXME` means unclassified.
 
-- The movements and the Beancount text are two views, each at its own URL. The server renders only the current view.
+- The movements, Revisar and the Beancount text are three views, each at its own URL. The server renders only the current view.
 - The date of a movement opens the edit dialog on that transaction (see Editors). So a person can classify one movement without a rule.
-- "▲ N sin clasificar" is a filter. It links to `#sin-clasificar`, which is the `<body>`, so the page does not scroll. While the body is the `:target`, CSS hides every row that is not `li.fixme`, shows the status as a black block and shows "Ver todos". There is no script. A save in the edit dialog reloads with the hash, so the filter stays and the saved row leaves it.
+- "▲ N sin clasificar" links to Revisar.
 - "Aplicar reglas" shows only while something is unclassified and the rules file exists, because the rules touch only FIXME postings.
 - `beancount_html` colors the text with one regex over the escaped text. A line that matches nothing stays plain, so a hand edit never breaks the page. There is no highlighting library.
 
 For the other pipelines, the page shows only the extraction summary and the Beancount text.
+
+### Revisar (`app/review.rb`, `lib/statement_review.rb`)
+
+Revisar shows the unclassified rows of one statement as one form. A row is a transaction with one `Expenses:FIXME` posting, a `!` row included. Each row has Cuenta, Payee, Narración and a Regla box. Before Revisar, each classification and each rule was a commit and a push of a few seconds, so 36 rows took minutes of waiting.
+
+- One save applies every row, adds the new rules, and runs the account's rules, old and new, on the rows that the person did not fill. Then it runs one `Reports.check` (through `LedgerEdit`, on the whole file), one commit and one push, `Revisión <Key> YYMM`. On a scratch ledger with a local remote, a save takes 0.6 s.
+- An empty field changes nothing. A row with no account stays unclassified, and the rules run on it.
+- The rules never run on a row that the person filled. The AMAZON rule has `narration: ''`, and `Rules.merge` drops only nil, so it would blank the narration that the person typed.
+- Regla adds a `start_with` entry with only the fields that the row gives (`RulesText.with_rule`). The pattern starts as the description cut at the RFC, the `/REF` or the amount in dollars (`StatementReview.pattern`), because these change with each charge. The pattern must be the start of the description, it must be new, and the rule needs a field.
+- A row that cannot be saved (an unknown account, a bad pattern) refuses the whole save with 422. The page shows the message on each such row and keeps every value. The account list is `LedgerAccounts.active`, the same as the editors use.
+- The form sends the SHA-256 of the file that it showed. If a job, a pull or another tab changed the file, the answer is 409, and the page shows the current rows with empty fields, because the lines moved.
+- The rules file is written only after the statement passes the check, so a refused save leaves both files as they were. A failed push keeps the commit and says so in the notice.
+- The account field is an `<input>` with a native `<datalist>`. The editors need a script because a textarea cannot use one.
+- Enter in a field does nothing: the first submit button of the form is hidden and disabled. ⌘↩ (Ctrl+↩ off a Mac) saves through Guardar (`reports.js`). Guardar stays at the bottom of the window.
+- After a save, the page goes back to Revisar with the rows left, or to the movements when no row is left.
 
 ### Rules (`lib/detailer/`, `lib/beancount_detailer.rb`, `app/editors.rb`)
 
@@ -287,7 +302,7 @@ The rules editor:
 
 - Saves with LF line endings. A browser sends a textarea with CRLF, and an early version saved the file that way.
 - Validates with `YAML.safe_load` and a probe call to `matches_for`.
-- Adds the "Hacer regla" entry as text (`with_rule`), not with `YAML.dump`, so the comments, the quotes and the order stay.
+- Adds the "Hacer regla" entry as text (`RulesText.with_rule`, which Revisar also uses), not with `YAML.dump`, so the comments, the quotes and the order stay.
 - Leaves the new fields empty. `Rules.merge` skips an empty field, so a blank payee keeps the payee of the transaction.
 - Returns to the statement after a save through `back`. `back_path` accepts only `/accounts/<Key>/<YYMM>`.
 
@@ -473,7 +488,7 @@ If `kamal` or `ssh` fails with `promptError` or "communication with agent failed
 
 ## Tests
 
-- Minitest and rack-test: about 1080 tests in about 24 s. `test/` mirrors `app/` and `lib/`.
+- Minitest and rack-test: about 1140 tests in about 30 s. `test/` mirrors `app/` and `lib/`.
 - `with_ledger_dir` makes a temporary ledger, in a fresh `DATA_DIR`, the current ledger of the test thread. A setup uses `enter_test_ledger` and `leave_test_ledger`. `with_db_ledger` also writes the owner and the ledger as rows.
 - No test writes into `prompts/`: `Config.prompts_dir` is the real folder. Use `test/fixtures/prompts`, or a copy of it in a temporary directory. Web tests call `App` directly, with fake collaborators. `test/app/app_test.rb` and `test/app/isolation_test.rb` load `config.ru`, for the auth and the ledger wiring. A web test gets a page as production serves it with `'SCRIPT_NAME' => LEDGER_ROOT` in the env, and `assert_ledger_links` fails on a link that leaves the ledger.
 - `test_helper.rb` sets `RACK_ENV=test` before it loads the app. Sinatra reads the environment when `sinatra/base` loads, and with any other value its host authorization answers 403.

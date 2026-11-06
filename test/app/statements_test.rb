@@ -523,37 +523,13 @@ class StatementsTest < Minitest::Test
     refute_includes last_response.body, '<dialog id="edit">'
   end
 
-  # The filter is CSS on body:target: the body is the target, so the page does not scroll.
-  def test_the_missing_status_filters_the_list_and_offers_the_way_back
-    write_statement('AMEX', '2508',
-                    json: { 'transactions' => [] },
-                    beancount: <<~BEAN)
-                      2025-08-01 * "OXXO"
-                        Liabilities:Amex -100 MXN
-                        Expenses:FIXME
-
-                      2025-08-02 * "UBER"
-                        Liabilities:Amex -50 MXN
-                        Expenses:FIXME
-                    BEAN
-
-    get '/accounts/AMEX/2508'
-
-    body = last_response.body
-    assert_includes body, '<a class="status missing" href="/accounts/AMEX/2508#sin-clasificar">2 sin clasificar</a>'
-    assert_includes body, '<a class="show-all" href="/accounts/AMEX/2508">Ver todos</a>'
-    assert_includes body, '<body id="sin-clasificar">'
-    assert_equal 1, body.scan('id="sin-clasificar"').size
-  end
-
-  def test_no_filter_when_everything_is_classified
+  def test_no_revisar_when_everything_is_classified
     write_statement('AMEX', '2508', json: { 'transactions' => [] }, beancount: STATEMENT_TEXT)
 
     get '/accounts/AMEX/2508'
 
     body = last_response.body
-    refute_includes body, 'sin-clasificar'
-    refute_includes body, 'Ver todos'
+    refute_includes body, '/review'
     assert_includes body, '<span class="status received">Todo clasificado</span>'
   end
 
@@ -568,8 +544,7 @@ class StatementsTest < Minitest::Test
 
     body = last_response.body
     assert_includes body, '<span class="status missing">1 sin clasificar</span>'
-    refute_includes body, 'sin-clasificar'
-    refute_includes body, 'Ver todos'
+    refute_includes body, '/review'
   end
 
   # Under /l/<id>/ every link stays in the ledger. The hidden `back` stays plain, as back_path
