@@ -678,6 +678,98 @@ class UploadsTest < Minitest::Test
     assert_equal 'ok', Frijolero::App.jobs.work_one.status
   end
 
+  # Procesar without the click (App.auto_process), on the Bandeja's own worker. On TODAY,
+  # BBVA (cutoff 31) last closed on July 31, so its last closed period is 2607.
+  TODAY = Date.new(2026, 8, 10)
+
+  def test_the_last_statement_on_its_cutoff_day_is_processed_without_a_click
+    token = auto('estado.pdf', bbva('2026-07-01', '2026-07-31'))
+
+    assert_equal([['BBVA 2607', token]], Frijolero::App.jobs.all.map { |job| [job.label, job.token] })
+    assert_equal 'ok', Frijolero::App.jobs.work_one.status
+    assert File.exist?(Frijolero::Config.statement_path('BBVA', '2607', 'beancount'))
+  end
+
+  # A bank moves a cutoff that falls on a holiday: measured, 2 of 68 statements closed the day after.
+  def test_the_day_after_the_cutoff_day_still_counts
+    auto('estado.pdf', bbva('2026-07-02', '2026-08-01'))
+
+    assert_equal ['BBVA 2607'], Frijolero::App.jobs.all.map(&:label)
+  end
+
+  # Never the day before: a statement that closes on the 31st, read as an account that closes
+  # on the 1st, would pass.
+  def test_the_day_before_the_cutoff_day_waits
+    token = auto('estado.pdf', bbva('2026-06-30', '2026-07-30'))
+
+    assert_empty Frijolero::App.jobs.all
+    assert_equal 'cerró el 2026-07-30 y su corte es el día 31', waits(token)
+  end
+
+  def test_an_older_statement_waits_and_says_why
+    auto('estado.pdf', bbva('2026-06-01', '2026-06-30'))
+
+    get '/inbox'
+
+    assert_empty Frijolero::App.jobs.all
+    assert_includes last_response.body, '<span class="status ok">listo</span>'
+    assert_includes last_response.body, 'No se procesó solo: el último periodo cerrado es 2607.'
+  end
+
+  # The first click records the cutoff day; from then on the account can go on its own.
+  def test_an_account_without_a_cutoff_day_waits
+    token = auto('estado.pdf', { 'account' => 'AMEX', 'period_start' => '2026-07-04', 'period_end' => '2026-08-03' })
+
+    assert_empty Frijolero::App.jobs.all
+    assert_equal 'la cuenta aún no tiene día de corte', waits(token)
+  end
+
+  # The person named the file: no date check, but nothing else changes.
+  def test_a_file_named_after_its_statement_is_processed_without_a_click
+    auto('AMEX 2508.pdf')
+
+    assert_equal ['AMEX 2508'], Frijolero::App.jobs.all.map(&:label)
+  end
+
+  def test_an_existing_statement_waits_for_sobrescribir
+    statement('AMEX', '2508')
+    auto('AMEX 2508.pdf')
+
+    assert_empty Frijolero::App.jobs.all
+  end
+
+  # The first upload is in a corrida, so the Bandeja no longer counts it as a repeat.
+  def test_a_statement_already_in_a_corrida_waits
+    auto('AMEX 2508.pdf')
+    token = auto('AMEX 2508.pdf')
+
+    assert_equal ['AMEX 2508'], Frijolero::App.jobs.all.map(&:label)
+    assert_equal 'ya hay una corrida de AMEX 2508', waits(token)
+  end
+
+  def test_at_the_cap_a_named_file_waits
+    spend(Frijolero::Usage::DEFAULT_CAP_MICROS)
+    token = auto('AMEX 2508.pdf')
+
+    assert_empty Frijolero::App.jobs.all
+    assert_equal 'llegaste al límite del mes', waits(token)
+  end
+
+  # The step runs on the Bandeja's thread: a failure becomes the reason, and the thread goes on.
+  def test_a_failure_of_the_automatic_step_leaves_the_upload_waiting
+    token = Frijolero::App.jobs.stub(:push, ->(**) { raise 'sin cola' }) { auto('AMEX 2508.pdf') }
+
+    assert_equal 'sin cola', waits(token)
+  end
+
+  def test_procesar_after_a_wait_drops_the_reason
+    token = auto('estado.pdf', bbva('2026-06-01', '2026-06-30'))
+
+    process(token, 'BBVA', '2606')
+
+    assert_nil Frijolero::App.inbox.find(token).answer['waits']
+  end
+
   # Solo guardar PDF and Descartar.
   def test_saving_only_the_pdf_puts_it_in_s3_without_a_job
     token = classified('estado.pdf')
@@ -888,6 +980,19 @@ class UploadsTest < Minitest::Test
   def process(token, account, period, **)
     post '/inbox/process', tokens: token, account: { token => account }, period: { token => period }, **
   end
+
+  # The token of a new upload that went through the Bandeja's own worker on TODAY. The worker
+  # is built after the upload, so it finds the upload waiting for its answer.
+  def auto(filename, classification = nil)
+    @client.classification = classification if classification
+    token = api_upload(filename)
+    Date.stub(:today, TODAY) { Frijolero::App.new_inbox_worker(Frijolero::Ledger.current).work_one }
+    token
+  end
+
+  def bbva(from, to) = { 'account' => 'BBVA', 'period_start' => from, 'period_end' => to }
+
+  def waits(token) = Frijolero::App.inbox.find(token).answer['waits']
 
   # The id of a job that failed at extraction with a rate limit.
   def failed_job(token)

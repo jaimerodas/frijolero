@@ -15,7 +15,7 @@
     <%= erb :_cuentas, layout: false %>
     <h1>Bandeja</h1>
     <% if rows.empty? %>
-    <p>Nada por confirmar. Los PDF que compartas con el atajo de iOS esperan aquí hasta que los confirmes.</p>
+    <p>Nada por confirmar. Los PDF que compartas con el atajo de iOS esperan aquí hasta que los confirmes. El último estado de cuenta de una cuenta, si cerró en su día de corte, se procesa solo.</p>
     <% else %>
     <% if client %>
     <p class="note">Revisa antes de procesar: la extracción cuesta dinero.</p>
@@ -52,6 +52,7 @@
                   <% elsif answer['period_start'] && answer['period_end'] %>
                     <span class="note"><%= h(answer['period_start']) %> a <%= h(answer['period_end']) %></span>
                   <% end %>
+                  <% if status == :ready && answer['waits'] %><br><span class="note">No se procesó solo: <%= h(answer['waits']) %>.</span><% end %>
                 </th>
                 <td data-label="Cuenta">
                   <select name="account[<%= token %>]" aria-label="Cuenta de <%= h(item.filename) %>">

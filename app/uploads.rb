@@ -13,6 +13,11 @@ module Frijolero
                      unknown: ['missing', 'sin identificar'], exists: ['missing', 'ya existe'],
                      repeated: %w[missing repetido] }.freeze
 
+    # The days after the cutoff day that a statement can still close on its own. Measured
+    # on 68 statements: 66 closed on the day, and 2 the day after. Never the day before: a
+    # statement that closes on the 31st, read as an account that closes on the 1st, would pass.
+    CUTOFF_SLACK = 0..1
+
     # No account, no upload: the classifier would spend a model call and the
     # Bandeja could not name an account.
     before '/upload*' do
@@ -58,7 +63,7 @@ module Frijolero
       choices = params[:tokens].to_s.split.uniq.map { |token| inbox_choice(token) }
       halt 422, 'Nada que procesar' if choices.empty?
 
-      jobs = choices.map { |choice| enqueue_inbox(*choice) }
+      jobs = choices.map { |choice| self.class.enqueue_inbox(*choice) }
       redirect(jobs.one? ? "/jobs/#{jobs.first.id}" : '/jobs', 303)
     end
 
@@ -122,60 +127,106 @@ module Frijolero
 
     def row_param(name, token) = params[name].is_a?(Hash) ? params[name][token] : nil
 
-    # The choice becomes the answer, so a row whose job fails comes back as the person
-    # left it. The printed period end, when there is one, fills in the cutoff day.
-    def enqueue_inbox(item, account, period, overwrite)
-      answer = (item.answer || {}).except('error').merge('account' => account, 'period' => period)
-      self.class.inbox.record(item.token, answer)
-      period_end = iso_date(answer['period_end'])
-      enqueue_statement(account: account, period: period, pdf_path: item.pdf, overwrite: overwrite) do
-        AccountConfig.record_cutoff(account, period_end) if period_end
-      end
-    end
-
-    # The printed period end is optional: the filename shortcut has none.
-    def iso_date(value)
-      Date.iso8601(value.to_s)
-    rescue Date::Error
-      nil
-    end
-
-    # The collaborators are read here rather than inside the block: the block runs on
-    # the worker thread, long after this request is gone.
-    def enqueue_statement(account:, period:, pdf_path:, overwrite:, &after)
-      statement = Statement.new(pdf_path, client: self.class.client, s3: self.class.s3, account: account,
-                                          period: period, overwrite: overwrite)
-      run_job(account, period, statement, File.dirname(pdf_path), &after)
-    end
-
-    # Pull before the work and push after it, so the statement is written on top of
-    # the latest ledger; a job that fails leaves the upload where it is, for a retry.
-    # The block runs after a good statement and rides on the same commit. The worker
-    # thread has no ledger of its own, so the body takes the request's. The pull holds
-    # the ledger's lock, and so do the writes with the block and the commit; the model
-    # calls between them and after them (Revisar's guesses) do not.
-    def run_job(account, period, statement, upload_dir, &after)
-      repo = self.class.repo
-      client = self.class.client
-      ledger = Ledger.current
-      label = "#{account} #{period}"
-      self.class.jobs.push(label: label, token: File.basename(upload_dir)) do
-        Ledger.with(ledger) do
-          process_statement(repo, statement, label, upload_dir, after)
-          suggest_after_job(client, account, period)
+    # From a request (Procesar, Reintentar) and from the Bandeja's thread (auto_process).
+    class << self
+      # The choice becomes the answer, so a row whose job fails comes back as the person
+      # left it. The printed period end, when there is one, fills in the cutoff day.
+      def enqueue_inbox(item, account, period, overwrite)
+        answer = (item.answer || {}).except('error', 'waits').merge('account' => account, 'period' => period)
+        inbox.record(item.token, answer)
+        period_end = iso_date(answer['period_end'])
+        enqueue_statement(account: account, period: period, pdf_path: item.pdf, overwrite: overwrite) do
+          AccountConfig.record_cutoff(account, period_end) if period_end
         end
       end
-    end
 
-    def process_statement(repo, statement, label, upload_dir, after)
-      Ledger.lock { repo.pull }
-      status = statement.process do
-        after&.call
-        repo.commit_and_push(label)
+      # The collaborators are read here rather than inside the block: the block runs on
+      # the worker thread, which has no ledger of its own.
+      def enqueue_statement(account:, period:, pdf_path:, overwrite:, &after)
+        statement = Statement.new(pdf_path, client: client, s3: s3, account: account, period: period,
+                                            overwrite: overwrite)
+        run_job(account, period, statement, File.dirname(pdf_path), &after)
       end
-      raise "Statement terminó con #{status}" unless status == Statement::OK
 
-      FileUtils.rm_rf(upload_dir)
+      # Procesar without the click, once the classifier's answer is saved. A ready upload
+      # that auto_hold keeps, or whose step fails, waits in the Bandeja with the reason.
+      def auto_process(token)
+        item = ready(token)
+        return unless item
+
+        reason = auto_hold(item)
+        reason ? wait(item, reason) : enqueue_inbox(item, item.account, item.period, false)
+      rescue StandardError => e
+        wait(item, e.message) if item
+      end
+
+      private
+
+      # The upload of `token` while the Bandeja calls it ready and there is a model to extract it.
+      def ready(token)
+        inbox.rows(jobs.all).find { |row| row.item.token == token && row.status == :ready }&.item if client
+      end
+
+      def wait(item, reason) = inbox.record(item.token, item.answer.merge('waits' => reason))
+
+      # Why a ready upload waits for a person, or nil: it goes on its own only when it is
+      # the statement that the dashboard expects next, or when the person named the file.
+      def auto_hold(item)
+        return 'llegaste al límite del mes' if Usage.capped?(Ledger.current.owner_id)
+        return "ya hay una corrida de #{item.label}" if jobs.pending(item.label)
+
+        off_schedule(item.account, item.period, item.answer['period_end']) unless item.named?
+      end
+
+      # Why a statement is not the one that the dashboard expects next, or nil.
+      def off_schedule(account, period, period_end)
+        day = Config.accounts[account]['cutoff_day']
+        return 'la cuenta aún no tiene día de corte' unless day
+
+        closing = Dashboard.last_closing(day)
+        expected = (closing - 15).strftime('%y%m')
+        return "el último periodo cerrado es #{expected}" unless period == expected
+
+        printed = iso_date(period_end)
+        "cerró el #{period_end} y su corte es el día #{day}" unless printed && CUTOFF_SLACK.cover?(printed - closing)
+      end
+
+      # The printed period end is optional: the filename shortcut has none.
+      def iso_date(value)
+        Date.iso8601(value.to_s)
+      rescue Date::Error
+        nil
+      end
+
+      # Pull before the work and push after it, so the statement is written on top of
+      # the latest ledger; a job that fails leaves the upload where it is, for a retry.
+      # The block runs after a good statement and rides on the same commit. The worker
+      # thread has no ledger of its own, so the body takes the caller's. The pull holds
+      # the ledger's lock, and so do the writes with the block and the commit; the model
+      # calls between them and after them (Revisar's guesses) do not.
+      def run_job(account, period, statement, upload_dir, &after)
+        repo = self.repo
+        client = self.client
+        ledger = Ledger.current
+        label = "#{account} #{period}"
+        jobs.push(label: label, token: File.basename(upload_dir)) do
+          Ledger.with(ledger) do
+            process_statement(repo, statement, label, upload_dir, after)
+            suggest_after_job(client, account, period)
+          end
+        end
+      end
+
+      def process_statement(repo, statement, label, upload_dir, after)
+        Ledger.lock { repo.pull }
+        status = statement.process do
+          after&.call
+          repo.commit_and_push(label)
+        end
+        raise "Statement terminó con #{status}" unless status == Statement::OK
+
+        FileUtils.rm_rf(upload_dir)
+      end
     end
   end
 end

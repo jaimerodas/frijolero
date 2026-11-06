@@ -36,8 +36,8 @@ lugar de `OPENAI_API_KEY`. El nombre del modelo va en cada `spec.json` de
 `prompts/` (ver [ledger.md](ledger.md#los-prompts)).
 
 Cada PDF que subes cuesta una llamada al modelo para clasificarlo, salvo uno
-que se llame `Clave YYMM.pdf`. Procesar cuesta la extracción y hace commit en
-el ledger. Sin llave, la app no clasifica ni extrae: en la Bandeja solo guarda
+que se llame `Clave YYMM.pdf`. La extracción cuesta otra llamada y hace commit
+en el ledger, con Procesar o sola (ver [Sin confirmar](#sin-confirmar)). Sin llave, la app no clasifica ni extrae: en la Bandeja solo guarda
 el PDF, con la cuenta y el periodo que elijas.
 
 ### Si ya tienes un ledger
@@ -188,7 +188,8 @@ Sin `POSTMARK_API_TOKEN`, el enlace para entrar sale en la salida del contenedor
 
 Un atajo de iOS manda un PDF desde la hoja de compartir de otra app, por
 ejemplo la app de tu banco. El PDF espera en la Bandeja hasta que lo
-confirmas. La app no procesa nada sin tu confirmación.
+confirmas, salvo el estado de cuenta que la cuenta espera (ver
+[Sin confirmar](#sin-confirmar)).
 
 1. En la app, abre el ledger, luego el menú con su nombre → "Configuración" → "Tokens de la API", y crea
    un token. La página muestra el token una sola vez: cópialo.
@@ -223,6 +224,25 @@ puedes cambiarlos. "Procesar los listos" procesa los PDF marcados con
 ● listo. Un PDF con ▲ o ■ necesita tu revisión: no se identificó, ya existe,
 está repetido en la Bandeja, no se clasificó o su corrida falló. Descartar
 borra el PDF.
+
+### Sin confirmar
+
+La app procesa sola un PDF con ● listo cuando es el estado de cuenta que
+Recientes espera de esa cuenta:
+
+- La cuenta tiene día de corte. El primer estado de cuenta que confirmas lo
+  guarda.
+- El periodo es el último que cerró la cuenta.
+- La fecha de corte del PDF es el día de corte o el día siguiente. Un banco
+  mueve el corte cuando cae en día inhábil.
+
+Un PDF que se llama `Clave YYMM.pdf` no necesita esas fechas. En los dos casos,
+la app no procesa nada si ya hay una corrida de ese estado de cuenta o si
+llegaste al límite del mes.
+
+Si un PDF no pasa, espera en la Bandeja con la razón, por ejemplo "No se
+procesó solo: el último periodo cerrado es 2607". Un estado de cuenta viejo,
+para llenar un hueco, siempre espera tu confirmación.
 
 ## Una corrida que falla
 

@@ -16,12 +16,13 @@ module Frijolero
       client = self.class.client
       ledger = Ledger.current
       job = self.class.jobs.push(label: "#{SUGGEST_LABEL}#{account} #{period}") do
-        Ledger.with(ledger) { write_suggestions(client, account, period) }
+        Ledger.with(ledger) { self.class.write_suggestions(client, account, period) }
       end
       redirect "/jobs/#{job.id}", 303
     end
 
-    helpers do
+    # Job bodies, which run on the job thread, with no request.
+    class << self
       def write_suggestions(client, account, period)
         Log.puts "Sugerencias guardadas: #{Suggestions.new(client).write(account, period)}"
       end
@@ -36,12 +37,14 @@ module Frijolero
       rescue StandardError => e
         Log.puts "✗ Sin sugerencias: #{e.message}"
       end
+    end
 
+    helpers do
       # Revisar's part: the guesses, the corrida that is making them, and the button while
       # there are none, none is coming and the model can be asked.
       def suggest_locals(account, period)
         label = "#{SUGGEST_LABEL}#{account} #{period}"
-        pending = self.class.jobs.all.find { |job| job.label == label && !job.done? }
+        pending = self.class.jobs.pending(label)
         { guesses: Suggestions.read(account, period), suggesting: pending,
           can_suggest: !pending && can_suggest?(account, period) }
       end

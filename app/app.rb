@@ -38,9 +38,13 @@ module Frijolero
       # Only the disk: a page that reads the Bandeja starts no thread.
       def inbox = @inbox || Inbox.new(Config.incoming_dir)
 
-      def inbox_worker
-        @inbox_worker || per_ledger(:inbox_worker) do |ledger|
-          Inbox::Worker.new(inbox) { |pdf| Ledger.with(ledger) { classify(pdf) } }.tap(&:start)
+      def inbox_worker = @inbox_worker || per_ledger(:inbox_worker) { |ledger| new_inbox_worker(ledger).tap(&:start) }
+
+      # It classifies each upload, then processes it when it is the statement that the
+      # dashboard expects next (auto_process). Its thread has no ledger of its own.
+      def new_inbox_worker(ledger)
+        Inbox::Worker.new(inbox, after: ->(token) { Ledger.with(ledger) { auto_process(token) } }) do |pdf|
+          Ledger.with(ledger) { classify(pdf) }
         end
       end
 
@@ -59,6 +63,9 @@ module Frijolero
       rescue Classifier::NoClient
         { error: capped ? 'Límite del mes' : "Falta #{LLM.key_var}" }
       end
+
+      # Only the Default pipeline has rules: links, editor and the detail action.
+      def rules?(account) = Pipeline.for(Config.accounts[account]).runs_detailer?
 
       private
 
@@ -109,10 +116,7 @@ module Frijolero
         description.to_s.split(/; | (?=RFC[A-Z0-9]{6,})/, 2)
       end
 
-      # Only the Default pipeline has rules: links, editor and the detail action.
-      def rules?(account)
-        Pipeline.for(Config.accounts[account]).runs_detailer?
-      end
+      def rules?(account) = self.class.rules?(account)
     end
 
     helpers do
@@ -178,7 +182,7 @@ module Frijolero
       account, period, pdf_path = retryable_upload(job)
       halt 422, 'Esta corrida no se puede reintentar' unless account
 
-      new_job = enqueue_statement(account: account, period: period, pdf_path: pdf_path, overwrite: false)
+      new_job = self.class.enqueue_statement(account: account, period: period, pdf_path: pdf_path, overwrite: false)
       redirect "/jobs/#{new_job.id}", 303
     end
   end

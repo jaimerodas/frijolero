@@ -21,6 +21,9 @@ module Frijolero
       def label
         "#{account} #{period}" if Config.accounts.key?(account) && period.to_s.match?(/\A\d{4}\z/)
       end
+
+      # The file name gives the account and the period ("AMEX 2508.pdf"): the person chose them.
+      def named? = AccountConfig.parse_filename(pdf) == [account, period]
     end
 
     # status is what the upload needs: :classifying, :error (the classifier failed),
@@ -106,10 +109,12 @@ module Frijolero
 
     # One thread that classifies new uploads in order. It is not the job worker, so an
     # extraction never holds up the Bandeja. The queue is in memory, so a new worker
-    # takes back every upload without an answer: a restart loses nothing.
+    # takes back every upload without an answer: a restart loses nothing. `after` gets
+    # the token once the answer is saved.
     class Worker
-      def initialize(inbox, &classify)
+      def initialize(inbox, after: nil, &classify)
         @inbox = inbox
+        @after = after
         @classify = classify
         @queue = Queue.new
         inbox.items.reject(&:answer).each { |item| push(item.token) }
@@ -124,7 +129,10 @@ module Frijolero
       def work_one
         token = @queue.pop
         item = @inbox.find(token)
-        @inbox.record(token, answer(item.pdf)) if item
+        return token unless item
+
+        @inbox.record(token, answer(item.pdf))
+        @after&.call(token)
         token
       rescue SystemCallError # discarded, or processed, while the model answered
         token

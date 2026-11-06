@@ -7,6 +7,7 @@ Así funciona:
 
 1. Subes uno o más PDF, desde la página o desde un atajo de iOS.
 2. La app identifica la cuenta y el periodo, y tú los confirmas en la Bandeja.
+   El último estado de cuenta de una cuenta no necesita tu confirmación.
 3. Una corrida en segundo plano extrae las transacciones con un modelo de
    OpenAI o de Anthropic.
 4. La corrida aplica las reglas de la cuenta y escribe un archivo `.beancount`.
@@ -31,7 +32,9 @@ configuras uno.
 Los PDF que subes esperan en la Bandeja. Ahí confirmas la cuenta y el periodo
 de cada uno, o los cambias. Si ese estado de cuenta ya existe, la Bandeja lo
 dice y ofrece "Sobrescribir". "Solo guardar PDF" guarda el archivo y no
-extrae nada. Recientes dice cuántos hay por confirmar.
+extrae nada. Recientes dice cuántos hay por confirmar. Si el PDF es el estado
+de cuenta que Recientes espera, la app lo procesa sola (ver
+[setup.md](docs/setup.md#sin-confirmar)).
 
 Desde el iPhone, un atajo de iOS manda los PDF a la Bandeja desde la hoja de
 compartir (ver [setup.md](docs/setup.md#subir-desde-el-iphone)).

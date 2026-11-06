@@ -211,14 +211,14 @@ Received links to the statement, missing to `/upload`, and failed to the newest 
 1. The web form (`POST /upload`, field `pdf[]`) and the iOS Shortcut (`POST /api/upload`, field `pdf`) save each PDF in `incoming/<token>/` and queue it for `Inbox::Worker`. They answer at once: the form redirects to `/inbox`, and the API answers 202 with the URL of the Bandeja of its ledger. If one file is not a PDF, nothing is saved.
 2. A file name like `<Key> YYMM.pdf` needs no model. Any other name costs one model call with the `classify` prompt. Without a model key, the answer is an error that names the key variable, and the Bandeja offers only "Solo guardar PDF".
 3. The classifier takes the period from the midpoint of the printed start and end, so AMEX Aug 4 to Sep 3 is `2608`. A doubtful answer becomes `unknown`.
-4. The Bandeja shows the answer, and the person confirms or changes it. If that statement exists, the row shows the Sobrescribir box. Without overwrite, the job refuses an existing statement.
+4. The Bandeja shows the answer, and the person confirms or changes it. The next statement of an account needs no click (see Bandeja). If that statement exists, the row shows the Sobrescribir box. Without overwrite, the job refuses an existing statement.
 5. "Procesar" (`POST /inbox/process`) queues a job. "Solo guardar PDF" (`POST /inbox/backup`) puts the PDF in the bucket during the request and removes the upload. It skips the model, the ledger and the job log.
 
 The buttons that wait on the server have `data-busy`. `reports.js` writes that word on the button and makes the form `inert`, so a second click sends nothing. The `pageshow` event restores them when the back button shows the page from the cache.
 
 ### Bandeja (`app/inbox.rb`, `/inbox`)
 
-The Bandeja holds the uploads that wait for a person. The API answers in JSON, errors included, because a Shortcut reads a body more easily than a status. The person always confirms: nothing is processed without a click.
+The Bandeja holds the uploads that wait for a person. The API answers in JSON, errors included, because a Shortcut reads a body more easily than a status. The person confirms each upload, except the next statement of an account (see "Without a click" below).
 
 - `Inbox` only reads and writes the disk. A page that counts the Bandeja starts no thread.
 - `Inbox::Worker` is a second queue and thread for each ledger, apart from the job worker, so an extraction never holds up a classification. At boot, it queues each upload that has no `classification.json`. A model error becomes the answer (`{"error": …}`), and the worker goes on.
@@ -228,6 +228,19 @@ The Bandeja holds the uploads that wait for a person. The API answers in JSON, e
 - The page refreshes every 3 s while a row is classifying. A refresh loses an edit that is not submitted.
 - The dashboard shows "▲ N por confirmar" when the Bandeja is not empty. There is no tab, because four tabs do not fit on a phone.
 - At the owner's monthly cap (`Usage.capped?`), the classifier makes no model call and answers `{"error": "Límite del mes"}`, and "Procesar" and "Reintentar" answer 422. A `<Key> YYMM.pdf` name, "Solo guardar PDF" and a job already in the queue still work. The dashboard shows "Uso del mes: 1.20 de 3.00 USD".
+
+#### Without a click (`App.auto_process`)
+
+After the worker saves an answer, `auto_process` does what Procesar does, with overwrite off, when every check passes:
+
+- The row is ready. So the statement does not exist, and no other upload in the Bandeja has its label.
+- No queued or running job has the label (`Jobs#pending`). `Inbox#rows` leaves out the upload of such a job, so the row cannot be `repeated`.
+- There is a model key, and the owner is under the cap.
+- The file is named `<Key> YYMM.pdf`, or the answer is the statement that the dashboard expects next: the account has a `cutoff_day`, the period is its last closed period, and the printed end is the closing date or the day after (`App::CUTOFF_SLACK`).
+
+The checks come from a measurement on 68 PDFs of the user's ledger, in November 2026. Today's classifier gave the right account and period for all 68. 66 closed on the cutoff day, and 2 (Plata) on the day after. The day before never counts: a statement that closes on the 31st, read as an account that closes on the 1st, ends one day before that account's closing. OpenAI's Decisions API, on the same PDFs, got 56 of 68, and each miss was `unknown`. So the gate is the dates, not a confidence score.
+
+A ready row that fails a check gets the reason in `classification.json` (`waits`), and the page shows "No se procesó solo: …". An exception in the step becomes the reason too, so the thread goes on. Procesar removes the reason. An old statement, which fills a gap, always waits for the click. So does the first statement of an account without a `cutoff_day`, and its job records the day.
 
 ### Jobs (`app/jobs.rb`)
 

@@ -43,6 +43,9 @@ module Frijolero
       @mutex.synchronize { @jobs.values.reverse }
     end
 
+    # The queued or running job with this label, or nil.
+    def pending(label) = all.find { |job| job.label == label && !job.done? }
+
     def work_one
       job, body = @queue.pop
       run(job, body)
