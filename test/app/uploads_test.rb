@@ -163,13 +163,11 @@ class UploadsTest < Minitest::Test
     assert_equal 1, last_response.body.scan('<meta charset').size
   end
 
-  def test_dashboard_links_to_jobs_accounts_and_rules
+  def test_dashboard_links_to_jobs_and_accounts
     get '/'
 
     assert_includes last_response.body, 'href="/jobs"'
     assert_includes last_response.body, 'href="/accounts"'
-    assert_includes last_response.body, 'href="/accounts/AMEX/rules"'
-    refute_includes last_response.body, 'href="/accounts/CETES/rules"'
   end
 
   def test_dashboard_points_to_the_uploads_waiting_in_the_inbox

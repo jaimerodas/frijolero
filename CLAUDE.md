@@ -193,15 +193,21 @@ The palette is Talavera, the cobalt and yolk yellow of Puebla tiles. It replaced
 - IBM Plex Sans for text, at 400, 500, 600 and 700. IBM Plex Mono for Beancount, dates and amounts.
 - One set of tokens with `light-dark()` for both color schemes. Each text pair is at least 4.5:1 in both, and the comments in `:root` give the ratios. The tints are set by eye for each scheme, because a percentage mix disappears on a dark ground.
 
-A status is a glyph and a word (`.status.<name>`): ● received or ok, ○ pending or queued, ◐ running, ▲ missing, ■ failed. Color is never the only signal. An empty page says what to do next.
+A status is a glyph and a word (`.status.<name>`): ● received or ok, ○ pending or queued, ◐ running, ▲ missing or to do (por confirmar, por revisar), ■ failed. Color is never the only signal. An empty page says what to do next.
 
 Under 40rem, each table becomes a list of blocks. The first cell becomes the heading, and each `td[data-label]` becomes a label and a value. An empty cell disappears. So write a cell that can be empty with no whitespace inside it.
 
 ### Dashboard (`app/dashboard.rb`)
 
-`Dashboard` computes a status for each open account on each request. Its two columns are the newest period that some account has closed and the period before it. An account closes a statement on its `cutoff_day` (31, or none, means the last day of the month). That statement belongs to the month 15 days before the closing date, the same rule as the classifier. Before the cutoff, the column shows pending.
+`Dashboard` computes a status for each open account on each request. Its two columns are the newest period that some account has closed and the period before it. An account closes a statement on its `cutoff_day` (31, or none, means the last day of the month). That statement belongs to the month 15 days before the closing date, the same rule as the classifier. Before the cutoff, the column shows the closing date ("cierra el 9 nov", `Dashboard.closing`).
 
-Received links to the statement, missing to `/upload`, and failed to the newest failed job with that label. The first confirmed upload with a printed period end fills in `cutoff_day`. The job never overwrites it, so a hand edit wins.
+The user opens Recientes to upload a missing statement and to open a new one. They keep the older column, because they work on the last period for 10 to 12 days after the month starts (asked in November 2026). So each cell says what to do:
+
+- "listo": the statement has no row for Revisar. It links to the statement.
+- "N por revisar", with ▲: the statement has N rows for Revisar. It links to Revisar, or to the statement for a pipeline without rules. The count parses every statement of the two periods on each request: 4.6 ms for the 13 statements of the real ledger.
+- "falta" links to `/upload`, and "falló" to the newest failed job with that label.
+
+"listo" and the closing date are muted, so the red cells are the things to do. The rules links are on Cuentas, not here. The first confirmed upload with a printed period end fills in `cutoff_day`. The job never overwrites it, so a hand edit wins.
 
 ### Cuentas (`app/accounts.rb`)
 

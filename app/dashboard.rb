@@ -6,7 +6,8 @@ module Frijolero
   # Which statements exist for the two latest closed periods, per account.
   # Computed on each request from the filesystem; nothing is stored.
   class Dashboard
-    Row = Struct.new(:account, :statuses, :cutoff_day, keyword_init: true)
+    # unclassified maps each period with a statement to the count of rows that Revisar takes.
+    Row = Struct.new(:account, :statuses, :cutoff_day, :unclassified, keyword_init: true)
 
     # failed maps "<account> <period>" to the id of the newest failed job with that label.
     def initialize(today: Date.today, failed: {})
@@ -27,12 +28,22 @@ module Frijolero
       end
     end
 
+    # ponytail: no cache. Counting the rows reads every statement of the two periods: 4.6 ms for
+    # the 13 statements of the real ledger (November 2026).
     def rows
       AccountConfig.active.map do |account, config|
         closed = last_closed(config['cutoff_day']).strftime('%y%m')
-        statuses = periods.to_h { |period| [period, status_for(account, period, closed)] }
-        Row.new(account: account, statuses: statuses, cutoff_day: config['cutoff_day'])
+        unclassified = periods.to_h { |period| [period, unclassified(account, period)] }.compact
+        statuses = periods.to_h { |period| [period, status_for(account, period, closed, unclassified[period])] }
+        Row.new(account:, statuses:, cutoff_day: config['cutoff_day'], unclassified:)
       end
+    end
+
+    # The closing date of the statement of `period`, for an account that closes on `day`: the
+    # closing 15 days or less after a day of that month, the rule of last_closed backwards.
+    def self.closing(period, day)
+      month = Date.strptime(period, '%y%m')
+      [month, month.next_month].map { |m| closing_in(m, day || 31) }.find { |c| (c - 15).strftime('%y%m') == period }
     end
 
     # A day inside the period of the newest statement that has closed by `today`, for an
@@ -55,8 +66,15 @@ module Frijolero
       self.class.last_closed(day, today: @today)
     end
 
-    def status_for(account, period, closed)
-      return :received if File.exist?(Config.statement_path(account, period, 'beancount'))
+    # The rows that Revisar takes, or nil when the statement does not exist.
+    def unclassified(account, period)
+      path = Config.statement_path(account, period, 'beancount')
+      StatementReview.unclassified(Beancount::Parser.parse(path)).size if File.exist?(path)
+    end
+
+    def status_for(account, period, closed, unclassified)
+      return :received if unclassified&.zero?
+      return :review if unclassified
       return :failed if @failed.key?("#{account} #{period}")
 
       period <= closed ? :missing : :pending

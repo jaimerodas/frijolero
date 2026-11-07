@@ -1,7 +1,8 @@
 <%
-  labels = { received: 'recibido', missing: 'falta', pending: 'pendiente', failed: 'falló' }
   periods = dashboard.periods
   cutoff = ->(day) { day.nil? ? '' : (day == 31 ? 'fin de mes' : "día #{day}") }
+  # '3 oct', as in the job times.
+  closes = ->(date) { "cierra el #{date.day} #{Frijolero::Period::MONTHS[date.month - 1][0, 3]}" }
 %>
 <!DOCTYPE html>
 <html lang="es">
@@ -19,7 +20,7 @@
     <p>No hay cuentas. <a href="<%= ledger_path('/accounts/new') %>">Da de alta la primera.</a></p>
     <% else %>
     <div class="table-wrap">
-      <table>
+      <table class="recent">
         <thead>
           <tr>
             <th>Cuenta</th>
@@ -33,19 +34,22 @@
           <% dashboard.rows.each do |row| %>
             <% base = ledger_path("/accounts/#{Rack::Utils.escape_path(row.account)}") %>
             <tr>
-              <th scope="row"><a href="<%= base %>"><%= h(row.account) %></a><% if rules?(row.account) %> <a class="rules" href="<%= base %>/rules" title="Reglas de <%= h(row.account) %>">reglas</a><% end %></th>
+              <th scope="row"><a href="<%= base %>"><%= h(row.account) %></a></th>
               <td class="cutoff" data-label="Corte"><%= h(cutoff.(row.cutoff_day)) %></td>
               <% periods.each do |period| %>
                 <% status = row.statuses[period] %>
                 <td data-label="<%= h(period_name(period)) %>">
                   <% if status == :received %>
-                    <a class="status received" href="<%= base %>/<%= period %>"><%= labels[status] %></a>
+                    <a class="status received" href="<%= base %>/<%= period %>">listo</a>
+                  <% elsif status == :review %>
+                    <%# Revisar takes these rows. An investment has no Revisar: its statement says what to fix. %>
+                    <a class="status missing" href="<%= base %>/<%= period %><%= '/review' if rules?(row.account) %>"><%= row.unclassified[period] %> por revisar</a>
                   <% elsif status == :missing %>
-                    <a class="status missing" href="<%= ledger_path('/upload') %>"><%= labels[status] %></a>
+                    <a class="status missing" href="<%= ledger_path('/upload') %>">falta</a>
                   <% elsif status == :failed %>
-                    <a class="status failed" href="<%= ledger_path("/jobs/#{h(dashboard.failed_job_id(row.account, period))}") %>"><%= labels[status] %></a>
+                    <a class="status failed" href="<%= ledger_path("/jobs/#{h(dashboard.failed_job_id(row.account, period))}") %>">falló</a>
                   <% else %>
-                    <span class="status <%= status %>"><%= labels[status] %></span>
+                    <span class="status pending"><%= closes.(Frijolero::Dashboard.closing(period, row.cutoff_day)) %></span>
                   <% end %>
                 </td>
               <% end %>

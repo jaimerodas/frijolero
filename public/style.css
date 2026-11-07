@@ -164,7 +164,18 @@ th .note { display: block; font-size: 0.875rem; font-weight: 400; }
 td.date { font-family: var(--mono); font-size: 0.9375rem; white-space: nowrap; }
 td .button, td button { min-height: 2rem; padding-inline: 0.625rem; font-size: 0.875rem; }
 .cutoff { color: var(--muted); white-space: nowrap; }
-a.rules { font-size: 0.875rem; margin-left: 0.5rem; color: var(--muted); }
+/* Recientes: a statement that needs nothing is quiet, so the red cells are the things to do.
+   On a phone, the cutoff goes beside the name, and the months get the width they need. */
+.recent .status:is(.received, .pending) { color: var(--muted); }
+.recent .status.received::before { color: var(--credit); }
+@media (pointer: coarse) { .recent a.status { display: inline-flex; align-items: center; min-height: 2.75rem; } }
+@media (max-width: 40rem) {
+  .recent tr { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 1rem; }
+  .recent th[scope="row"] { flex: 1; }
+  .recent td.cutoff:not(:empty) { display: block; font-size: 0.875rem; }
+  .recent td.cutoff::before { content: "corte "; }
+  .recent td[data-label]:not(.cutoff) { flex-basis: 100%; grid-template-columns: 8rem 1fr; align-items: center; }
+}
 /* The Bandeja: the status and the printed dates (or the error) under the file name, a
    period field four digits wide, and the buttons of a row on a line that wraps. */
 .inbox th[scope="row"] { white-space: normal; overflow-wrap: anywhere; }
