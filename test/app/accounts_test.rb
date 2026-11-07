@@ -75,12 +75,22 @@ class AccountsTest < Minitest::Test
     Frijolero::App
   end
 
-  def test_accounts_list_shows_open_before_closed
+  def test_accounts_list_groups_the_accounts_with_rules_then_the_investments_then_the_closed
     get '/accounts'
 
     assert_equal 200, last_response.status
-    assert_operator last_response.body.index('Activas'), :<, last_response.body.index('Cerradas')
-    assert_operator last_response.body.index('BBVA TDC'), :<, last_response.body.index('Openbank')
+    order = ['Bancos y tarjetas', '>AMEX<', '>BBVA TDC<', 'Inversiones', '>CETES<', 'Cerradas', '>Openbank<']
+    positions = order.map { |text| last_response.body.index(text) }
+    refute_includes positions, nil, order.zip(positions).inspect
+    assert_equal positions.sort, positions, order.zip(positions).inspect
+  end
+
+  # The Configuración tab shows the Beancount account. The description is the plain words.
+  def test_accounts_list_shows_the_description_not_the_beancount_account
+    get '/accounts'
+
+    assert_includes last_response.body, 'Tarjeta BBVA'
+    refute_includes last_response.body, 'Assets:BBVA'
   end
 
   # A lambda with output tags inside once rendered the whole page four times.
@@ -119,7 +129,7 @@ class AccountsTest < Minitest::Test
     assert_includes last_response.body, '/accounts/yaml'
   end
 
-  def test_accounts_list_links_the_main_file_and_its_includes_outside_accounts
+  def test_accounts_list_links_the_main_file_then_its_includes_outside_accounts
     main = File.basename(Frijolero::Config.main_file)
     File.write(Frijolero::Config.main_file, <<~BEANCOUNT)
       include "prices.beancount"
@@ -134,12 +144,14 @@ class AccountsTest < Minitest::Test
 
     get '/accounts'
 
-    assert_includes last_response.body, 'Otros archivos beancount'
-    assert_includes last_response.body, %(href="/files/#{main}")
-    assert_includes last_response.body, 'href="/files/prices.beancount"'
-    assert_includes last_response.body, 'href="/files/more/rates.beancount"'
-    refute_includes last_response.body, '/files/accounts/'
-    refute_includes last_response.body, 'ignored.beancount'
+    body = last_response.body
+    order = [%(href="/files/#{main}"), 'principal', 'href="/files/prices.beancount"']
+    positions = order.map { |text| body.index(text) }
+    refute_includes positions, nil, order.zip(positions).inspect
+    assert_equal positions.sort, positions
+    assert_includes body, 'href="/files/more/rates.beancount"'
+    refute_includes body, '/files/accounts/'
+    refute_includes body, 'ignored.beancount'
   end
 
   # The list comes from LedgerFiles, which refuses this ledger; the badge says why.
@@ -149,7 +161,8 @@ class AccountsTest < Minitest::Test
     get '/accounts'
 
     assert_equal 200, last_response.status
-    refute_includes last_response.body, 'Otros archivos beancount'
+    refute_includes last_response.body, 'href="/files/'
+    assert_includes last_response.body, 'href="/accounts/yaml"'
   end
 
   def test_accounts_yaml_editor_shows_the_current_file
@@ -430,7 +443,7 @@ class AccountsTest < Minitest::Test
     File.write(Frijolero::Config.main_file, %(include "prices.beancount"\n))
     File.write(File.join(@dir, 'prices.beancount'), '')
 
-    { '/accounts' => 'Otros archivos beancount', '/accounts/BBVA%20TDC' => 'sin procesar',
+    { '/accounts' => 'principal', '/accounts/BBVA%20TDC' => 'sin procesar',
       '/accounts/new' => 'Cancelar' }.each do |path, text|
       get path, {}, 'SCRIPT_NAME' => LEDGER_ROOT
 

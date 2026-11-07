@@ -24,8 +24,9 @@ configuras uno.
 - Recientes: el estado de los dos últimos periodos de cada cuenta (recibido,
   pendiente, falta o falló). "falta" lleva a la página de subir y "falló"
   lleva a la corrida que falló.
-- Cuentas: las cuentas, los PDF de cada una y los periodos que faltan. Aquí
-  das de alta una cuenta y editas su configuración y sus reglas.
+- Cuentas: la configuración y las reglas de cada cuenta, y los archivos del
+  ledger que editas aquí. El nombre de una cuenta lleva a sus PDF y a los
+  periodos que faltan. Aquí das de alta una cuenta.
 - Bitácora: las corridas, con su estado, su hora y su salida. Una corrida
   fallida puede tener el botón "Reintentar".
 

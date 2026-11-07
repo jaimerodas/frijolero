@@ -116,7 +116,7 @@ Old Card:
 | `openai_prompt_type` | El directorio de `prompts/` de la app que extrae este tipo de estado de cuenta. |
 | `converter_type` | El pipeline: `cetes_directo`, `fintual`, `alpaca` (o `plata`, su nombre viejo) o `multi`. Sin este campo, el pipeline es Default. Solo Default y Multi usan reglas. |
 | `accounts` | Solo Multi. Mapea cada nombre impreso a su cuenta de Beancount (ver la sección de Multi). |
-| `description` | La pista que recibe el clasificador. Si falta, el clasificador usa la clave. |
+| `description` | La pista que recibe el clasificador. Si falta, el clasificador usa la clave. Cuentas la muestra bajo el nombre de la cuenta. |
 | `cutoff_day` | El día del mes en que cierra el estado de cuenta. Sin este campo, el último día del mes. La corrida lo llena la primera vez que ve un periodo impreso, y nunca lo sobrescribe. |
 | `closed` | Con `true`, la cuenta sale de Recientes y del clasificador. Su historial sigue en su página, en Cuentas. |
 
@@ -145,8 +145,8 @@ uno es opcional. Sin él, la transacción va a `Income:FIXME` o
 - La pestaña Configuración de una cuenta (`/accounts/<Key>/config`) edita
   solo el bloque de esa cuenta. Los comentarios del resto del archivo quedan
   igual.
-- "Editar el archivo completo", en Cuentas (`/accounts/yaml`), edita todo
-  `accounts.yaml`.
+- `accounts.yaml`, en Archivos de la página Cuentas (`/accounts/yaml`),
+  edita todo el archivo.
 - "Nueva cuenta" (`/accounts/new`) da de alta una cuenta del pipeline Default.
 
 Las cuentas de los otros pipelines necesitan más cuentas de Beancount. Dalas

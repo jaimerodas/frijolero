@@ -107,6 +107,7 @@ class NavTest < Minitest::Test
     get '/accounts'
 
     assert_includes last_response.body, 'No hay cuentas.'
+    assert_equal 1, last_response.body.scan('href="/accounts/new"').size, 'only the button of the header'
   end
 
   def test_jobs_page_without_jobs_says_so
