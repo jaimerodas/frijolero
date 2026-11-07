@@ -21,11 +21,14 @@ function postAnswer(form, answer) {
   form.submit();
 }
 
-// The login page waits for the person to pick a passkey in the autofill of the email field.
-// A browser without the autofill keeps the email link only.
-async function signIn(form) {
-  if (!(await window.PublicKeyCredential?.isConditionalMediationAvailable?.())) return;
-  const credential = await navigator.credentials.get({ mediation: 'conditional', publicKey: await passkeyOptions(form) });
+// The login page asks for a passkey two ways: the autofill of the email field waits for one
+// ('conditional'), and the line under the form asks at once ('optional'). A browser allows one
+// request at a time, so each request cancels the one before it.
+let pending;
+async function signIn(form, mediation) {
+  pending?.abort();
+  pending = new AbortController();
+  const credential = await navigator.credentials.get({ mediation, signal: pending.signal, publicKey: await passkeyOptions(form) });
   const { response } = credential;
   postAnswer(form, {
     id: credential.id,
@@ -53,9 +56,23 @@ async function createPasskey(form) {
   }
 }
 
+// A browser without passkeys keeps the email link only, with no line. A closed prompt ends the
+// request, and the autofill waits again.
 const signinForm = document.getElementById('passkey-signin');
-// A closed prompt ends the wait. The email link still works, and a reload offers the passkeys again.
-if (signinForm) signIn(signinForm).catch((error) => console.warn(error));
+if (signinForm && window.PublicKeyCredential) {
+  const autofill = async () => {
+    if (await PublicKeyCredential.isConditionalMediationAvailable?.()) await signIn(signinForm, 'conditional');
+  };
+  const line = document.querySelector('p.passkey');
+  line.hidden = false;
+  line.querySelector('button').addEventListener('click', () => {
+    signIn(signinForm, 'optional').catch((error) => {
+      console.warn(error);
+      autofill().catch((again) => console.warn(again));
+    });
+  });
+  autofill().catch((error) => console.warn(error));
+}
 
 document.getElementById('passkey-create')?.addEventListener('submit', (event) => {
   event.preventDefault();

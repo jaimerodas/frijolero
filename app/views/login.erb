@@ -7,10 +7,6 @@
 <body class="login">
   <main>
     <h1 class="wordmark">Frijolero</h1>
-    <p class="tagline">Mis finanzas personales.</p>
-    <% if notice %>
-      <p class="notice" role="status"><%= notice %></p>
-    <% end %>
     <% if error %>
       <p class="error" role="alert"><%= error %></p>
     <% end %>
@@ -19,6 +15,14 @@
       <form method="post">
         <button type="submit" class="primary" autofocus>Entrar</button>
       </form>
+    <% elsif sent %>
+      <%# In place of the form, so nothing asks for a second link. Every address gets this page. %>
+      <section class="sent" role="status">
+        <h2>Revisa tu correo</h2>
+        <p>Si <strong><%= Rack::Utils.escape_html(sent) %></strong> tiene una cuenta, te llega un enlace para entrar. El enlace sirve 15 minutos.</p>
+        <p class="note">Frijolero es por invitación. Si no te llega, usa el correo en el que te invitaron.</p>
+        <a href="/login">Usar otro correo</a>
+      </section>
     <% else %>
       <form method="post" action="/login">
         <label for="email">Correo</label>
@@ -27,8 +31,10 @@
           <button type="submit" class="primary">Mandar enlace</button>
         </div>
       </form>
-      <%# The autofill of the email field offers the passkeys of the site. When the person
-          picks one, public/passkeys.js puts the answer in credential and posts this form. %>
+      <%# public/passkeys.js shows the line in a browser that has passkeys. %>
+      <p class="passkey" hidden>¿Ya tienes una llave de acceso? <button type="button">Entra con ella</button></p>
+      <%# The autofill of the email field offers the passkeys of the site, and the line asks for one at once.
+          When the person picks one, public/passkeys.js puts the answer in credential and posts this form. %>
       <form method="post" action="/login/passkey" id="passkey-signin" data-options="/login/challenge" hidden>
         <input type="hidden" name="credential">
       </form>

@@ -86,6 +86,7 @@ class AppTest < Minitest::Test
     assert_includes last_response.body, 'name="email"'
     refute_includes last_response.body, 'name="password"'
     assert_includes last_response.body, '<h1 class="wordmark">Frijolero</h1>'
+    refute_includes last_response.body, 'class="tagline"'
   end
 
   # Login sits outside LedgerScope, so its pages run with no current ledger and read none.
@@ -136,21 +137,40 @@ class AppTest < Minitest::Test
     assert_includes @mailer.sent.first[:text], 'https://frijolero.test/login/'
   end
 
-  # The page must not tell which addresses have an account.
+  # After the send, the form gives way to what happens next, so nothing asks for a second link.
+  # The address shows, so a typo shows too. A stranger learns why no email comes.
+  def test_asking_for_a_link_says_to_check_that_address
+    post '/login', email: ' admin@example.com '
+
+    body = last_response.body
+    assert_includes body, '<h2>Revisa tu correo</h2>'
+    assert_includes body, 'Si <strong>admin@example.com</strong> tiene una cuenta, te llega un enlace para entrar.'
+    assert_includes body, 'Frijolero es por invitación'
+    assert_includes body, '<a href="/login">Usar otro correo</a>'
+    refute_includes body, 'name="email"'
+  end
+
+  def test_the_address_on_the_page_is_escaped
+    post '/login', email: '<script>x</script>@example.com'
+
+    refute_includes last_response.body, '<script>x</script>'
+    assert_includes last_response.body, '&lt;script&gt;x&lt;/script&gt;@example.com'
+  end
+
+  # The page must not tell which addresses have an account: apart from the address, it is the same.
   def test_asking_for_a_link_answers_the_same_page_for_every_email
     post '/login', email: 'admin@example.com'
-    known = last_response.body
+    known = last_response.body.sub('admin@example.com', 'X')
     post '/login', email: 'nadie@example.com'
 
     assert_equal 200, last_response.status
-    assert_equal known, last_response.body
-    assert_includes known, 'te llega un correo con un enlace para entrar'
+    assert_equal known, last_response.body.sub('nadie@example.com', 'X')
   end
 
   # bin/signin-link is the way in when mail fails; the page stays the same.
   def test_a_mail_failure_is_logged_and_shows_the_same_page
     post '/login', email: 'nadie@example.com'
-    expected = last_response.body
+    expected = last_response.body.sub('nadie@example.com', 'X')
     Frijolero::Signin.mailer = FailingMailer.new
     log = StringIO.new
     Frijolero::Log.sink = log
@@ -158,7 +178,7 @@ class AppTest < Minitest::Test
     post '/login', email: 'admin@example.com'
 
     assert_equal 200, last_response.status
-    assert_equal expected, last_response.body
+    assert_equal expected, last_response.body.sub('admin@example.com', 'X')
     assert_includes log.string, 'inactive recipient'
   ensure
     Frijolero::Log.sink = nil

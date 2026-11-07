@@ -52,7 +52,7 @@ module Frijolero
         redirect '/login'
       end
 
-      def login_page(notice: nil, error: nil, link: false) = erb(:login, locals: { notice:, error:, link: })
+      def login_page(error: nil, link: false, sent: nil) = erb(:login, locals: { error:, link:, sent: })
 
       # The old session can hold anything, so it goes first.
       def start_session(user)
@@ -73,8 +73,8 @@ module Frijolero
       rescue Postmark::Error => e
         Log.puts "✗ No se pudo mandar el enlace: #{e.message}"
       end
-      login_page(notice: 'Si esa dirección tiene una cuenta, te llega un correo con un enlace para entrar. ' \
-                         'El enlace sirve 15 minutos.')
+      # The page shows the address as typed, the same for an address with an account and one without.
+      login_page(sent: params['email'].to_s.strip)
     end
 
     # The passkey routes come before /login/:token, which would take their names as tokens.

@@ -370,9 +370,9 @@ dialog .fields .actions .keys { margin-left: auto; }
 /* The count inside the yellow button, in an ink disc: red on yellow is 3:1, too low for text. */
 .tally { display: inline-grid; place-items: center; box-sizing: border-box; min-width: 1.5rem; height: 1.5rem; padding-inline: 0.375rem; margin-left: 0.5rem; border-radius: 0.75rem; background: var(--on-key); color: var(--key); font-size: 0.875rem; font-weight: 700; }
 .ledger-head { display: flex; gap: 0.75rem; margin: 0 0 0 auto; font-size: 0.875rem; }
-:is(.ledger-head, .controls form) button { all: unset; cursor: pointer; color: var(--accent); }
-:is(.ledger-head, .controls form) button:hover { text-decoration: underline; }
-:is(.ledger-head, .controls form) button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+:is(.ledger-head, .controls form, .passkey) button { all: unset; cursor: pointer; color: var(--accent); }
+:is(.ledger-head, .controls form, .passkey) button:hover { text-decoration: underline; }
+:is(.ledger-head, .controls form, .passkey) button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .toolbar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 0 2rem;
   border-block: 1px solid var(--rule);
@@ -436,23 +436,31 @@ dialog .fields .actions .keys { margin-left: auto; }
 .chart.sankey a[href]:is(:hover, :focus-visible) .tile { fill: var(--ink); }
 .chart.sankey a[href]:is(:hover, :focus-visible) .label { fill: var(--accent); }
 
-/* Login: the wordmark alone, yellow on its cobalt block, as in the header */
+/* Login: the wordmark alone, yellow on its cobalt block, as in the header. The block is as wide
+   as the column, so the form under it ends where the block ends. */
 body.login { min-height: 100dvh; display: grid; align-content: center; }
-body.login main { width: 100%; max-width: 40rem; box-sizing: border-box; }
+body.login main { width: 100%; max-width: 39rem; box-sizing: border-box; container-type: inline-size; }
 .wordmark {
-  width: fit-content;
-  margin: 0;
+  margin: 0 0 2rem;
   padding: 0.1em 0.15em 0.125em;
   background: var(--band);
-  /* FRIJOLERO in Plex Sans Bold is 5.45em wide with the padding; 6.25rem fits the 36rem column. */
-  font-size: clamp(3rem, 13vw, 6.25rem);
+  /* FRIJOLERO in Plex Sans Bold is 5.6em wide with the padding, so the letters fill the column. */
+  font-size: calc(100cqi / 5.6);
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.02em;
   text-transform: uppercase;
   color: var(--key);
 }
-.tagline { margin: 0.75rem 0 2.5rem; font-size: 1.25rem; color: var(--muted); }
+/* Entrar, the one button of a sign-in link, is as wide as the block too. */
+body.login form > button { width: 100%; justify-content: center; }
+/* After "Mandar enlace": what happens next, in place of the form. */
+.sent h2 { margin: 0 0 0.5rem; padding: 0; border: 0; font-size: 1.5rem; }
+.sent p { margin: 0 0 0.75rem; font-size: 1.125rem; }
+.sent strong { font-weight: 600; overflow-wrap: anywhere; }
+.sent a { display: inline-flex; align-items: center; min-height: 2.75rem; }
+.passkey { margin: 0.5rem 0 0; color: var(--muted); }
+p.passkey button { display: inline-flex; align-items: center; min-height: 2.75rem; } /* p: after all: unset above */
 
 /* Forms */
 label { display: block; margin: 1.25rem 0 0.375rem; font-weight: 600; }

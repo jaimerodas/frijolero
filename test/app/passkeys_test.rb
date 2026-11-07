@@ -76,6 +76,25 @@ class PasskeysPageTest < Minitest::Test
     assert_includes last_response.body, 'autocomplete="email webauthn"'
   end
 
+  # The line says that passkeys exist. It starts hidden: passkeys.js shows it in a browser that has them.
+  def test_the_line_under_the_form_asks_for_a_passkey
+    get '/login'
+
+    line = '<p class="passkey" hidden>¿Ya tienes una llave de acceso? ' \
+           '<button type="button">Entra con ella</button></p>'
+
+    assert_includes last_response.body, line
+  end
+
+  # A sign-in link and the page after the send have no form to go with the line.
+  def test_the_other_login_pages_have_no_passkey_line
+    post '/login', email: 'admin@example.com'
+    refute_includes last_response.body, 'class="passkey"'
+
+    get "/login/#{Frijolero::Signin.issue(@admin, ttl: 60)}"
+    refute_includes last_response.body, 'class="passkey"'
+  end
+
   def test_a_person_creates_a_passkey
     create_passkey
 
