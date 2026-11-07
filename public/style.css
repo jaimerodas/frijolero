@@ -1,30 +1,43 @@
 :root {
   color-scheme: light dark;
-  --bg: light-dark(#ffffff, #000000);
-  --ink: light-dark(#000000, #f2f2f2);
-  --muted: light-dark(#5c5c5c, #a3a3a3);
-  --rule: light-dark(#c8c8c8, #3a3a3a);
-  --red: #fc3d21;
-  --blue: light-dark(#0b3d91, #7aa2ff);
-  --on-blue: light-dark(#ffffff, #000000);
-  /* The code editors: the numbers' column, and the caret's line in a blue tint. On black a
-     percentage mix vanishes, so each scheme has its own value, set by eye. */
-  --gutter-bg: light-dark(#f5f5f5, #141414);
-  --gutter-alt: light-dark(#ebebeb, #1f1f1f);
-  --current-line: light-dark(#e9eef7, #172238);
+  /* Talavera: the cobalt and yolk yellow of Puebla tiles. Cobalt is the header band, the links and
+     every color that answers the pointer; yellow is the wordmark and the primary button. The
+     neutrals lean toward the cobalt. Yellow never sits on white as text: 1.5:1. */
+  --bg: light-dark(#ffffff, #0b0f22);
+  --ink: light-dark(#0f1530, #eef0fa);
+  --muted: light-dark(#586079, #9aa1bb);
+  --rule: light-dark(#dde1ee, #262c4a);
+  --accent: light-dark(#22359c, #9fb2ff);
+  --on-accent: light-dark(#ffffff, #0b0f22);
+  /* The header band. Yellow on it (the wordmark, the current section's underline) is 6.5:1, and
+     8.2:1 on the dark band. */
+  --band: light-dark(#22359c, #1a2878);
+  --on-band: #ffffff;
+  /* Yellow: the wordmark, and the primary button apart from the links. Ink on yellow is 11:1. */
+  --key: #ffc533;
+  --on-key: light-dark(#0f1530, #0b0f22);
+  /* The alert marks (■, ▲, a band, the error disc) and the words of a missing or failed status:
+     4.8:1 on paper, 6.8:1 on the dark ground. White on it is 4.8:1 on paper; on the dark ground the
+     tone is lighter, so black (7.5:1). */
+  --alert: light-dark(#d92d20, #ff6b5e);
+  --on-alert: light-dark(#ffffff, #000000);
+  /* The code editors: the numbers' column, and the caret's line in a cobalt tint. On the dark
+     ground a percentage mix vanishes, so each scheme has its own value, set by eye. */
+  --gutter-bg: light-dark(#f4f5fa, #121733);
+  --gutter-alt: light-dark(#e9ecf5, #1a2040);
+  --current-line: light-dark(#eaeefb, #19234d);
   /* A line or a journal row in error: the same red band everywhere. */
-  --error-line: light-dark(#fde8e4, #3a130d);
-  /* Black on NASA red is 5.9:1 in both schemes; white would be 3.6:1. */
-  --on-red: #000000;
-  --credit: light-dark(#1a7f37, #3fb950);
-  --debit: light-dark(#b3410f, #ff8a5b);
-  /* The four steps of the treemap, largest tile first. On paper the top is ink; on the dark ground it stops at a
-     mid grey, so the largest tile is not a white slab, and the steps are set by eye, not the light ones flipped. */
-  --tile-1: light-dark(#000000, #8c8c8c);
-  --tile-2: light-dark(#4d4d4d, #5c5c5c);
-  --tile-3: light-dark(#bfbfbf, #333333);
-  --tile-4: light-dark(#e6e6e6, #1c1c1c);
-  --sans: "Public Sans", system-ui, sans-serif;
+  --error-line: light-dark(#fde8e6, #3a1519);
+  --credit: light-dark(#12784f, #4cc98f);
+  --debit: light-dark(#b4470c, #ff9c5c);
+  /* The four steps of the treemap, largest tile first, in the cobalt-leaning neutrals. On paper the
+     top is ink; on the dark ground it stops at a mid tone, so the largest tile is not a white slab,
+     and the steps are set by eye, not the light ones flipped. */
+  --tile-1: light-dark(#0f1530, #8a91ad);
+  --tile-2: light-dark(#4a5272, #5a6180);
+  --tile-3: light-dark(#bcc2d6, #30365a);
+  --tile-4: light-dark(#e6e9f2, #1a1f3a);
+  --sans: "IBM Plex Sans", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
 }
 
@@ -36,49 +49,54 @@ body {
   line-height: 1.5;
 }
 
-a { color: var(--blue); text-underline-offset: 0.15em; }
+a { color: var(--accent); text-underline-offset: 0.15em; }
 code { font-family: var(--mono); font-size: 0.9375em; }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 [hidden] { display: none !important; }
 
-/* Header: the wordmark is the one red mark on the page */
+/* Header: a cobalt band, the wordmark in yellow, and the current section underlined in yellow.
+   The menu's panel drops onto the page ground, so it goes back to ink. */
 .topbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0 1.5rem;
   padding: 0.5rem max(2rem, calc((100% - 64rem) / 2));
-  border-bottom: 2px solid var(--ink);
+  background: var(--band);
+  color: var(--on-band);
 }
+.topbar :focus-visible { outline-color: var(--on-band); }
 .topbar .brand {
   margin-right: auto;
   font-weight: 700;
-  font-size: 1.5rem;
+  font-size: 1.375rem;
   text-transform: uppercase;
-  letter-spacing: -0.03em;
-  color: var(--red);
+  letter-spacing: 0.02em;
+  color: var(--key);
   text-decoration: none;
 }
 .topbar .brand-row { display: flex; align-items: center; gap: 0.5rem; margin-right: auto; }
 .topbar .brand-row .brand { margin-right: 0; }
 .topbar nav { display: flex; gap: 1.5rem; }
 .topbar a { display: inline-flex; align-items: center; min-height: 2.75rem; }
-.topbar nav a { color: var(--ink); text-decoration: none; }
+.topbar nav a { color: var(--on-band); text-decoration: none; }
 .topbar nav a:hover { text-decoration: underline; }
 .topbar nav a[aria-current] {
+  font-weight: 600;
   text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 0.4em;
+  text-decoration-color: var(--key);
+  text-decoration-thickness: 3px;
+  text-underline-offset: 0.45em;
 }
 .topbar form button {
   border: none;
   background: none;
   padding: 0;
   font: inherit;
-  color: var(--ink);
+  color: var(--on-band);
   min-height: 2.75rem;
 }
-.topbar form button:hover { text-decoration: underline; }
+.topbar form button:hover { text-decoration: underline; background: none; }
 /* The ledger menu: a native disclosure; its panel drops over the page. */
 .topbar .menu { position: relative; margin: 0; }
 .topbar .menu summary { display: inline-flex; align-items: center; min-height: 2.75rem; font-weight: 400; cursor: pointer; }
@@ -96,6 +114,9 @@ code { font-family: var(--mono); font-size: 0.9375em; }
 }
 .topbar .menu ul { margin: 0; padding: 0; list-style: none; }
 .topbar .menu ul + ul { margin-top: 0.25rem; border-top: 1px solid var(--rule); }
+.topbar .menu nav :is(a, button) { color: var(--ink); }
+.topbar .menu nav a[aria-current] { text-decoration-color: currentColor; text-decoration-thickness: 2px; }
+.topbar .menu nav :focus-visible { outline-color: var(--ink); }
 
 /* Page */
 main { max-width: 64rem; margin-inline: auto; padding: 2rem; }
@@ -107,7 +128,7 @@ h2 { font-size: 1.125rem; font-weight: 600; margin: 2.5rem 0 0.75rem; padding-bo
 .help pre { font-size: 0.875rem; }
 
 .notice, .error { padding: 0.75rem 1rem; margin-block: 1rem; border: 1px solid var(--ink); }
-.error { border-color: var(--red); border-left-width: 6px; }
+.error { border-color: var(--alert); border-left-width: 6px; }
 
 /* Mi cuenta: the name and the email forms, under Editar, as wide as a form needs. */
 .profile-edit form { max-width: 32rem; }
@@ -119,8 +140,8 @@ h2 { font-size: 1.125rem; font-weight: 600; margin: 2.5rem 0 0.75rem; padding-bo
 .status.received, .status.ok { --glyph: "●"; color: var(--credit); }
 .status.pending { color: var(--debit); }
 .status.running { --glyph: "◐"; color: var(--ink); }
-.status.missing { --glyph: "▲"; color: var(--red); }
-.status.failed { --glyph: "■"; color: var(--red); font-weight: 600; }
+.status.missing { --glyph: "▲"; color: var(--alert); }
+.status.failed { --glyph: "■"; color: var(--alert); font-weight: 600; }
 .status.blocked { --glyph: "■"; color: var(--ink); }
 a.status { text-decoration: none; }
 a.status:hover { text-decoration: underline; }
@@ -154,9 +175,7 @@ a.rules { font-size: 0.875rem; margin-left: 0.5rem; color: var(--muted); }
 
 /* Statement: one entry per transaction. Date, body, amount; on phones the body drops below. */
 .ledger { list-style: none; margin: 0 0 2rem; padding: 0; }
-/* A statement's Beancount text, with Editar in its top-right corner over the first line's end. */
-.code-box { position: relative; margin-top: 1rem; }
-.code-box > .edit-file { position: absolute; top: 1px; right: 1px; z-index: 1; padding-inline: 0.5rem; background: var(--bg); }
+.code-box { margin-top: 1rem; }
 .ledger > li {
   display: grid;
   grid-template-columns: 6.5rem 1fr auto;
@@ -166,11 +185,16 @@ a.rules { font-size: 0.875rem; margin-left: 0.5rem; color: var(--muted); }
 }
 .ledger time, .ledger data { font-family: var(--mono); font-size: 0.9375rem; white-space: nowrap; }
 .ledger data { text-align: right; font-variant-numeric: tabular-nums; }
-:is(.ledger, .net, dialog .posting) data.credit { color: var(--credit); }
-:is(.ledger, .net, dialog .posting) data.debit { color: var(--debit); }
+:is(.ledger, .net, .totals, dialog .posting) data.credit { color: var(--credit); }
+:is(.ledger, .net, .totals, dialog .posting) data.debit { color: var(--debit); }
+/* Under the last movement: the count and the sum of each side, per currency. */
+.totals { display: grid; grid-template-columns: 1fr auto; gap: 0.25rem 1rem; margin: -1rem 0 2rem; font-family: var(--mono); font-size: 0.9375rem; font-weight: 500; }
+.totals data { text-align: right; font-variant-numeric: tabular-nums; }
+.totals .count { font-family: var(--sans); font-weight: 400; color: var(--muted); }
 .ledger .entry { min-width: 0; overflow-wrap: anywhere; }
 .ledger .tail { color: var(--muted); font-size: 0.875rem; }
-.ledger .posting code { color: var(--blue); }
+/* An account name is no link here, so it is muted, not cobalt: cobalt answers the pointer. */
+.ledger .posting code { color: var(--muted); }
 .ledger .posting { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1rem; margin-top: 0.25rem; }
 .ledger .posting button { min-height: 2rem; padding-inline: 0.625rem; font-size: 0.875rem; }
 
@@ -215,10 +239,10 @@ a.rules { font-size: 0.875rem; margin-left: 0.5rem; color: var(--muted); }
 .ledger .postings .matched { color: var(--muted); }
 .ledger :is(.postings, .balance) a, .note a, .account a { color: inherit; text-decoration: none; }
 .ledger :is(.postings, .balance) a:hover, .note a:hover, .account a:hover { text-decoration: underline; }
-/* The date of an entry is its one action, the edit dialog: a quiet blue text control
+/* The date of an entry is its one action, the edit dialog: a quiet cobalt text control
    that looks like a link, in the mono of the date. The 2rem tap height overlaps the
    row padding through the negative margin, so the row stays as tall as its text. */
-.ledger .edit { all: unset; display: inline-flex; align-items: center; min-height: 2rem; margin-block: -0.25rem; font: inherit; color: var(--blue); cursor: pointer; }
+.ledger .edit { all: unset; display: inline-flex; align-items: center; min-height: 2rem; margin-block: -0.25rem; font: inherit; color: var(--accent); cursor: pointer; }
 .ledger .edit:hover { text-decoration: underline; }
 .ledger .edit:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
@@ -296,18 +320,7 @@ dialog .fields .actions .keys { margin-left: auto; }
 .net { display: flex; flex-wrap: wrap; align-items: center; gap: 0 1rem; margin: 0; font-family: var(--mono); font-size: 0.9375rem; font-weight: 500; }
 .net .count { font-family: var(--sans); font-weight: 400; color: var(--muted); }
 .net .status { font-family: var(--sans); font-weight: 400; }
-/* A statement's ⓘ: a ring with an i beside the count. On hover or focus (a tap on a phone) the debit and
-   credit sums per currency hang under it in a flat callout ruled in ink. The ring's hit area is 44 px and
-   reaches down to the callout, so the pointer keeps the hover on the way there. */
-.net .info { position: relative; display: inline-flex; align-items: center; margin-left: -0.5rem; }
-.net .info button { all: unset; position: relative; display: inline-flex; justify-content: center; align-items: center; box-sizing: border-box; width: 1.125rem; height: 1.125rem; border: 1.5px solid currentColor; border-radius: 50%; font: 600 0.75rem/1 var(--sans); color: var(--muted); cursor: help; }
-.net .info button::after { content: ""; position: absolute; inset: -0.8125rem; }
-.net .info button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-.net .info:is(:hover, :focus-within) button { color: var(--ink); }
-.net .panel { display: none; position: absolute; top: calc(100% + 0.5rem); left: 50%; translate: -50% 0; z-index: 2; grid-template-columns: auto auto; gap: 0.25rem 1.5rem; padding: 0.75rem 1rem; background: var(--bg); border: 1px solid var(--ink); white-space: nowrap; }
-.net .info:is(:hover, :focus-within) .panel { display: grid; }
-.net .panel data { text-align: right; font-variant-numeric: tabular-nums; }
-.net form { font-family: var(--sans); font-weight: 400; }
+.account-head + .net { margin-top: 1rem; }
 /* Order line: Fecha over the dates, Monto over the amounts; the active key in ink with its glyph. */
 .order { display: flex; justify-content: space-between; margin: 0.25rem 0 0; padding-bottom: 0.25rem; border-bottom: 1px solid var(--rule); font-size: 0.875rem; }
 .order a { color: var(--muted); text-decoration: none; }
@@ -329,37 +342,53 @@ dialog .fields .actions .keys { margin-left: auto; }
 /* A page under one of them (an account, a job) has its own h1, so the name stays a link, drawn as the current one. */
 .title nav a[aria-current] { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px var(--ink); }
 /* The button is as tall as the page names beside it, so a section with a button keeps the height of one without. */
-.title .primary { box-sizing: border-box; align-self: flex-start; min-height: 2.25rem; margin-left: auto; padding-inline: 0.75rem; font-size: 0.9375rem; }
-/* A page under the section: its own h1 under the title row. An account's tabs share the h1's row, at the
-   right, their marks on its thin rule; a statement's toolbar hangs from that rule. */
+.title .button { box-sizing: border-box; align-self: flex-start; min-height: 2.25rem; margin-left: auto; padding-inline: 0.75rem; font-size: 0.9375rem; }
+/* A page under the section: its own h1 under the title row. */
 .title + h1 { margin-top: 1.5rem; }
-.account-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 2rem; margin-top: 1.5rem; border-bottom: 1px solid var(--rule); }
-.account-head h1 { margin: 0; }
-.account-head + .toolbar { border-top: 0; }
 .toolbar + h2 { margin-top: 1.5rem; }
+/* An account page is one level down: "‹ Cuentas" on the left, the account's pages on the right. */
+.account-nav { display: flex; align-items: center; justify-content: space-between; gap: 0 1.5rem; border-bottom: 1px solid var(--rule); }
+.account-nav > a { display: inline-flex; align-items: center; min-height: 2.75rem; text-decoration: none; white-space: nowrap; }
+.account-nav > a:hover { text-decoration: underline; }
+/* The title row, between two rules: the account, the month of a statement, and its controls at the right. */
+.account-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; padding-block: 1rem; border-bottom: 1px solid var(--rule); }
+.account-head h1 { margin: 0; }
+/* The month is the period menu, drawn as the rest of the title, with a chevron drawn by two borders. */
+.month { position: relative; font-size: 1.75rem; line-height: 1.2; }
+.month select { appearance: none; field-sizing: content; padding: 0 1.75rem 0 0; border: 0; border-radius: 0; background: none; font: inherit; color: var(--ink); cursor: pointer; }
+.account-head .period :is(a, span[aria-hidden]) { width: 2.25rem; font-size: 1.5rem; }
+.month:has(select)::after { content: ""; position: absolute; right: 0.375rem; top: 50%; width: 0.5rem; height: 0.5rem; border: solid var(--muted); border-width: 0 2px 2px 0; translate: 0 -75%; rotate: 45deg; pointer-events: none; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.5rem; margin-left: auto; }
+.controls :is(form, a:not(.button)) { display: inline-flex; align-items: center; min-height: 2.75rem; margin: 0; text-decoration: none; }
+.controls a:not(.button):hover { text-decoration: underline; }
+/* The views of a statement, as one segmented control; the current one in the gutter's tint. */
+.toggle { display: inline-flex; border: 1px solid var(--ink); }
+.toggle a { display: inline-flex; align-items: center; min-height: 2.75rem; padding-inline: 0.875rem; color: var(--muted); text-decoration: none; }
+.toggle a + a { border-left: 1px solid var(--ink); }
+.toggle a:hover { color: var(--ink); text-decoration: underline; }
+.toggle a[aria-current] { background: var(--gutter-alt); color: var(--ink); font-weight: 600; }
+/* The count inside the yellow button, in an ink disc: red on yellow is 3:1, too low for text. */
+.tally { display: inline-grid; place-items: center; box-sizing: border-box; min-width: 1.5rem; height: 1.5rem; padding-inline: 0.375rem; margin-left: 0.5rem; border-radius: 0.75rem; background: var(--on-key); color: var(--key); font-size: 0.875rem; font-weight: 700; }
 .ledger-head { display: flex; gap: 0.75rem; margin: 0 0 0 auto; font-size: 0.875rem; }
-:is(.ledger-head, .net form) button { all: unset; cursor: pointer; color: var(--blue); }
-:is(.ledger-head, .net form) button:hover { text-decoration: underline; }
-:is(.ledger-head, .net form) button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-.net form button { display: inline-flex; align-items: center; min-height: 2.75rem; }
+:is(.ledger-head, .controls form) button { all: unset; cursor: pointer; color: var(--accent); }
+:is(.ledger-head, .controls form) button:hover { text-decoration: underline; }
+:is(.ledger-head, .controls form) button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .toolbar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 0 2rem;
   border-block: 1px solid var(--rule);
 }
-:is(.toolbar, .chart, .account-head, dialog) .tabs { display: flex; gap: 1rem; }
+:is(.toolbar, .chart, .account-nav, dialog) .tabs { display: flex; gap: 1rem; }
 :is(.chart, dialog) .tabs button { all: unset; font-family: var(--sans); cursor: pointer; }
 :is(.chart, dialog) .tabs button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-:is(.toolbar, .chart, .page-head, .account-head, dialog) .tabs :is(a, button) { display: inline-flex; align-items: center; min-height: 2.75rem; color: var(--muted); text-decoration: none; }
-:is(.toolbar, .chart, .page-head, .account-head, dialog) .tabs :is(a, button):hover { color: var(--ink); text-decoration: underline; }
-:is(.toolbar, .chart, .page-head, .account-head, dialog) .tabs :is(a[aria-current], button[aria-pressed="true"]) { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px var(--ink); }
-.toolbar .period { display: flex; align-items: center; gap: 0.25rem; margin: 0; }
-.toolbar .period a, .toolbar .period span[aria-hidden] { display: inline-flex; justify-content: center; align-items: center; width: 2rem; min-height: 2.75rem; font-size: 1.25rem; text-decoration: none; color: var(--ink); }
-.toolbar .period span[aria-hidden] { color: var(--rule); }
+:is(.toolbar, .chart, .page-head, .account-nav, dialog) .tabs :is(a, button) { display: inline-flex; align-items: center; min-height: 2.75rem; color: var(--muted); text-decoration: none; }
+:is(.toolbar, .chart, .page-head, .account-nav, dialog) .tabs :is(a, button):hover { color: var(--ink); text-decoration: underline; }
+:is(.toolbar, .chart, .page-head, .account-nav, dialog) .tabs :is(a[aria-current], button[aria-pressed="true"]) { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px var(--ink); }
+.period { display: flex; align-items: center; gap: 0.25rem; margin: 0; }
+.period a, .period span[aria-hidden] { display: inline-flex; justify-content: center; align-items: center; width: 2rem; min-height: 2.75rem; font-size: 1.25rem; text-decoration: none; color: var(--ink); }
+.period span[aria-hidden] { color: var(--rule); }
 .toolbar .period select { font-family: var(--mono); font-size: 0.9375rem; padding-block: 0.375rem; }
 .toolbar .period .note { margin-left: 0.5rem; font-family: var(--mono); font-size: 0.875rem; white-space: nowrap; }
-.toolbar :is(.currency, .net) { margin-left: auto; }
-/* A statement's toolbar opens with its ‹, so the glyph, not its box, sits on the content edge. */
-.toolbar > .period:first-child > :first-child { margin-left: -0.5rem; }
+.toolbar .currency { margin-left: auto; }
 
 /* The chart block under the journal head: bucket tabs, then one figure per currency. charts.js sets no colors.
    A bar over a month, quarter or year is a link to that period; the tooltip follows the pointer. */
@@ -378,8 +407,8 @@ dialog .fields .actions .keys { margin-left: auto; }
 /* Labels reverse out on the two darkest steps of paper; on the dark ground only the top step takes black. */
 .chart .t1 .label { fill: var(--bg); }
 .chart .t2 .label { fill: light-dark(var(--bg), var(--ink)); }
-.chart :is(a[href], [role="button"]):is(:hover, :focus-visible) :is(.bar, .tile) { fill: var(--blue); }
-.chart :is(a[href], [role="button"]):is(:hover, :focus-visible) .label { fill: var(--on-blue); }
+.chart :is(a[href], [role="button"]):is(:hover, :focus-visible) :is(.bar, .tile) { fill: var(--accent); }
+.chart :is(a[href], [role="button"]):is(:hover, :focus-visible) .label { fill: var(--on-accent); }
 .chart [role="button"] { cursor: pointer; }
 .chart .balance { fill: none; stroke: var(--ink); stroke-width: 1.5px; }
 .chart .hover { fill: none; pointer-events: all; }
@@ -391,35 +420,37 @@ dialog .fields .actions .keys { margin-left: auto; }
 .chart .tip .mean { font-family: var(--mono); }
 .chart .tip data { font-family: var(--mono); font-size: 0.875rem; }
 /* The Sankey of the income statement takes the place of the tables (.behind) and fills the viewport. Income is
-   blue, expenses the debit orange, a gain green and a loss red; a flow is the tone of the node it feeds, at a tint.
-   Blue is taken, so a hovered node turns ink, and its label, beside the node, blue rather than white. */
+   cobalt, expenses the debit orange, a gain green and a loss red; a flow is the tone of the node it feeds, at a tint.
+   Cobalt is taken, so a hovered node turns ink, and its label, beside the node, cobalt rather than white. */
 .behind { display: none; }
 .chart:is(.sankey, .icicle) { border-bottom: 0; padding-bottom: 0; }
 /* A hidden label of a thin icicle cell runs over the cells below it; it must not catch their pointer. */
 .chart.icicle .label { pointer-events: none; }
-.chart .income { --tone: var(--blue); }
+.chart .income { --tone: var(--accent); }
 .chart .expense { --tone: var(--debit); }
 .chart .gain { --tone: var(--credit); }
-.chart .loss { --tone: var(--red); }
+.chart .loss { --tone: var(--alert); }
 .chart .tile:is(.income, .expense, .gain, .loss) { fill: var(--tone); }
 .chart .flow { fill: none; stroke: var(--tone, var(--ink)); stroke-opacity: 0.22; }
 .chart .flow:hover { stroke-opacity: 0.45; }
 .chart.sankey a[href]:is(:hover, :focus-visible) .tile { fill: var(--ink); }
-.chart.sankey a[href]:is(:hover, :focus-visible) .label { fill: var(--blue); }
+.chart.sankey a[href]:is(:hover, :focus-visible) .label { fill: var(--accent); }
 
-/* Login: the cover of the manual, the wordmark alone on white */
+/* Login: the wordmark alone, yellow on its cobalt block, as in the header */
 body.login { min-height: 100dvh; display: grid; align-content: center; }
 body.login main { width: 100%; max-width: 40rem; box-sizing: border-box; }
 .wordmark {
+  width: fit-content;
   margin: 0;
-  padding-bottom: 0.125em;
-  border-bottom: 3px solid var(--ink);
-  font-size: clamp(3rem, 13vw, 7.25rem);
+  padding: 0.1em 0.15em 0.125em;
+  background: var(--band);
+  /* FRIJOLERO in Plex Sans Bold is 5.45em wide with the padding; 6.25rem fits the 36rem column. */
+  font-size: clamp(3rem, 13vw, 6.25rem);
   font-weight: 700;
   line-height: 1;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.02em;
   text-transform: uppercase;
-  color: var(--red);
+  color: var(--key);
 }
 .tagline { margin: 0.75rem 0 2.5rem; font-size: 1.25rem; color: var(--muted); }
 
@@ -464,9 +495,9 @@ button, .button {
   cursor: pointer;
 }
 button:hover, .button:hover { background: color-mix(in oklab, var(--ink) 8%, var(--bg)); }
-.primary { color: var(--on-blue); background: var(--blue); border-color: var(--blue); }
-.primary:hover { background: color-mix(in oklab, var(--blue) 88%, var(--ink)); }
-/* The first-account button: solid ink, the one button heavier than the blue primary. */
+.primary { color: var(--on-key); background: var(--key); border-color: var(--key); }
+.primary:hover { background: color-mix(in oklab, var(--key) 85%, var(--on-key)); }
+/* The first-account button: solid ink, the one button heavier than the yellow primary. */
 .primary.ink { color: var(--bg); background: var(--ink); border-color: var(--ink); }
 .primary.ink:hover { background: color-mix(in oklab, var(--ink) 80%, var(--bg)); }
 
@@ -500,8 +531,8 @@ pre {
 .code .line { display: block; position: relative; min-height: 1lh; white-space: pre-wrap; overflow-wrap: anywhere; }
 /* Where you are. The numbers get a column of their own, a tint and a hairline before the text,
    and each number's cell spans the gutter and its line's full height, every other one a shade
-   darker, so a wrapped line reads as one. While editing, the caret's line takes a blue tint,
-   blue being what answers the pointer, across the gutter too, and its number turns ink; an
+   darker, so a wrapped line reads as one. While editing, the caret's line takes a cobalt tint,
+   cobalt being what answers the pointer, across the gutter too, and its number turns ink; an
    error's red band, below, wins over it. Backgrounds and shadows only: nothing here may change
    a line's height. */
 .code pre {
@@ -524,12 +555,12 @@ pre {
 .code .line:nth-child(even)::before { background: var(--gutter-alt); }
 .code:not(.editing) .line:last-child:empty { display: none; }
 /* The band reaches back over the hairline and the gap to meet its gutter cell. */
-.code .line.current { --band: var(--current-line); }
-.code .line:is(.err, :target) { --band: var(--error-line); }
-.code .line:is(.current, .err, :target) { background: var(--band); box-shadow: -1ch 0 var(--band); }
-.code .line:is(.current, .err, :target)::before { background: var(--band); }
+.code .line.current { --line-band: var(--current-line); }
+.code .line:is(.err, :target) { --line-band: var(--error-line); }
+.code .line:is(.current, .err, :target) { background: var(--line-band); box-shadow: -1ch 0 var(--line-band); }
+.code .line:is(.current, .err, :target)::before { background: var(--line-band); }
 .code .line.current::before { color: var(--ink); }
-.code .line:is(.err, :target)::before { color: var(--red); font-weight: 600; }
+.code .line:is(.err, :target)::before { color: var(--alert); font-weight: 600; }
 .code textarea {
   position: absolute;
   inset: 0;
@@ -551,7 +582,7 @@ pre {
 .code-head { display: flex; align-items: baseline; gap: 1rem; margin: 2.5rem 0 0.75rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--rule); }
 .code-head :is(h1, h2) { flex: 1; margin: 0; padding: 0; border: 0; overflow-wrap: anywhere; }
 .code-head h1.file { font-family: var(--mono); font-size: 1.25rem; }
-.edit-file { all: unset; display: inline-flex; align-items: center; min-height: 2rem; font: inherit; font-size: 0.875rem; color: var(--blue); cursor: pointer; }
+.edit-file { all: unset; display: inline-flex; align-items: center; min-height: 2rem; font: inherit; font-size: 0.875rem; color: var(--accent); cursor: pointer; }
 .edit-file:hover { text-decoration: underline; }
 body:has(.code.editing) .edit-file { display: none; }
 .edit-file:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
@@ -559,8 +590,8 @@ body:has(.code.editing) .edit-file { display: none; }
 .bc-flag, .bc-pattern { font-weight: 600; }
 .bc-warn, pre .debit { color: var(--debit); }
 pre .credit { color: var(--credit); }
-.bc-account { color: var(--blue); }
-.bc-fixme { color: var(--red); font-weight: 600; }
+.bc-account { color: var(--accent); }
+.bc-fixme { color: var(--alert); font-weight: 600; }
 details { margin-block: 1.5rem; }
 summary { cursor: pointer; font-weight: 600; }
 
@@ -581,13 +612,17 @@ summary { cursor: pointer; font-weight: 600; }
   td .button, td button { margin-top: 0.25rem; }
   .row-actions button { min-height: 2.75rem; } /* the Bandeja is used on the phone */
   /* Navigation centered: brand, sections, report names, each toolbar row. Data stays left. */
-  .topbar, .title, .toolbar, .account-head { justify-content: center; }
+  .topbar, .title, .toolbar { justify-content: center; }
   .topbar > :is(.brand, .brand-row) { flex-basis: 100%; justify-content: center; margin-right: 0; }
   .toolbar { gap: 0 1.5rem; }
-  :is(.toolbar, .account-head) .tabs, .toolbar :is(.period, .net), .chart .tabs { flex-basis: 100%; justify-content: center; }
-  .toolbar :is(.currency, .net), .ledger-head, .title .primary { margin-left: 0; }
-  .toolbar .net { min-height: 2.75rem; align-content: center; }
-  .title .primary { min-height: 2.75rem; }
+  .toolbar :is(.tabs, .period), .chart .tabs { flex-basis: 100%; justify-content: center; }
+  .toolbar .currency, .ledger-head, .title .button { margin-left: 0; }
+  /* The account's title row: the name, then the month, then Revisar and the views on one line. */
+  .account-nav { gap: 0 0.75rem; font-size: 0.9375rem; }
+  .account-nav .tabs { gap: 0.75rem; }
+  .account-head h1 { flex-basis: 100%; }
+  .controls { flex-basis: 100%; justify-content: flex-end; }
+  .title .button { min-height: 2.75rem; }
   .title nav { flex: 1 0 100%; flex-wrap: nowrap; gap: 0; }
   .title nav h1, .title nav a { flex: 1 1 0; justify-content: center; align-items: center; padding: 0.5rem; text-align: center; }
   .ledger-head { order: -1; }
@@ -630,25 +665,27 @@ summary { cursor: pointer; font-weight: 600; }
   .ledger .postings { clear: both; }
 }
 
-/* Errores del ledger: the badge and /errors. NASA red marks (the ■), ink carries the words:
-   red text is 3.6:1 on paper. Mono stays at a loaded weight, never a synthetic bold. */
-/* The count in a red disc; the link around it keeps the 44px target, and a ring, not the
-   underline, marks it as the current page. */
+/* Errores del ledger: the badge and /errors. The alert red marks (the ■), ink carries the words.
+   Mono stays at a loaded weight, never a synthetic bold. */
+/* The count in a red disc; the link around it keeps the 44px target. A white ring keeps the disc
+   apart from the cobalt band (red on it is 2.1:1), and a gap in the ring, not the underline,
+   marks hover and the current page. */
 .topbar a.errors { justify-content: center; min-width: 2.75rem; text-decoration: none; }
 .topbar a.errors span {
   min-width: 1.625rem;
   padding: 0 0.375rem;
   box-sizing: border-box;
   border-radius: 0.8125rem;
-  background: var(--red);
-  color: var(--on-red);
+  background: var(--alert);
+  color: var(--on-alert);
   font-size: 0.875rem;
   font-weight: 600;
   line-height: 1.625rem;
   text-align: center;
   font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px var(--on-band);
 }
-.topbar a.errors:is(:hover, [aria-current]) span { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ink); }
+.topbar a.errors:is(:hover, [aria-current]) span { box-shadow: 0 0 0 2px var(--band), 0 0 0 4px var(--on-band); }
 .ledger-errors h2 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 1rem; margin: 2rem 0 0; }
 .ledger-errors .path { font-family: var(--mono); font-size: 1rem; font-weight: 400; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
 .ledger-errors .path:hover { text-decoration: underline; }
@@ -656,7 +693,7 @@ summary { cursor: pointer; font-weight: 600; }
 .ledger-errors ul { list-style: none; margin: 0; padding: 0; }
 .ledger-errors li { padding-block: 0.5rem; padding-left: 1.1rem; text-indent: -1.1rem; }
 .ledger-errors li + li { border-top: 1px solid var(--rule); }
-.ledger-errors li::before { content: "■" / ""; display: inline-block; width: 1.1rem; text-indent: 0; font-size: 0.75em; color: var(--red); }
+.ledger-errors li::before { content: "■" / ""; display: inline-block; width: 1.1rem; text-indent: 0; font-size: 0.75em; color: var(--alert); }
 .ledger-errors li code { color: var(--muted); }
 .ledger-errors li a { margin-left: 0.5rem; font-size: 0.875rem; }
 
@@ -678,13 +715,13 @@ summary { cursor: pointer; font-weight: 600; }
   margin-left: calc(-0.75rem - 1px);
 }
 .suggestions li { padding: 0.125rem 0.75rem; cursor: pointer; }
-.suggestions li[aria-selected="true"] { background: var(--blue); color: var(--on-blue); }
+.suggestions li[aria-selected="true"] { background: var(--accent); color: var(--on-accent); }
 
 /* Diario: saldos y errores. The glyph of a balance, and the ■ of an error line, sit in the
    column of a transaction's ▸, so the words line up; the glyph is the color, the words ink. */
 .ledger > li.err { background: var(--error-line); }
 .ledger :is(.balance, summary) .status { color: var(--ink); font-weight: 400; }
-.ledger :is(.balance, summary) .status::before { display: inline-block; width: 1.1rem; margin: 0; color: var(--red); }
+.ledger :is(.balance, summary) .status::before { display: inline-block; width: 1.1rem; margin: 0; color: var(--alert); }
 .ledger .balance .status.ok::before { color: var(--credit); }
 .ledger summary .status.failed { display: block; grid-column: 1 / -1; margin-top: 0.25rem; white-space: normal; overflow-wrap: anywhere; }
 .ledger .why { margin: 0.25rem 0 0; padding-left: 1.1rem; }
@@ -716,5 +753,5 @@ summary { cursor: pointer; font-weight: 600; }
   :is(.review, dialog) .actions .keys { display: none; }
 }
 .review .entry > .status { display: block; margin-top: 0.5rem; color: var(--ink); white-space: normal; overflow-wrap: anywhere; }
-.review .entry > .status::before { color: var(--red); }
+.review .entry > .status::before { color: var(--alert); }
 .review .actions { position: sticky; bottom: 0; margin: 0; padding-block: 0.75rem; background: var(--bg); border-top: 1px solid var(--ink); }

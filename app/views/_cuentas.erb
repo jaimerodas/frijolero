@@ -6,10 +6,11 @@
       <% if path == href %><h1><%= label %></h1><% else %><a href="<%= ledger_path(href) %>"<% if href != '/' && path.start_with?("#{href}/") %> aria-current="true"<% end %>><%= label %></a><% end %>
     <% end %>
   </nav>
-  <%# Without an account there is nothing to upload to, so the one button is the first account, in ink. %>
+  <%# Without an account there is nothing to upload to, so the one button is the first account, in ink.
+      The upload is yellow only on Recientes: elsewhere the page has its own main action. %>
   <% if Frijolero::Config.accounts.empty? %>
-    <% unless request&.path_info == '/accounts/new' %><a class="button primary ink" href="<%= ledger_path('/accounts/new') %>">Dar de alta una cuenta</a><% end %>
+    <% unless path == '/accounts/new' %><a class="button primary ink" href="<%= ledger_path('/accounts/new') %>">Dar de alta una cuenta</a><% end %>
   <% else %>
-    <% unless request&.path_info == '/upload' %><a class="button primary" href="<%= ledger_path('/upload') %>">Subir estado de cuenta</a><% end %>
+    <% unless path == '/upload' %><a class="button<%= ' primary' if path == '/' %>" href="<%= ledger_path('/upload') %>">Subir estado de cuenta</a><% end %>
   <% end %>
 </div>

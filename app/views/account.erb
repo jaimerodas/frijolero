@@ -12,8 +12,8 @@
 <body>
   <%= topbar %>
   <main>
-    <%= erb :_cuentas, layout: false %>
     <%= erb :_account, layout: false, locals: { account: key, tab: :statements } %>
+    <div class="account-head"><h1><%= h(key) %></h1></div>
 
     <% if error %>
       <p class="error" role="alert"><%= h(error) %></p>

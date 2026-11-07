@@ -10,8 +10,13 @@
 <body>
   <%= topbar %>
   <main>
-    <%= erb :_cuentas, layout: false %>
-    <% if account %><%= erb :_account, layout: false, locals: { account: account, tab: tab } %><% else %><h1><%= h(title) %></h1><% end %>
+    <% if account %>
+      <%= erb :_account, layout: false, locals: { account: account, tab: tab } %>
+      <div class="account-head"><h1><%= h(account) %></h1></div>
+    <% else %>
+      <%= erb :_cuentas, layout: false %>
+      <h1><%= h(title) %></h1>
+    <% end %>
     <% if notice %>
       <p class="notice"><%= h(notice) %></p>
     <% end %>
@@ -37,7 +42,7 @@
 include:
   UBER:
     account: Expenses:Taxi</pre>
-        <p>Se aplican todas las reglas que coinciden: primero <code>start_with</code> en el orden del archivo, luego <code>include</code>. Una regla posterior sobreescribe solo los campos que define. Al guardar, la app vuelve al estado de cuenta; ahí, "Aplicar reglas" clasifica lo que sigue en <code>Expenses:FIXME</code>.</p>
+        <p>Se aplican todas las reglas que coinciden: primero <code>start_with</code> en el orden del archivo, luego <code>include</code>. Una regla posterior sobreescribe solo los campos que define. Al guardar, la app vuelve a Revisar el estado de cuenta; ahí, "Aplicar reglas" clasifica lo que sigue en <code>Expenses:FIXME</code>.</p>
       </details>
     <% end %>
     <%# Every page here edits YAML: an account's rules, its block of accounts.yaml, or the whole file. %>

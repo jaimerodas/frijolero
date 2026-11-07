@@ -68,31 +68,32 @@ module Frijolero
       end
     end
 
-    # One URL per view, so a reload or a link lands on the view it names: the movements at
-    # /accounts/<Key>/<YYMM>, the Beancount text at …/beancount, the editor at …/beancount/edit,
-    # and Revisar, the unclassified rows as one form, at …/review.
+    # One URL per view, so a reload or a link lands on the view it names: Ver at /accounts/<Key>/<YYMM>,
+    # Editar at …/beancount/edit, and Revisar, the unclassified rows as one form, at …/review.
     get '/accounts/:account/:yymm(/:view(/:action)?)?', STATEMENT_VIEWS do
       account = params[:account]
       period = params[:yymm]
       halt 404, 'Cuenta desconocida' unless Config.accounts.key?(account)
       # The period menu submits ?period= to the page it is on, and lands on the same view of that statement.
-      if params[:period].to_s.match?(/\A\d{4}\z/) && params[:period] != period
-        view = "/#{params[:view]}" if params[:view]
-        redirect "/accounts/#{Rack::Utils.escape_path(account)}/#{params[:period]}#{view}"
+      # The read-only …/beancount gave way to the editor, so a bookmark of it lands there.
+      target = params[:period].to_s.match?(/\A\d{4}\z/) ? params[:period] : period
+      if target != period || (params[:view] == 'beancount' && !params[:action])
+        suffix = { 'beancount' => '/beancount/edit', 'review' => '/review' }[params[:view]]
+        redirect "/accounts/#{Rack::Utils.escape_path(account)}/#{target}#{suffix}"
       end
       halt 404, 'Esta cuenta no usa reglas' if params[:view] == 'review' && !rules?(account)
 
-      statement_page(account, period, view: params[:view]&.to_sym || :entries, editing: params[:action] == 'edit')
+      statement_page(account, period, view: params[:view]&.to_sym || :entries)
     end
 
     helpers do
       # The statement page. `review` is what a refused Revisar save shows again: the message,
       # the message of each row, and the values that the person typed.
-      def statement_page(account, period, view:, editing: false, review: {})
+      def statement_page(account, period, view:, review: {})
         paths = statement_paths(account, period)
         halt 404, 'No existe ese estado de cuenta' unless File.exist?(paths[:beancount])
         erb :statement, locals: {
-          account: account, period: period, view: view, editing: editing, periods: Config.statement_periods(account),
+          account: account, period: period, view: view, periods: Config.statement_periods(account),
           notice: statement_notice, **statement_text(paths[:beancount]), **statement_rows(account, paths),
           **review_locals(account, period, view, review)
         }
@@ -151,8 +152,10 @@ module Frijolero
         self.class.repo.commit_and_push("detail #{account} #{period}") if result[:detailed].positive?
         result
       end
-      redirect_path = "/accounts/#{Rack::Utils.escape_path(account)}/#{period}"
-      redirect "#{redirect_path}?detailed=#{stats[:detailed]}&remaining=#{stats[:remaining]}", 303
+      # Revisar while something is left, else Ver: an empty Revisar has nothing to do.
+      view = '/review' if stats[:remaining].positive?
+      redirect "/accounts/#{Rack::Utils.escape_path(account)}/#{period}#{view}" \
+               "?detailed=#{stats[:detailed]}&remaining=#{stats[:remaining]}", 303
     end
   end
 end

@@ -3,7 +3,8 @@
 Una regla clasifica una transacción por su descripción. Le pone un `payee`,
 una `narration` y una cuenta de gastos o ingresos. Una transacción sin regla
 queda en `Expenses:FIXME`, y la página del estado de cuenta la marca como
-"sin clasificar". "▲ N sin clasificar", arriba de la lista, abre Revisar (ver
+"sin clasificar". El botón "Revisar", junto al título, dice cuántas faltan y
+abre Revisar (ver
 [Revisar los movimientos sin clasificar](#revisar-los-movimientos-sin-clasificar)).
 
 Solo las cuentas de los pipelines Default y Multi usan reglas. Las cuentas de
@@ -64,9 +65,9 @@ La corrida aplica las reglas una vez, después de la extracción y antes de
 escribir el archivo `.beancount`. Si la cuenta no tiene archivo de reglas, la
 corrida no aplica nada.
 
-El botón "Aplicar reglas" de la página del estado de cuenta las aplica otra
-vez sobre el archivo `.beancount`. El botón aparece solo cuando queda algo sin
-clasificar y la cuenta tiene archivo de reglas. Ese paso toca solo las
+El botón "Aplicar reglas", en Revisar, las aplica otra vez sobre el archivo
+`.beancount`. El botón aparece solo cuando queda algo sin clasificar y la
+cuenta tiene archivo de reglas. Ese paso toca solo las
 transacciones que siguen en `Expenses:FIXME`, así que una edición a mano no
 cambia. Las reglas no ven una transacción con la bandera `!`. Si algo cambió,
 la app hace commit.
@@ -90,7 +91,7 @@ válido, la app hace commit con el mensaje `rules <Key>`.
 Revisar muestra los movimientos sin clasificar de un estado de cuenta en un
 solo formulario. Es la forma rápida de clasificar muchos movimientos.
 
-1. En el estado de cuenta, presiona "▲ N sin clasificar" o "Revisar".
+1. En el estado de cuenta, presiona "Revisar".
 2. Revisa la cuenta de cada movimiento. La app ya llenó la que adivinó (ver
    [Cuentas sugeridas](#cuentas-sugeridas)). Si no es la correcta, presiona
    otra de las sugeridas o escribe la cuenta. Al escribir, la app sugiere las
@@ -141,20 +142,20 @@ escribes.
 3. Llena `payee`, `narration` y `account`.
 4. Si la descripción trae datos que cambian, como una fecha o un folio, acorta
    el patrón.
-5. Presiona "Guardar".
-6. En el estado de cuenta, presiona "Aplicar reglas".
+5. Presiona "Guardar". La app abre Revisar.
+6. Presiona "Aplicar reglas".
 
 "Hacer regla" agrega una entrada al final de `start_with`, con la descripción
 como patrón. El cursor queda después de `account:`. El resto del archivo no
 cambia, con sus comentarios y su orden. Si el patrón ya existe, el editor abre
 el archivo sin cambios. Un campo vacío no cambia nada: un `payee` vacío deja
-el de la transacción. Al guardar, la app vuelve al estado de cuenta.
+el de la transacción. Al guardar, la app vuelve a Revisar el estado de cuenta.
 
 ## Clasificar un movimiento sin regla
 
 Un movimiento que no se repite no necesita una regla.
 
-1. En la vista Movimientos del estado de cuenta, presiona la fecha del
+1. En la vista Ver del estado de cuenta, presiona la fecha del
    movimiento.
 2. En el editor, cambia `Expenses:FIXME` por la cuenta.
 3. Presiona "Guardar".

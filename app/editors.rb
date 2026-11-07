@@ -20,7 +20,7 @@ module Frijolero
       data = parse_yaml_hash!(content)
       Detailer::Rules.new(data).matches_for(description: 'probe', amount: 0)
       save_config!(Config.rules_path(params[:account]), content, "rules #{params[:account]}")
-      redirect back_path ? "#{back_path}?rules=1" : "#{rules_locals(params[:account])[:action]}?saved=1", 303
+      redirect back_path ? "#{back_path}/review?rules=1" : "#{rules_locals(params[:account])[:action]}?saved=1", 303
     rescue EditorError, Psych::SyntaxError, NoMethodError, TypeError, ArgumentError => e
       render_editor(status: 422, **rules_locals(params[:account], content: content, error: e.message))
     end

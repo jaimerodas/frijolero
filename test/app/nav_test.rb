@@ -173,6 +173,14 @@ class NavTest < Minitest::Test
     assert_includes last_response.body, '<a class="button primary" href="/upload">Subir estado de cuenta</a>'
   end
 
+  # Yellow is the one main action of a page, so off Recientes the upload is a plain button: on
+  # Revisar it would sit beside a yellow Guardar.
+  def test_upload_is_yellow_only_on_recientes
+    get '/jobs'
+
+    assert_includes last_response.body, '<a class="button" href="/upload">Subir estado de cuenta</a>'
+  end
+
   def test_without_accounts_the_cta_is_the_first_account_in_ink_and_the_upload_page_hides_it
     File.delete(File.join(@dir, 'config', 'accounts.yaml'))
 
@@ -212,8 +220,7 @@ class NavTest < Minitest::Test
   # A page under one of the three keeps it marked: the page has its own h1, so the name stays a link.
   def test_pages_under_cuentas_and_bitacora_keep_their_name_current
     job = Frijolero::App.jobs.push(label: 'AMEX 2608') { nil }
-    { '/accounts/new' => %w[/accounts Cuentas], '/accounts/AMEX/2608/beancount/edit' => %w[/accounts Cuentas],
-      "/jobs/#{job.id}" => %w[/jobs Bitácora] }.each do |path, (href, label)|
+    { '/accounts/new' => %w[/accounts Cuentas], "/jobs/#{job.id}" => %w[/jobs Bitácora] }.each do |path, (href, label)|
       get path
 
       assert_includes last_response.body, %(<a href="#{href}" aria-current="true">#{label}</a>), path
@@ -248,10 +255,12 @@ class NavTest < Minitest::Test
       body = last_response.body
       assert_equal 200, last_response.status, path
       assert_equal ['<h1>AMEX</h1>'], body.scan(%r{<h1>.*?</h1>}), path
-      assert_includes body, '<a href="/accounts" aria-current="true">Cuentas</a>', path
+      # "‹ Cuentas" replaces the row of sections and the upload: an account page is one level down.
+      assert_includes body, '<div class="account-nav"><a href="/accounts">‹ Cuentas</a>', path
+      refute_includes body, 'Subir estado de cuenta', path
       assert_includes body, %(<a href="#{TAB_HREFS[tab]}" aria-current="true">#{tab}</a>), path
-      # The topbar's section, Cuentas and the account's tab; a statement's own view links are a level below.
-      assert_equal 3, body.sub(%r{<nav [^>]*"Vistas">.*?</nav>}m, '').scan('aria-current=').size, path
+      # The topbar's section and the account's tab; a statement's own views are a level below.
+      assert_equal 2, body.sub(%r{<nav [^>]*"Vistas">.*?</nav>}m, '').scan('aria-current=').size, path
     end
   end
 

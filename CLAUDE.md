@@ -175,18 +175,22 @@ In the bucket, which other apps share: `<pdf_prefix>/accounts/<Key>/<Key> YYMM.p
   - A passkey that the person deletes at `/passkeys` stays on the device, and the autofill still offers it. The sign-in then fails with a message.
   - `test/fake_passkey.rb` is an authenticator for the tests. There is no JavaScript test. In a browser, the WebAuthn panel of Chrome DevTools gives a virtual authenticator.
 - The views are standalone ERB pages in Spanish, with no layout. Each page calls the `head` and `topbar` helpers.
-- All pages of one account are under `/accounts/<Key>`. A statement has four URLs: `/accounts/<Key>/<YYMM>` (the movements), `…/review` (Revisar), `…/beancount` (the text) and `…/beancount/edit` (the text in the editor). The route constraints in `app/statements.rb` keep `config` and `rules` out of the period segment.
+- All pages of one account are under `/accounts/<Key>`. A statement has three views, each at its own URL: Ver at `/accounts/<Key>/<YYMM>` (the movements), Revisar at `…/review` and Editar at `…/beancount/edit` (the text in the editor). `…/beancount`, the read-only text until November 2026, redirects to Editar, so a bookmark still works. The route constraints in `app/statements.rb` keep `config` and `rules` out of the period segment.
 - With no account in `accounts.yaml`, a filter sends every `/upload` route to `/accounts/new`, and `/api/upload` answers 422. So no model call can happen before the first account exists.
 
 ### Design rules (`public/style.css`)
 
-The CSS follows the 1975 NASA Graphics Standards Manual:
+The palette is Talavera, the cobalt and yolk yellow of Puebla tiles. It replaced a NASA-manual palette in November 2026:
 
-- White ground, black type, one heavy rule under the header, and thin rules elsewhere.
-- NASA blue for links and the primary button.
-- NASA red only on the wordmark and on things that need action. Red marks (■, a band, the error disc) carry it, never words, because red text has a contrast of 3.6:1 on white.
-- Public Sans for text. IBM Plex Mono for Beancount, dates and amounts.
-- One set of tokens with `light-dark()` for both color schemes. The tints are set by eye for each scheme, because a percentage mix disappears on black.
+- White ground (a deep cobalt-black in dark mode), cobalt-leaning ink, thin rules.
+- A cobalt band for the header, with the wordmark in yellow. The current section is underlined in yellow.
+- Cobalt (`--accent`) for links and for everything that answers the pointer: chart hover, the selected suggestion, the caret's line. Text that is not a link is never cobalt, so an account name on a statement is muted.
+- Yellow (`--key`) for the wordmark and the primary button, with ink on the button. A page has one yellow button, its main action. So "Subir estado de cuenta" is yellow only on Recientes, and Editar hides Revisar, because the editor has its own Guardar. Yellow never sits on white as text or as a thin mark: it is 1.5:1. A count on a yellow button is in an ink disc (`.tally`), because red on yellow is 3:1.
+- An account page is one level under Cuentas. Its first row is "‹ Cuentas" with the account's tabs at the right (Estados, Configuración, Reglas), in place of the row of sections and the upload button. Under it, the title row sits between two rules, 1rem above and below. On a statement, the title is the account and the month: the month is the period menu, with a chevron drawn by two borders and the ‹ › arrows after it.
+- A segmented control (`.toggle`) shows the views of one thing. The current view has the gutter's tint (`--gutter-alt`), not a solid block, so the yellow button stays the loudest thing on the page.
+- The alert red (`--alert`) only on things that need action: the marks (■, ▲, a band, the error disc) and the words of a missing or failed status. On the cobalt band, the error disc has a white ring, because red on cobalt is 2.1:1.
+- IBM Plex Sans for text, at 400, 500, 600 and 700. IBM Plex Mono for Beancount, dates and amounts.
+- One set of tokens with `light-dark()` for both color schemes. Each text pair is at least 4.5:1 in both, and the comments in `:root` give the ratios. The tints are set by eye for each scheme, because a percentage mix disappears on a dark ground.
 
 A status is a glyph and a word (`.status.<name>`): ● received or ok, ○ pending or queued, ◐ running, ▲ missing, ■ failed. Color is never the only signal. An empty page says what to do next.
 
@@ -283,17 +287,20 @@ Only `Default` and `Multi` have rules. For the other pipelines there are no rule
 
 The page reads the `.beancount` file, not the JSON. The JSON is fixed at job time, but the rules, the edit dialog and hand edits change the file. `StatementRows` takes the amount from the source posting (on `beancount_account`, or on an account of a Multi). The other postings are the classification, and `Expenses:FIXME` means unclassified.
 
-- The movements, Revisar and the Beancount text are three views, each at its own URL. The server renders only the current view.
+- Ver, Revisar and Editar are three views, each at its own URL. The server renders only the current view. The title row holds everything else: the month, the yellow "Revisar" with the count of rows to review, and the toggle Ver | Editar | PDF ↗.
+- Revisar shows only while a row has exactly one `Expenses:FIXME`, the rows that Revisar can take. A split with several FIXME postings is a hand edit, in Editar.
+- Editar opens the editor at once. Its Cancelar and a save go back to Ver. The month and the arrows keep the person in Editar, and they leave an unsaved edit without a warning.
+- The count and the sum of the cargos and the abonos, per currency, are one line under the last movement.
 - The date of a movement opens the edit dialog on that transaction (see Editors). So a person can classify one movement without a rule.
-- "▲ N sin clasificar" links to Revisar.
-- "Aplicar reglas" shows only while something is unclassified and the rules file exists, because the rules touch only FIXME postings.
 - `beancount_html` colors the text with one regex over the escaped text. A line that matches nothing stays plain, so a hand edit never breaks the page. There is no highlighting library.
 
-For the other pipelines, the page shows only the extraction summary and the Beancount text.
+For the other pipelines, Ver shows the extraction summary, "N sin clasificar", and the Beancount text read only. They have no Revisar.
 
 ### Revisar (`app/review.rb`, `lib/statement_review.rb`)
 
 Revisar shows the unclassified rows of one statement as one form. A row is a transaction with one `Expenses:FIXME` posting, a `!` row included. Each row has Cuenta, Payee, Narración and a Regla box. Before Revisar, each classification and each rule was a commit and a push of a few seconds, so 36 rows took minutes of waiting.
+
+Revisar is a mode. The month is plain text, with no menu and no arrows, so nothing leaves the form by accident. In the title row, "Sugerir cuentas" (see Guesses), "Aplicar reglas" and Cancelar (back to Ver) take the place of the toggle. "Aplicar reglas" shows only when the rules file exists. It returns to Revisar while rows are left, else to Ver.
 
 - One save applies every row, adds the new rules, and runs the account's rules, old and new, on the rows that the person did not fill. Then it runs one `Reports.check` (through `LedgerEdit`, on the whole file), one commit and one push, `Revisión <Key> YYMM`. On a scratch ledger with a local remote, a save takes 0.6 s.
 - An empty field changes nothing. A row with no account stays unclassified, and the rules run on it.
@@ -331,11 +338,11 @@ The rules editor:
 - Validates with `YAML.safe_load` and a probe call to `matches_for`.
 - Adds the "Hacer regla" entry as text (`RulesText.with_rule`, which Revisar also uses), not with `YAML.dump`, so the comments, the quotes and the order stay.
 - Leaves the new fields empty. `Rules.merge` skips an empty field, so a blank payee keeps the payee of the transaction.
-- Returns to the statement after a save through `back`. `back_path` accepts only `/accounts/<Key>/<YYMM>`.
+- Returns to Revisar of the statement after a save through `back`, where "Aplicar reglas" runs the new rule. `back_path` accepts only `/accounts/<Key>/<YYMM>`.
 
 ### Editors (`app/edits.rb`, `lib/ledger_edit.rb`, `app/views/_code.erb`, `public/editor.js`)
 
-One editor shows and edits Beancount text. It works in three places: the Beancount view of a statement, any ledger file at `/files/<path>`, and the edit dialog of one transaction. The dialog opens from a date in the journal or on a statement. The YAML editors (rules and `accounts.yaml`) use the same surface, with their own colors.
+One editor shows and edits Beancount text. It works in three places: Editar of a statement (and the read-only text of an investment statement), any ledger file at `/files/<path>`, and the edit dialog of one transaction. The dialog opens from a date in the journal or on a statement. The YAML editors (rules and `accounts.yaml`) use the same surface, with their own colors.
 
 #### The edit dialog (`app/views/_edit_dialog.erb`, `lib/transaction_fields.rb`)
 

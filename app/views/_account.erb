@@ -3,11 +3,9 @@
   tabs = { statements: [base, 'Estados'], config: ["#{base}/config", 'Configuración'] }
   tabs[:rules] = ["#{base}/rules", 'Reglas'] if rules?(account)
 %>
-<div class="account-head">
-  <h1><%= h(account) %></h1>
-  <nav class="tabs" aria-label="Páginas de <%= h(account) %>">
-    <% tabs.each do |key, (href, label)| %>
-      <a href="<%= ledger_path(href) %>"<% if key == tab %> aria-current="true"<% end %>><%= label %></a>
-    <% end %>
-  </nav>
-</div>
+<%# An account page is one level under Cuentas: the way back, and the pages of the account. %>
+<div class="account-nav"><a href="<%= ledger_path('/accounts') %>">‹ Cuentas</a><nav class="tabs" aria-label="Páginas de <%= h(account) %>">
+  <% tabs.each do |key, (href, label)| %>
+    <a href="<%= ledger_path(href) %>"<% if key == tab %> aria-current="true"<% end %>><%= label %></a>
+  <% end %>
+</nav></div>

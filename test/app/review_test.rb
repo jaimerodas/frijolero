@@ -144,12 +144,12 @@ class ReviewTest < Minitest::Test
     assert_equal 4, body.scan(/name="choice\[\d+\]\[payee\]"[^>]* list="review-payees"/).size
   end
 
-  def test_the_unclassified_status_opens_revisar
+  def test_the_revisar_button_carries_the_count
     get '/accounts/AMEX/2610'
 
-    body = last_response.body
-    assert_includes body, '<a class="status missing" href="/accounts/AMEX/2610/review">4 sin clasificar</a>'
-    assert_includes body, '<a href="/accounts/AMEX/2610/review">Revisar</a>'
+    assert_includes last_response.body,
+                    '<a class="button primary" href="/accounts/AMEX/2610/review" ' \
+                    'aria-label="Revisar, 4 sin clasificar">Revisar<span class="tally">4</span></a>'
   end
 
   def test_saving_applies_each_row_and_commits_once
@@ -252,7 +252,7 @@ class ReviewTest < Minitest::Test
     assert_equal 'http://example.org/accounts/AMEX/2610?classified=4', last_response.location
     follow_redirect!
     assert_includes last_response.body, '4 clasificadas'
-    assert_includes last_response.body, 'Todo clasificado'
+    refute_includes last_response.body, '/review"'
   end
 
   def test_a_save_with_no_choices_commits_nothing
