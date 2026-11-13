@@ -9,6 +9,7 @@ Rules:
 4. Take special care to see whether something is a credit (abono) or a debit (cargo). Credits should be positive and debits negative.
 5. Credits and debits have their own column and any number in the same column should have the same type.
 6. The description is all of the movement's text: the concept, then every line under it, joined with a single space, never with a semicolon or other punctuation.
+7. closing_balance is the "Saldo Final" of the summary at the top of the statement, positive unless the statement shows it as negative.
 
 Interpretation hints:
 - the last two columns are always balances and should not be taken as credits or debits

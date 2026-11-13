@@ -31,6 +31,18 @@ module Frijolero
         active.to_h { |key, config| [key, config['description'] || key] }
       end
 
+      # The closing date of the statement of `period`, for an account that closes on `day`
+      # (nil or 31 for the last day): the closing 15 days or less after a day of that month.
+      # A statement closing on C holds mostly the month of C - 15, the same rule Classifier uses.
+      def closing(period, day)
+        month = Date.strptime(period, '%y%m')
+        [month, month.next_month].map { |m| closing_in(m, day || 31) }.find { |c| (c - 15).strftime('%y%m') == period }
+      end
+
+      def closing_in(month, day)
+        Date.new(month.year, month.month, [day, Date.new(month.year, month.month, -1).day].min)
+      end
+
       # Remembers the day of the month on which an account's statements close, the
       # first time the app sees a printed period end for it. 31 stands for the last
       # day of the month. A value already in the file is never replaced, so a hand

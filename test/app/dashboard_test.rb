@@ -140,14 +140,6 @@ class DashboardTest < Minitest::Test
     end
   end
 
-  # The closing whose 15 days before fall in the month: the classifier's rule, backwards.
-  def test_closing_is_the_cutoff_that_closes_the_statement_of_a_month
-    assert_equal Date.new(2026, 10, 3), Frijolero::Dashboard.closing('2609', 3)
-    assert_equal Date.new(2026, 9, 16), Frijolero::Dashboard.closing('2609', 16)
-    assert_equal Date.new(2026, 9, 30), Frijolero::Dashboard.closing('2609', nil)
-    assert_equal Date.new(2026, 2, 28), Frijolero::Dashboard.closing('2602', 30)
-  end
-
   def test_failed_status_and_received_wins_over_failed
     with_ledger_dir do |dir|
       write_accounts(dir)
@@ -197,6 +189,33 @@ class DashboardTest < Minitest::Test
       assert_includes html, '<th>julio 2026</th>'
       assert_includes html, '<th>agosto 2026</th>'
       refute_includes html, '/rules', 'the rules are on Cuentas'
+    end
+  end
+
+  # A failed balance line says so in place of "listo", with the gap to look for in the PDF. The
+  # investments write their own balances and keep "listo".
+  def test_a_failed_balance_says_saldo_no_cuadra_with_the_gap
+    with_ledger_dir do |dir|
+      File.write(File.join(dir, 'config', 'accounts.yaml'), <<~YAML)
+        BBVA TDC:
+          beancount_account: "Liabilities:BBVA"
+        CETES:
+          beancount_account: "Assets:CETES"
+          converter_type: cetes_directo
+      YAML
+      write_statement('BBVA TDC', '2608')
+      write_statement('CETES', '2608')
+      errors = ['BBVA TDC', 'CETES'].map do |key|
+        { code: 'E2001', file: "accounts/#{key}/#{key} 2608.beancount", line: 9,
+          message: 'Balance failed for Liabilities:BBVA: expected -1000.00 MXN, got -1377.00 MXN' }
+      end
+
+      dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5), errors: errors)
+      html = view_app.erb(:dashboard, locals: { dashboard: dashboard, waiting: 0, transfers: {} })
+
+      assert_equal({ 'BBVA TDC' => :unbalanced, 'CETES' => :received },
+                   dashboard.rows.to_h { |r| [r.account, r.statuses['2608']] })
+      assert_match %r{href="/accounts/BBVA%20TDC/2608" title="[^"]+">saldo no cuadra: 377.00 MXN</a>}, html
     end
   end
 

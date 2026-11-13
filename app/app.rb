@@ -173,7 +173,7 @@ module Frijolero
     get '/' do
       # jobs.all is newest first, so uniq keeps the newest job of each label: a retry hides the failure.
       jobs = self.class.jobs.all.uniq(&:label).to_h { |job| [job.label, job] }
-      erb :dashboard, locals: { dashboard: Dashboard.new(jobs: jobs), waiting: inbox_rows.size,
+      erb :dashboard, locals: { dashboard: Dashboard.new(jobs: jobs, errors: ledger_errors), waiting: inbox_rows.size,
                                 transfers: unmatched_transfers }
     end
 

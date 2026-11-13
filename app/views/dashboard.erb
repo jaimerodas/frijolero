@@ -50,13 +50,17 @@
                   <% elsif status == :review %>
                     <%# Revisar takes these rows. An investment has no Revisar: its statement says what to fix. %>
                     <a class="status missing" href="<%= base %>/<%= period %><%= '/review' if rules?(row.account) %>"><%= row.unclassified[period] %> por revisar</a>
+                  <% elsif status == :unbalanced %>
+                    <%# The gap is the amount to look for in the PDF: a missing row, a duplicate, a late charge. %>
+                    <% error = row.balance_errors[period] %>
+                    <a class="status missing" href="<%= base %>/<%= period %>" title="<%= h(balance_gap(error)) %>">saldo no cuadra: <%= h(balance_difference(error)) %></a>
                   <% elsif status == :missing %>
                     <a class="status missing" href="<%= ledger_path('/upload') %>">falta</a>
                   <% elsif %i[running failed].include?(status) %>
                     <% job = dashboard.job(row.account, period) %>
                     <a class="status <%= h(job.status) %>" href="<%= ledger_path("/jobs/#{h(job.id)}") %>"><%= orbit(job.status) %><%= job_status(job.status) %></a>
                   <% else %>
-                    <span class="status pending"><%= closes.(Frijolero::Dashboard.closing(period, row.cutoff_day)) %></span>
+                    <span class="status pending"><%= closes.(Frijolero::AccountConfig.closing(period, row.cutoff_day)) %></span>
                   <% end %>
                 </td>
               <% end %>

@@ -12,3 +12,4 @@ Rules:
 5. Include all of the info in the description, starting with the statement's description and then adding any references and extra info
 6. If a charge was made from an additional or supplementary card, append that info to the description.
 7. If a charge was made in a foreign currency (not MXN), and you have the information of the cost in the original currency, append that information to the description.
+8. closing_balance is the balance at the closing date that this statement's movements lead to: the previous balance, plus the charges, minus the payments and credits. On American Express it is "Saldo al corte". On a card that prints a "Resumen de cargos y abonos del periodo", it is the result of that summary, "Pago para no generar intereses". Give it the sign of the movements: an amount owed is negative, a balance in the customer's favor is positive.

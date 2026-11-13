@@ -9,3 +9,4 @@ Rules:
 4. Deposits and returns are positive; withdrawals, taxes and charges are negative. A leading minus sign in the amount column means negative.
 5. The description is the statement's description. Append the reference only when there is one. Append the currency and the exchange rate only when the currency is not MXN. Do not append the dates.
 6. Skip the summary tables, the "Comportamiento" chart, the "Total" section and any fiscal receipt (CFDI) pages: only the rows in the "Movimientos de ..." tables are transactions.
+7. closing_balances has one entry per "Movimientos de ..." section: the account's name as printed, and its balance at the end of the period, which is its previous balance plus that section's movements. The balance is positive unless the statement shows it as negative.

@@ -27,9 +27,13 @@
           "required": ["date", "amount", "description"],
           "additionalProperties": false
         }
+      },
+      "closing_balance": {
+        "type": ["number", "null"],
+        "description": "The balance at the closing date that the movements lead to, with their sign: what is owed is negative. null when the statement prints none."
       }
     },
-    "required": ["transactions"],
+    "required": ["transactions", "closing_balance"],
     "additionalProperties": false
   }
 }

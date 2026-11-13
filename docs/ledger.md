@@ -165,6 +165,36 @@ regla puede mandar un movimiento a la otra cuenta del mismo estado de cuenta.
 Ese movimiento se queda, y la app descarta su espejo: el movimiento de la
 otra cuenta con la misma fecha y el monto opuesto.
 
+## Los saldos
+
+Cada estado de cuenta de Default y de Multi termina con una línea `balance`
+con el saldo al corte del PDF:
+
+- En Amex, "Saldo al corte".
+- En otras tarjetas, "Pago para no generar intereses".
+- En una cuenta de banco, "Saldo Final".
+- En Multi, una línea por sección.
+
+```beancount
+; El saldo al corte del PDF, contado antes del día del corte (docs/ledger.md)
+2026-11-03 balance Liabilities:Amex  -1,004.20 + 4.20 MXN
+```
+
+Si el ledger no suma ese saldo, Recientes muestra "saldo no cuadra" con la
+diferencia. Busca ese monto en el PDF: un movimiento que falta, o uno
+duplicado. La corrida no falla.
+
+- La línea va en el día del corte. Beancount revisa un `balance` antes de los
+  movimientos de su día. Por eso la línea resta los movimientos del estado de
+  cuenta con fecha del corte o posterior. El primer número es el del PDF.
+- El estado de cuenta siguiente puede traer un cargo con fecha anterior al
+  corte. Por ejemplo, Amex cobra un cargo de Amazon un mes tarde. Cuando llega
+  ese estado, la app escribe otra vez la línea del estado anterior, con ese
+  cargo. Si editaste esa línea a mano, la app reemplaza tu edición.
+- Sin `cutoff_day`, no hay línea. El primer estado de cuenta de una cuenta
+  no tiene línea. La corrida guarda el `cutoff_day` para los siguientes.
+- CetesDirecto y Alpaca escriben sus propios saldos. Fintual no escribe saldos.
+
 ## Los prompts
 
 Los prompts están en `prompts/<tipo>/` de este repo, iguales para todos los

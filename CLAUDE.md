@@ -201,12 +201,13 @@ Under 40rem, each table becomes a list of blocks. The first cell becomes the hea
 
 ### Dashboard (`app/dashboard.rb`)
 
-`Dashboard` computes a status for each open account on each request. Its two columns are the newest period that some account has closed and the period before it. An account closes a statement on its `cutoff_day` (31, or none, means the last day of the month). That statement belongs to the month 15 days before the closing date, the same rule as the classifier. Before the cutoff, the column shows the closing date ("cierra el 9 nov", `Dashboard.closing`).
+`Dashboard` computes a status for each open account on each request. Its two columns are the newest period that some account has closed and the period before it. An account closes a statement on its `cutoff_day` (31, or none, means the last day of the month). That statement belongs to the month 15 days before the closing date, the same rule as the classifier. Before the cutoff, the column shows the closing date ("cierra el 9 nov", `AccountConfig.closing`).
 
 The user opens Recientes to upload a missing statement and to open a new one. They keep the older column, because they work on the last period for 10 to 12 days after the month starts (asked in November 2026). So each cell says what to do:
 
 - "listo": the statement has no row for Revisar. It links to the statement.
 - "N por revisar", with ▲: the statement has N rows for Revisar. It links to Revisar, or to the statement for a pipeline without rules. The count parses every statement of the two periods on each request: 4.6 ms for the 13 statements of the real ledger.
+- "saldo no cuadra: 377.00 MXN", with ▲: nothing is left to review, and the balance line of the statement fails (an `E2001` of `App.ledger_errors` in its file). The amount is the gap to look for in the PDF, and the title gives both sums. Only for `Default` and `Multi`, whose line `StatementBalance` writes (see Balances).
 - "falta" links to `/upload`, and "falló" to the failed job.
 - "○ en cola" or "◐ corriendo": a job of that statement is queued or running. It links to the job, and it wins over every other status, also over the file that an overwrite replaces. Before November 2026 the cell said "falta" while the job ran.
 
@@ -300,6 +301,18 @@ Steps 3 to 6 take minutes and hold no lock. Step 7 and the caller's block (the c
 Only `Default` and `Multi` have rules. For the other pipelines there are no rule links, no rules editor and no "Aplicar reglas", and `/accounts/<Key>/rules` is a 404.
 
 `Multi` is a `Default` for one PDF that covers several accounts at one bank, each in a section "Movimientos de <name>". The `accounts` map in `accounts.yaml` connects each printed name to a Beancount account. The `account` enum of the schema holds only the printed names, so the model never sees a Beancount name. A transfer between two of those accounts appears once in each section. When a rule points a row at another account of the same statement, `Multi#convert` drops the mirror row (same date, opposite amount).
+
+#### Balances (`lib/statement_balance.rb`, November 2026)
+
+`Default#convert` and `Multi#convert` end with `StatementBalance.write`: a `balance` line from the closing balance that the PDF prints. The prompts ask for it as `closing_balance` (`closing_balances`, one per section, for Multi): "Saldo al corte" on AMEX, "Pago para no generar intereses" on the other cards, "Saldo Final" on BBVA. A missing balance means no line. A failed line never fails the job: Recientes shows "saldo no cuadra" (see Dashboard). CetesDirecto and Alpaca write their own balances. Fintual writes none.
+
+Where the line goes comes from a measurement on 22 AMEX PDFs (20 month-to-month checks):
+
+- The day after the close, with the printed balance: 5 of 20 pass. The next statement often holds a charge dated on the closing day.
+- The closing day, which Beancount checks before that day's rows, minus the statement's own rows of that day or later: 17 of 20. The 3 failures are Amazon charges that AMEX bills a month late, dated a few days before the close.
+- The same, plus the next statement's rows dated before the close: 20 of 20.
+
+So the line is an expression, each term written out, with the PDF's number first: `2026-11-03 balance Liabilities:Amex  -1,004.20 + 4.20 MXN`. When the next statement has rows dated before the previous close, `write` cuts the block under `StatementBalance::MARK` from the previous file and writes it again. A hand edit to that line is lost then. Without a `cutoff_day` there is no line, so the first statement of an account has none.
 
 ### Statement page (`app/statements.rb`)
 

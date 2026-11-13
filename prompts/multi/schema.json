@@ -31,9 +31,28 @@
           "required": ["account", "date", "amount", "description"],
           "additionalProperties": false
         }
+      },
+      "closing_balances": {
+        "type": "array",
+        "description": "The balance of each account at the end of the period.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "account": {
+              "type": "string",
+              "description": "The name of the account, exactly as printed after 'Movimientos de'."
+            },
+            "amount": {
+              "type": ["number", "null"],
+              "description": "The account's balance at the end of the period. null when the statement prints none."
+            }
+          },
+          "required": ["account", "amount"],
+          "additionalProperties": false
+        }
       }
     },
-    "required": ["transactions"],
+    "required": ["transactions", "closing_balances"],
     "additionalProperties": false
   }
 }

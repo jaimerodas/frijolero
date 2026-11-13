@@ -145,6 +145,19 @@ class StatementTest < Minitest::Test
     end
   end
 
+  # The printed closing balance becomes a `balance` line on the closing day (StatementBalance).
+  def test_the_printed_closing_balance_becomes_a_balance_line
+    with_configured_ledger do |dir|
+      File.write(File.join(dir, 'config', 'accounts.yaml'),
+                 "AMEX:\n  beancount_account: \"Liabilities:Amex\"\n  openai_prompt_type: default\n  cutoff_day: 3\n")
+      @client.payload = @client.payload.merge('closing_balance' => -10.0)
+
+      assert_equal Frijolero::Statement::OK, statement(pdf_in_temp_dir('AMEX 2508.pdf')).process
+
+      assert_includes File.read(beancount_path(dir)), '2025-09-03 balance Liabilities:Amex  -10.00 MXN'
+    end
+  end
+
   def test_reprocessing_does_not_duplicate_the_include_line
     with_configured_ledger do |dir|
       pdf = pdf_in_temp_dir('AMEX 2508.pdf')
@@ -221,8 +234,10 @@ class StatementTest < Minitest::Test
       assert_equal Frijolero::Statement::OK, statement(pdf, account: 'Plata Banco', period: '2608').process
 
       spec = @client.extractions.first.last
-      assert_equal ['Plata Cuenta', 'Ahorro Flexible'],
-                   spec.dig('format', 'schema', 'properties', 'transactions', 'items', 'properties', 'account', 'enum')
+      properties = spec.dig('format', 'schema', 'properties')
+      %w[transactions closing_balances].each do |list|
+        assert_equal ['Plata Cuenta', 'Ahorro Flexible'], properties.dig(list, 'items', 'properties', 'account', 'enum')
+      end
       beancount = File.read(File.join(dir, 'accounts', 'Plata Banco', 'Plata Banco 2608.beancount'))
       assert_includes beancount, 'Assets:Plata:Ahorro  1,733.28 MXN'
     end

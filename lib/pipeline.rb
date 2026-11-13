@@ -81,6 +81,16 @@ module Frijolero
 
       def convert(json_path:, output:)
         Converters::Default.convert(input: json_path, account: beancount_account, output: output)
+        write_balance(output)
+      end
+
+      private
+
+      # The closing balance that the PDF prints, as a `balance` line. `output` is the
+      # statement's path, "<Key> YYMM.beancount".
+      def write_balance(output)
+        key, period = AccountConfig.parse_filename(output)
+        StatementBalance.write(key, period, @account_config) if period
       end
     end
 
@@ -95,7 +105,9 @@ module Frijolero
 
       def request_spec(spec)
         spec = Marshal.load(Marshal.dump(spec))
-        spec['format']['schema']['properties']['transactions']['items']['properties']['account']['enum'] = accounts.keys
+        properties = spec['format']['schema']['properties']
+        properties['transactions']['items']['properties']['account']['enum'] = accounts.keys
+        properties.dig('closing_balances', 'items', 'properties', 'account')&.store('enum', accounts.keys)
         spec
       end
 
@@ -113,6 +125,7 @@ module Frijolero
       def convert(json_path:, output:)
         drop_mirrors(json_path)
         Converters::Default.convert(input: json_path, account: beancount_account, output: output, sources: accounts)
+        write_balance(output)
       end
 
       private

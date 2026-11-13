@@ -73,6 +73,12 @@ module Frijolero
           "#{got < expected ? 'menos' : 'más'} que el saldo de #{datum(expected)}"
       end
 
+      # The gap of a failed balance alone, "200,000.00 MXN", for a cell.
+      def balance_difference(error)
+        m = BALANCE_FAILED.match(error[:message])
+        "#{datum((BigDecimal(m[:got]) - BigDecimal(m[:expected])).abs)} #{m[:currency]}"
+      end
+
       # For a failed balance: the journal of the account it names, over the year of
       # the day before it. A balance counts what came before its date, and a year holds
       # the last good balance too, so the culprit sits between the two. nil when the

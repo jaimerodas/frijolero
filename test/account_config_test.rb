@@ -8,6 +8,14 @@ class AccountConfigTest < Minitest::Test
 
   def teardown; end
 
+  # The closing whose 15 days before fall in the month: the classifier's rule, backwards.
+  def test_closing_is_the_cutoff_that_closes_the_statement_of_a_month
+    assert_equal Date.new(2026, 10, 3), Frijolero::AccountConfig.closing('2609', 3)
+    assert_equal Date.new(2026, 9, 16), Frijolero::AccountConfig.closing('2609', 16)
+    assert_equal Date.new(2026, 9, 30), Frijolero::AccountConfig.closing('2609', nil)
+    assert_equal Date.new(2026, 2, 28), Frijolero::AccountConfig.closing('2602', 30)
+  end
+
   def test_record_cutoff_writes_the_day_once_and_keeps_the_rest_of_the_file
     with_ledger_dir do |dir|
       path = File.join(dir, 'config', 'accounts.yaml')

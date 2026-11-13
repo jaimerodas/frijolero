@@ -22,9 +22,10 @@ configuras uno.
 **Estados de cuenta** tiene tres páginas y el botón "Subir estado de cuenta":
 
 - Recientes: el estado de los dos últimos periodos de cada cuenta: listo,
-  "N por revisar", falta, falló, o el día en que cierra. "por revisar" lleva a
-  Revisar, "falta" lleva a la página de subir y "falló" lleva a la corrida que
-  falló.
+  "N por revisar", "saldo no cuadra", falta, falló, o el día en que cierra.
+  "por revisar" lleva a Revisar, "falta" lleva a la página de subir y "falló"
+  lleva a la corrida que falló. "saldo no cuadra" da la diferencia contra el
+  saldo del PDF (ver [Los saldos](docs/ledger.md#los-saldos)).
 - Cuentas: la configuración y las reglas de cada cuenta, y los archivos del
   ledger que editas aquí. El nombre de una cuenta lleva a sus PDF y a los
   periodos que faltan. Aquí das de alta una cuenta.
