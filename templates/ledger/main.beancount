@@ -6,3 +6,7 @@ option "render_commas" "TRUE"
 ; y un `include` por cada estado de cuenta que procesa. Las transacciones sueltas,
 ; los precios y las aserciones de saldo también van aquí, o en otro archivo con
 ; su propio `include`.
+
+; Las dos partes de una transferencia entre tus cuentas pasan por aquí, así que
+; queda en cero cuando los dos estados de cuenta están en el ledger (docs/rules.md).
+2000-01-01 open Assets:Transfers

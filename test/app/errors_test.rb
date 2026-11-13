@@ -25,6 +25,9 @@ class LedgerErrorsTest < Minitest::Test
 
       errors
     end
+
+    # Recientes asks for the transfers without a pair; these tests have none.
+    def opening(*, **) = {}
   end
 
   def setup

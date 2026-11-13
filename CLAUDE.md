@@ -212,6 +212,8 @@ The user opens Recientes to upload a missing statement and to open a new one. Th
 
 The cells read the newest job of each label, so a retry hides the failure before it.
 
+Over the table, "▲ Transferencias sin pareja: 10,000.00 MXN" shows while `Assets:Transfers` (`Dashboard::TRANSFERS`) is not zero today, and links to its journal (see Transfers). It is one rledger query per load, so Recientes now waits for the ledger's lock during a commit. Without rledger, or with a ledger that `LedgerFiles` refuses, the line does not show and the page serves.
+
 "listo" and the closing date are muted, so the red cells are the things to do. The rules links are on Cuentas, not here. The first confirmed upload with a printed period end fills in `cutoff_day`. The job never overwrites it, so a hand edit wins.
 
 ### Cuentas (`app/accounts.rb`)
@@ -356,6 +358,17 @@ The rules editor:
 - Leaves the new fields empty. `Rules.merge` skips an empty field, so a blank payee keeps the payee of the transaction.
 - Returns to Revisar of the statement after a save through `back`, where "Aplicar reglas" runs the new rule. `back_path` accepts only `/accounts/<Key>/<YYMM>`.
 
+#### Transfers (issue #15, November 2026)
+
+A transfer between two accounts with statements, such as a BBVA payment to Amex, is on both statements. The rules of both sides point at `Assets:Transfers`, so the account is zero when both statements are in the ledger. The rest is a transfer with a side missing, which Recientes shows (see Dashboard). Each statement keeps all its rows, so it matches its PDF, and Sobrescribir brings back nothing that a person deleted.
+
+Before, each side pointed at the other account, and the person deleted one copy by hand. A count on the real ledger found 117 such transfers, 107 with a side deleted, about 6 a month. A delete left no trace, made the statement differ from its PDF, and came back with Sobrescribir.
+
+- This is the clearing account of plain-text accounting: the hledger FAQ gives it as one of three ways (with a rule that skips one side, and a delete by hand), and the zerosum plugin of Beancount uses `Assets:Zerosum:Transfers`. rledger runs no Python plugin, so there is no matching: the balance is the check.
+- A payment to an account with no statements (a loan) still points at that account. Both sides must be in one currency.
+- Inside a `Multi` statement, a rule that points at another account of the same statement stays as it is: `Multi#convert` drops the mirror row.
+- The user's ledger uses it from the November 2026 statements on. The older transfers keep the delete.
+
 ### Editors (`app/edits.rb`, `lib/ledger_edit.rb`, `app/views/_code.erb`, `public/editor.js`)
 
 One editor shows and edits Beancount text. It works in three places: Editar of a statement (and the read-only text of an investment statement), any ledger file at `/files/<path>`, and the edit dialog of one transaction. The dialog opens from a date in the journal or on a statement. The YAML editors (rules and `accounts.yaml`) use the same surface, with their own colors.
@@ -397,7 +410,7 @@ Every amount goes through `BigDecimal`, because a float residue such as `-5.55e-
 
 ### CetesDirecto
 
-The CetesDirecto pipeline keeps lots. Each security has a FIFO sub-account and a commodity of the same name (`<account>:CETES-280412`). The cash is in `<account>:Cash`, and the BBVA rule for NAFIN transfers points there. Each month ends with a price for each holding and a balance on the cash and on each holding, so a wrong row fails the check instead of hiding in a plug.
+The CetesDirecto pipeline keeps lots. Each security has a FIFO sub-account and a commodity of the same name (`<account>:CETES-280412`). The cash is in `<account>:Cash`. Its `counterpart_account` and the BBVA rule for NAFIN transfers both point at `Assets:Transfers` (see Transfers). Each month ends with a price for each holding and a balance on the cash and on each holding, so a wrong row fails the check instead of hiding in a plug.
 
 These behaviors are on purpose:
 
@@ -406,7 +419,7 @@ These behaviors are on purpose:
 - A BONDDIA sale (VTASI) books its difference with cost to `gains_account`. The income statement shows only realized income. A change in market value shows on the balance sheet, as "Ganancias no realizadas".
 - "Total de efectivo" and "Saldo final" can differ by one centavo, and the next statement starts from "Total de efectivo". A "Redondeo" entry closes the gap.
 - `validate!` repeats the reconciliation of the statement: each row has a known type, the movements take each security from its opening titles to its closing titles, and they take the cash from "Saldo inicial" to "Saldo final". A failure stops the job while the PDF is still there for a retry.
-- The converter writes the Cetes side of a transfer, and the BBVA statement has the other side. The person deletes one. If both stay, the cash balance of that month fails.
+- The converter writes the Cetes side of a transfer, and the BBVA statement has the other side. Both post to `Assets:Transfers`, so both stay. Before November 2026 the person deleted one, because both sides pointed at each other and the cash balance of that month failed.
 - The first statement of an account needs an opening entry with the lots, because the opening table prints no cost. Until December 2025, "Precio ponderado" of a coupon bond included accrued interest. From January 2026, it is the purchase cost.
 
 ### Alpaca

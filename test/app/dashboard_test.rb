@@ -190,7 +190,7 @@ class DashboardTest < Minitest::Test
       write_statement('BBVA TDC', '2608')
 
       dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5))
-      html = view_app.erb(:dashboard, locals: { dashboard: dashboard, waiting: 0 })
+      html = view_app.erb(:dashboard, locals: { dashboard: dashboard, waiting: 0, transfers: {} })
 
       assert_includes html, 'falta'
       assert_includes html, '<a class="status received" href="/accounts/BBVA%20TDC/2608">listo</a>'
@@ -214,7 +214,7 @@ class DashboardTest < Minitest::Test
       write_statement('CETES', '2608', UNCLASSIFIED)
 
       dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5))
-      html = view_app.erb(:dashboard, locals: { dashboard: dashboard, waiting: 0 })
+      html = view_app.erb(:dashboard, locals: { dashboard: dashboard, waiting: 0, transfers: {} })
 
       assert_includes html, '<a class="status missing" href="/accounts/BBVA%20TDC/2608/review">1 por revisar</a>'
       assert_includes html, '<a class="status missing" href="/accounts/CETES/2608">1 por revisar</a>'
@@ -233,7 +233,7 @@ class DashboardTest < Minitest::Test
       YAML
 
       dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 23))
-      html = view_app.erb(:dashboard, locals: { dashboard: dashboard, waiting: 0 })
+      html = view_app.erb(:dashboard, locals: { dashboard: dashboard, waiting: 0, transfers: {} })
 
       assert_includes html, '<span class="status pending">cierra el 3 oct</span>'
     end
@@ -246,7 +246,7 @@ class DashboardTest < Minitest::Test
 
       jobs = { 'AMEX 2607' => job('job1', 'failed'), 'BBVA TDC 2607' => job('job2', 'running') }
       dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5), jobs: jobs)
-      html = view_app.erb(:dashboard, locals: { dashboard: dashboard, waiting: 0 })
+      html = view_app.erb(:dashboard, locals: { dashboard: dashboard, waiting: 0, transfers: {} })
 
       assert_includes html, '<a class="status missing" href="/upload">falta</a>'
       assert_includes html, '<a class="status failed" href="/jobs/job1">falló</a>'

@@ -18,6 +18,10 @@
     <% if waiting.positive? %>
     <p><a class="status missing" href="<%= ledger_path('/inbox') %>"><%= waiting %> por confirmar</a></p>
     <% end %>
+    <% if transfers.any? %>
+    <% amounts = transfers.map { |currency, amount| "#{thousands(format('%.2f', amount))} #{h(currency)}" } %>
+    <p><a class="status missing" href="<%= ledger_path("/journal?account=#{Rack::Utils.escape(Frijolero::Dashboard::TRANSFERS)}&period=all") %>">Transferencias sin pareja: <%= amounts.join(', ') %></a></p>
+    <% end %>
     <% if rows.empty? %>
     <p>No hay cuentas. <a href="<%= ledger_path('/accounts/new') %>">Da de alta la primera.</a></p>
     <% else %>

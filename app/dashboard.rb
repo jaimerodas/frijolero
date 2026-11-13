@@ -9,6 +9,10 @@ module Frijolero
     # unclassified maps each period with a statement to the count of rows that Revisar takes.
     Row = Struct.new(:account, :statuses, :cutoff_day, :unclassified, keyword_init: true)
 
+    # Both sides of a transfer between two statements post here, so the account is zero once
+    # both statements are in the ledger (docs/rules.md).
+    TRANSFERS = 'Assets:Transfers'
+
     # jobs maps "<account> <period>" to the newest job with that label.
     def initialize(today: Date.today, jobs: {})
       @today = today

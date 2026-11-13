@@ -59,6 +59,45 @@ puede poner la cuenta y dejar el `payee` de una regla de `start_with`.
 La única condición es `when.amount`. Compara el monto exacto, con signo. Un
 cargo es negativo.
 
+## Transferencias entre tus cuentas
+
+Un pago de BBVA a tu tarjeta Amex aparece en los dos estados de cuenta: como
+cargo en BBVA y como abono en Amex. Si la regla de cada lado apunta a la otra
+cuenta, el pago queda dos veces en el ledger. Por eso, las reglas de los dos
+lados apuntan a `Assets:Transfers`:
+
+```yaml
+# config/rules/BBVA.yaml
+start_with:
+  AMERICAN EXPRESS:
+    narration: Pago TDC Amex
+    account: Assets:Transfers
+
+# config/rules/AMEX.yaml
+start_with:
+  PAGO RECIBIDO, GRACIAS:
+    narration: Pago TDC Amex
+    account: Assets:Transfers
+```
+
+El cargo de BBVA mete el dinero a `Assets:Transfers` y el abono de Amex lo
+saca. Cuando los dos estados de cuenta están en el ledger, la cuenta queda en
+cero. Cada estado de cuenta conserva todos sus movimientos, igual que el PDF, y
+no hay nada que borrar a mano.
+
+Si la cuenta no queda en cero, a una transferencia le falta un lado: el otro
+estado de cuenta todavía no llega, o los montos no son iguales. Recientes lo
+dice con "Transferencias sin pareja" y lleva al diario de la cuenta. Ahí el
+saldo después de cada movimiento muestra cuál es.
+
+- Una cuenta de inversión (CetesDirecto, Fintual) no tiene reglas. Su
+  `counterpart_account` en `accounts.yaml` es `Assets:Transfers`.
+- Un pago a una cuenta de la que no subes estados de cuenta, como un crédito,
+  apunta a esa cuenta. Ahí no hay un segundo lado.
+- Las dos partes deben estar en la misma moneda.
+- Un ledger nuevo ya abre `Assets:Transfers`. En un ledger anterior, agrega
+  `2000-01-01 open Assets:Transfers` junto a tus otros `open`.
+
 ## Cuándo corren las reglas
 
 La corrida aplica las reglas una vez, después de la extracción y antes de

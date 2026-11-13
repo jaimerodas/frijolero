@@ -197,6 +197,43 @@ class UploadsTest < Minitest::Test
     assert_ledger_links(body)
   end
 
+  # Both sides of a transfer between two statements post to Assets:Transfers, through rledger.
+  def test_dashboard_points_to_a_transfer_without_its_other_side
+    transfers_ledger(<<~BEANCOUNT)
+      2026-01-14 * "Pago TDC Amex"
+        Assets:BBVA       -10000.00 MXN
+        Assets:Transfers   10000.00 MXN
+    BEANCOUNT
+
+    get '/'
+
+    link = '<a class="status missing" href="/journal?account=Assets%3ATransfers&period=all">'
+    assert_includes last_response.body, "#{link}Transferencias sin pareja: 10,000.00 MXN</a>"
+  end
+
+  def test_dashboard_says_nothing_once_each_transfer_has_both_sides
+    transfers_ledger(<<~BEANCOUNT)
+      2026-01-14 * "Pago TDC Amex"
+        Assets:BBVA       -10000.00 MXN
+        Assets:Transfers   10000.00 MXN
+      2026-01-15 * "Pago de TDC Amex"
+        Liabilities:Amex   10000.00 MXN
+        Assets:Transfers  -10000.00 MXN
+    BEANCOUNT
+
+    get '/'
+
+    refute_includes last_response.body, 'sin pareja'
+  end
+
+  # Without rledger, or with a ledger that it refuses, Recientes still serves.
+  def test_dashboard_without_reports_still_serves
+    Frijolero::Reports.stub(:opening, ->(*, **) { raise Frijolero::Reports::Error, 'sin rledger' }) { get '/' }
+
+    assert_equal 200, last_response.status
+    refute_includes last_response.body, 'sin pareja'
+  end
+
   def test_dashboard_refreshes_only_while_a_statement_is_in_a_corrida
     get '/'
     refute_includes last_response.body, 'http-equiv="refresh"'
@@ -1138,6 +1175,15 @@ class UploadsTest < Minitest::Test
     Frijolero::DB.insert('INSERT INTO usage (user_id, ledger_id, prompt, model, input_tokens, output_tokens, ' \
                          "cost_micros, at) VALUES (?, 'test', 'default', 'gpt-6-sol', 0, 0, ?, ?)",
                          Frijolero::Ledger.current.owner_id, micros, Time.now.utc.iso8601)
+  end
+
+  # The main file with the accounts of a card payment, and `entries`.
+  def transfers_ledger(entries)
+    File.write(File.join(@dir, 'main.beancount'), <<~BEANCOUNT + entries)
+      2026-01-01 open Assets:BBVA
+      2026-01-01 open Liabilities:Amex
+      2026-01-01 open Assets:Transfers
+    BEANCOUNT
   end
 
   def statement(account, period)

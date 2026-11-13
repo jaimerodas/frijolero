@@ -130,7 +130,7 @@ uno es opcional. Sin él, la transacción va a `Income:FIXME` o
 
 | Campo | Pipelines | Uso |
 |---|---|---|
-| `counterpart_account` | CetesDirecto, Fintual | La cuenta de donde sale el efectivo y a donde vuelve. Por ejemplo, tu cuenta de banco. |
+| `counterpart_account` | CetesDirecto, Fintual | La cuenta de donde sale el efectivo y a donde vuelve. Si subes los estados de cuenta del banco, usa `Assets:Transfers` (ver [Transferencias entre tus cuentas](rules.md#transferencias-entre-tus-cuentas)). |
 | `interest_account` | Los tres | Intereses. |
 | `tax_account` | CetesDirecto, Fintual | El ISR retenido. |
 | `gains_account` | Los tres | Ganancias y pérdidas de capital. |
@@ -218,8 +218,9 @@ abre y cierra las cuentas de los instrumentos.
   ventas de BONDDIA. El cambio del valor de mercado aparece en el balance
   general, en "Ganancias no realizadas".
 - La app escribe su lado de cada transferencia al banco, y el estado del banco
-  tiene el otro lado. Borra uno. Si quedan los dos, falla el saldo de
-  efectivo del mes.
+  tiene el otro lado. Con `counterpart_account: Assets:Transfers` y la regla
+  del banco a la misma cuenta, los dos lados se quedan (ver
+  [Transferencias entre tus cuentas](rules.md#transferencias-entre-tus-cuentas)).
 - El primer estado de cuenta necesita una entrada de apertura con los títulos
   y su costo, porque la tabla de apertura no imprime el costo.
 

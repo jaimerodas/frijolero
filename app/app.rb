@@ -127,6 +127,16 @@ module Frijolero
         "#{Usage.usd(Usage.month_micros(owner))} de #{Usage.usd(Usage.cap_micros(owner))} USD"
       end
 
+      # The balance of Dashboard::TRANSFERS today, {currency => amount} without the zeros: transfers
+      # with a side missing. Without rledger, or with a ledger that it refuses, Recientes still
+      # serves, with no line.
+      def unmatched_transfers
+        today = Date.today
+        self.class.reports.opening(Dashboard::TRANSFERS, today + 1, today, mxn: false).reject { |_, amount| amount.zero? }
+      rescue Reports::Error
+        {}
+      end
+
       # A 422 unless a new extraction can start: it needs the model key, and the owner
       # under the monthly cap. A job already in the queue runs anyway.
       def extraction_allowed!
@@ -163,7 +173,8 @@ module Frijolero
     get '/' do
       # jobs.all is newest first, so uniq keeps the newest job of each label: a retry hides the failure.
       jobs = self.class.jobs.all.uniq(&:label).to_h { |job| [job.label, job] }
-      erb :dashboard, locals: { dashboard: Dashboard.new(jobs: jobs), waiting: inbox_rows.size }
+      erb :dashboard, locals: { dashboard: Dashboard.new(jobs: jobs), waiting: inbox_rows.size,
+                                transfers: unmatched_transfers }
     end
 
     get '/jobs' do
