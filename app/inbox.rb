@@ -24,6 +24,9 @@ module Frijolero
 
       # The file name gives the account and the period ("AMEX 2508.pdf"): the person chose them.
       def named? = AccountConfig.parse_filename(pdf) == [account, period]
+
+      # The statement of the answer is in the ledger: a job needs Sobrescribir.
+      def exists? = !label.nil? && File.exist?(Config.statement_path(account, period, 'beancount'))
     end
 
     # status is what the upload needs: :classifying, :error (the classifier failed),
@@ -90,6 +93,9 @@ module Frijolero
       FileUtils.rm_rf(File.join(@dir, token))
     end
 
+    # The answer goes, so the upload is classifying again.
+    def forget(token) = FileUtils.rm_f(File.join(@dir, token, ANSWER))
+
     private
 
     def with_jobs(jobs) = items.map { |item| Row.new(item, nil, jobs.find { |job| job.token == item.token }) }
@@ -105,7 +111,7 @@ module Frijolero
 
     def answer_status(item, labels)
       return :unknown unless item.label
-      return :exists if File.exist?(Config.statement_path(item.account, item.period, 'beancount'))
+      return :exists if item.exists?
 
       labels[item.label] > 1 ? :repeated : :ready
     end

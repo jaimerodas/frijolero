@@ -498,6 +498,29 @@ class UploadsTest < Minitest::Test
     refute_includes last_response.body, 'Procesar los listos'
   end
 
+  # A failed row of a statement that exists by now: without the box, Procesar could only fail again.
+  def test_a_failed_upload_of_an_existing_statement_still_offers_to_overwrite
+    token = classified('AMEX 2508.pdf')
+    failed_job(token)
+    statement('AMEX', '2508')
+
+    get '/inbox'
+
+    assert_includes last_response.body, %(name="overwrite[#{token}]" value="1")
+  end
+
+  # The job would refuse the statement: no corrida, and the page says what to do.
+  def test_processing_an_existing_statement_without_sobrescribir_queues_nothing
+    statement('AMEX', '2508')
+    token = classified('AMEX 2508.pdf')
+
+    process(token, 'AMEX', '2508')
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, 'AMEX 2508 ya existe: marca Sobrescribir'
+    assert_empty Frijolero::App.jobs.all
+  end
+
   def test_two_uploads_of_one_statement_are_both_marked
     classified('AMEX 2508.pdf')
     classified('AMEX 2508.pdf')
@@ -518,7 +541,34 @@ class UploadsTest < Minitest::Test
     assert_includes last_response.body, '<span class="status failed">no se clasificó</span>'
     assert_includes last_response.body, 'Falta OPENAI_API_KEY'
     refute_includes last_response.body, '>Procesar<'
+    refute_includes last_response.body, 'Clasificar otra vez'
     assert_includes last_response.body, 'Solo guardar PDF'
+  end
+
+  # Classified at the cap, the upload kept "Límite del mes". In the next month the model answers it.
+  def test_an_upload_that_was_not_classified_can_be_classified_again
+    spend(Frijolero::Usage::DEFAULT_CAP_MICROS)
+    token = classified('estado.pdf')
+    get '/inbox'
+    assert_includes last_response.body, %(formaction="/inbox/classify")
+    Frijolero::DB.execute('DELETE FROM usage') # a new month
+    @client.classification = bbva('2026-07-24', '2026-08-23')
+
+    post '/inbox/classify', token: token
+    @worker.work_one
+
+    assert_equal 303, last_response.status
+    assert_equal %w[BBVA 2608], Frijolero::App.inbox.find(token).answer.values_at('account', 'period')
+  end
+
+  # Only an answer that failed: another model call would cost money for the same answer.
+  def test_an_answer_that_did_not_fail_is_not_asked_again
+    token = classified('AMEX 2508.pdf')
+
+    post '/inbox/classify', token: token
+
+    assert_equal 422, last_response.status
+    assert Frijolero::App.inbox.find(token).answer
   end
 
   # The upload stays while its job holds it, so the person sees where it went. Nothing on its row can change it.
@@ -579,6 +629,22 @@ class UploadsTest < Minitest::Test
 
     assert_includes last_response.body, %(<a href="/jobs/#{job_id}">AMEX 2508</a>)
     assert_includes last_response.body, '<span class="status failed">falló</span>'
+  end
+
+  # The PDF goes after the extraction, but the corrida still commits and makes Revisar's guesses:
+  # the page follows it until it ends, so the upload never leaves the page with no trace.
+  def test_a_corrida_still_running_after_its_pdf_is_gone_shows_under_procesados_hoy
+    token = classified('AMEX 2508.pdf')
+    process(token, 'AMEX', '2508')
+    job = Frijolero::App.jobs.all.first
+    job.status = 'running'
+    File.delete(Frijolero::App.inbox.find(token).pdf)
+
+    get '/inbox'
+
+    assert_includes last_response.body, %(<a href="/jobs/#{job.id}">AMEX 2508</a>)
+    assert_includes last_response.body, %(<span class="status running">#{ORBIT}corriendo</span>)
+    assert_includes last_response.body, 'http-equiv="refresh"'
   end
 
   # A retry runs on the same upload: only its newest corrida shows.
@@ -705,10 +771,11 @@ class UploadsTest < Minitest::Test
     assert Dir.exist?(File.join(@incoming, token))
   end
 
+  # The job's pull can bring the statement after the queue: the job refuses it too.
   def test_a_failed_statement_is_never_pushed_and_keeps_the_upload
-    statement('AMEX', '2508')
     token = classified('AMEX 2508.pdf')
     process(token, 'AMEX', '2508')
+    statement('AMEX', '2508')
 
     job = Frijolero::App.jobs.work_one
 
@@ -994,8 +1061,8 @@ class UploadsTest < Minitest::Test
   end
 
   def test_job_page_shows_the_error_for_a_failed_job
-    statement('AMEX', '2508')
     process(classified('AMEX 2508.pdf'), 'AMEX', '2508')
+    statement('AMEX', '2508')
     job = Frijolero::App.jobs.work_one
 
     get "/jobs/#{job.id}"

@@ -2,12 +2,13 @@
   client = self.class.client
   ready = rows.select { |row| row.status == :ready }.map { |row| row.item.token }
   accounts = Frijolero::Config.accounts.keys
+  running = held.any? || processed.any? { |job| !job.done? }
 %>
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <%# While the model answers, and while a corrida runs with no row to edit: a refresh wipes what the person typed. %>
-  <%= head('Bandeja', refresh: rows.any? { |row| row.status == :classifying } || (held.any? && rows.empty?) ? 3 : nil) %>
+  <%= head('Bandeja', refresh: rows.any? { |row| row.status == :classifying } || (running && rows.empty?) ? 3 : nil) %>
   <script src="/reports.js" defer></script>
 </head>
 <body>
@@ -66,7 +67,9 @@
                 <td data-label="Periodo"><input name="period[<%= token %>]" value="<%= h(answer['period']) %>" inputmode="numeric" maxlength="4" placeholder="YYMM" aria-label="Periodo de <%= h(item.filename) %>"></td>
                 <td>
                   <div class="row-actions">
-                    <% if status == :exists && client %><label><input type="checkbox" name="overwrite[<%= token %>]" value="1"> Sobrescribir</label><% end %>
+                    <%# Also on a failed row: the statement can exist by now, and Procesar needs the box. %>
+                    <% if item.exists? && client %><label><input type="checkbox" name="overwrite[<%= token %>]" value="1"> Sobrescribir</label><% end %>
+                    <% if status == :error && client %><button type="submit" name="token" value="<%= token %>" formaction="<%= ledger_path('/inbox/classify') %>">Clasificar otra vez</button><% end %>
                     <% if client %><button type="submit" name="tokens" value="<%= token %>" data-busy="Procesando…">Procesar</button><% end %>
                     <button type="submit" name="token" value="<%= token %>" formaction="<%= ledger_path('/inbox/backup') %>" data-busy="Guardando…">Solo guardar PDF</button>
                     <button type="submit" name="token" value="<%= token %>" formaction="<%= ledger_path('/inbox/discard') %>">Descartar</button>
@@ -119,7 +122,7 @@
                 <% elsif count %>
                   <a class="status received" href="<%= statement %>">listo</a>
                 <% else %>
-                  <span class="status <%= h(job.status) %>"><%= job_status(job.status) %></span>
+                  <span class="status <%= h(job.status) %>"><%= orbit(job.status) %><%= job_status(job.status) %></span>
                 <% end %>
               </td>
               <td class="date" data-label="Fin"><%= h(local_time(job.finished_at)) %></td>

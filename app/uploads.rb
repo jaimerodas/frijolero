@@ -64,6 +64,12 @@ module Frijolero
       extraction_allowed!
       choices = params[:tokens].to_s.split.uniq.map { |token| inbox_choice(token) }
       halt 422, 'Nada que procesar' if choices.empty?
+      # The job would refuse it after the queue: the person can tick the box now.
+      choices.each do |_, account, period, overwrite|
+        next if overwrite || !File.exist?(Config.statement_path(account, period, 'beancount'))
+
+        halt 422, "#{account} #{period} ya existe: marca Sobrescribir"
+      end
 
       jobs = choices.map { |choice| self.class.enqueue_inbox(*choice) }
       redirect(jobs.one? ? "/jobs/#{jobs.first.id}" : '/jobs', 303)
@@ -78,6 +84,17 @@ module Frijolero
       redirect '/inbox', 303
     rescue S3::Error => e
       halt 502, "No se pudo guardar el PDF: #{Rack::Utils.escape_html(e.message)}"
+    end
+
+    # The classifier failed (a model error, no key, the cap): its answer goes, and the worker
+    # asks again. Only then: another call for an answer that did not fail costs the same.
+    post '/inbox/classify' do
+      item = inbox_item!(params[:token])
+      halt 422, 'Ese PDF ya está clasificado' unless item.answer&.key?('error')
+
+      self.class.inbox.forget(item.token)
+      self.class.inbox_worker.push(item.token)
+      redirect '/inbox', 303
     end
 
     post '/inbox/discard' do
@@ -116,13 +133,13 @@ module Frijolero
 
     def inbox_rows = self.class.inbox.rows(self.class.jobs.all)
 
-    # Procesados hoy: the newest job of each upload that left the Bandeja in the last 24 hours,
-    # newest first. A failed job that kept its PDF is still a row of the Bandeja, so it is not here.
+    # Procesados hoy: the newest job of each upload that left the Bandeja, newest first, while it
+    # runs and for 24 hours after. The PDF goes after the extraction, but the job still commits
+    # and makes Revisar's guesses. A failed job that kept its PDF is a row of the Bandeja instead.
     def processed_today(jobs)
       since = Time.now - (24 * 60 * 60)
-      jobs.select(&:token).uniq(&:token).select do |job|
-        job.done? && Time.iso8601(job.finished_at) > since && !self.class.inbox.find(job.token)
-      end
+      inbox = self.class.inbox
+      jobs.select(&:token).uniq(&:token).reject { |job| job.ended_before?(since) || inbox.find(job.token) }
     end
 
     # [item, account, period, overwrite] of one Bandeja row, or a 422.

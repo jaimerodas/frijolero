@@ -225,6 +225,11 @@ puedes cambiarlos. "Procesar los listos" procesa los PDF marcados con
 está repetido en la Bandeja, no se clasificó o su corrida falló. Descartar
 borra el PDF.
 
+Si el estado de cuenta ya existe, marca "Sobrescribir" antes de Procesar. Sin
+la marca, Procesar no hace nada y te lo dice. Si un PDF no se clasificó, por
+ejemplo por un error del modelo o por el límite del mes, "Clasificar otra vez"
+le pregunta de nuevo al modelo.
+
 ### Sin confirmar
 
 La app procesa sola un PDF con ● listo cuando es el estado de cuenta que
@@ -248,8 +253,9 @@ Mientras su corrida trabaja, el PDF se queda en la Bandeja con "○ en cola" o
 "corriendo", con una cuadrícula que se mueve. Esas palabras llevan a la
 corrida. Recientes muestra lo mismo en la celda de ese estado de cuenta, y se
 actualiza sola hasta que la corrida termina. La Bandeja también se actualiza
-sola, salvo cuando tiene un PDF que puedes editar. Cuando la corrida termina, el PDF pasa a
-"Procesados hoy", abajo en la Bandeja, por 24 horas. Ahí "N por revisar" lleva
+sola, salvo cuando tiene un PDF que puedes editar. Cuando la corrida termina de
+leer el PDF, el PDF pasa a "Procesados hoy", abajo en la Bandeja, con la corrida
+"corriendo" hasta que termina, y ahí se queda 24 horas. Ahí "N por revisar" lleva
 a Revisar, "listo" lleva al estado de cuenta y la etiqueta lleva a la corrida.
 Esto también vale para un PDF que procesas con Procesar.
 

@@ -14,6 +14,8 @@ module Frijolero
     Job = Struct.new(:id, :label, :token, :status, :started_at, :finished_at, :error, :output, keyword_init: true) do
       def running? = status == 'running'
       def done? = %w[ok failed].include?(status)
+      # A job in the queue or running has not ended.
+      def ended_before?(time) = done? && Time.iso8601(finished_at) < time
     end
 
     INTERRUPTED_ERROR = 'interrumpido por un reinicio'

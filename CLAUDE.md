@@ -232,7 +232,7 @@ Over the table, "▲ Transferencias sin pareja: 10,000.00 MXN" shows while `Asse
 1. The web form (`POST /upload`, field `pdf[]`) and the iOS Shortcut (`POST /api/upload`, field `pdf`) save each PDF in `incoming/<token>/` and queue it for `Inbox::Worker`. They answer at once: the form redirects to `/inbox`, and the API answers 202 with the URL of the Bandeja of its ledger. If one file is not a PDF, nothing is saved.
 2. A file name like `<Key> YYMM.pdf` needs no model. Any other name costs one model call with the `classify` prompt. Without a model key, the answer is an error that names the key variable, and the Bandeja offers only "Solo guardar PDF".
 3. The classifier takes the period from the midpoint of the printed start and end, so AMEX Aug 4 to Sep 3 is `2608`. A doubtful answer becomes `unknown`.
-4. The Bandeja shows the answer, and the person confirms or changes it. The next statement of an account needs no click (see Bandeja). If that statement exists, the row shows the Sobrescribir box. Without overwrite, the job refuses an existing statement.
+4. The Bandeja shows the answer, and the person confirms or changes it. The next statement of an account needs no click (see Bandeja). If that statement exists, the row shows the Sobrescribir box, also after a failed job. Without the box, Procesar answers 422 and queues nothing. The job also refuses an existing statement, because its pull can bring one after the queue.
 5. "Procesar" (`POST /inbox/process`) queues a job. "Solo guardar PDF" (`POST /inbox/backup`) puts the PDF in the bucket during the request and removes the upload. It skips the model, the ledger and the job log.
 
 The buttons that wait on the server have `data-busy`. `reports.js` writes that word on the button and makes the form `inert`, so a second click sends nothing. The `pageshow` event restores them when the back button shows the page from the cache.
@@ -242,13 +242,13 @@ The buttons that wait on the server have `data-busy`. `reports.js` writes that w
 The Bandeja holds the uploads that wait for a person. The API answers in JSON, errors included, because a Shortcut reads a body more easily than a status. The person confirms each upload, except the next statement of an account (see "Without a click" below).
 
 - `Inbox` only reads and writes the disk. A page that counts the Bandeja starts no thread.
-- `Inbox::Worker` is a second queue and thread for each ledger, apart from the job worker, so an extraction never holds up a classification. At boot, it queues each upload that has no `classification.json`. A model error becomes the answer (`{"error": …}`), and the worker goes on.
+- `Inbox::Worker` is a second queue and thread for each ledger, apart from the job worker, so an extraction never holds up a classification. At boot, it queues each upload that has no `classification.json`. A model error becomes the answer (`{"error": …}`), and the worker goes on. On such a row, "Clasificar otra vez" (`POST /inbox/classify`, with a model key) removes the answer and queues the upload again. It refuses an answer that did not fail, because another call costs money.
 - `Inbox#rows` leaves out each upload that a queued or running job holds. Each row has one status: classifying, error, failed (its newest job failed), unknown, exists, repeated (two uploads with the same account and period) or ready. Only ready rows go into "Procesar los listos".
 - The page shows the uploads that a job holds (`Inbox#held`) after the other rows. The status of the job links to it, and the row has no buttons. Before November 2026 these rows were hidden, so an upload that went on its own disappeared from the page with no trace (issue #14).
-- Under the form, "Procesados hoy" lists each upload that left the Bandeja in the last 24 hours, with the newest job of its token. The label links to the job. The status says what to do next, as on Recientes: "N por revisar", "listo", or "falló". A failed job that kept its PDF is a row of the form, not of this list.
+- Under the form, "Procesados hoy" lists each upload that left the Bandeja, with the newest job of its token, while that job runs and for 24 hours after it ends. The job deletes the PDF after the extraction, and then commits and makes Revisar's guesses for 10 to 40 s more. Before November 2026 the list showed only finished jobs, so in that gap the upload was on no list, and the page stopped its refresh on "Nada por confirmar". The label links to the job. The status says what to do next, as on Recientes: "N por revisar", "listo", or "falló". A failed job that kept its PDF is a row of the form, not of this list.
 - The page is one form. Each row sends `account[token]`, `period[token]` and `overwrite[token]`. A button sends the tokens to process in `tokens`, so one row and "Procesar los listos" use the same route. The first submit button of the form is hidden and disabled, so Enter in a period field submits nothing.
 - Procesar writes the choice into `classification.json` before it queues the job. So a row whose job fails comes back as the person left it.
-- The page refreshes every 3 s while a row is classifying, and while a job holds an upload and no row can be edited. A refresh loses an edit that is not submitted.
+- The page refreshes every 3 s while a row is classifying, and while a job runs (it holds an upload, or it is in "Procesados hoy") and no row can be edited. A refresh loses an edit that is not submitted.
 - The dashboard shows "▲ N por confirmar" when uploads wait for a person. An upload that a job holds does not count. There is no tab, because four tabs do not fit on a phone.
 - At the owner's monthly cap (`Usage.capped?`), the classifier makes no model call and answers `{"error": "Límite del mes"}`, and "Procesar" and "Reintentar" answer 422. A `<Key> YYMM.pdf` name, "Solo guardar PDF" and a job already in the queue still work. The dashboard shows "Uso del mes: 1.20 de 3.00 USD".
 
@@ -361,7 +361,7 @@ Revisar starts each Cuenta with the model's first guess, and shows the other two
 
 `Detailer::Rules` is the pure matcher (see Data formats). Before it matches, it collapses the whitespace of the description, as the converter does when it writes the narration. So a rule matches the same text in the JSON, where the model can keep line breaks, and in the `.beancount` file.
 
-`Detailer` applies the rules to the JSON at job time. `BeancountDetailer` applies them again to a `.beancount` file. It changes only transactions that still post to `Expenses:FIXME`, and it ignores transactions with the `!` flag. So it is idempotent, and hand edits are safe. `POST /accounts/<Key>/<YYMM>/detail` runs it and commits only when something changed.
+`Detailer` applies the rules to the JSON at job time. It keeps the other keys of the JSON, because `StatementBalance` reads `closing_balance` after it. Until November 2026 it wrote only `transactions`, so an account with a rules file got no balance line. `BeancountDetailer` applies them again to a `.beancount` file. It changes only transactions that still post to `Expenses:FIXME`, and it ignores transactions with the `!` flag. So it is idempotent, and hand edits are safe. `POST /accounts/<Key>/<YYMM>/detail` runs it and commits only when something changed.
 
 The rules editor:
 
@@ -590,8 +590,7 @@ Some tests commit in a temporary repo, and they read the global git config. If `
 1. There is one worker thread per ledger. A second upload to the same ledger waits for the extraction in front of it.
 2. A `closed: true` account leaves the dashboard. Its history stays on its page, which Cuentas links to.
 3. While a job commits and pushes (a few seconds), the next page that must run the error check waits for the ledger's lock.
-4. An upload that was classified at the cap keeps the answer "Límite del mes" after the month changes. The person picks the account and the period by hand.
-5. Invitation links count toward the limit of 5 links an hour of that person.
+4. Invitation links count toward the limit of 5 links an hour of that person.
 
 ## Data formats
 

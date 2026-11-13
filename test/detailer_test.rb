@@ -29,6 +29,19 @@ class DetailerTest < Minitest::Test
     end
   end
 
+  # StatementBalance reads the printed balance from this file after the rules run.
+  def test_keeps_the_other_keys_of_the_extraction
+    with_temp_dir do |dir|
+      json_path = File.join(dir, 'test.json')
+      data = JSON.load_file(fixture_path('sample_transactions.json'))
+      File.write(json_path, JSON.generate(data.merge('closing_balance' => -1234.5)))
+
+      Frijolero::Detailer.new(json_path, fixture_path('sample_detailer.yaml')).run
+
+      assert_in_delta(-1234.5, JSON.load_file(json_path)['closing_balance'])
+    end
+  end
+
   def test_enriches_transactions_with_include_rules
     with_temp_dir do |dir|
       json_path = File.join(dir, 'test.json')
