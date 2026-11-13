@@ -186,14 +186,38 @@ class UploadsTest < Minitest::Test
     statement('AMEX', periods.first)
     Frijolero::App.jobs.push(label: "BBVA #{periods.last}") { raise 'boom' }
     Frijolero::App.jobs.work_one
+    Frijolero::App.jobs.push(label: "AMEX #{periods.last}") { nil }
     api_upload('estado.pdf')
 
     get '/', {}, 'SCRIPT_NAME' => LEDGER_ROOT
 
     body = last_response.body
-    %w[received missing failed].each { |status| assert_includes body, %(<a class="status #{status}") }
+    %w[received missing failed queued].each { |status| assert_includes body, %(<a class="status #{status}") }
     assert_includes body, 'por confirmar'
     assert_ledger_links(body)
+  end
+
+  def test_dashboard_refreshes_only_while_a_statement_is_in_a_corrida
+    get '/'
+    refute_includes last_response.body, 'http-equiv="refresh"'
+
+    Frijolero::App.jobs.push(label: "BBVA #{Frijolero::Dashboard.new.periods.last}") { nil }
+    get '/'
+
+    assert_includes last_response.body, 'http-equiv="refresh"'
+  end
+
+  # The newest job of a statement wins: a retry in the queue hides the failure before it.
+  def test_dashboard_shows_a_retry_over_the_failure_before_it
+    label = "BBVA #{Frijolero::Dashboard.new.periods.last}"
+    Frijolero::App.jobs.push(label:) { raise 'boom' }
+    Frijolero::App.jobs.work_one
+    retry_job = Frijolero::App.jobs.push(label:) { nil }
+
+    get '/'
+
+    assert_includes last_response.body, %(<a class="status queued" href="/jobs/#{retry_job.id}">en cola</a>)
+    refute_includes last_response.body, 'falló'
   end
 
   def test_dashboard_shows_the_month_usage_of_the_owner_against_the_cap
@@ -364,8 +388,29 @@ class UploadsTest < Minitest::Test
     get '/inbox'
 
     assert_includes last_response.body, 'estado.pdf'
-    assert_includes last_response.body, '<span class="status running">clasificando</span>'
+    assert_includes last_response.body, %(<span class="status running">#{ORBIT}clasificando</span>)
     assert_includes last_response.body, 'http-equiv="refresh"'
+  end
+
+  # Nothing on the page can be edited, so a refresh loses nothing, and "corriendo" never outlives its job.
+  def test_the_inbox_refreshes_while_its_only_rows_are_in_a_corrida
+    process(classified('AMEX 2508.pdf'), 'AMEX', '2508')
+    Frijolero::App.jobs.all.first.status = 'running'
+
+    get '/inbox'
+
+    assert_includes last_response.body, %(#{ORBIT}corriendo</a>)
+    assert_includes last_response.body, 'http-equiv="refresh"'
+  end
+
+  # A refresh would wipe what the person typed in the other row.
+  def test_the_inbox_does_not_refresh_while_a_row_can_be_edited
+    process(classified('AMEX 2508.pdf'), 'AMEX', '2508')
+    classified('BBVA 2508.pdf')
+
+    get '/inbox'
+
+    refute_includes last_response.body, 'http-equiv="refresh"'
   end
 
   def test_a_classified_upload_is_ready_with_its_guess_filled_in
@@ -439,13 +484,86 @@ class UploadsTest < Minitest::Test
     assert_includes last_response.body, 'Solo guardar PDF'
   end
 
-  def test_an_upload_with_a_queued_job_leaves_the_inbox
+  # The upload stays while its job holds it, so the person sees where it went. Nothing on its row can change it.
+  def test_an_upload_in_a_corrida_links_to_it_and_has_no_buttons
     token = classified('AMEX 2508.pdf')
     process(token, 'AMEX', '2508')
+    job = Frijolero::App.jobs.all.first
 
     get '/inbox'
 
-    assert_includes last_response.body, 'Nada por confirmar'
+    body = last_response.body
+    assert_includes body, 'AMEX 2508.pdf'
+    assert_includes body, %(<a class="status queued" href="/jobs/#{job.id}">en cola</a>)
+    refute_includes body, %(value="#{token}")
+    refute_includes body, 'Nada por confirmar'
+  end
+
+  def test_an_upload_in_a_corrida_waits_for_nobody
+    process(classified('AMEX 2508.pdf'), 'AMEX', '2508')
+
+    get '/'
+
+    refute_includes last_response.body, 'por confirmar'
+  end
+
+  def test_a_processed_upload_shows_under_procesados_hoy_with_what_to_do_next
+    process(classified('AMEX 2508.pdf'), 'AMEX', '2508')
+    job = Frijolero::App.jobs.work_one
+
+    get '/inbox'
+
+    body = last_response.body
+    assert_includes body, 'Nada por confirmar'
+    assert_includes body, '<h2>Procesados hoy</h2>'
+    assert_includes body, %(<a href="/jobs/#{job.id}">AMEX 2508</a>)
+    assert_includes body, '<a class="status missing" href="/accounts/AMEX/2508/review">1 por revisar</a>'
+  end
+
+  def test_a_processed_statement_with_nothing_to_review_is_listo
+    process(classified('AMEX 2508.pdf'), 'AMEX', '2508')
+    Frijolero::App.jobs.work_one
+    statement('AMEX', '2508') # every row classified since
+
+    get '/inbox'
+
+    assert_includes last_response.body, '<a class="status received" href="/accounts/AMEX/2508">listo</a>'
+  end
+
+  # A job that fails after the extraction leaves the directory without its PDF.
+  def test_a_failed_upload_moves_to_procesados_hoy_once_its_pdf_is_gone
+    token = classified('AMEX 2508.pdf')
+    job_id = failed_job(token)
+    get '/inbox'
+    refute_includes last_response.body, 'Procesados hoy'
+
+    File.delete(Frijolero::App.inbox.find(token).pdf)
+    get '/inbox'
+
+    assert_includes last_response.body, %(<a href="/jobs/#{job_id}">AMEX 2508</a>)
+    assert_includes last_response.body, '<span class="status failed">falló</span>'
+  end
+
+  # A retry runs on the same upload: only its newest corrida shows.
+  def test_a_retried_upload_shows_only_its_last_corrida
+    job_id = failed_job(classified('AMEX 2508.pdf'))
+    @client.extract_error = nil
+    post "/jobs/#{job_id}/retry"
+    Frijolero::App.jobs.work_one
+
+    get '/inbox'
+
+    assert_equal 1, last_response.body.scan('AMEX 2508</a>').size
+    refute_includes last_response.body, 'falló'
+  end
+
+  def test_procesados_hoy_keeps_the_last_24_hours
+    process(classified('AMEX 2508.pdf'), 'AMEX', '2508')
+    Frijolero::App.jobs.work_one.finished_at = (Time.now.utc - (25 * 60 * 60)).iso8601
+
+    get '/inbox'
+
+    refute_includes last_response.body, 'Procesados hoy'
   end
 
   def test_an_upload_whose_job_failed_comes_back_with_the_choice_and_the_job
@@ -465,6 +583,10 @@ class UploadsTest < Minitest::Test
 
   def test_inbox_links_inside_the_ledger
     failed_job(classified('AMEX 2508.pdf'))
+    @client.extract_error = nil
+    process(classified('BBVA 2509.pdf'), 'BBVA', '2509')
+    Frijolero::App.jobs.work_one
+    process(classified('AMEX 2510.pdf'), 'AMEX', '2510')
     statement('BBVA', '2508')
     classified('BBVA 2508.pdf')
     classified('AMEX 2509.pdf')
@@ -473,7 +595,8 @@ class UploadsTest < Minitest::Test
     get '/inbox', {}, 'SCRIPT_NAME' => LEDGER_ROOT
 
     body = last_response.body
-    ['falló', 'ya existe', 'listo', 'sin identificar'].each { |word| assert_includes body, word }
+    words = ['falló', 'ya existe', 'listo', 'sin identificar', 'en cola', 'por revisar']
+    words.each { |word| assert_includes body, word }
     assert_ledger_links(body)
   end
 
@@ -920,6 +1043,17 @@ class UploadsTest < Minitest::Test
 
     assert_includes last_response.body, 'AMEX 2508'
     assert_includes last_response.body, '<span class="status queued">en cola</span>'
+  end
+
+  def test_jobs_index_refreshes_only_while_a_job_is_not_done
+    process(classified('AMEX 2508.pdf'), 'AMEX', '2508')
+    get '/jobs'
+    assert_includes last_response.body, 'http-equiv="refresh"'
+
+    Frijolero::App.jobs.work_one
+    get '/jobs'
+
+    refute_includes last_response.body, 'http-equiv="refresh"'
   end
 
   def test_pdf_download_redirects_to_s3_presigned_url

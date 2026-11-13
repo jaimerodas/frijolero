@@ -14,7 +14,7 @@
     <%= erb :_cuentas, layout: false %>
     <h1><%= h(job.label) %></h1>
     <p class="meta">
-      <span class="status <%= h(job.status) %>"><%= job_status(job.status) %></span>
+      <span class="status <%= h(job.status) %>"><%= orbit(job.status) %><%= job_status(job.status) %></span>
       <%= h(local_time(job.started_at)) %><% if job.finished_at %> – <%= h(local_time(job.finished_at)) %><% end %>
     </p>
 

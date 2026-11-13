@@ -56,6 +56,9 @@ module TestHelpers
   # 'SCRIPT_NAME' => LEDGER_ROOT in the env to get a page as production serves it.
   LEDGER_ROOT = '/l/test0000'
 
+  # The grid that the orbit helper puts in place of ◐ while something runs.
+  ORBIT = %(<span class="orbit" aria-hidden="true">#{'<i></i>' * 9}</span>).freeze
+
   # The paths outside this ledger: Login's /logout, the pages of Ledgers, Admin,
   # PasskeysPage and ProfilePage, and the dashboard of another ledger (the switcher).
   OUTSIDE_LEDGERS = %r{\A/(logout|ledgers(/.*)?|admin(/.*)?|passkeys|profile|l/[a-z0-9]+/)?\z}

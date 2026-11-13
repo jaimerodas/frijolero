@@ -146,6 +146,35 @@ h2 { font-size: 1.125rem; font-weight: 600; margin: 2.5rem 0 0.75rem; padding-bo
 a.status { text-decoration: none; }
 a.status:hover { text-decoration: underline; }
 
+/* Orbit, after the loader of beautifului.dev: while something runs, a comet laps a 3×3 grid in
+   place of ◐. The 8 outer cells light clockwise from the top left, 110 ms apart, on a 950 ms loop,
+   and the center stays dim. The word shimmers between --muted (4.5:1) and --ink. With reduced
+   motion nothing moves: the grid hides, and ◐ stays. */
+.orbit { display: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .status:has(> .orbit)::before { content: none; }
+  .status:has(> .orbit) {
+    background: linear-gradient(90deg, var(--muted) 35%, var(--ink) 50%, var(--muted) 65%) 0 0 / 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-decoration-color: var(--ink);
+    animation: shimmer 1.4s linear infinite;
+  }
+  .orbit { display: inline-grid; grid-template-columns: repeat(3, 0.25em); gap: 0.1em; margin-right: 0.35em; vertical-align: middle; }
+  .orbit i { height: 0.25em; border-radius: 1px; background: var(--ink); opacity: 0.15; animation: orbit 950ms ease-in-out infinite; }
+  .orbit i:nth-child(5) { opacity: 0.07; animation: none; }
+  .orbit i:nth-child(2) { animation-delay: 110ms; }
+  .orbit i:nth-child(3) { animation-delay: 220ms; }
+  .orbit i:nth-child(6) { animation-delay: 330ms; }
+  .orbit i:nth-child(9) { animation-delay: 440ms; }
+  .orbit i:nth-child(8) { animation-delay: 550ms; }
+  .orbit i:nth-child(7) { animation-delay: 660ms; }
+  .orbit i:nth-child(4) { animation-delay: 770ms; }
+}
+@keyframes orbit { 0%, 100% { opacity: 0.15; } 18%, 42% { opacity: 1; } 62% { opacity: 0.15; } }
+@keyframes shimmer { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+
 /* Tables */
 .table-wrap { overflow-x: auto; margin-block: 1rem 2rem; }
 table { width: 100%; border-collapse: collapse; }

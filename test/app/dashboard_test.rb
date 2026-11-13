@@ -153,12 +153,27 @@ class DashboardTest < Minitest::Test
       write_accounts(dir)
       write_statement('BBVA TDC', '2608')
 
-      failed = { 'AMEX 2608' => 'job1', 'BBVA TDC 2608' => 'job2' }
-      dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5), failed: failed)
+      jobs = { 'AMEX 2608' => job('job1', 'failed'), 'BBVA TDC 2608' => job('job2', 'failed') }
+      dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5), jobs: jobs)
       rows = dashboard.rows.to_h { |r| [r.account, r.statuses] }
 
       assert_equal :failed, rows['AMEX']['2608']
       assert_equal :received, rows['BBVA TDC']['2608']
+    end
+  end
+
+  # A statement in the queue or in a job says so, even over the file of an overwrite.
+  def test_a_job_in_progress_wins_over_every_other_status
+    with_ledger_dir do |dir|
+      write_accounts(dir)
+      write_statement('BBVA TDC', '2608')
+
+      jobs = { 'AMEX 2608' => job('job1', 'queued'), 'BBVA TDC 2608' => job('job2', 'running') }
+      dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5), jobs: jobs)
+      rows = dashboard.rows.to_h { |r| [r.account, r.statuses] }
+
+      assert_equal :running, rows['AMEX']['2608']
+      assert_equal :running, rows['BBVA TDC']['2608']
     end
   end
 
@@ -224,16 +239,22 @@ class DashboardTest < Minitest::Test
     end
   end
 
-  def test_missing_links_to_upload_and_failed_links_to_its_job
+  def test_missing_links_to_upload_and_a_failed_or_running_statement_to_its_job
     with_ledger_dir do |dir|
       write_accounts(dir)
       write_statement('BBVA TDC', '2608')
 
-      dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5), failed: { 'AMEX 2607' => 'job1' })
+      jobs = { 'AMEX 2607' => job('job1', 'failed'), 'BBVA TDC 2607' => job('job2', 'running') }
+      dashboard = Frijolero::Dashboard.new(today: Date.new(2026, 9, 5), jobs: jobs)
       html = view_app.erb(:dashboard, locals: { dashboard: dashboard, waiting: 0 })
 
       assert_includes html, '<a class="status missing" href="/upload">falta</a>'
       assert_includes html, '<a class="status failed" href="/jobs/job1">falló</a>'
+      assert_includes html, %(<a class="status running" href="/jobs/job2">#{ORBIT}corriendo</a>)
     end
   end
+
+  private
+
+  def job(id, status) = Frijolero::Jobs::Job.new(id:, status:)
 end

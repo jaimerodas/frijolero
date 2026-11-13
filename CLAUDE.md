@@ -195,6 +195,8 @@ The palette is Talavera, the cobalt and yolk yellow of Puebla tiles. It replaced
 
 A status is a glyph and a word (`.status.<name>`): ● received or ok, ○ pending or queued, ◐ running, ▲ missing or to do (por confirmar, por revisar), ■ failed. Color is never the only signal. An empty page says what to do next.
 
+While something runs, the `orbit` helper puts a 3×3 grid in place of ◐: a comet laps its edge, and the word shimmers. It copies the Orbit loader of beautifului.dev (asked in November 2026). It is CSS only, and with reduced motion the ◐ stays. Each new running status needs `orbit(status)` first inside its element. Motion that outlives its job would lie, so a page with a running status reloads every 3 s (Recientes, the Bitácora, the job page, the Bandeja). The exception is a page where a person types: the Bandeja with a row to edit, and "Sugiriendo cuentas" in Revisar.
+
 Under 40rem, each table becomes a list of blocks. The first cell becomes the heading, and each `td[data-label]` becomes a label and a value. An empty cell disappears. So write a cell that can be empty with no whitespace inside it.
 
 ### Dashboard (`app/dashboard.rb`)
@@ -205,7 +207,10 @@ The user opens Recientes to upload a missing statement and to open a new one. Th
 
 - "listo": the statement has no row for Revisar. It links to the statement.
 - "N por revisar", with ▲: the statement has N rows for Revisar. It links to Revisar, or to the statement for a pipeline without rules. The count parses every statement of the two periods on each request: 4.6 ms for the 13 statements of the real ledger.
-- "falta" links to `/upload`, and "falló" to the newest failed job with that label.
+- "falta" links to `/upload`, and "falló" to the failed job.
+- "○ en cola" or "◐ corriendo": a job of that statement is queued or running. It links to the job, and it wins over every other status, also over the file that an overwrite replaces. Before November 2026 the cell said "falta" while the job ran.
+
+The cells read the newest job of each label, so a retry hides the failure before it.
 
 "listo" and the closing date are muted, so the red cells are the things to do. The rules links are on Cuentas, not here. The first confirmed upload with a printed period end fills in `cutoff_day`. The job never overwrites it, so a hand edit wins.
 
@@ -236,10 +241,12 @@ The Bandeja holds the uploads that wait for a person. The API answers in JSON, e
 - `Inbox` only reads and writes the disk. A page that counts the Bandeja starts no thread.
 - `Inbox::Worker` is a second queue and thread for each ledger, apart from the job worker, so an extraction never holds up a classification. At boot, it queues each upload that has no `classification.json`. A model error becomes the answer (`{"error": …}`), and the worker goes on.
 - `Inbox#rows` leaves out each upload that a queued or running job holds. Each row has one status: classifying, error, failed (its newest job failed), unknown, exists, repeated (two uploads with the same account and period) or ready. Only ready rows go into "Procesar los listos".
+- The page shows the uploads that a job holds (`Inbox#held`) after the other rows. The status of the job links to it, and the row has no buttons. Before November 2026 these rows were hidden, so an upload that went on its own disappeared from the page with no trace (issue #14).
+- Under the form, "Procesados hoy" lists each upload that left the Bandeja in the last 24 hours, with the newest job of its token. The label links to the job. The status says what to do next, as on Recientes: "N por revisar", "listo", or "falló". A failed job that kept its PDF is a row of the form, not of this list.
 - The page is one form. Each row sends `account[token]`, `period[token]` and `overwrite[token]`. A button sends the tokens to process in `tokens`, so one row and "Procesar los listos" use the same route. The first submit button of the form is hidden and disabled, so Enter in a period field submits nothing.
 - Procesar writes the choice into `classification.json` before it queues the job. So a row whose job fails comes back as the person left it.
-- The page refreshes every 3 s while a row is classifying. A refresh loses an edit that is not submitted.
-- The dashboard shows "▲ N por confirmar" when the Bandeja is not empty. There is no tab, because four tabs do not fit on a phone.
+- The page refreshes every 3 s while a row is classifying, and while a job holds an upload and no row can be edited. A refresh loses an edit that is not submitted.
+- The dashboard shows "▲ N por confirmar" when uploads wait for a person. An upload that a job holds does not count. There is no tab, because four tabs do not fit on a phone.
 - At the owner's monthly cap (`Usage.capped?`), the classifier makes no model call and answers `{"error": "Límite del mes"}`, and "Procesar" and "Reintentar" answer 422. A `<Key> YYMM.pdf` name, "Solo guardar PDF" and a job already in the queue still work. The dashboard shows "Uso del mes: 1.20 de 3.00 USD".
 
 #### Without a click (`App.auto_process`)

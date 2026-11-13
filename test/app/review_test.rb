@@ -341,7 +341,7 @@ class ReviewTest < Minitest::Test
     job = Frijolero::App.jobs.find(last_response.location[%r{/jobs/(.+)\z}, 1])
     assert_equal 'Sugerencias AMEX 2610', job.label
     get '/accounts/AMEX/2610/review'
-    assert_includes last_response.body, "href=\"/jobs/#{job.id}\">Sugiriendo cuentas</a>"
+    assert_includes last_response.body, %(href="/jobs/#{job.id}">#{ORBIT}Sugiriendo cuentas</a>)
     refute_includes last_response.body, '/suggest"'
 
     Frijolero::App.jobs.work_one

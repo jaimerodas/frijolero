@@ -9,16 +9,14 @@ module Frijolero
     # unclassified maps each period with a statement to the count of rows that Revisar takes.
     Row = Struct.new(:account, :statuses, :cutoff_day, :unclassified, keyword_init: true)
 
-    # failed maps "<account> <period>" to the id of the newest failed job with that label.
-    def initialize(today: Date.today, failed: {})
+    # jobs maps "<account> <period>" to the newest job with that label.
+    def initialize(today: Date.today, jobs: {})
       @today = today
-      @failed = failed
+      @jobs = jobs
     end
 
-    # The job behind a :failed status, for the dashboard's link.
-    def failed_job_id(account, period)
-      @failed["#{account} #{period}"]
-    end
+    # The job behind a :running or :failed status, for the dashboard's link.
+    def job(account, period) = @jobs["#{account} #{period}"]
 
     # The newest period that some account has closed, and the one before it.
     def periods
@@ -33,7 +31,7 @@ module Frijolero
     def rows
       AccountConfig.active.map do |account, config|
         closed = last_closed(config['cutoff_day']).strftime('%y%m')
-        unclassified = periods.to_h { |period| [period, unclassified(account, period)] }.compact
+        unclassified = periods.to_h { |period| [period, Dashboard.unclassified(account, period)] }.compact
         statuses = periods.to_h { |period| [period, status_for(account, period, closed, unclassified[period])] }
         Row.new(account:, statuses:, cutoff_day: config['cutoff_day'], unclassified:)
       end
@@ -60,22 +58,24 @@ module Frijolero
       Date.new(month.year, month.month, [day, Date.new(month.year, month.month, -1).day].min)
     end
 
+    # The rows that Revisar takes, or nil when the statement does not exist.
+    def self.unclassified(account, period)
+      path = Config.statement_path(account, period, 'beancount')
+      StatementReview.unclassified(Beancount::Parser.parse(path)).size if File.exist?(path)
+    end
+
     private
 
     def last_closed(day)
       self.class.last_closed(day, today: @today)
     end
 
-    # The rows that Revisar takes, or nil when the statement does not exist.
-    def unclassified(account, period)
-      path = Config.statement_path(account, period, 'beancount')
-      StatementReview.unclassified(Beancount::Parser.parse(path)).size if File.exist?(path)
-    end
-
+    # A job in progress wins, even over the file that an overwrite replaces.
     def status_for(account, period, closed, unclassified)
-      return :received if unclassified&.zero?
-      return :review if unclassified
-      return :failed if @failed.key?("#{account} #{period}")
+      job_status = job(account, period)&.status
+      return :running if %w[queued running].include?(job_status)
+      return unclassified.zero? ? :received : :review if unclassified
+      return :failed if job_status == 'failed'
 
       period <= closed ? :missing : :pending
     end

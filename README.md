@@ -36,7 +36,9 @@ de cada uno, o los cambias. Si ese estado de cuenta ya existe, la Bandeja lo
 dice y ofrece "Sobrescribir". "Solo guardar PDF" guarda el archivo y no
 extrae nada. Recientes dice cuántos hay por confirmar. Si el PDF es el estado
 de cuenta que Recientes espera, la app lo procesa sola (ver
-[setup.md](docs/setup.md#sin-confirmar)).
+[setup.md](docs/setup.md#sin-confirmar)). Un PDF que se procesa se queda en la
+Bandeja con el enlace a su corrida. Después pasa a "Procesados hoy", que dice
+qué sigue: por ejemplo, cuántos movimientos hay por revisar.
 
 Desde el iPhone, un atajo de iOS manda los PDF a la Bandeja desde la hoja de
 compartir (ver [setup.md](docs/setup.md#subir-desde-el-iphone)).

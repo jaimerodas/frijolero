@@ -6,7 +6,8 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <%= head('Bandeja', refresh: rows.any? { |row| row.status == :classifying } ? 3 : nil) %>
+  <%# While the model answers, and while a corrida runs with no row to edit: a refresh wipes what the person typed. %>
+  <%= head('Bandeja', refresh: rows.any? { |row| row.status == :classifying } || (held.any? && rows.empty?) ? 3 : nil) %>
   <script src="/reports.js" defer></script>
 </head>
 <body>
@@ -14,11 +15,11 @@
   <main>
     <%= erb :_cuentas, layout: false %>
     <h1>Bandeja</h1>
-    <% if rows.empty? %>
+    <% if rows.empty? && held.empty? %>
     <p>Nada por confirmar. Los PDF que compartas con el atajo de iOS esperan aquí hasta que los confirmes. El último estado de cuenta de una cuenta, si cerró en su día de corte, se procesa solo.</p>
     <% else %>
     <% if client %>
-    <p class="note">Revisa antes de procesar: la extracción cuesta dinero.</p>
+    <p class="note">El último estado de cuenta de una cuenta, si cerró en su día de corte, se procesa solo. Revisa los demás antes de procesar: la extracción cuesta dinero.</p>
     <% else %>
     <p class="error" role="alert">Falta <code><%= Frijolero::LLM.key_var %></code>: sin ella la app solo guarda el PDF.</p>
     <% end %>
@@ -45,7 +46,7 @@
                   <% if status == :failed %>
                     <a class="status failed" href="<%= ledger_path("/jobs/#{h(row.job.id)}") %>">falló</a>
                   <% else %>
-                    <span class="status <%= glyph %>"><%= word %></span>
+                    <span class="status <%= glyph %>"><%= orbit(glyph) %><%= word %></span>
                   <% end %>
                   <% if answer['error'] %>
                     <span class="note"><%= h(answer['error']) %></span>
@@ -73,6 +74,18 @@
                 </td>
               </tr>
             <% end %>
+            <%# An upload in a corrida: its status links to the corrida, and nothing changes it until the corrida ends. %>
+            <% held.each do |row| %>
+              <tr>
+                <th scope="row">
+                  <%= h(row.item.filename) %><br>
+                  <a class="status <%= h(row.job.status) %>" href="<%= ledger_path("/jobs/#{h(row.job.id)}") %>"><%= orbit(row.job.status) %><%= job_status(row.job.status) %></a>
+                </th>
+                <td data-label="Cuenta"><%= h(row.item.account) %></td>
+                <td data-label="Periodo"><%= h(row.item.period) %></td>
+                <td></td>
+              </tr>
+            <% end %>
           </tbody>
         </table>
       </div>
@@ -80,6 +93,41 @@
       <p class="actions"><button type="submit" class="primary" name="tokens" value="<%= h(ready.join(' ')) %>" data-busy="Procesando…">Procesar los listos</button></p>
       <% end %>
     </form>
+    <% end %>
+    <% if processed.any? %>
+    <h2>Procesados hoy</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Corrida</th>
+            <th>Estado</th>
+            <th>Fin</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% processed.each do |job| %>
+            <%# What to do next, as on Recientes; a failed corrida says so, and its label leads to it. %>
+            <% account, _, period = job.label.rpartition(' ') %>
+            <% count = Frijolero::Dashboard.unclassified(account, period) if job.status == 'ok' %>
+            <% statement = ledger_path("/accounts/#{Rack::Utils.escape_path(account)}/#{h(period)}") %>
+            <tr>
+              <th scope="row"><a href="<%= ledger_path("/jobs/#{h(job.id)}") %>"><%= h(job.label) %></a></th>
+              <td data-label="Estado">
+                <% if count&.positive? %>
+                  <a class="status missing" href="<%= statement %><%= '/review' if rules?(account) %>"><%= count %> por revisar</a>
+                <% elsif count %>
+                  <a class="status received" href="<%= statement %>">listo</a>
+                <% else %>
+                  <span class="status <%= h(job.status) %>"><%= job_status(job.status) %></span>
+                <% end %>
+              </td>
+              <td class="date" data-label="Fin"><%= h(local_time(job.finished_at)) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
     <% end %>
   </main>
 </body>

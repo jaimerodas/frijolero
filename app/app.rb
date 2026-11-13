@@ -135,12 +135,16 @@ module Frijolero
       end
     end
 
-    # The job page and the Bitácora: Spanish status words, local time, and the check
-    # behind the retry button (also run by the retry route itself).
+    # The job pages, the Bandeja and Recientes: Spanish status words, local time, and the
+    # check behind the retry button (also run by the retry route itself).
     helpers LocalTime
     helpers do
-      # 'queued' → 'en cola', etc. The dashboard has its own 'falló' for the same word.
+      # 'queued' → 'en cola', etc.
       def job_status(status) = JOB_STATUS.fetch(status, status)
+
+      # The grid that style.css animates in place of ◐ while something runs, or ''. It goes
+      # first inside the element of a status.
+      def orbit(status) = status == 'running' ? %(<span class="orbit" aria-hidden="true">#{'<i></i>' * 9}</span>) : ''
 
       # [account, period, pdf_path] for a failed job whose upload can still be retried,
       # or nil: it needs its token, the account, no statement yet, and the PDF still on disk.
@@ -157,9 +161,9 @@ module Frijolero
     end
 
     get '/' do
-      # jobs.all is newest first, so uniq keeps the latest failure of each label.
-      failed = self.class.jobs.all.select { |j| j.status == 'failed' }.uniq(&:label).to_h { |j| [j.label, j.id] }
-      erb :dashboard, locals: { dashboard: Dashboard.new(failed: failed), waiting: inbox_rows.size }
+      # jobs.all is newest first, so uniq keeps the newest job of each label: a retry hides the failure.
+      jobs = self.class.jobs.all.uniq(&:label).to_h { |job| [job.label, job] }
+      erb :dashboard, locals: { dashboard: Dashboard.new(jobs: jobs), waiting: inbox_rows.size }
     end
 
     get '/jobs' do

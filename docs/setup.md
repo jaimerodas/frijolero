@@ -244,6 +244,15 @@ Si un PDF no pasa, espera en la Bandeja con la razón, por ejemplo "No se
 procesó solo: el último periodo cerrado es 2607". Un estado de cuenta viejo,
 para llenar un hueco, siempre espera tu confirmación.
 
+Mientras su corrida trabaja, el PDF se queda en la Bandeja con "○ en cola" o
+"corriendo", con una cuadrícula que se mueve. Esas palabras llevan a la
+corrida. Recientes muestra lo mismo en la celda de ese estado de cuenta, y se
+actualiza sola hasta que la corrida termina. La Bandeja también se actualiza
+sola, salvo cuando tiene un PDF que puedes editar. Cuando la corrida termina, el PDF pasa a
+"Procesados hoy", abajo en la Bandeja, por 24 horas. Ahí "N por revisar" lleva
+a Revisar, "listo" lleva al estado de cuenta y la etiqueta lleva a la corrida.
+Esto también vale para un PDF que procesas con Procesar.
+
 ## Una corrida que falla
 
 La página de la corrida muestra el error y la salida completa. En Recientes,

@@ -53,7 +53,9 @@ module Frijolero
     end
 
     get '/inbox' do
-      erb :inbox, locals: { rows: inbox_rows }
+      jobs = self.class.jobs.all
+      inbox = self.class.inbox
+      erb :inbox, locals: { rows: inbox.rows(jobs), held: inbox.held(jobs), processed: processed_today(jobs) }
     end
 
     # One button for one row and for "Procesar los listos": `tokens` lists the rows,
@@ -113,6 +115,15 @@ module Frijolero
     end
 
     def inbox_rows = self.class.inbox.rows(self.class.jobs.all)
+
+    # Procesados hoy: the newest job of each upload that left the Bandeja in the last 24 hours,
+    # newest first. A failed job that kept its PDF is still a row of the Bandeja, so it is not here.
+    def processed_today(jobs)
+      since = Time.now - (24 * 60 * 60)
+      jobs.select(&:token).uniq(&:token).select do |job|
+        job.done? && Time.iso8601(job.finished_at) > since && !self.class.inbox.find(job.token)
+      end
+    end
 
     # [item, account, period, overwrite] of one Bandeja row, or a 422.
     def inbox_choice(token)

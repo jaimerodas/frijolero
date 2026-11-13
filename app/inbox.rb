@@ -29,7 +29,10 @@ module Frijolero
     # status is what the upload needs: :classifying, :error (the classifier failed),
     # :failed (its job failed), :unknown, :exists, :repeated (another upload has the
     # same label) or :ready. job is the newest job of the upload, or nil.
-    Row = Struct.new(:item, :status, :job)
+    Row = Struct.new(:item, :status, :job) do
+      # A queued or running job holds the upload: no person can change it until the job ends.
+      def held? = job&.done? == false
+    end
 
     def initialize(dir)
       @dir = dir
@@ -37,10 +40,13 @@ module Frijolero
 
     # Each upload that no queued or running job holds, oldest first. `jobs` is newest first.
     def rows(jobs)
-      rows = waiting(jobs)
+      rows = with_jobs(jobs).reject(&:held?)
       labels = rows.filter_map { |row| row.item.label }.tally
       rows.each { |row| row.status = status(row, labels) }
     end
+
+    # Each upload that a queued or running job holds, oldest first, with that job.
+    def held(jobs) = with_jobs(jobs).select(&:held?)
 
     # A new upload: a copy of `source` under `name`, in a directory of its own.
     # The name comes from the client: Rack keeps only its base name, and so does this.
@@ -86,10 +92,7 @@ module Frijolero
 
     private
 
-    def waiting(jobs)
-      items.map { |item| Row.new(item, nil, jobs.find { |job| job.token == item.token }) }
-           .reject { |row| row.job&.done? == false }
-    end
+    def with_jobs(jobs) = items.map { |item| Row.new(item, nil, jobs.find { |job| job.token == item.token }) }
 
     # First where the upload is in the process, then what its answer says.
     def status(row, labels)

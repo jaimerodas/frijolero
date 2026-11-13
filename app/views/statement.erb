@@ -32,7 +32,7 @@
           <div class="controls">
             <%# Its own form: a form cannot hold another, and this one saves nothing. %>
             <% if suggesting %>
-              <a class="status running" href="<%= ledger_path("/jobs/#{h(suggesting.id)}") %>">Sugiriendo cuentas</a>
+              <a class="status running" href="<%= ledger_path("/jobs/#{h(suggesting.id)}") %>"><%= orbit('running') %>Sugiriendo cuentas</a>
             <% elsif can_suggest %>
               <form method="post" action="<%= base %>/suggest"><button type="submit" data-busy="Pidiendo…">Sugerir cuentas</button></form>
             <% end %>
